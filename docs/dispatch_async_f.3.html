@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   Copyright (c) 2008-2012 Apple Inc. All rights reserved.
+ -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>dispatch_async(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">dispatch_async(3)</td>
+    <td class="head-vol">Library Functions Manual</td>
+    <td class="head-rtitle">dispatch_async(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">dispatch_async</code>, <code class="Nm">dispatch_sync</code>
+  &#x2014;
+<div class="Nd">schedule blocks for execution</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<code class="In">#include <a class="In">&lt;dispatch/dispatch.h&gt;</a></code>
+<p class="Pp"><var class="Ft">void</var>
+  <br/>
+  <code class="Fn">dispatch_async</code>(<var class="Fa">dispatch_queue_t
+    queue</var>, <var class="Fa">void (^block)(void)</var>);</p>
+<p class="Pp"><var class="Ft">void</var>
+  <br/>
+  <code class="Fn">dispatch_sync</code>(<var class="Fa">dispatch_queue_t
+    queue</var>, <var class="Fa">void (^block)(void)</var>);</p>
+<p class="Pp"><var class="Ft">void</var>
+  <br/>
+  <code class="Fn">dispatch_async_f</code>(<var class="Fa">dispatch_queue_t
+    queue</var>, <var class="Fa">void *context</var>, <var class="Fa">void
+    (*function)(void *)</var>);</p>
+<p class="Pp"><var class="Ft">void</var>
+  <br/>
+  <code class="Fn">dispatch_sync_f</code>(<var class="Fa">dispatch_queue_t
+    queue</var>, <var class="Fa">void *context</var>, <var class="Fa">void
+    (*function)(void *)</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The <code class="Fn">dispatch_async</code>() and
+  <code class="Fn">dispatch_sync</code>() functions schedule blocks for
+  concurrent execution within the <a class="Xr">dispatch(3)</a> framework.
+  Blocks are submitted to a queue which dictates the policy for their execution.
+  See <a class="Xr">dispatch_queue_create(3)</a> for more information about
+  creating dispatch queues.
+<p class="Pp">These functions support efficient temporal synchronization,
+    background concurrency and data-level concurrency. These same functions can
+    also be used for efficient notification of the completion of asynchronous
+    blocks (a.k.a. callbacks).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TEMPORAL_SYNCHRONIZATION"><a class="permalink" href="#TEMPORAL_SYNCHRONIZATION">TEMPORAL
+  SYNCHRONIZATION</a></h1>
+Synchronization is often required when multiple threads of execution access
+  shared data concurrently. The simplest form of synchronization is
+  mutual-exclusion (a lock), whereby different subsystems execute concurrently
+  until a shared critical section is entered. In the
+  <a class="Xr">pthread(3)</a> family of procedures, temporal synchronization is
+  accomplished like so:
+<div class="Bd Pp Bd-indent">
+<pre>
+int r = pthread_mutex_lock(&amp;my_lock);
+assert(r == 0);
+
+// critical section
+
+r = pthread_mutex_unlock(&amp;my_lock);
+assert(r == 0);
+</pre>
+</div>
+<p class="Pp">The <code class="Fn">dispatch_sync</code>() function may be used
+    with a serial queue to accomplish the same style of synchronization. For
+    example:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+dispatch_sync(my_queue, ^{
+	// critical section
+});
+</pre>
+</div>
+<p class="Pp">In addition to providing a more concise expression of
+    synchronization, this approach is less error prone as the critical section
+    cannot be accidentally left without restoring the queue to a reentrant
+    state.</p>
+<p class="Pp">The <code class="Fn">dispatch_async</code>() function may be used
+    to implement deferred critical sections when the result of the block is not
+    needed locally. Deferred critical sections have the same synchronization
+    properties as the above code, but are non-blocking and therefore more
+    efficient to perform. For example:</p>
+<div class="Bd Pp">
+<pre>
+dispatch_async(my_queue, ^{
+	// critical section
+});
+</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BACKGROUND_CONCURRENCY"><a class="permalink" href="#BACKGROUND_CONCURRENCY">BACKGROUND
+  CONCURRENCY</a></h1>
+<code class="Fn">dispatch_async</code>() function may be used to execute trivial
+  background tasks on a global concurrent queue. For example:
+<div class="Bd Pp">
+<pre>
+dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT,0), ^{
+	// background operation
+});
+</pre>
+</div>
+<p class="Pp">This approach is an efficient replacement for
+    <a class="Xr">pthread_create(3)</a>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMPLETION_CALLBACKS"><a class="permalink" href="#COMPLETION_CALLBACKS">COMPLETION
+  CALLBACKS</a></h1>
+Completion callbacks can be accomplished via nested calls to the
+  <code class="Fn">dispatch_async</code>() function. It is important to remember
+  to retain the destination queue before the first call to
+  <code class="Fn">dispatch_async</code>(), and to release that queue at the end
+  of the completion callback to ensure the destination queue is not deallocated
+  while the completion callback is pending. For example:
+<div class="Bd Pp">
+<pre>
+void
+async_read(object_t obj,
+	void *where, size_t bytes,
+	dispatch_queue_t destination_queue,
+	void (^reply_block)(ssize_t r, int err))
+{
+	// There are better ways of doing async I/O.
+	// This is just an example of nested blocks.
+
+	dispatch_retain(destination_queue);
+
+	dispatch_async(obj-&gt;queue, ^{
+		ssize_t r = read(obj-&gt;fd, where, bytes);
+		int err = errno;
+
+		dispatch_async(destination_queue, ^{
+			reply_block(r, err);
+		});
+		dispatch_release(destination_queue);
+	});
+}
+</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RECURSIVE_LOCKS"><a class="permalink" href="#RECURSIVE_LOCKS">RECURSIVE
+  LOCKS</a></h1>
+While <code class="Fn">dispatch_sync</code>() can replace a lock, it cannot
+  replace a recursive lock. Unlike locks, queues support both asynchronous and
+  synchronous operations, and those operations are ordered by definition. A
+  recursive call to <code class="Fn">dispatch_sync</code>() causes a simple
+  deadlock as the currently executing block waits for the next block to
+  complete, but the next block will not start until the currently running block
+  completes.
+<p class="Pp">As the dispatch framework was designed, we studied recursive
+    locks. We found that the vast majority of recursive locks are deployed
+    retroactively when ill-defined lock hierarchies are discovered. As a
+    consequence, the adoption of recursive locks often mutates obvious bugs into
+    obscure ones. This study also revealed an insight: if reentrancy is
+    unavoidable, then reader/writer locks are preferable to recursive locks.
+    Disciplined use of reader/writer locks enable reentrancy only when
+    reentrancy is safe (the &quot;read&quot; side of the lock).</p>
+<p class="Pp">Nevertheless, if it is absolutely necessary, what follows is an
+    imperfect way of implementing recursive locks using the dispatch
+  framework:</p>
+<div class="Bd Pp">
+<pre>
+void
+sloppy_lock(object_t object, void (^block)(void))
+{
+	if (object-&gt;owner == pthread_self()) {
+		return block();
+	}
+	dispatch_sync(object-&gt;queue, ^{
+		object-&gt;owner = pthread_self();
+		block();
+		object-&gt;owner = NULL;
+	});
+}
+</pre>
+</div>
+<p class="Pp">The above example does not solve the case where queue A runs on
+    thread X which calls <code class="Fn">dispatch_sync</code>() against queue B
+    which runs on thread Y which recursively calls
+    <code class="Fn">dispatch_sync</code>() against queue A, which deadlocks
+    both examples. This is bug-for-bug compatible with nontrivial pthread usage.
+    In fact, nontrivial reentrancy is impossible to support in recursive locks
+    once the ultimate level of reentrancy is deployed (IPC or RPC).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="IMPLIED_REFERENCES"><a class="permalink" href="#IMPLIED_REFERENCES">IMPLIED
+  REFERENCES</a></h1>
+Synchronous functions within the dispatch framework hold an implied reference on
+  the target queue. In other words, the synchronous function borrows the
+  reference of the calling function (this is valid because the calling function
+  is blocked waiting for the result of the synchronous function, and therefore
+  cannot modify the reference count of the target queue until after the
+  synchronous function has returned). For example:
+<div class="Bd Pp">
+<pre>
+queue = dispatch_queue_create(&quot;com.example.queue&quot;, NULL);
+assert(queue);
+dispatch_sync(queue, ^{
+	do_something();
+	//dispatch_release(queue); // NOT SAFE -- dispatch_sync() is still using 'queue'
+});
+dispatch_release(queue); // SAFELY balanced outside of the block provided to dispatch_sync()
+</pre>
+</div>
+<p class="Pp">This is in contrast to asynchronous functions which must retain
+    both the block and target queue for the duration of the asynchronous
+    operation (as the calling function may immediately release its interest in
+    these objects).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FUNDAMENTALS"><a class="permalink" href="#FUNDAMENTALS">FUNDAMENTALS</a></h1>
+Conceptually, <code class="Fn">dispatch_sync</code>() is a convenient wrapper
+  around <code class="Fn">dispatch_async</code>() with the addition of a
+  semaphore to wait for completion of the block, and a wrapper around the block
+  to signal its completion. See <a class="Xr">dispatch_semaphore_create(3)</a>
+  for more information about dispatch semaphores. The actual implementation of
+  the <code class="Fn">dispatch_sync</code>() function may be optimized and
+  differ from the above description.
+<p class="Pp">The <code class="Fn">dispatch_async</code>() function is a wrapper
+    around <code class="Fn">dispatch_async_f</code>(). The application-defined
+    <var class="Fa">context</var> parameter is passed to the
+    <var class="Fa">function</var> when it is invoked on the target
+    <var class="Fa">queue</var>.</p>
+<p class="Pp">The <code class="Fn">dispatch_sync</code>() function is a wrapper
+    around <code class="Fn">dispatch_sync_f</code>(). The application-defined
+    <var class="Fa">context</var> parameter is passed to the
+    <var class="Fa">function</var> when it is invoked on the target
+    <var class="Fa">queue</var>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">dispatch(3)</a>, <a class="Xr">dispatch_apply(3)</a>,
+  <a class="Xr">dispatch_once(3)</a>,
+  <a class="Xr">dispatch_queue_create(3)</a>,
+  <a class="Xr">dispatch_semaphore_create(3)</a>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">May 1, 2009</td>
+    <td class="foot-os">Darwin</td>
+  </tr>
+</table>
+</body>
+</html>

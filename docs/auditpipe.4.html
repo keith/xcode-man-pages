@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   Copyright (c) 2006 Robert N. M. Watson
+   All rights reserved.
+  
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions
+   are met:
+   1. Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+   2. Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+  
+   THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS ``AS IS'' AND
+   ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+   ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE
+   FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+   OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+   OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+   SUCH DAMAGE.
+  
+   $FreeBSD: src/share/man/man4/auditpipe.4,v 1.6 2008/05/02 17:36:22 rwatson Exp $
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>AUDITPIPE(4)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">AUDITPIPE(4)</td>
+    <td class="head-vol">Device Drivers Manual</td>
+    <td class="head-rtitle">AUDITPIPE(4)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">auditpipe</code> &#x2014;
+<div class="Nd">pseudo-device for live audit event tracking</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<code class="Cd">pseudo-device auditpipe</code>
+<p class="Pp">
+  <br/>
+  <code class="In">#include
+    <a class="In">&lt;security/audit/audit_ioctl.h&gt;</a></code></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+While audit trail files generated with <a class="Xr">audit(4)</a> and maintained
+  by <a class="Xr">auditd(8)</a> provide a reliable long-term store for audit
+  log information, current log files are owned by the audit daemon until
+  terminated making them somewhat unwieldy for live monitoring applications such
+  as host-based intrusion detection. For example, the log may be cycled and new
+  records written to a new file without notice to applications that may be
+  accessing the file.
+<p class="Pp">The audit facility provides an audit pipe facility for
+    applications requiring direct access to live BSM audit data for the purposes
+    of real-time monitoring. Audit pipes are available via a clonable special
+    device, <span class="Pa">/dev/auditpipe</span>, subject to the permissions
+    on the device node, and provide a &#x201C;tee&#x201D; of the audit event
+    stream. As the device is clonable, more than one instance of the device may
+    be opened at a time; each device instance will provide independent access to
+    all records.</p>
+<p class="Pp">The audit pipe device provides discrete BSM audit records; if the
+    read buffer passed by the application is too small to hold the next record
+    in the sequence, it will be dropped. Unlike audit data written to the audit
+    trail, the reliability of record delivery is not guaranteed. In particular,
+    when an audit pipe queue fills, records will be dropped. Audit pipe devices
+    are blocking by default, but support non-blocking I/O, asynchronous I/O
+    using <code class="Dv">SIGIO</code>, and polled operation via
+    <a class="Xr">select(2)</a> and <a class="Xr">poll(2)</a>.</p>
+<p class="Pp">Applications may choose to track the global audit trail, or
+    configure local preselection parameters independent of the global audit
+    trail parameters.</p>
+<section class="Ss">
+<h2 class="Ss" id="Audit_Pipe_Queue_Ioctls"><a class="permalink" href="#Audit_Pipe_Queue_Ioctls">Audit
+  Pipe Queue Ioctls</a></h2>
+The following ioctls retrieve and set various audit pipe record queue
+  properties:
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#AUDITPIPE_GET_QLEN"><code class="Dv" id="AUDITPIPE_GET_QLEN">AUDITPIPE_GET_QLEN</code></a></dt>
+  <dd>Query the current number of records available for reading on the
+    pipe.</dd>
+  <dt><a class="permalink" href="#AUDITPIPE_GET_QLIMIT"><code class="Dv" id="AUDITPIPE_GET_QLIMIT">AUDITPIPE_GET_QLIMIT</code></a></dt>
+  <dd>Retrieve the current maximum number of records that may be queued for
+      reading on the pipe.</dd>
+  <dt><a class="permalink" href="#AUDITPIPE_SET_QLIMIT"><code class="Dv" id="AUDITPIPE_SET_QLIMIT">AUDITPIPE_SET_QLIMIT</code></a></dt>
+  <dd>Set the current maximum number of records that may be queued for reading
+      on the pipe. The new limit must fall between the queue limit minimum and
+      queue limit maximum queryable using the following two ioctls.</dd>
+  <dt><a class="permalink" href="#AUDITPIPE_GET_QLIMIT_MIN"><code class="Dv" id="AUDITPIPE_GET_QLIMIT_MIN">AUDITPIPE_GET_QLIMIT_MIN</code></a></dt>
+  <dd>Query the lowest possible maximum number of records that may be queued for
+      reading on the pipe.</dd>
+  <dt><a class="permalink" href="#AUDITPIPE_GET_QLIMIT_MAX"><code class="Dv" id="AUDITPIPE_GET_QLIMIT_MAX">AUDITPIPE_GET_QLIMIT_MAX</code></a></dt>
+  <dd>Query the highest possible maximum number of records that may be queued
+      for reading on the pipe.</dd>
+  <dt><a class="permalink" href="#AUDITPIPE_FLUSH"><code class="Dv" id="AUDITPIPE_FLUSH">AUDITPIPE_FLUSH</code></a></dt>
+  <dd>Flush all outstanding records on the audit pipe; useful after setting
+      initial preselection properties to delete records queued during the
+      configuration process which may not match the interests of the user
+      process.</dd>
+  <dt><a class="permalink" href="#AUDITPIPE_GET_MAXAUDITDATA"><code class="Dv" id="AUDITPIPE_GET_MAXAUDITDATA">AUDITPIPE_GET_MAXAUDITDATA</code></a></dt>
+  <dd>Query the maximum size of an audit record, which is a useful minimum size
+      for a user space buffer intended to hold audit records read from the audit
+      pipe.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Audit_Pipe_Preselection_Mode_Ioctls"><a class="permalink" href="#Audit_Pipe_Preselection_Mode_Ioctls">Audit
+  Pipe Preselection Mode Ioctls</a></h2>
+By default, the audit pipe facility configures pipes to present records matched
+  by the system-wide audit trail, configured by <a class="Xr">auditd(8)</a>.
+  However, the preselection mechanism for audit pipes can be configured using
+  alternative criteria, including pipe-local flags and naflags settings, as well
+  as auid-specific selection masks. This allows applications to track events not
+  captured in the global audit trail, as well as limit records presented to
+  those of specific interest to the application.
+<p class="Pp">The following ioctls configure the preselection mode on an audit
+    pipe:</p>
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#AUDITPIPE_GET_PRESELECT_MODE"><code class="Dv" id="AUDITPIPE_GET_PRESELECT_MODE">AUDITPIPE_GET_PRESELECT_MODE</code></a></dt>
+  <dd>Return the current preselect mode on the audit pipe. The ioctl argument
+      should be of type <var class="Vt">int</var>.</dd>
+  <dt><a class="permalink" href="#AUDITPIPE_SET_PRESELECT_MODE"><code class="Dv" id="AUDITPIPE_SET_PRESELECT_MODE">AUDITPIPE_SET_PRESELECT_MODE</code></a></dt>
+  <dd>Set the current preselection mode on the audit pipe. The ioctl argument
+      should be of type <var class="Vt">int</var>.</dd>
+</dl>
+<p class="Pp">Possible preselection mode values are:</p>
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#AUDITPIPE_PRESELECT_MODE_TRAIL"><code class="Dv" id="AUDITPIPE_PRESELECT_MODE_TRAIL">AUDITPIPE_PRESELECT_MODE_TRAIL</code></a></dt>
+  <dd>Use the global audit trail preselection parameters to select records for
+      the audit pipe.</dd>
+  <dt><a class="permalink" href="#AUDITPIPE_PRESELECT_MODE_LOCAL"><code class="Dv" id="AUDITPIPE_PRESELECT_MODE_LOCAL">AUDITPIPE_PRESELECT_MODE_LOCAL</code></a></dt>
+  <dd>Use local audit pipe preselection; this model is similar to the global
+      audit trail configuration model, consisting of global flags and naflags
+      parameters, as well as a set of per-auid masks. These parameters are
+      configured using further ioctls.</dd>
+</dl>
+<p class="Pp">After changing the audit pipe preselection mode, records selected
+    under earlier preselection configuration may still be in the audit pipe
+    queue. The application may flush the current record queue after changing the
+    configuration to remove possibly undesired records.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Audit_Pipe_Local_Preselection_Mode_Ioctls"><a class="permalink" href="#Audit_Pipe_Local_Preselection_Mode_Ioctls">Audit
+  Pipe Local Preselection Mode Ioctls</a></h2>
+The following ioctls configure the preselection parameters used when an audit
+  pipe is configured for the
+  <code class="Dv">AUDITPIPE_PRESELECT_MODE_LOCAL</code> preselection mode.
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#AUDITPIPE_GET_PRESELECT_FLAGS"><code class="Dv" id="AUDITPIPE_GET_PRESELECT_FLAGS">AUDITPIPE_GET_PRESELECT_FLAGS</code></a></dt>
+  <dd>Retrieve the current default preselection flags for attributable events on
+      the pipe. These flags correspond to the <var class="Va">flags</var> field
+      in <a class="Xr">audit_control(5)</a>. The ioctl argument should be of
+      type <var class="Vt">au_mask_t</var>.</dd>
+  <dt><a class="permalink" href="#AUDITPIPE_SET_PRESELECT_FLAGS"><code class="Dv" id="AUDITPIPE_SET_PRESELECT_FLAGS">AUDITPIPE_SET_PRESELECT_FLAGS</code></a></dt>
+  <dd>Set the current default preselection flags for attributable events on the
+      pipe. These flags correspond to the <var class="Va">flags</var> field in
+      <a class="Xr">audit_control(5)</a>. The ioctl argument should be of type
+      <var class="Vt">au_mask_t</var>.</dd>
+  <dt><a class="permalink" href="#AUDITPIPE_GET_PRESELECT_NAFLAGS"><code class="Dv" id="AUDITPIPE_GET_PRESELECT_NAFLAGS">AUDITPIPE_GET_PRESELECT_NAFLAGS</code></a></dt>
+  <dd>Retrieve the current default preselection flags for non-attributable
+      events on the pipe. These flags correspond to the
+      <var class="Va">naflags</var> field in <a class="Xr">audit_control(5)</a>.
+      The ioctl argument should be of type <var class="Vt">au_mask_t</var>.</dd>
+  <dt><a class="permalink" href="#AUDITPIPE_SET_PRESELECT_NAFLAGS"><code class="Dv" id="AUDITPIPE_SET_PRESELECT_NAFLAGS">AUDITPIPE_SET_PRESELECT_NAFLAGS</code></a></dt>
+  <dd>Set the current default preselection flags for non-attributable events on
+      the pipe. These flags correspond to the <var class="Va">naflags</var>
+      field in <a class="Xr">audit_control(5)</a>. The ioctl argument should be
+      of type <var class="Vt">au_mask_t</var>.</dd>
+  <dt><a class="permalink" href="#AUDITPIPE_GET_PRESELECT_AUID"><code class="Dv" id="AUDITPIPE_GET_PRESELECT_AUID">AUDITPIPE_GET_PRESELECT_AUID</code></a></dt>
+  <dd>Query the current preselection masks for a specific auid on the pipe. The
+      ioctl argument should be of type <var class="Vt">struct
+      auditpipe_ioctl_preselect</var>. The auid to query is specified via the
+      <var class="Va">ap_auid</var> field of type <var class="Vt">au_id_t</var>;
+      the mask will be returned via <var class="Va">ap_mask</var> of type
+      <var class="Vt">au_mask_t</var>.</dd>
+  <dt><a class="permalink" href="#AUDITPIPE_SET_PRESELECT_AUID"><code class="Dv" id="AUDITPIPE_SET_PRESELECT_AUID">AUDITPIPE_SET_PRESELECT_AUID</code></a></dt>
+  <dd>Set the current preselection masks for a specific auid on the pipe.
+      Arguments are identical to
+      <code class="Dv">AUDITPIPE_GET_PRESELECT_AUID</code>, except that the
+      caller should properly initialize the <var class="Va">ap_mask</var> field
+      to hold the desired preselection mask.</dd>
+  <dt><a class="permalink" href="#AUDITPIPE_DELETE_PRESELECT_AUID"><code class="Dv" id="AUDITPIPE_DELETE_PRESELECT_AUID">AUDITPIPE_DELETE_PRESELECT_AUID</code></a></dt>
+  <dd>Delete the current preselection mask for a specific auid on the pipe. Once
+      called, events associated with the specified auid will use the default
+      flags mask. The ioctl argument should be of type
+      <var class="Vt">au_id_t</var>.</dd>
+  <dt><a class="permalink" href="#AUDITPIPE_FLUSH_PRESELECT_AUID"><code class="Dv" id="AUDITPIPE_FLUSH_PRESELECT_AUID">AUDITPIPE_FLUSH_PRESELECT_AUID</code></a></dt>
+  <dd>Delete all auid specific preselection specifications.</dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+The <a class="Xr">praudit(1)</a> utility may be directly executed on
+  <span class="Pa">/dev/auditpipe</span> to review the default audit trail.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">poll(2)</a>, <a class="Xr">select(2)</a>,
+  <a class="Xr">audit(4)</a>, <a class="Xr">audit_control(5)</a>,
+  <a class="Xr">audit(8)</a>, <a class="Xr">auditd(8)</a>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+The OpenBSM implementation was created by McAfee Research, the security division
+  of McAfee Inc., under contract to Apple Computer Inc. in 2004. It was
+  subsequently adopted by the TrustedBSD Project as the foundation for the
+  OpenBSM distribution.
+<p class="Pp">Support for kernel audit first appeared in Mac OS X 10.3 and
+    <span class="Ux">FreeBSD 6.2</span>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+The audit pipe facility was designed and implemented by <span class="An">Robert
+  Watson</span> &#x27E8;rwatson@FreeBSD.org&#x27E9;.
+<p class="Pp">The Basic Security Module (BSM) interface to audit records and
+    audit event stream format were defined by Sun Microsystems.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+See the <a class="Xr">audit(4)</a> manual page for information on audit-related
+  bugs and limitations.
+<p class="Pp">The configurable preselection mechanism mirrors the selection
+    model present for the global audit trail. It might be desirable to provided
+    a more flexible selection model.</p>
+<p class="Pp">The per-pipe audit event queue is fifo, with drops occurring if
+    either the user thread provides in sufficient for the record on the queue
+    head, or on enqueue if there is insufficient room. It might be desirable to
+    allow applications to select which records are dropped, possibly in the
+    style of preselection.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">October 18, 2010</td>
+    <td class="foot-os">Mac OS X 10.15</td>
+  </tr>
+</table>
+</body>
+</html>

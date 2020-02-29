@@ -1,0 +1,2476 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   Copyright (c) 2009-2011 Apple Inc. All rights reserved.
+  
+   @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+  
+   This file contains Original Code and/or Modifications of Original Code
+   as defined in and that are subject to the Apple Public Source License
+   Version 2.0 (the 'License'). You may not use this file except in
+   compliance with the License. The rights granted to you under the License
+   may not be used to create, or enable the creation or redistribution of,
+   unlawful or unlicensed copies of an Apple operating system, or to
+   circumvent, violate, or enable the circumvention or violation of, any
+   terms of an Apple operating system software license agreement.
+  
+   Please obtain a copy of the License at
+   http://www.opensource.apple.com/apsl/ and read it before using this file.
+  
+   The Original Code and all software distributed under the License are
+   distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+   EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+   INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+   Please see the License for the specific language governing rights and
+   limitations under the License.
+  
+   @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+  
+  	$apfw: pf.conf.5,v 1.3 2008/08/27 00:01:31 jhw Exp	$
+  
+  	$OpenBSD: pf.conf.5,v 1.376 2006/12/01 07:23:26 camield Exp $
+  
+   Copyright (c) 2002, Daniel Hartmeier
+   All rights reserved.
+  
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions
+   are met:
+  
+      - Redistributions of source code must retain the above copyright
+        notice, this list of conditions and the following disclaimer.
+      - Redistributions in binary form must reproduce the above
+        copyright notice, this list of conditions and the following
+        disclaimer in the documentation and/or other materials provided
+        with the distribution.
+  
+   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+   FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+   COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+   BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+   LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+   CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+   ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+   POSSIBILITY OF SUCH DAMAGE.
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>PF.CONF(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">PF.CONF(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">PF.CONF(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">pf.conf</code> &#x2014;
+<div class="Nd">packet filter configuration file</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The packet filter modifies, drops or passes packets according to rules or
+  definitions specified in <code class="Nm">pf.conf</code>.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STATEMENT_ORDER"><a class="permalink" href="#STATEMENT_ORDER">STATEMENT
+  ORDER</a></h1>
+There are seven types of statements in <code class="Nm">pf.conf</code>:
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#Macros"><code class="Cm" id="Macros">Macros</code></a></dt>
+  <dd>User-defined variables may be defined and used later, simplifying the
+      configuration file. Macros must be defined before they are referenced in
+      <code class="Nm">pf.conf</code>.</dd>
+  <dt><a class="permalink" href="#Tables"><code class="Cm" id="Tables">Tables</code></a></dt>
+  <dd>Tables provide a mechanism for increasing the performance and flexibility
+      of rules with large numbers of source or destination addresses.</dd>
+  <dt><a class="permalink" href="#Options"><code class="Cm" id="Options">Options</code></a></dt>
+  <dd>Options tune the behaviour of the packet filtering engine.</dd>
+  <dt><a class="permalink" href="#Traffic_Normalization"><code class="Cm" id="Traffic_Normalization">Traffic
+    Normalization</code></a> <code class="Li">(e.g.</code>
+    <i class="Em">scrub</i>)</dt>
+  <dd>Traffic normalization protects internal machines against inconsistencies
+      in Internet protocols and implementations.</dd>
+  <dt><a class="permalink" href="#Queueing"><code class="Cm" id="Queueing">Queueing</code></a></dt>
+  <dd>Queueing provides rule-based bandwidth control.</dd>
+  <dt><a class="permalink" href="#Translation"><code class="Cm" id="Translation">Translation</code></a>
+    <code class="Li">(Various forms of NAT)</code></dt>
+  <dd>Translation rules specify how addresses are to be mapped or redirected to
+      other addresses.</dd>
+  <dt><a class="permalink" href="#Packet_Filtering"><code class="Cm" id="Packet_Filtering">Packet
+    Filtering</code></a></dt>
+  <dd>Packet filtering provides rule-based blocking or passing of packets.</dd>
+</dl>
+<p class="Pp">With the exception of <code class="Cm">macros</code> and
+    <code class="Cm">tables</code>, the types of statements should be grouped
+    and appear in <code class="Nm">pf.conf</code> in the order shown above, as
+    this matches the operation of the underlying packet filtering engine. By
+    default <a class="Xr">pfctl(8)</a> enforces this order (see
+    <var class="Ar">set require-order</var> below).</p>
+<p class="Pp">Comments can be put anywhere in the file using a hash mark
+    (&#x2018;#&#x2019;), and extend to the end of the current line.</p>
+<p class="Pp">Additional configuration files can be included with the
+    <code class="Ic">include</code> keyword, for example:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+include &quot;/etc/pf/sub.filter.conf&quot;
+</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MACROS"><a class="permalink" href="#MACROS">MACROS</a></h1>
+Macros can be defined that will later be expanded in context. Macro names must
+  start with a letter, and may contain letters, digits and underscores. Macro
+  names may not be reserved words (for example <var class="Ar">pass</var>,
+  <var class="Ar">in</var>, <var class="Ar">out</var>). Macros are not expanded
+  inside quotes.
+<p class="Pp">For example,</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+ext_if = &quot;kue0&quot;
+all_ifs = &quot;{&quot; $ext_if lo0 &quot;}&quot;
+pass out on $ext_if from any to any
+pass in  on $ext_if proto tcp from any to any port 25
+</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TABLES"><a class="permalink" href="#TABLES">TABLES</a></h1>
+Tables are named structures which can hold a collection of addresses and
+  networks. Lookups against tables in packet filter are relatively fast, making
+  a single rule with tables much more efficient, in terms of processor usage and
+  memory consumption, than a large number of rules which differ only in IP
+  address (either created explicitly or automatically by rule expansion).
+<p class="Pp">Tables can be used as the source or destination of filter rules,
+    <var class="Ar">scrub</var> rules or translation rules such as
+    <var class="Ar">nat</var> or <var class="Ar">rdr</var> (see below for
+    details on the various rule types). Tables can also be used for the redirect
+    address of <var class="Ar">nat</var> and <var class="Ar">rdr</var> rules and
+    in the routing options of filter rules, but only for
+    <var class="Ar">round-robin</var> pools.</p>
+<p class="Pp">Tables can be defined with any of the following
+    <a class="Xr">pfctl(8)</a> mechanisms. As with macros, reserved words may
+    not be used as table names.</p>
+<dl class="Bl-tag">
+  <dt><var class="Ar">manually</var></dt>
+  <dd>Persistent tables can be manually created with the
+      <var class="Ar">add</var> or <var class="Ar">replace</var> option of
+      <a class="Xr">pfctl(8)</a>, before or after the ruleset has been
+    loaded.</dd>
+  <dt><span class="Pa">pf.conf</span></dt>
+  <dd>Table definitions can be placed directly in this file, and loaded at the
+      same time as other rules are loaded, atomically. Table definitions inside
+      <code class="Nm">pf.conf</code> use the <var class="Ar">table</var>
+      statement, and are especially useful to define non-persistent tables. The
+      contents of a pre-existing table defined without a list of addresses to
+      initialize it is not altered when <code class="Nm">pf.conf</code> is
+      loaded. A table initialized with the empty list, <code class="Li">{
+      }</code>, will be cleared on load.</dd>
+</dl>
+<p class="Pp">Tables may be defined with the following two attributes:</p>
+<dl class="Bl-tag">
+  <dt><var class="Ar">persist</var></dt>
+  <dd>The <var class="Ar">persist</var> flag forces the kernel to keep the table
+      even when no rules refer to it. If the flag is not set, the kernel will
+      automatically remove the table when the last rule referring to it is
+      flushed.</dd>
+  <dt><var class="Ar">const</var></dt>
+  <dd>The <var class="Ar">const</var> flag prevents the user from altering the
+      contents of the table once it has been created. Without that flag,
+      <a class="Xr">pfctl(8)</a> can be used to add or remove addresses from the
+      table at any time, even when running with <a class="Xr">securelevel(7)</a>
+      = 2.</dd>
+</dl>
+<p class="Pp">For example,</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+table &lt;private&gt; const { 10/8, 172.16/12, 192.168/16 }
+table &lt;badhosts&gt; persist
+block on fxp0 from { &lt;private&gt;, &lt;badhosts&gt; } to any
+</pre>
+</div>
+<p class="Pp">creates a table called private, to hold RFC 1918 private network
+    blocks, and a table called badhosts, which is initially empty. A filter rule
+    is set up to block all traffic coming from addresses listed in either table.
+    The private table cannot have its contents changed and the badhosts table
+    will exist even when no active filter rules reference it. Addresses may
+    later be added to the badhosts table, so that traffic from these hosts can
+    be blocked by using</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+# pfctl -t badhosts -Tadd 204.92.77.111
+</pre>
+</div>
+<p class="Pp">A table can also be initialized with an address list specified in
+    one or more external files, using the following syntax:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+table &lt;spam&gt; persist file &quot;/etc/spammers&quot; file &quot;/etc/openrelays&quot;
+block on fxp0 from &lt;spam&gt; to any
+</pre>
+</div>
+<p class="Pp">The files <span class="Pa">/etc/spammers</span> and
+    <span class="Pa">/etc/openrelays</span> list IP addresses, one per line. Any
+    lines beginning with a # are treated as comments and ignored. In addition to
+    being specified by IP address, hosts may also be specified by their
+    hostname. When the resolver is called to add a hostname to a table,
+    <i class="Em">all</i> resulting IPv4 and IPv6 addresses are placed into the
+    table. IP addresses can also be entered in a table by specifying a valid
+    interface name, a valid interface group or the <i class="Em">self</i>
+    keyword, in which case all addresses assigned to the interface(s) will be
+    added to the table.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+Packet filter may be tuned for various situations using the
+  <var class="Ar">set</var> command.
+<dl class="Bl-tag">
+  <dt><var class="Ar">set timeout</var></dt>
+  <dd>
+    <p class="Pp"></p>
+    <dl class="Bl-tag Bl-compact">
+      <dt><var class="Ar">interval</var></dt>
+      <dd>Interval between purging expired states and fragments.</dd>
+      <dt><var class="Ar">frag</var></dt>
+      <dd>Seconds before an unassembled fragment is expired.</dd>
+      <dt><var class="Ar">src.track</var></dt>
+      <dd>Length of time to retain a source tracking entry after the last state
+          expires.</dd>
+    </dl>
+    <p class="Pp">When a packet matches a stateful connection, the seconds to
+        live for the connection will be updated to that of the
+        <var class="Ar">proto.modifier</var> which corresponds to the connection
+        state. Each packet which matches this state will reset the TTL. Tuning
+        these values may improve the performance of the firewall at the risk of
+        dropping valid idle connections.</p>
+    <p class="Pp"></p>
+    <dl class="Bl-tag Bl-compact">
+      <dt><var class="Ar">tcp.first</var></dt>
+      <dd>The state after the first packet.</dd>
+      <dt><var class="Ar">tcp.opening</var></dt>
+      <dd>The state before the destination host ever sends a packet.</dd>
+      <dt><var class="Ar">tcp.established</var></dt>
+      <dd>The fully established state.</dd>
+      <dt><var class="Ar">tcp.closing</var></dt>
+      <dd>The state after the first FIN has been sent.</dd>
+      <dt><var class="Ar">tcp.finwait</var></dt>
+      <dd>The state after both FINs have been exchanged and the connection is
+          closed. Some hosts (notably web servers on Solaris) send TCP packets
+          even after closing the connection. Increasing
+          <var class="Ar">tcp.finwait</var> (and possibly
+          <var class="Ar">tcp.closing</var>) can prevent blocking of such
+          packets.</dd>
+      <dt><var class="Ar">tcp.closed</var></dt>
+      <dd>The state after one endpoint sends an RST.</dd>
+    </dl>
+    <p class="Pp">ICMP and UDP are handled in a fashion similar to TCP, but with
+        a much more limited set of states:</p>
+    <p class="Pp"></p>
+    <dl class="Bl-tag Bl-compact">
+      <dt><var class="Ar">udp.first</var></dt>
+      <dd>The state after the first packet.</dd>
+      <dt><var class="Ar">udp.single</var></dt>
+      <dd>The state if the source host sends more than one packet but the
+          destination host has never sent one back.</dd>
+      <dt><var class="Ar">udp.multiple</var></dt>
+      <dd>The state if both hosts have sent packets.</dd>
+      <dt><var class="Ar">icmp.first</var></dt>
+      <dd>The state after the first packet.</dd>
+      <dt><var class="Ar">icmp.error</var></dt>
+      <dd>The state after an ICMP error came back in response to an ICMP
+        packet.</dd>
+    </dl>
+    <p class="Pp">Other protocols are handled similarly to UDP:</p>
+    <p class="Pp"></p>
+    <dl class="Bl-tag Bl-compact">
+      <dt><var class="Ar">other.first</var></dt>
+      <dd style="width: auto;">&#x00A0;</dd>
+      <dt><var class="Ar">other.single</var></dt>
+      <dd style="width: auto;">&#x00A0;</dd>
+      <dt><var class="Ar">other.multiple</var></dt>
+      <dd style="width: auto;">&#x00A0;</dd>
+    </dl>
+    <p class="Pp">Timeout values can be reduced adaptively as the number of
+        state table entries grows.</p>
+    <p class="Pp"></p>
+    <dl class="Bl-tag Bl-compact">
+      <dt><var class="Ar">adaptive.start</var></dt>
+      <dd>When the number of state entries exceeds this value, adaptive scaling
+          begins. All timeout values are scaled linearly with factor
+          (adaptive.end - number of states) / (adaptive.end -
+        adaptive.start).</dd>
+      <dt><var class="Ar">adaptive.end</var></dt>
+      <dd>When reaching this number of state entries, all timeout values become
+          zero, effectively purging all state entries immediately. This value is
+          used to define the scale factor, it should not actually be reached
+          (set a lower state limit, see below).</dd>
+    </dl>
+    <p class="Pp">Adaptive timeouts are enabled by default, with an
+        adaptive.start value equal to 60% of the state limit, and an
+        adaptive.end value equal to 120% of the state limit. They can be
+        disabled by setting both adaptive.start and adaptive.end to 0.</p>
+    <p class="Pp">The adaptive timeout values can be defined both globally and
+        for each rule. When used on a per-rule basis, the values relate to the
+        number of states created by the rule, otherwise to the total number of
+        states.</p>
+    <p class="Pp">For example:</p>
+    <div class="Bd Pp Bd-indent">
+    <pre>
+set timeout tcp.first 120
+set timeout tcp.established 86400
+set timeout { adaptive.start 6000, adaptive.end 12000 }
+set limit states 10000
+    </pre>
+    </div>
+    <p class="Pp">With 9000 state table entries, the timeout values are scaled
+        to 50% (tcp.first 60, tcp.established 43200).</p>
+  </dd>
+  <dt><var class="Ar">set loginterface</var></dt>
+  <dd>Enable collection of packet and byte count statistics for the given
+      interface or interface group. These statistics can be viewed using
+    <div class="Bd Pp Bd-indent">
+    <pre>
+# pfctl -s info
+    </pre>
+    </div>
+    <p class="Pp">In this example packet filter collects statistics on the
+        interface named dc0:</p>
+    <div class="Bd Pp Bd-indent">
+    <pre>
+set loginterface dc0
+    </pre>
+    </div>
+    <p class="Pp">One can disable the loginterface using:</p>
+    <div class="Bd Pp Bd-indent">
+    <pre>
+set loginterface none
+    </pre>
+    </div>
+  </dd>
+  <dt><var class="Ar">set limit</var></dt>
+  <dd>Sets hard limits on the memory pools used by the packet filter. See
+      <a class="Xr">pool(9)</a> for an explanation of memory pools.
+    <p class="Pp">For example,</p>
+    <div class="Bd Pp Bd-indent">
+    <pre>
+set limit states 20000
+    </pre>
+    </div>
+    <p class="Pp">sets the maximum number of entries in the memory pool used by
+        state table entries (generated by <var class="Ar">pass</var> rules which
+        do not specify <var class="Ar">no state</var>) to 20000. Using</p>
+    <div class="Bd Pp Bd-indent">
+    <pre>
+set limit frags 20000
+    </pre>
+    </div>
+    <p class="Pp">sets the maximum number of entries in the memory pool used for
+        fragment reassembly (generated by <var class="Ar">scrub</var> rules) to
+        20000. Using</p>
+    <div class="Bd Pp Bd-indent">
+    <pre>
+set limit src-nodes 2000
+    </pre>
+    </div>
+    <p class="Pp">sets the maximum number of entries in the memory pool used for
+        tracking source IP addresses (generated by the
+        <var class="Ar">sticky-address</var> and <var class="Ar">src.track</var>
+        options) to 2000. Using</p>
+    <div class="Bd Pp Bd-indent">
+    <pre>
+set limit tables 1000
+set limit table-entries 100000
+    </pre>
+    </div>
+    <p class="Pp">sets limits on the memory pools used by tables. The first
+        limits the number of tables that can exist to 1000. The second limits
+        the overall number of addresses that can be stored in tables to
+      100000.</p>
+    <p class="Pp">Various limits can be combined on a single line:</p>
+    <div class="Bd Pp Bd-indent">
+    <pre>
+set limit { states 20000, frags 20000, src-nodes 2000 }
+    </pre>
+    </div>
+  </dd>
+  <dt><var class="Ar">set ruleset-optimization</var></dt>
+  <dd>
+    <dl class="Bl-tag Bl-compact">
+      <dt><var class="Ar">none</var></dt>
+      <dd>Disable the ruleset optimizer.</dd>
+      <dt><var class="Ar">basic</var></dt>
+      <dd>Enable basic ruleset optimization. This is the default behaviour.
+          Basic ruleset optimization does four things to improve the performance
+          of ruleset evaluations:
+        <p class="Pp"></p>
+        <ol class="Bl-enum Bl-compact">
+          <li>remove duplicate rules</li>
+          <li>remove rules that are a subset of another rule</li>
+          <li>combine multiple rules into a table when advantageous</li>
+          <li>re-order the rules to improve evaluation performance</li>
+        </ol>
+        <p class="Pp"></p>
+      </dd>
+      <dt><var class="Ar">profile</var></dt>
+      <dd>Uses the currently loaded ruleset as a feedback profile to tailor the
+          ordering of quick rules to actual network traffic.</dd>
+    </dl>
+    <p class="Pp">It is important to note that the ruleset optimizer will modify
+        the ruleset to improve performance. A side effect of the ruleset
+        modification is that per-rule accounting statistics will have different
+        meanings than before. If per-rule accounting is important for billing
+        purposes or whatnot, either the ruleset optimizer should not be used or
+        a label field should be added to all of the accounting rules to act as
+        optimization barriers.</p>
+    <p class="Pp">Optimization can also be set as a command-line argument to
+        <a class="Xr">pfctl(8)</a>, overriding the settings in
+        <code class="Nm">pf.conf</code>.</p>
+  </dd>
+  <dt><var class="Ar">set optimization</var></dt>
+  <dd>Optimize state timeouts for one of the following network environments:
+    <p class="Pp"></p>
+    <dl class="Bl-tag Bl-compact">
+      <dt><var class="Ar">normal</var></dt>
+      <dd>A normal network environment. Suitable for almost all networks.</dd>
+      <dt><var class="Ar">high-latency</var></dt>
+      <dd>A high-latency environment (such as a satellite connection).</dd>
+      <dt><var class="Ar">satellite</var></dt>
+      <dd>Alias for <var class="Ar">high-latency</var>.</dd>
+      <dt><var class="Ar">aggressive</var></dt>
+      <dd>Aggressively expire connections. This can greatly reduce the memory
+          usage of the firewall at the cost of dropping idle connections
+        early.</dd>
+      <dt><var class="Ar">conservative</var></dt>
+      <dd>Extremely conservative settings. Avoid dropping legitimate connections
+          at the expense of greater memory utilization (possibly much greater on
+          a busy network) and slightly increased processor utilization.</dd>
+    </dl>
+    <p class="Pp">For example:</p>
+    <div class="Bd Pp Bd-indent">
+    <pre>
+set optimization aggressive
+    </pre>
+    </div>
+  </dd>
+  <dt><var class="Ar">set block-policy</var></dt>
+  <dd>The <var class="Ar">block-policy</var> option sets the default behaviour
+      for the packet <var class="Ar">block</var> action:
+    <p class="Pp"></p>
+    <dl class="Bl-tag Bl-compact">
+      <dt><var class="Ar">drop</var></dt>
+      <dd>Packet is silently dropped.</dd>
+      <dt><var class="Ar">return</var></dt>
+      <dd>A TCP RST is returned for blocked TCP packets, an ICMP UNREACHABLE is
+          returned for blocked UDP packets, and all other packets are silently
+          dropped.</dd>
+    </dl>
+    <p class="Pp">For example:</p>
+    <div class="Bd Pp Bd-indent">
+    <pre>
+set block-policy return
+    </pre>
+    </div>
+  </dd>
+  <dt><var class="Ar">set state-policy</var></dt>
+  <dd>The <var class="Ar">state-policy</var> option sets the default behaviour
+      for states:
+    <p class="Pp"></p>
+    <dl class="Bl-tag Bl-compact">
+      <dt><var class="Ar">if-bound</var></dt>
+      <dd>States are bound to interface.</dd>
+      <dt><var class="Ar">floating</var></dt>
+      <dd>States can match packets on any interfaces (the default).</dd>
+    </dl>
+    <p class="Pp">For example:</p>
+    <div class="Bd Pp Bd-indent">
+    <pre>
+set state-policy if-bound
+    </pre>
+    </div>
+    <p class="Pp">The hostid may be specified in either decimal or
+      hexadecimal.</p>
+  </dd>
+  <dt><var class="Ar">set require-order</var></dt>
+  <dd>By default <a class="Xr">pfctl(8)</a> enforces an ordering of the
+      statement types in the ruleset to: <i class="Em">options</i>,
+      <i class="Em">normalization</i>, <i class="Em">queueing</i>,
+      <i class="Em">translation</i>, <i class="Em">filtering</i>. Setting this
+      option to <var class="Ar">no</var> disables this enforcement. There may be
+      non-trivial and non-obvious implications to an out of order ruleset.
+      Consider carefully before disabling the order enforcement.</dd>
+  <dt><var class="Ar">set fingerprints</var></dt>
+  <dd>Load fingerprints of known operating systems from the given filename. By
+      default fingerprints of known operating systems are automatically loaded
+      from <a class="Xr">pf.os(5)</a> in <span class="Pa">/etc</span> but can be
+      overridden via this option. Setting this option may leave a small period
+      of time where the fingerprints referenced by the currently active ruleset
+      are inconsistent until the new ruleset finishes loading.
+    <p class="Pp">For example:</p>
+    <p class="Pp"></p>
+    <div class="Bd Bd-indent"><code class="Li">set fingerprints
+      &quot;/etc/pf.os.devel&quot;</code></div>
+  </dd>
+  <dt><var class="Ar">set skip on</var>
+    &#x27E8;<var class="Ar">ifspec</var>&#x27E9;</dt>
+  <dd>List interfaces for which packets should not be filtered. Packets passing
+      in or out on such interfaces are passed as if pf was disabled, i.e. pf
+      does not process them in any way. This can be useful on loopback and other
+      virtual interfaces, when packet filtering is not desired and can have
+      unexpected effects. For example:
+    <p class="Pp"></p>
+    <div class="Bd Bd-indent"><code class="Li">set skip on lo0</code></div>
+  </dd>
+  <dt><var class="Ar">set debug</var></dt>
+  <dd>Set the debug <var class="Ar">level</var> to one of the following:
+    <p class="Pp"></p>
+    <dl class="Bl-tag Bl-compact">
+      <dt><var class="Ar">none</var></dt>
+      <dd>Don't generate debug messages.</dd>
+      <dt><var class="Ar">urgent</var></dt>
+      <dd>Generate debug messages only for serious errors.</dd>
+      <dt><var class="Ar">misc</var></dt>
+      <dd>Generate debug messages for various errors.</dd>
+      <dt><var class="Ar">loud</var></dt>
+      <dd>Generate debug messages for common conditions.</dd>
+    </dl>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TRAFFIC_NORMALIZATION"><a class="permalink" href="#TRAFFIC_NORMALIZATION">TRAFFIC
+  NORMALIZATION</a></h1>
+Traffic normalization is used to sanitize packet content in such a way that
+  there are no ambiguities in packet interpretation on the receiving side. The
+  normalizer does IP fragment reassembly to prevent attacks that confuse
+  intrusion detection systems by sending overlapping IP fragments. Packet
+  normalization is invoked with the <var class="Ar">scrub</var> directive.
+<p class="Pp"><var class="Ar">scrub</var> has the following options:</p>
+<dl class="Bl-tag">
+  <dt><var class="Ar">no-df</var></dt>
+  <dd>Clears the <var class="Ar">dont-fragment</var> bit from a matching IP
+      packet. Some operating systems are known to generate fragmented packets
+      with the <var class="Ar">dont-fragment</var> bit set. This is particularly
+      true with NFS. <var class="Ar">Scrub</var> will drop such fragmented
+      <var class="Ar">dont-fragment</var> packets unless
+      <var class="Ar">no-df</var> is specified.
+    <p class="Pp">Unfortunately some operating systems also generate their
+        <var class="Ar">dont-fragment</var> packets with a zero IP
+        identification field. Clearing the <var class="Ar">dont-fragment</var>
+        bit on packets with a zero IP ID may cause deleterious results if an
+        upstream router later fragments the packet. Using the
+        <var class="Ar">random-id</var> modifier (see below) is recommended in
+        combination with the <var class="Ar">no-df</var> modifier to ensure
+        unique IP identifiers.</p>
+  </dd>
+  <dt><var class="Ar">min-ttl</var>
+    &#x27E8;<var class="Ar">number</var>&#x27E9;</dt>
+  <dd>Enforces a minimum TTL for matching IP packets.</dd>
+  <dt><var class="Ar">max-mss</var>
+    &#x27E8;<var class="Ar">number</var>&#x27E9;</dt>
+  <dd>Enforces a maximum MSS for matching TCP packets.</dd>
+  <dt><var class="Ar">random-id</var></dt>
+  <dd>Replaces the IP identification field with random values to compensate for
+      predictable values generated by many hosts. This option only applies to
+      packets that are not fragmented after the optional fragment
+    reassembly.</dd>
+  <dt><var class="Ar">fragment reassemble</var></dt>
+  <dd>Using <var class="Ar">scrub</var> rules, fragments can be reassembled by
+      normalization. In this case, fragments are buffered until they form a
+      complete packet, and only the completed packet is passed on to the filter.
+      The advantage is that filter rules have to deal only with complete
+      packets, and can ignore fragments. The drawback of caching fragments is
+      the additional memory cost. But the full reassembly method is the only
+      method that currently works with NAT. This is the default behavior of a
+      <var class="Ar">scrub</var> rule if no fragmentation modifier is
+    supplied.</dd>
+  <dt><var class="Ar">fragment crop</var></dt>
+  <dd>The default fragment reassembly method is expensive, hence the option to
+      crop is provided. In this case, packet filter will track the fragments and
+      cache a small range descriptor. Duplicate fragments are dropped and
+      overlaps are cropped. Thus data will only occur once on the wire with
+      ambiguities resolving to the first occurrence. Unlike the
+      <var class="Ar">fragment reassemble</var> modifier, fragments are not
+      buffered, they are passed as soon as they are received. The
+      <var class="Ar">fragment crop</var> reassembly mechanism does not yet work
+      with NAT.</dd>
+  <dt><var class="Ar">fragment drop-ovl</var></dt>
+  <dd>This option is similar to the <var class="Ar">fragment crop</var> modifier
+      except that all overlapping or duplicate fragments will be dropped, and
+      all further corresponding fragments will be dropped as well.</dd>
+  <dt><var class="Ar">reassemble tcp</var></dt>
+  <dd>Statefully normalizes TCP connections. <var class="Ar">scrub reassemble
+      tcp</var> rules may not have the direction (in/out) specified.
+      <var class="Ar">reassemble tcp</var> performs the following
+      normalizations:
+    <p class="Pp"></p>
+    <dl class="Bl-tag Bl-compact">
+      <dt>ttl</dt>
+      <dd>Neither side of the connection is allowed to reduce their IP TTL. An
+          attacker may send a packet such that it reaches the firewall, affects
+          the firewall state, and expires before reaching the destination host.
+          <var class="Ar">reassemble tcp</var> will raise the TTL of all packets
+          back up to the highest value seen on the connection.</dd>
+      <dt>timestamp modulation</dt>
+      <dd>Modern TCP stacks will send a timestamp on every TCP packet and echo
+          the other endpoint's timestamp back to them. Many operating systems
+          will merely start the timestamp at zero when first booted, and
+          increment it several times a second. The uptime of the host can be
+          deduced by reading the timestamp and multiplying by a constant. Also
+          observing several different timestamps can be used to count hosts
+          behind a NAT device. And spoofing TCP packets into a connection
+          requires knowing or guessing valid timestamps. Timestamps merely need
+          to be monotonically increasing and not derived off a guessable base
+          time. <var class="Ar">reassemble tcp</var> will cause
+          <var class="Ar">scrub</var> to modulate the TCP timestamps with a
+          random number.</dd>
+      <dt>extended PAWS checks</dt>
+      <dd>There is a problem with TCP on long fat pipes, in that a packet might
+          get delayed for longer than it takes the connection to wrap its 32-bit
+          sequence space. In such an occurrence, the old packet would be
+          indistinguishable from a new packet and would be accepted as such. The
+          solution to this is called PAWS: Protection Against Wrapped Sequence
+          numbers. It protects against it by making sure the timestamp on each
+          packet does not go backwards. <var class="Ar">reassemble tcp</var>
+          also makes sure the timestamp on the packet does not go forward more
+          than the RFC allows. By doing this, packet filter artificially extends
+          the security of TCP sequence numbers by 10 to 18 bits when the host
+          uses appropriately randomized timestamps, since a blind attacker would
+          have to guess the timestamp as well.</dd>
+    </dl>
+  </dd>
+</dl>
+<p class="Pp">For example,</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+scrub in on $ext_if all fragment reassemble
+</pre>
+</div>
+<p class="Pp">The <var class="Ar">no</var> option prefixed to a scrub rule
+    causes matching packets to remain unscrubbed, much in the same way as
+    <var class="Ar">drop quick</var> works in the packet filter (see below).
+    This mechanism should be used when it is necessary to exclude specific
+    packets from broader scrub rules.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="QUEUEING"><a class="permalink" href="#QUEUEING">QUEUEING</a></h1>
+Packets can be assigned to queues for the purpose of bandwidth control. At least
+  two declarations are required to configure queues, and later any packet
+  filtering rule can reference the defined queues by name. During the filtering
+  component of <code class="Nm">pf.conf</code>, the last referenced
+  <var class="Ar">queue</var> name is where any packets from
+  <var class="Ar">pass</var> rules will be queued, while for
+  <var class="Ar">block</var> rules it specifies where any resulting ICMP or TCP
+  RST packets should be queued. The <var class="Ar">scheduler</var> defines the
+  algorithm used to decide which packets get delayed, dropped, or sent out
+  immediately. There are three <var class="Ar">schedulers</var> currently
+  supported.
+<dl class="Bl-tag">
+  <dt><var class="Ar">cbq</var></dt>
+  <dd>Class Based Queueing. <var class="Ar">Queues</var> attached to an
+      interface build a tree, thus each <var class="Ar">queue</var> can have
+      further child <var class="Ar">queues</var>. Each queue can have a
+      <var class="Ar">priority</var> and a <var class="Ar">bandwidth</var>
+      assigned. <var class="Ar">Priority</var> mainly controls the time packets
+      take to get sent out, while <var class="Ar">bandwidth</var> has primarily
+      effects on throughput. <var class="Ar">cbq</var> achieves both
+      partitioning and sharing of link bandwidth by hierarchically structured
+      classes. Each class has its own <var class="Ar">queue</var> and is
+      assigned its share of <var class="Ar">bandwidth</var>. A child class can
+      borrow bandwidth from its parent class as long as excess bandwidth is
+      available (see the option <var class="Ar">borrow</var>, below).</dd>
+  <dt><var class="Ar">priq</var></dt>
+  <dd>Priority Queueing. <var class="Ar">Queues</var> are flat attached to the
+      interface, thus, <var class="Ar">queues</var> cannot have further child
+      <var class="Ar">queues</var>. Each <var class="Ar">queue</var> has a
+      unique <var class="Ar">priority</var> assigned, ranging from 0 to 15.
+      Packets in the <var class="Ar">queue</var> with the highest
+      <var class="Ar">priority</var> are processed first.</dd>
+  <dt><var class="Ar">hfsc</var></dt>
+  <dd>Hierarchical Fair Service Curve. <var class="Ar">Queues</var> attached to
+      an interface build a tree, thus each <var class="Ar">queue</var> can have
+      further child <var class="Ar">queues</var>. Each queue can have a
+      <var class="Ar">priority</var> and a <var class="Ar">bandwidth</var>
+      assigned. <var class="Ar">Priority</var> mainly controls the time packets
+      take to get sent out, while <var class="Ar">bandwidth</var> primarily
+      affects throughput. <var class="Ar">hfsc</var> supports both link-sharing
+      and guaranteed real-time services. It employs a service curve based QoS
+      model, and its unique feature is an ability to decouple
+      <var class="Ar">delay</var> and <var class="Ar">bandwidth</var>
+      allocation.</dd>
+</dl>
+<p class="Pp">The interfaces on which queueing should be activated are declared
+    using the <var class="Ar">altq on</var> declaration. <var class="Ar">altq
+    on</var> has the following keywords:</p>
+<dl class="Bl-tag">
+  <dt>&#x27E8;<var class="Ar">interface</var>&#x27E9;</dt>
+  <dd>Queueing is enabled on the named interface.</dd>
+  <dt>&#x27E8;<var class="Ar">scheduler</var>&#x27E9;</dt>
+  <dd>Specifies which queueing scheduler to use. Currently supported values are
+      <var class="Ar">cbq</var> for Class Based Queueing,
+      <var class="Ar">priq</var> for Priority Queueing and
+      <var class="Ar">hfsc</var> for the Hierarchical Fair Service Curve
+      scheduler.</dd>
+  <dt><var class="Ar">bandwidth</var>
+    &#x27E8;<var class="Ar">bw</var>&#x27E9;</dt>
+  <dd>The maximum bitrate for all queues on an interface may be specified using
+      the <var class="Ar">bandwidth</var> keyword. The value can be specified as
+      an absolute value or as a percentage of the interface bandwidth. When
+      using an absolute value, the suffixes <var class="Ar">b</var>,
+      <var class="Ar">Kb</var>, <var class="Ar">Mb</var>, and
+      <var class="Ar">Gb</var> are used to represent bits, kilobits, megabits,
+      and gigabits per second, respectively. The value must not exceed the
+      interface bandwidth. If <var class="Ar">bandwidth</var> is not specified,
+      the interface bandwidth is used (but take note that some interfaces do not
+      know their bandwidth, or can adapt their bandwidth rates).</dd>
+  <dt><var class="Ar">qlimit</var>
+    &#x27E8;<var class="Ar">limit</var>&#x27E9;</dt>
+  <dd>The maximum number of packets held in the queue. The default is 128.</dd>
+  <dt><var class="Ar">tbrsize</var>
+    &#x27E8;<var class="Ar">size</var>&#x27E9;</dt>
+  <dd>Adjusts the size, in bytes, of the token bucket regulator. If not
+      specified, heuristics based on the interface bandwidth are used to
+      determine the size.</dd>
+  <dt><var class="Ar">queue</var>
+    &#x27E8;<var class="Ar">list</var>&#x27E9;</dt>
+  <dd>Defines a list of subqueues to create on an interface.</dd>
+</dl>
+<p class="Pp">In the following example, the interface dc0 should queue up to 5
+    Mbit/s in four second-level queues using Class Based Queueing. Those four
+    queues will be shown in a later example.</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+altq on dc0 cbq bandwidth 5Mb queue { std, http, mail, ssh }
+</pre>
+</div>
+<p class="Pp">Once interfaces are activated for queueing using the
+    <var class="Ar">altq</var> directive, a sequence of
+    <var class="Ar">queue</var> directives may be defined. The name associated
+    with a <var class="Ar">queue</var> must match a queue defined in the
+    <var class="Ar">altq</var> directive (e.g. mail), or, except for the
+    <var class="Ar">priq</var> <var class="Ar">scheduler</var>, in a parent
+    <var class="Ar">queue</var> declaration. The following keywords can be
+  used:</p>
+<dl class="Bl-tag">
+  <dt><var class="Ar">on</var>
+    &#x27E8;<var class="Ar">interface</var>&#x27E9;</dt>
+  <dd>Specifies the interface the queue operates on. If not given, it operates
+      on all matching interfaces.</dd>
+  <dt><var class="Ar">bandwidth</var>
+    &#x27E8;<var class="Ar">bw</var>&#x27E9;</dt>
+  <dd>Specifies the maximum bitrate to be processed by the queue. This value
+      must not exceed the value of the parent <var class="Ar">queue</var> and
+      can be specified as an absolute value or a percentage of the parent
+      queue's bandwidth. If not specified, defaults to 100% of the parent
+      queue's bandwidth. The <var class="Ar">priq</var> scheduler does not
+      support bandwidth specification.</dd>
+  <dt><var class="Ar">priority</var>
+    &#x27E8;<var class="Ar">level</var>&#x27E9;</dt>
+  <dd>Between queues a priority level can be set. For <var class="Ar">cbq</var>
+      and <var class="Ar">hfsc</var>, the range is 0 to 7 and for
+      <var class="Ar">priq</var>, the range is 0 to 15. The default for all is
+      1. <var class="Ar">Priq</var> queues with a higher priority are always
+      served first. <var class="Ar">Cbq</var> and <var class="Ar">Hfsc</var>
+      queues with a higher priority are preferred in the case of overload.</dd>
+  <dt><var class="Ar">qlimit</var>
+    &#x27E8;<var class="Ar">limit</var>&#x27E9;</dt>
+  <dd>The maximum number of packets held in the queue. The default is 128.</dd>
+</dl>
+<p class="Pp">The <var class="Ar">scheduler</var> can get additional parameters
+    with &#x27E8;<var class="Ar">scheduler</var>&#x27E9;
+    (&#x27E8;<var class="Ar">parameters</var>&#x27E9;). Parameters are as
+    follows:</p>
+<dl class="Bl-tag">
+  <dt><var class="Ar">default</var></dt>
+  <dd>Packets not matched by another queue are assigned to this one. Exactly one
+      default queue is required.</dd>
+  <dt><var class="Ar">red</var></dt>
+  <dd>Enable RED (Random Early Detection) on this queue. RED drops packets with
+      a probability proportional to the average queue length.</dd>
+  <dt><var class="Ar">rio</var></dt>
+  <dd>Enables RIO on this queue. RIO is RED with IN/OUT, thus running RED two
+      times more than RIO would achieve the same effect. RIO is currently not
+      supported in the GENERIC kernel.</dd>
+  <dt><var class="Ar">ecn</var></dt>
+  <dd>Enables ECN (Explicit Congestion Notification) on this queue. ECN implies
+      RED.</dd>
+</dl>
+<p class="Pp">The <var class="Ar">cbq</var> <var class="Ar">scheduler</var>
+    supports an additional option:</p>
+<dl class="Bl-tag">
+  <dt><var class="Ar">borrow</var></dt>
+  <dd>The queue can borrow bandwidth from the parent.</dd>
+</dl>
+<p class="Pp">The <var class="Ar">hfsc</var> <var class="Ar">scheduler</var>
+    supports some additional options:</p>
+<dl class="Bl-tag">
+  <dt><var class="Ar">realtime</var>
+    &#x27E8;<var class="Ar">sc</var>&#x27E9;</dt>
+  <dd>The minimum required bandwidth for the queue.</dd>
+  <dt><var class="Ar">upperlimit</var>
+    &#x27E8;<var class="Ar">sc</var>&#x27E9;</dt>
+  <dd>The maximum allowed bandwidth for the queue.</dd>
+  <dt><var class="Ar">linkshare</var>
+    &#x27E8;<var class="Ar">sc</var>&#x27E9;</dt>
+  <dd>The bandwidth share of a backlogged queue.</dd>
+</dl>
+<p class="Pp">&#x27E8;<var class="Ar">sc</var>&#x27E9; is an acronym for
+    <var class="Ar">service curve</var>.</p>
+<p class="Pp">The format for service curve specifications is
+    (<var class="Ar">m1</var>, <var class="Ar">d</var>,
+    <var class="Ar">m2</var>). <var class="Ar">m2</var> controls the bandwidth
+    assigned to the queue. <var class="Ar">m1</var> and <var class="Ar">d</var>
+    are optional and can be used to control the initial bandwidth assignment.
+    For the first <var class="Ar">d</var> milliseconds the queue gets the
+    bandwidth given as <var class="Ar">m1</var>, afterwards the value given in
+    <var class="Ar">m2</var>.</p>
+<p class="Pp">Furthermore, with <var class="Ar">cbq</var> and
+    <var class="Ar">hfsc</var>, child queues can be specified as in an
+    <var class="Ar">altq</var> declaration, thus building a tree of queues using
+    a part of their parent's bandwidth.</p>
+<p class="Pp">Packets can be assigned to queues based on filter rules by using
+    the <var class="Ar">queue</var> keyword. Normally only one
+    <var class="Ar">queue</var> is specified; when a second one is specified it
+    will instead be used for packets which have a <i class="Em">TOS</i> of
+    <i class="Em">lowdelay</i> and for TCP ACKs with no data payload.</p>
+<p class="Pp">To continue the previous example, the examples below would specify
+    the four referenced queues, plus a few child queues. Interactive
+    <a class="Xr">ssh(1)</a> sessions get priority over bulk transfers like
+    <a class="Xr">scp(1)</a> and <a class="Xr">sftp(1)</a>. The queues may then
+    be referenced by filtering rules (see
+    <a class="Sx" href="#PACKET_FILTERING">PACKET FILTERING</a> below).</p>
+<div class="Bd Pp">
+<pre>
+queue std bandwidth 10% cbq(default)
+queue http bandwidth 60% priority 2 cbq(borrow red) \
+      { employees, developers }
+queue  developers bandwidth 75% cbq(borrow)
+queue  employees bandwidth 15%
+queue mail bandwidth 10% priority 0 cbq(borrow ecn)
+queue ssh bandwidth 20% cbq(borrow) { ssh_interactive, ssh_bulk }
+queue  ssh_interactive bandwidth 50% priority 7 cbq(borrow)
+queue  ssh_bulk bandwidth 50% priority 0 cbq(borrow)
+
+block return out on dc0 inet all queue std
+pass out on dc0 inet proto tcp from $developerhosts to any port 80 \
+      queue developers
+pass out on dc0 inet proto tcp from $employeehosts to any port 80 \
+      queue employees
+pass out on dc0 inet proto tcp from any to any port 22 \
+      queue(ssh_bulk, ssh_interactive)
+pass out on dc0 inet proto tcp from any to any port 25 \
+      queue mail
+</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TRANSLATION"><a class="permalink" href="#TRANSLATION">TRANSLATION</a></h1>
+Translation rules modify either the source or destination address of the packets
+  associated with a stateful connection. A stateful connection is automatically
+  created to track packets matching such a rule as long as they are not blocked
+  by the filtering section of <code class="Nm">pf.conf</code>. The translation
+  engine modifies the specified address and/or port in the packet, recalculates
+  IP, TCP and UDP checksums as necessary, and passes it to the packet filter for
+  evaluation.
+<p class="Pp">Since translation occurs before filtering the filter engine will
+    see packets as they look after any addresses and ports have been translated.
+    Filter rules will therefore have to filter based on the translated address
+    and port number. Packets that match a translation rule are only
+    automatically passed if the <var class="Ar">pass</var> modifier is given,
+    otherwise they are still subject to <var class="Ar">block</var> and
+    <var class="Ar">pass</var> rules.</p>
+<p class="Pp">The state entry created permits packet filter to keep track of the
+    original address for traffic associated with that state and correctly direct
+    return traffic for that connection.</p>
+<p class="Pp">Various types of translation are possible with pf:</p>
+<dl class="Bl-tag">
+  <dt><var class="Ar">binat</var></dt>
+  <dd>A <var class="Ar">binat</var> rule specifies a bidirectional mapping
+      between an external IP netblock and an internal IP netblock.</dd>
+  <dt><var class="Ar">nat</var></dt>
+  <dd>A <var class="Ar">nat</var> rule specifies that IP addresses are to be
+      changed as the packet traverses the given interface. This technique allows
+      one or more IP addresses on the translating host to support network
+      traffic for a larger range of machines on an &quot;inside&quot; network.
+      Although in theory any IP address can be used on the inside, it is
+      strongly recommended that one of the address ranges defined by RFC 1918 be
+      used. These netblocks are:
+    <div class="Bd Pp">
+    <pre>
+10.0.0.0 - 10.255.255.255 (all of net 10, i.e., 10/8)
+172.16.0.0 - 172.31.255.255 (i.e., 172.16/12)
+192.168.0.0 - 192.168.255.255 (i.e., 192.168/16)
+    </pre>
+    </div>
+  </dd>
+  <dt><span class="Pa">rdr</span></dt>
+  <dd>The packet is redirected to another destination and possibly a different
+      port. <var class="Ar">rdr</var> rules can optionally specify port ranges
+      instead of single ports. rdr ... port 2000:2999 -&gt; ... port 4000
+      redirects ports 2000 to 2999 (inclusive) to port 4000. rdr ... port
+      2000:2999 -&gt; ... port 4000:* redirects port 2000 to 4000, 2001 to 4001,
+      ..., 2999 to 4999.</dd>
+</dl>
+<p class="Pp">In addition to modifying the address, some translation rules may
+    modify source or destination ports for <a class="Xr">tcp(4)</a> or
+    <a class="Xr">udp(4)</a> connections; implicitly in the case of
+    <var class="Ar">nat</var> rules and explicitly in the case of
+    <var class="Ar">rdr</var> rules. Port numbers are never translated with a
+    <var class="Ar">binat</var> rule.</p>
+<p class="Pp">Evaluation order of the translation rules is dependent on the type
+    of the translation rules and of the direction of a packet.
+    <var class="Ar">binat</var> rules are always evaluated first. Then either
+    the <var class="Ar">rdr</var> rules are evaluated on an inbound packet or
+    the <var class="Ar">nat</var> rules on an outbound packet. Rules of the same
+    type are evaluated in the same order in which they appear in the ruleset.
+    The first matching rule decides what action is taken.</p>
+<p class="Pp">The <var class="Ar">no</var> option prefixed to a translation rule
+    causes packets to remain untranslated, much in the same way as
+    <var class="Ar">drop quick</var> works in the packet filter (see below). If
+    no rule matches the packet it is passed to the filter engine unmodified.</p>
+<p class="Pp">Translation rules apply only to packets that pass through the
+    specified interface, and if no interface is specified, translation is
+    applied to packets on all interfaces. For instance, redirecting port 80 on
+    an external interface to an internal web server will only work for
+    connections originating from the outside. Connections to the address of the
+    external interface from local hosts will not be redirected, since such
+    packets do not actually pass through the external interface. Redirections
+    cannot reflect packets back through the interface they arrive on, they can
+    only be redirected to hosts connected to different interfaces or to the
+    firewall itself.</p>
+<p class="Pp">Note that redirecting external incoming connections to the
+    loopback address, as in</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+rdr on ne3 inet proto tcp to port smtp -&gt; 127.0.0.1 port spamd
+</pre>
+</div>
+<p class="Pp">will effectively allow an external host to connect to daemons
+    bound solely to the loopback address, circumventing the traditional blocking
+    of such connections on a real interface. Unless this effect is desired, any
+    of the local non-loopback addresses should be used as redirection target
+    instead, which allows external connections only to daemons bound to this
+    address or not bound to any address.</p>
+<p class="Pp">See <a class="Sx" href="#TRANSLATION_EXAMPLES">TRANSLATION
+    EXAMPLES</a> below.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PACKET_FILTERING"><a class="permalink" href="#PACKET_FILTERING">PACKET
+  FILTERING</a></h1>
+Packet filter has the ability to <var class="Ar">block</var> and
+  <var class="Ar">pass</var> packets based on attributes of their layer 3 (see
+  <a class="Xr">ip(4)</a> and <a class="Xr">ip6(4)</a>) and layer 4 (see
+  <a class="Xr">icmp(4)</a>, <a class="Xr">icmp6(4)</a>,
+  <a class="Xr">tcp(4)</a>, <a class="Xr">udp(4)</a>) headers. In addition,
+  packets may also be assigned to queues for the purpose of bandwidth control.
+<p class="Pp">For each packet processed by the packet filter, the filter rules
+    are evaluated in sequential order, from first to last. The last matching
+    rule decides what action is taken. If no rule matches the packet, the
+    default action is to pass the packet.</p>
+<p class="Pp">The following actions can be used in the filter:</p>
+<dl class="Bl-tag">
+  <dt><var class="Ar">block</var></dt>
+  <dd>The packet is blocked. There are a number of ways in which a
+      <var class="Ar">block</var> rule can behave when blocking a packet. The
+      default behaviour is to <var class="Ar">drop</var> packets silently,
+      however this can be overridden or made explicit either globally, by
+      setting the <var class="Ar">block-policy</var> option, or on a per-rule
+      basis with one of the following options:
+    <p class="Pp"></p>
+    <dl class="Bl-tag Bl-compact">
+      <dt><var class="Ar">drop</var></dt>
+      <dd>The packet is silently dropped.</dd>
+      <dt><var class="Ar">return-rst</var></dt>
+      <dd>This applies only to <a class="Xr">tcp(4)</a> packets, and issues a
+          TCP RST which closes the connection.</dd>
+      <dt><var class="Ar">return-icmp</var></dt>
+      <dd style="width: auto;">&#x00A0;</dd>
+      <dt><var class="Ar">return-icmp6</var></dt>
+      <dd>This causes ICMP messages to be returned for packets which match the
+          rule. By default this is an ICMP UNREACHABLE message, however this can
+          be overridden by specifying a message as a code or number.</dd>
+      <dt><var class="Ar">return</var></dt>
+      <dd>This causes a TCP RST to be returned for <a class="Xr">tcp(4)</a>
+          packets and an ICMP UNREACHABLE for UDP and other packets.</dd>
+    </dl>
+    <p class="Pp">Options returning ICMP packets currently have no effect if
+        packet filter operates on a <a class="Xr">bridge(4)</a>, as the code to
+        support this feature has not yet been implemented.</p>
+    <p class="Pp">The simplest mechanism to block everything by default and only
+        pass packets that match explicit rules is specify a first filter rule
+        of:</p>
+    <div class="Bd Pp Bd-indent">
+    <pre>
+block all
+    </pre>
+    </div>
+  </dd>
+  <dt><var class="Ar">pass</var></dt>
+  <dd>The packet is passed; state is created unless the <var class="Ar">no
+      state</var> option is specified.</dd>
+</dl>
+<p class="Pp">By default packet filter filters packets statefully; the first
+    time a packet matches a <var class="Ar">pass</var> rule, a state entry is
+    created; for subsequent packets the filter checks whether the packet matches
+    any state. If it does, the packet is passed without evaluation of any rules.
+    After the connection is closed or times out, the state entry is
+    automatically removed.</p>
+<p class="Pp">This has several advantages. For TCP connections, comparing a
+    packet to a state involves checking its sequence numbers, as well as TCP
+    timestamps if a <var class="Ar">scrub reassemble tcp</var> rule applies to
+    the connection. If these values are outside the narrow windows of expected
+    values, the packet is dropped. This prevents spoofing attacks, such as when
+    an attacker sends packets with a fake source address/port but does not know
+    the connection's sequence numbers. Similarly, packet filter knows how to
+    match ICMP replies to states. For example,</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+pass out inet proto icmp all icmp-type echoreq
+</pre>
+</div>
+<p class="Pp">allows echo requests (such as those created by
+    <a class="Xr">ping(8)</a>) out statefully, and matches incoming echo replies
+    correctly to states.</p>
+<p class="Pp">Also, looking up states is usually faster than evaluating rules.
+    If there are 50 rules, all of them are evaluated sequentially in O(n). Even
+    with 50000 states, only 16 comparisons are needed to match a state, since
+    states are stored in a binary search tree that allows searches in O(log2
+  n).</p>
+<p class="Pp">Furthermore, correct handling of ICMP error messages is critical
+    to many protocols, particularly TCP. Packet filter matches ICMP error
+    messages to the correct connection, checks them against connection
+    parameters, and passes them if appropriate. For example if an ICMP source
+    quench message referring to a stateful TCP connection arrives, it will be
+    matched to the state and get passed.</p>
+<p class="Pp">Finally, state tracking is required for <var class="Ar">nat</var>,
+    <var class="Ar">binat</var> <span class="No">and</span>
+    <var class="Ar">rdr</var> rules, in order to track address and port
+    translations and reverse the translation on returning packets.</p>
+<p class="Pp">Packet filter will also create state for other protocols which are
+    effectively stateless by nature. UDP packets are matched to states using
+    only host addresses and ports, and other protocols are matched to states
+    using only the host addresses.</p>
+<p class="Pp">If stateless filtering of individual packets is desired, the
+    <var class="Ar">no state</var> keyword can be used to specify that state
+    will not be created if this is the last matching rule. A number of
+    parameters can also be set to affect how packet filter handles state
+    tracking. See <a class="Sx" href="#STATEFUL_TRACKING_OPTIONS">STATEFUL
+    TRACKING OPTIONS</a> below for further details.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PARAMETERS"><a class="permalink" href="#PARAMETERS">PARAMETERS</a></h1>
+The rule parameters specify the packets to which a rule applies. A packet always
+  comes in on, or goes out through, one interface. Most parameters are optional.
+  If a parameter is specified, the rule only applies to packets with matching
+  attributes. Certain parameters can be expressed as lists, in which case
+  <a class="Xr">pfctl(8)</a> generates all needed rule combinations.
+<dl class="Bl-tag">
+  <dt><var class="Ar">in</var> <span class="No">or</span>
+    <var class="Ar">out</var></dt>
+  <dd>This rule applies to incoming or outgoing packets. If neither
+      <var class="Ar">in</var> nor <var class="Ar">out</var> are specified, the
+      rule will match packets in both directions.</dd>
+  <dt><var class="Ar">log</var></dt>
+  <dd>In addition to the action specified, a log message is generated. Only the
+      packet that establishes the state is logged, unless the <var class="Ar">no
+      state</var> option is specified. The logged packets are sent to a
+      <a class="Xr">pflog(4)</a> interface, by default
+      <var class="Ar">pflog0</var>.</dd>
+  <dt><var class="Ar">log (all)</var></dt>
+  <dd>Used to force logging of all packets for a connection. This is not
+      necessary when <var class="Ar">no state</var> is explicitly specified. As
+      with <var class="Ar">log</var>, packets are logged to
+      <a class="Xr">pflog(4)</a>.</dd>
+  <dt><var class="Ar">log (user)</var></dt>
+  <dd>Logs the <span class="Ux">UNIX</span> user ID of the user that owns the
+      socket and the PID of the process that has the socket open where the
+      packet is sourced from or destined to (depending on which socket is
+      local). This is in addition to the normal information logged.</dd>
+  <dt><var class="Ar">log (to</var>
+    &#x27E8;<var class="Ar">interface</var>&#x27E9;)</dt>
+  <dd>Send logs to the specified <a class="Xr">pflog(4)</a> interface instead of
+      <var class="Ar">pflog0</var>.</dd>
+  <dt><var class="Ar">quick</var></dt>
+  <dd>If a packet matches a rule which has the <var class="Ar">quick</var>
+      option set, this rule is considered the last matching rule, and evaluation
+      of subsequent rules is skipped.</dd>
+  <dt><var class="Ar">on</var>
+    &#x27E8;<var class="Ar">interface</var>&#x27E9;</dt>
+  <dd>This rule applies only to packets coming in on, or going out through, this
+      particular interface or interface group. For more information on interface
+      groups, see the <code class="Ic">group</code> keyword in
+      <a class="Xr">ifconfig(8)</a>.</dd>
+  <dt>&#x27E8;<var class="Ar">af</var>&#x27E9;</dt>
+  <dd>This rule applies only to packets of this address family. Supported values
+      are <var class="Ar">inet</var> and <var class="Ar">inet6</var>.</dd>
+  <dt><var class="Ar">proto</var>
+    &#x27E8;<var class="Ar">protocol</var>&#x27E9;</dt>
+  <dd>This rule applies only to packets of this protocol. Common protocols are
+      <a class="Xr">icmp(4)</a>, <a class="Xr">icmp6(4)</a>,
+      <a class="Xr">tcp(4)</a>, and <a class="Xr">udp(4)</a>. For a list of all
+      the protocol name to number mappings used by <a class="Xr">pfctl(8)</a>,
+      see the file <i class="Em">/etc/protocols</i>.</dd>
+  <dt><var class="Ar">from</var> &#x27E8;<var class="Ar">source</var>&#x27E9;
+    <var class="Ar">port</var> &#x27E8;<var class="Ar">source</var>&#x27E9;
+    <var class="Ar">os</var> &#x27E8;<var class="Ar">source</var>&#x27E9;
+    <var class="Ar">to</var> &#x27E8;<var class="Ar">dest</var>&#x27E9;
+    <var class="Ar">port</var> &#x27E8;<var class="Ar">dest</var>&#x27E9;</dt>
+  <dd>This rule applies only to packets with the specified source and
+      destination addresses and ports.
+    <p class="Pp">Addresses can be specified in CIDR notation (matching
+        netblocks), as symbolic host names, interface names or interface group
+        names, or as any of the following keywords:</p>
+    <p class="Pp"></p>
+    <dl class="Bl-tag Bl-compact">
+      <dt><var class="Ar">any</var></dt>
+      <dd>Any address.</dd>
+      <dt><var class="Ar">route</var>
+        &#x27E8;<var class="Ar">label</var>&#x27E9;</dt>
+      <dd>Any address whose associated route has label
+          &#x27E8;<var class="Ar">label</var>&#x27E9;. See
+          <a class="Xr">route(4)</a> and <a class="Xr">route(8)</a>.</dd>
+      <dt><var class="Ar">no-route</var></dt>
+      <dd>Any address which is not currently routable.</dd>
+      <dt><var class="Ar">urpf-failed</var></dt>
+      <dd>Any source address that fails a unicast reverse path forwarding (URPF)
+          check, i.e. packets coming in on an interface other than that which
+          holds the route back to the packet's source address.</dd>
+      <dt>&#x27E8;<var class="Ar">table</var>&#x27E9;</dt>
+      <dd>Any address that matches the given table.</dd>
+    </dl>
+    <p class="Pp">Ranges of addresses are specified by using the
+        &#x2018;-&#x2019; operator. For instance: &#x201C;10.1.1.10 -
+        10.1.1.12&#x201D; means all addresses from 10.1.1.10 to 10.1.1.12, hence
+        addresses 10.1.1.10, 10.1.1.11, and 10.1.1.12.</p>
+    <p class="Pp">Interface names and interface group names can have modifiers
+        appended:</p>
+    <p class="Pp"></p>
+    <dl class="Bl-tag Bl-compact">
+      <dt><var class="Ar">:network</var></dt>
+      <dd>Translates to the network(s) attached to the interface.</dd>
+      <dt><var class="Ar">:broadcast</var></dt>
+      <dd>Translates to the interface's broadcast address(es).</dd>
+      <dt><var class="Ar">:peer</var></dt>
+      <dd>Translates to the point to point interface's peer address(es).</dd>
+      <dt><var class="Ar">:0</var></dt>
+      <dd>Do not include interface aliases.</dd>
+    </dl>
+    <p class="Pp">Host names may also have the <var class="Ar">:0</var> option
+        appended to restrict the name resolution to the first of each v4 and v6
+        address found.</p>
+    <p class="Pp">Host name resolution and interface to address translation are
+        done at ruleset load-time. When the address of an interface (or host
+        name) changes (under DHCP or PPP, for instance), the ruleset must be
+        reloaded for the change to be reflected in the kernel. Surrounding the
+        interface name (and optional modifiers) in parentheses changes this
+        behaviour. When the interface name is surrounded by parentheses, the
+        rule is automatically updated whenever the interface changes its
+        address. The ruleset does not need to be reloaded. This is especially
+        useful with <var class="Ar">nat</var>.</p>
+    <p class="Pp">Ports can be specified either by number or by name. For
+        example, port 80 can be specified as <i class="Em">www</i>. For a list
+        of all port name to number mappings used by <a class="Xr">pfctl(8)</a>,
+        see the file <span class="Pa">/etc/services</span>.</p>
+    <p class="Pp">Ports and ranges of ports are specified by using these
+        operators:</p>
+    <div class="Bd Pp Bd-indent">
+    <pre>
+=	(equal)
+!=	(unequal)
+&lt;	(less than)
+&#x2264;	(less than or equal)
+&gt;	(greater than)
+&#x2265;	(greater than or equal)
+:	(range including boundaries)
+&gt;&lt;	(range excluding boundaries)
+&lt;&gt;	(except range)
+    </pre>
+    </div>
+    <p class="Pp">&#x2018;&gt;&lt;&#x2019;, &#x2018;&lt;&gt;&#x2019; and
+        &#x2018;:&#x2019; are binary operators (they take two arguments). For
+        instance:</p>
+    <dl class="Bl-tag">
+      <dt><var class="Ar">port 2000:2004</var></dt>
+      <dd>means &#x2018;all ports &#x2265; 2000 and &#x2264; 2004&#x2019;, hence
+          ports 2000, 2001, 2002, 2003 and 2004.</dd>
+      <dt><var class="Ar">port 2000 &gt;&lt; 2004</var></dt>
+      <dd>means &#x2018;all ports &gt; 2000 and &lt; 2004&#x2019;, hence ports
+          2001, 2002 and 2003.</dd>
+      <dt><var class="Ar">port 2000 &lt;&gt; 2004</var></dt>
+      <dd>means &#x2018;all ports &lt; 2000 or &gt; 2004&#x2019;, hence ports
+          1-1999 and 2005-65535.</dd>
+    </dl>
+    <p class="Pp">The operating system of the source host can be specified in
+        the case of TCP rules with the <var class="Ar">OS</var> modifier. See
+        the <a class="Sx" href="#OPERATING_SYSTEM_FINGERPRINTING">OPERATING
+        SYSTEM FINGERPRINTING</a> section for more information.</p>
+    <p class="Pp">The host, port and OS specifications are optional, as in the
+        following examples:</p>
+    <div class="Bd Pp Bd-indent">
+    <pre>
+pass in all
+pass in from any to any
+pass in proto tcp from any port &#x2264; 1024 to any
+pass in proto tcp from any to any port 25
+pass in proto tcp from 10.0.0.0/8 port &gt; 1024 \
+      to ! 10.1.2.3 port != ssh
+pass in proto tcp from any os &quot;OpenBSD&quot;
+pass in proto tcp from route &quot;DTAG&quot;
+    </pre>
+    </div>
+  </dd>
+  <dt><var class="Ar">all</var></dt>
+  <dd>This is equivalent to &quot;from any to any&quot;.</dd>
+  <dt><var class="Ar">group</var>
+    &#x27E8;<var class="Ar">group</var>&#x27E9;</dt>
+  <dd>Similar to <var class="Ar">user</var>, this rule only applies to packets
+      of sockets owned by the specified group.</dd>
+  <dt><var class="Ar">user</var> &#x27E8;<var class="Ar">user</var>&#x27E9;</dt>
+  <dd>This rule only applies to packets of sockets owned by the specified user.
+      For outgoing connections initiated from the firewall, this is the user
+      that opened the connection. For incoming connections to the firewall
+      itself, this is the user that listens on the destination port. For
+      forwarded connections, where the firewall is not a connection endpoint,
+      the user and group are <i class="Em">unknown</i>.
+    <p class="Pp">All packets, both outgoing and incoming, of one connection are
+        associated with the same user and group. Only TCP and UDP packets can be
+        associated with users; for other protocols these parameters are
+      ignored.</p>
+    <p class="Pp">User and group refer to the effective (as opposed to the real)
+        IDs, in case the socket is created by a setuid/setgid process. User and
+        group IDs are stored when a socket is created; when a process creates a
+        listening socket as root (for instance, by binding to a privileged port)
+        and subsequently changes to another user ID (to drop privileges), the
+        credentials will remain root.</p>
+    <p class="Pp">User and group IDs can be specified as either numbers or
+        names. The syntax is similar to the one for ports. The value
+        <i class="Em">unknown</i> matches packets of forwarded connections.
+        <i class="Em">unknown</i> can only be used with the operators
+        <code class="Cm">=</code> and <code class="Cm">!=</code>. Other
+        constructs like <code class="Cm">user &#x2265; unknown</code> are
+        invalid. Forwarded packets with unknown user and group ID match only
+        rules that explicitly compare against <i class="Em">unknown</i> with the
+        operators <code class="Cm">=</code> or <code class="Cm">!=</code>. For
+        instance <code class="Cm">user &#x2265; 0</code> does not match
+        forwarded packets. The following example allows only selected users to
+        open outgoing connections:</p>
+    <div class="Bd Pp Bd-indent">
+    <pre>
+block out proto { tcp, udp } all
+pass  out proto { tcp, udp } all user { &lt; 1000, dhartmei }
+    </pre>
+    </div>
+  </dd>
+  <dt><var class="Ar">flags</var> &#x27E8;<var class="Ar">a</var>&#x27E9;
+    /&#x27E8;<var class="Ar">b</var>&#x27E9; |
+    <span class="No">/</span>&#x27E8;<var class="Ar">b</var>&#x27E9; |
+    <span class="No">any</span></dt>
+  <dd>This rule only applies to TCP packets that have the flags
+      &#x27E8;<var class="Ar">a</var>&#x27E9; set out of set
+      &#x27E8;<var class="Ar">b</var>&#x27E9;. Flags not specified in
+      &#x27E8;<var class="Ar">b</var>&#x27E9; are ignored. For stateful
+      connections, the default is <var class="Ar">flags S/SA</var>. To indicate
+      that flags should not be checked at all, specify <var class="Ar">flags
+      any</var>. The flags are: (F)IN, (S)YN, (R)ST, (P)USH, (A)CK, (U)RG,
+      (E)CE, and C(W)R.
+    <dl class="Bl-tag">
+      <dt><var class="Ar">flags S/S</var></dt>
+      <dd>Flag SYN is set. The other flags are ignored.</dd>
+      <dt><var class="Ar">flags S/SA</var></dt>
+      <dd>This is the default setting for stateful connections. Out of SYN and
+          ACK, exactly SYN may be set. SYN, SYN+PSH and SYN+RST match, but
+          SYN+ACK, ACK and ACK+RST do not. This is more restrictive than the
+          previous example.</dd>
+      <dt><var class="Ar">flags /SFRA</var></dt>
+      <dd>If the first set is not specified, it defaults to none. All of SYN,
+          FIN, RST and ACK must be unset.</dd>
+    </dl>
+    <p class="Pp">Because <var class="Ar">flags S/SA</var> is applied by default
+        (unless <var class="Ar">no state</var> is specified), only the initial
+        SYN packet of a TCP handshake will create a state for a TCP connection.
+        It is possible to be less restrictive, and allow state creation from
+        intermediate (non-SYN) packets, by specifying <var class="Ar">flags
+        any</var>. This will cause packet filter to synchronize to existing
+        connections, for instance if one flushes the state table. However,
+        states created from such intermediate packets may be missing connection
+        details such as the TCP window scaling factor. States which modify the
+        packet flow, such as those affected by <var class="Ar">nat</var>,
+        <var class="Ar">binat</var> <span class="No">or</span>
+        <var class="Ar">rdr</var> rules, <var class="Ar">modulate</var>
+        <span class="No">or</span> <var class="Ar">synproxy state</var> options,
+        or scrubbed with <var class="Ar">reassemble tcp</var> will also not be
+        recoverable from intermediate packets. Such connections will stall and
+        time out.</p>
+  </dd>
+  <dt><var class="Ar">icmp-type</var> &#x27E8;<var class="Ar">type</var>&#x27E9;
+    <var class="Ar">code</var> &#x27E8;<var class="Ar">code</var>&#x27E9;</dt>
+  <dd style="width: auto;">&#x00A0;</dd>
+  <dt><var class="Ar">icmp6-type</var>
+    &#x27E8;<var class="Ar">type</var>&#x27E9; <var class="Ar">code</var>
+    &#x27E8;<var class="Ar">code</var>&#x27E9;</dt>
+  <dd>This rule only applies to ICMP or ICMPv6 packets with the specified type
+      and code. Text names for ICMP types and codes are listed in
+      <a class="Xr">icmp(4)</a> and <a class="Xr">icmp6(4)</a>. This parameter
+      is only valid for rules that cover protocols ICMP or ICMP6. The protocol
+      and the ICMP type indicator (<var class="Ar">icmp-type</var> or
+      <var class="Ar">icmp6-type</var>) must match.</dd>
+  <dt><var class="Ar">tos</var> &#x27E8;<var class="Ar">string</var>&#x27E9; |
+    &#x27E8;<var class="Ar">number</var>&#x27E9;</dt>
+  <dd>This rule applies to packets with the specified <i class="Em">TOS</i> bits
+      set. <i class="Em">TOS</i> may be given as one of
+      <var class="Ar">lowdelay</var>, <var class="Ar">throughput</var>,
+      <var class="Ar">reliability</var>, or as either hex or decimal.
+    <p class="Pp">For example, the following rules are identical:</p>
+    <div class="Bd Pp Bd-indent">
+    <pre>
+pass all tos lowdelay
+pass all tos 0x10
+pass all tos 16
+    </pre>
+    </div>
+  </dd>
+  <dt><var class="Ar">allow-opts</var></dt>
+  <dd>By default, IPv4 packets with IP options or IPv6 packets with routing
+      extension headers are blocked. When <var class="Ar">allow-opts</var> is
+      specified for a <var class="Ar">pass</var> rule, packets that pass the
+      filter based on that rule (last matching) do so even if they contain IP
+      options or routing extension headers. For packets that match state, the
+      rule that initially created the state is used. The implicit
+      <var class="Ar">pass</var> rule that is used when a packet does not match
+      any rules does not allow IP options.</dd>
+  <dt><var class="Ar">label</var>
+    &#x27E8;<var class="Ar">string</var>&#x27E9;</dt>
+  <dd>Adds a label (name) to the rule, which can be used to identify the rule.
+      For instance, pfctl -s labels shows per-rule statistics for rules that
+      have labels.
+    <p class="Pp">The following macros can be used in labels:</p>
+    <p class="Pp"></p>
+    <div class="Bd-indent">
+    <dl class="Bl-tag Bl-compact">
+      <dt><var class="Ar">$if</var></dt>
+      <dd>The interface.</dd>
+      <dt><var class="Ar">$srcaddr</var></dt>
+      <dd>The source IP address.</dd>
+      <dt><var class="Ar">$dstaddr</var></dt>
+      <dd>The destination IP address.</dd>
+      <dt><var class="Ar">$srcport</var></dt>
+      <dd>The source port specification.</dd>
+      <dt><var class="Ar">$dstport</var></dt>
+      <dd>The destination port specification.</dd>
+      <dt><var class="Ar">$proto</var></dt>
+      <dd>The protocol name.</dd>
+      <dt><var class="Ar">$nr</var></dt>
+      <dd>The rule number.</dd>
+    </dl>
+    </div>
+    <p class="Pp">For example:</p>
+    <div class="Bd Pp Bd-indent">
+    <pre>
+ips = &quot;{ 1.2.3.4, 1.2.3.5 }&quot;
+pass in proto tcp from any to $ips \
+      port &gt; 1023 label &quot;$dstaddr:$dstport&quot;
+    </pre>
+    </div>
+    <p class="Pp">expands to</p>
+    <div class="Bd Pp Bd-indent">
+    <pre>
+pass in inet proto tcp from any to 1.2.3.4 \
+      port &gt; 1023 label &quot;1.2.3.4:&gt;1023&quot;
+pass in inet proto tcp from any to 1.2.3.5 \
+      port &gt; 1023 label &quot;1.2.3.5:&gt;1023&quot;
+    </pre>
+    </div>
+    <p class="Pp">The macro expansion for the <var class="Ar">label</var>
+        directive occurs only at configuration file parse time, not during
+        runtime.</p>
+  </dd>
+  <dt><var class="Ar">queue</var> &#x27E8;<var class="Ar">queue</var>&#x27E9; |
+    (&#x27E8;<var class="Ar">queue</var>&#x27E9;,
+    &#x27E8;<var class="Ar">queue</var>&#x27E9;)</dt>
+  <dd>Packets matching this rule will be assigned to the specified queue. If two
+      queues are given, packets which have a <i class="Em">TOS</i> of
+      <i class="Em">lowdelay</i> and TCP ACKs with no data payload will be
+      assigned to the second one. See
+      <a class="Sx" href="#QUEUEING">QUEUEING</a> for setup details.
+    <p class="Pp">For example:</p>
+    <div class="Bd Pp Bd-indent">
+    <pre>
+pass in proto tcp to port 25 queue mail
+pass in proto tcp to port 22 queue(ssh_bulk, ssh_prio)
+    </pre>
+    </div>
+  </dd>
+  <dt><var class="Ar">tag</var>
+    &#x27E8;<var class="Ar">string</var>&#x27E9;</dt>
+  <dd>Packets matching this rule will be tagged with the specified string. The
+      tag acts as an internal marker that can be used to identify these packets
+      later on. This can be used, for example, to provide trust between
+      interfaces and to determine if packets have been processed by translation
+      rules. Tags are &#x201C;sticky&#x201D;, meaning that the packet will be
+      tagged even if the rule is not the last matching rule. Further matching
+      rules can replace the tag with a new one but will not remove a previously
+      applied tag. A packet is only ever assigned one tag at a time. Packet
+      tagging can be done during <var class="Ar">nat</var>,
+      <var class="Ar">rdr</var>, or <var class="Ar">binat</var> rules in
+      addition to filter rules. Tags take the same macros as labels (see
+    above).</dd>
+  <dt><var class="Ar">tagged</var>
+    &#x27E8;<var class="Ar">string</var>&#x27E9;</dt>
+  <dd>Used with filter or translation rules to specify that packets must already
+      be tagged with the given tag in order to match the rule. Inverse tag
+      matching can also be done by specifying the <code class="Cm">!</code>
+      operator before the <var class="Ar">tagged</var> keyword.</dd>
+  <dt><var class="Ar">rtable</var>
+    &#x27E8;<var class="Ar">number</var>&#x27E9;</dt>
+  <dd>Used to select an alternate routing table for the routing lookup. Only
+      effective before the route lookup happened, i.e. when filtering
+    inbound.</dd>
+  <dt><var class="Ar">probability</var>
+    &#x27E8;<var class="Ar">number</var>&#x27E9;</dt>
+  <dd>A probability attribute can be attached to a rule, with a value set
+      between 0 and 1, bounds not included. In that case, the rule will be
+      honoured using the given probability value only. For example, the
+      following rule will drop 20% of incoming ICMP packets:
+    <div class="Bd Pp Bd-indent">
+    <pre>
+block in proto icmp probability 20%
+    </pre>
+    </div>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ROUTING"><a class="permalink" href="#ROUTING">ROUTING</a></h1>
+If a packet matches a rule with a route option set, the packet filter will route
+  the packet according to the type of route option. When such a rule creates
+  state, the route option is also applied to all packets matching the same
+  connection.
+<dl class="Bl-tag">
+  <dt><var class="Ar">fastroute</var></dt>
+  <dd>The <var class="Ar">fastroute</var> option does a normal route lookup to
+      find the next hop for the packet.</dd>
+  <dt><var class="Ar">route-to</var></dt>
+  <dd>The <var class="Ar">route-to</var> option routes the packet to the
+      specified interface with an optional address for the next hop. When a
+      <var class="Ar">route-to</var> rule creates state, only packets that pass
+      in the same direction as the filter rule specifies will be routed in this
+      way. Packets passing in the opposite direction (replies) are not affected
+      and are routed normally.</dd>
+  <dt><var class="Ar">reply-to</var></dt>
+  <dd>The <var class="Ar">reply-to</var> option is similar to
+      <var class="Ar">route-to</var>, but routes packets that pass in the
+      opposite direction (replies) to the specified interface. Opposite
+      direction is only defined in the context of a state entry, and
+      <var class="Ar">reply-to</var> is useful only in rules that create state.
+      It can be used on systems with multiple external connections to route all
+      outgoing packets of a connection through the interface the incoming
+      connection arrived through (symmetric routing enforcement).</dd>
+  <dt><var class="Ar">dup-to</var></dt>
+  <dd>The <var class="Ar">dup-to</var> option creates a duplicate of the packet
+      and routes it like <var class="Ar">route-to</var>. The original packet
+      gets routed as it normally would.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="POOL_OPTIONS"><a class="permalink" href="#POOL_OPTIONS">POOL
+  OPTIONS</a></h1>
+For <var class="Ar">nat</var> and <var class="Ar">rdr</var> rules, (as well as
+  for the <var class="Ar">route-to</var>, <var class="Ar">reply-to</var> and
+  <var class="Ar">dup-to</var> rule options) for which there is a single
+  redirection address which has a subnet mask smaller than 32 for IPv4 or 128
+  for IPv6 (more than one IP address), a variety of different methods for
+  assigning this address can be used:
+<dl class="Bl-tag">
+  <dt><var class="Ar">bitmask</var></dt>
+  <dd>The <var class="Ar">bitmask</var> option applies the network portion of
+      the redirection address to the address to be modified (source with
+      <var class="Ar">nat</var>, destination with
+    <var class="Ar">rdr</var>).</dd>
+  <dt><var class="Ar">random</var></dt>
+  <dd>The <var class="Ar">random</var> option selects an address at random
+      within the defined block of addresses.</dd>
+  <dt><var class="Ar">source-hash</var></dt>
+  <dd>The <var class="Ar">source-hash</var> option uses a hash of the source
+      address to determine the redirection address, ensuring that the
+      redirection address is always the same for a given source. An optional key
+      can be specified after this keyword either in hex or as a string; by
+      default <a class="Xr">pfctl(8)</a> randomly generates a key for
+      source-hash every time the ruleset is reloaded.</dd>
+  <dt><var class="Ar">round-robin</var></dt>
+  <dd>The <var class="Ar">round-robin</var> option loops through the redirection
+      address(es).
+    <p class="Pp">When more than one redirection address is specified,
+        <var class="Ar">round-robin</var> is the only permitted pool type.</p>
+  </dd>
+  <dt><var class="Ar">static-port</var></dt>
+  <dd>With <var class="Ar">nat</var> rules, the
+      <var class="Ar">static-port</var> option prevents packet filter from
+      modifying the source port on TCP and UDP packets.</dd>
+</dl>
+<p class="Pp">Additionally, the <var class="Ar">sticky-address</var> option can
+    be specified to help ensure that multiple connections from the same source
+    are mapped to the same redirection address. This option can be used with the
+    <var class="Ar">random</var> and <var class="Ar">round-robin</var> pool
+    options. Note that by default these associations are destroyed as soon as
+    there are no longer states which refer to them; in order to make the
+    mappings last beyond the lifetime of the states, increase the global options
+    with <var class="Ar">set timeout src.track</var>. See
+    <a class="Sx" href="#STATEFUL_TRACKING_OPTIONS">STATEFUL TRACKING
+    OPTIONS</a> for more ways to control the source tracking.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STATE_MODULATION"><a class="permalink" href="#STATE_MODULATION">STATE
+  MODULATION</a></h1>
+Much of the security derived from TCP is attributable to how well the initial
+  sequence numbers (ISNs) are chosen. Some popular stack implementations choose
+  <i class="Em">very</i> poor ISNs and thus are normally susceptible to ISN
+  prediction exploits. By applying a <var class="Ar">modulate state</var> rule
+  to a TCP connection, packet filter will create a high quality random sequence
+  number for each connection endpoint.
+<p class="Pp">The <var class="Ar">modulate state</var> directive implicitly
+    keeps state on the rule and is only applicable to TCP connections.</p>
+<p class="Pp">For instance:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+block all
+pass out proto tcp from any to any modulate state
+pass in  proto tcp from any to any port 25 flags S/SFRA modulate state
+</pre>
+</div>
+<p class="Pp">Note that modulated connections will not recover when the state
+    table is lost (firewall reboot, flushing the state table, etc...). Packet
+    filter will not be able to infer a connection again after the state table
+    flushes the connection's modulator. When the state is lost, the connection
+    may be left dangling until the respective endpoints time out the connection.
+    It is possible on a fast local network for the endpoints to start an ACK
+    storm while trying to resynchronize after the loss of the modulator. The
+    default <var class="Ar">flags</var> settings (or a more strict equivalent)
+    should be used on <var class="Ar">modulate state</var> rules to prevent ACK
+    storms.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYN_PROXY"><a class="permalink" href="#SYN_PROXY">SYN
+  PROXY</a></h1>
+By default, packet filter passes packets that are part of a
+  <a class="Xr">tcp(4)</a> handshake between the endpoints. The
+  <var class="Ar">synproxy state</var> option can be used to cause packet filter
+  itself to complete the handshake with the active endpoint, perform a handshake
+  with the passive endpoint, and then forward packets between the endpoints.
+<p class="Pp">No packets are sent to the passive endpoint before the active
+    endpoint has completed the handshake, hence so-called SYN floods with
+    spoofed source addresses will not reach the passive endpoint, as the sender
+    can't complete the handshake.</p>
+<p class="Pp">The proxy is transparent to both endpoints, they each see a single
+    connection from/to the other endpoint. Packet filter chooses random initial
+    sequence numbers for both handshakes. Once the handshakes are completed, the
+    sequence number modulators (see previous section) are used to translate
+    further packets of the connection. <var class="Ar">synproxy state</var>
+    includes <var class="Ar">modulate state</var>.</p>
+<p class="Pp">Rules with <var class="Ar">synproxy</var> will not work if packet
+    filter operates on a <a class="Xr">bridge(4)</a>.</p>
+<p class="Pp">Example:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+pass in proto tcp from any to any port www synproxy state
+</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STATEFUL_TRACKING_OPTIONS"><a class="permalink" href="#STATEFUL_TRACKING_OPTIONS">STATEFUL
+  TRACKING OPTIONS</a></h1>
+A number of options related to stateful tracking can be applied on a per-rule
+  basis. <var class="Ar">keep state</var>, <var class="Ar">modulate state</var>
+  and <var class="Ar">synproxy state</var> support these options, and
+  <var class="Ar">keep state</var> must be specified explicitly to apply options
+  to a rule.
+<p class="Pp"></p>
+<dl class="Bl-tag Bl-compact">
+  <dt><var class="Ar">max</var>
+    &#x27E8;<var class="Ar">number</var>&#x27E9;</dt>
+  <dd>Limits the number of concurrent states the rule may create. When this
+      limit is reached, further packets that would create state will not match
+      this rule until existing states time out.</dd>
+  <dt>&#x27E8;<var class="Ar">timeout</var>&#x27E9;
+    &#x27E8;<var class="Ar">seconds</var>&#x27E9;</dt>
+  <dd>Changes the timeout values used for states created by this rule. For a
+      list of all valid timeout names, see
+      <a class="Sx" href="#OPTIONS">OPTIONS</a> above.</dd>
+</dl>
+<p class="Pp">Multiple options can be specified, separated by commas:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+pass in proto tcp from any to any \
+      port www keep state \
+      (max 100, source-track rule, max-src-nodes 75, \
+      max-src-states 3, tcp.established 60, tcp.closing 5)
+</pre>
+</div>
+<p class="Pp">When the <var class="Ar">source-track</var> keyword is specified,
+    the number of states per source IP is tracked.</p>
+<p class="Pp"></p>
+<dl class="Bl-tag Bl-compact">
+  <dt><var class="Ar">source-track rule</var></dt>
+  <dd>The maximum number of states created by this rule is limited by the rule's
+      <var class="Ar">max-src-nodes</var> and
+      <var class="Ar">max-src-states</var> options. Only state entries created
+      by this particular rule count toward the rule's limits.</dd>
+  <dt><var class="Ar">source-track global</var></dt>
+  <dd>The number of states created by all rules that use this option is limited.
+      Each rule can specify different <var class="Ar">max-src-nodes</var> and
+      <var class="Ar">max-src-states</var> options, however state entries
+      created by any participating rule count towards each individual rule's
+      limits.</dd>
+</dl>
+<p class="Pp">The following limits can be set:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag Bl-compact">
+  <dt><var class="Ar">max-src-nodes</var>
+    &#x27E8;<var class="Ar">number</var>&#x27E9;</dt>
+  <dd>Limits the maximum number of source addresses which can simultaneously
+      have state table entries.</dd>
+  <dt><var class="Ar">max-src-states</var>
+    &#x27E8;<var class="Ar">number</var>&#x27E9;</dt>
+  <dd>Limits the maximum number of simultaneous state entries that a single
+      source address can create with this rule.</dd>
+</dl>
+<p class="Pp">For stateful TCP connections, limits on established connections
+    (connections which have completed the TCP 3-way handshake) can also be
+    enforced per source IP.</p>
+<p class="Pp"></p>
+<dl class="Bl-tag Bl-compact">
+  <dt><var class="Ar">max-src-conn</var>
+    &#x27E8;<var class="Ar">number</var>&#x27E9;</dt>
+  <dd>Limits the maximum number of simultaneous TCP connections which have
+      completed the 3-way handshake that a single host can make.</dd>
+  <dt><var class="Ar">max-src-conn-rate</var>
+    &#x27E8;<var class="Ar">number</var>&#x27E9; <span class="No">/</span>
+    &#x27E8;<var class="Ar">seconds</var>&#x27E9;</dt>
+  <dd>Limit the rate of new connections over a time interval. The connection
+      rate is an approximation calculated as a moving average.</dd>
+</dl>
+<p class="Pp">Because the 3-way handshake ensures that the source address is not
+    being spoofed, more aggressive action can be taken based on these limits.
+    With the <var class="Ar">overload</var>
+    &#x27E8;<var class="Ar">table</var>&#x27E9; state option, source IP
+    addresses which hit either of the limits on established connections will be
+    added to the named table. This table can be used in the ruleset to block
+    further activity from the offending host, redirect it to a tarpit process,
+    or restrict its bandwidth.</p>
+<p class="Pp">The optional <var class="Ar">flush</var> keyword kills all states
+    created by the matching rule which originate from the host which exceeds
+    these limits. The <var class="Ar">global</var> modifier to the flush command
+    kills all states originating from the offending host, regardless of which
+    rule created the state.</p>
+<p class="Pp">For example, the following rules will protect the webserver
+    against hosts making more than 100 connections in 10 seconds. Any host which
+    connects faster than this rate will have its address added to the
+    &#x27E8;bad_hosts&#x27E9; table and have all states originating from it
+    flushed. Any new packets arriving from this host will be dropped
+    unconditionally by the block rule.</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+block quick from &lt;bad_hosts&gt;
+pass in on $ext_if proto tcp to $webserver port www keep state \
+	(max-src-conn-rate 100/10, overload &lt;bad_hosts&gt; flush global)
+</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPERATING_SYSTEM_FINGERPRINTING"><a class="permalink" href="#OPERATING_SYSTEM_FINGERPRINTING">OPERATING
+  SYSTEM FINGERPRINTING</a></h1>
+Passive OS Fingerprinting is a mechanism to inspect nuances of a TCP
+  connection's initial SYN packet and guess at the host's operating system.
+  Unfortunately these nuances are easily spoofed by an attacker so the
+  fingerprint is not useful in making security decisions. But the fingerprint is
+  typically accurate enough to make policy decisions upon.
+<p class="Pp">The fingerprints may be specified by operating system class, by
+    version, or by subtype/patchlevel. The class of an operating system is
+    typically the vendor or genre and would be <span class="Ux">OpenBSD</span>
+    for the packet filter firewall itself. The version of the oldest available
+    <span class="Ux">OpenBSD</span> release on the main FTP site would be 2.6
+    and the fingerprint would be written</p>
+<p class="Pp"></p>
+<div class="Bd Bd-indent"><code class="Li">&quot;OpenBSD 2.6&quot;</code></div>
+<p class="Pp">The subtype of an operating system is typically used to describe
+    the patchlevel if that patch led to changes in the TCP stack behavior. In
+    the case of <span class="Ux">OpenBSD</span>, the only subtype is for a
+    fingerprint that was normalized by the <var class="Ar">no-df</var> scrub
+    option and would be specified as</p>
+<p class="Pp"></p>
+<div class="Bd Bd-indent"><code class="Li">&quot;OpenBSD 3.3
+  no-df&quot;</code></div>
+<p class="Pp">Fingerprints for most popular operating systems are provided by
+    <a class="Xr">pf.os(5)</a>. Once packet filter is running, a complete list
+    of known operating system fingerprints may be listed by running:</p>
+<p class="Pp"></p>
+<div class="Bd Bd-indent"><code class="Li"># pfctl -so</code></div>
+<p class="Pp">Filter rules can enforce policy at any level of operating system
+    specification assuming a fingerprint is present. Policy could limit traffic
+    to approved operating systems or even ban traffic from hosts that aren't at
+    the latest service pack.</p>
+<p class="Pp">The <var class="Ar">unknown</var> class can also be used as the
+    fingerprint which will match packets for which no operating system
+    fingerprint is known.</p>
+<p class="Pp">Examples:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+pass  out proto tcp from any os OpenBSD
+block out proto tcp from any os Doors
+block out proto tcp from any os &quot;Doors PT&quot;
+block out proto tcp from any os &quot;Doors PT SP3&quot;
+block out from any os &quot;unknown&quot;
+pass on lo0 proto tcp from any os &quot;OpenBSD 3.3 lo0&quot;
+</pre>
+</div>
+<p class="Pp">Operating system fingerprinting is limited only to the TCP SYN
+    packet. This means that it will not work on other protocols and will not
+    match a currently established connection.</p>
+<p class="Pp">Caveat: operating system fingerprints are occasionally wrong.
+    There are three problems: an attacker can trivially craft his packets to
+    appear as any operating system he chooses; an operating system patch could
+    change the stack behavior and no fingerprints will match it until the
+    database is updated; and multiple operating systems may have the same
+    fingerprint.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BLOCKING_SPOOFED_TRAFFIC"><a class="permalink" href="#BLOCKING_SPOOFED_TRAFFIC">BLOCKING
+  SPOOFED TRAFFIC</a></h1>
+&quot;Spoofing&quot; is the faking of IP addresses, typically for malicious
+  purposes. The <var class="Ar">antispoof</var> directive expands to a set of
+  filter rules which will block all traffic with a source IP from the network(s)
+  directly connected to the specified interface(s) from entering the system
+  through any other interface.
+<p class="Pp">For example, the line</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+antispoof for lo0
+</pre>
+</div>
+<p class="Pp">expands to</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+block drop in on ! lo0 inet from 127.0.0.1/8 to any
+block drop in on ! lo0 inet6 from ::1 to any
+</pre>
+</div>
+<p class="Pp">For non-loopback interfaces, there are additional rules to block
+    incoming packets with a source IP address identical to the interface's
+    IP(s). For example, assuming the interface wi0 had an IP address of 10.0.0.1
+    and a netmask of 255.255.255.0, the line</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+antispoof for wi0 inet
+</pre>
+</div>
+<p class="Pp">expands to</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+block drop in on ! wi0 inet from 10.0.0.0/24 to any
+block drop in inet from 10.0.0.1 to any
+</pre>
+</div>
+<p class="Pp">Caveat: Rules created by the <var class="Ar">antispoof</var>
+    directive interfere with packets sent over loopback interfaces to local
+    addresses. One should pass these explicitly.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FRAGMENT_HANDLING"><a class="permalink" href="#FRAGMENT_HANDLING">FRAGMENT
+  HANDLING</a></h1>
+The size of IP datagrams (packets) can be significantly larger than the maximum
+  transmission unit (MTU) of the network. In cases when it is necessary or more
+  efficient to send such large packets, the large packet will be fragmented into
+  many smaller packets that will each fit onto the wire. Unfortunately for a
+  firewalling device, only the first logical fragment will contain the necessary
+  header information for the subprotocol that allows packet filter to filter on
+  things such as TCP ports or to perform NAT.
+<p class="Pp">Besides the use of <var class="Ar">scrub</var> rules as described
+    in <a class="Sx" href="#TRAFFIC_NORMALIZATION">TRAFFIC NORMALIZATION</a>
+    above, there are three options for handling fragments in the packet
+  filter.</p>
+<p class="Pp">One alternative is to filter individual fragments with filter
+    rules. If no <var class="Ar">scrub</var> rule applies to a fragment, it is
+    passed to the filter. Filter rules with matching IP header parameters decide
+    whether the fragment is passed or blocked, in the same way as complete
+    packets are filtered. Without reassembly, fragments can only be filtered
+    based on IP header fields (source/destination address, protocol), since
+    subprotocol header fields are not available (TCP/UDP port numbers, ICMP
+    code/type). The <var class="Ar">fragment</var> option can be used to
+    restrict filter rules to apply only to fragments, but not complete packets.
+    Filter rules without the <var class="Ar">fragment</var> option still apply
+    to fragments, if they only specify IP header fields. For instance, the
+  rule</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+pass in proto tcp from any to any port 80
+</pre>
+</div>
+<p class="Pp">never applies to a fragment, even if the fragment is part of a TCP
+    packet with destination port 80, because without reassembly this information
+    is not available for each fragment. This also means that fragments cannot
+    create new or match existing state table entries, which makes stateful
+    filtering and address translation (NAT, redirection) for fragments
+    impossible.</p>
+<p class="Pp">It's also possible to reassemble only certain fragments by
+    specifying source or destination addresses or protocols as parameters in
+    <var class="Ar">scrub</var> rules.</p>
+<p class="Pp">In most cases, the benefits of reassembly outweigh the additional
+    memory cost, and it's recommended to use <var class="Ar">scrub</var> rules
+    to reassemble all fragments via the <var class="Ar">fragment
+    reassemble</var> modifier.</p>
+<p class="Pp">The memory allocated for fragment caching can be limited using
+    <a class="Xr">pfctl(8)</a>. Once this limit is reached, fragments that would
+    have to be cached are dropped until other entries time out. The timeout
+    value can also be adjusted.</p>
+<p class="Pp">Currently, only IPv4 fragments are supported and IPv6 fragments
+    are blocked unconditionally.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ANCHORS"><a class="permalink" href="#ANCHORS">ANCHORS</a></h1>
+Besides the main ruleset, <a class="Xr">pfctl(8)</a> can load rulesets into
+  <var class="Ar">anchor</var> attachment points. An
+  <var class="Ar">anchor</var> is a container that can hold rules, address
+  tables, and other anchors.
+<p class="Pp">An <var class="Ar">anchor</var> has a name which specifies the
+    path where <a class="Xr">pfctl(8)</a> can be used to access the anchor to
+    perform operations on it, such as attaching child anchors to it or loading
+    rules into it. Anchors may be nested, with components separated by
+    &#x2018;/&#x2019; characters, similar to how file system hierarchies are
+    laid out. The main ruleset is actually the default anchor, so filter and
+    translation rules, for example, may also be contained in any anchor.</p>
+<p class="Pp">An anchor can reference another <var class="Ar">anchor</var>
+    attachment point using the following kinds of rules:</p>
+<dl class="Bl-tag">
+  <dt><var class="Ar">nat-anchor</var>
+    &#x27E8;<var class="Ar">name</var>&#x27E9;</dt>
+  <dd>Evaluates the <var class="Ar">nat</var> rules in the specified
+      <var class="Ar">anchor</var>.</dd>
+  <dt><var class="Ar">rdr-anchor</var>
+    &#x27E8;<var class="Ar">name</var>&#x27E9;</dt>
+  <dd>Evaluates the <var class="Ar">rdr</var> rules in the specified
+      <var class="Ar">anchor</var>.</dd>
+  <dt><var class="Ar">binat-anchor</var>
+    &#x27E8;<var class="Ar">name</var>&#x27E9;</dt>
+  <dd>Evaluates the <var class="Ar">binat</var> rules in the specified
+      <var class="Ar">anchor</var>.</dd>
+  <dt><var class="Ar">anchor</var>
+    &#x27E8;<var class="Ar">name</var>&#x27E9;</dt>
+  <dd>Evaluates the filter rules in the specified
+    <var class="Ar">anchor</var>.</dd>
+  <dt><var class="Ar">load anchor</var>
+    &#x27E8;<var class="Ar">name</var>&#x27E9; <var class="Ar">from</var>
+    &#x27E8;<var class="Ar">file</var>&#x27E9;</dt>
+  <dd>Loads the rules from the specified file into the anchor
+      <var class="Ar">name</var>.</dd>
+</dl>
+<p class="Pp">When evaluation of the main ruleset reaches an
+    <var class="Ar">anchor</var> rule, packet filter will proceed to evaluate
+    all rules specified in that anchor.</p>
+<p class="Pp">Matching filter and translation rules marked with the
+    <var class="Ar">quick</var> option are final and abort the evaluation of the
+    rules in other anchors and the main ruleset. If the
+    <var class="Ar">anchor</var> itself is marked with the
+    <var class="Ar">quick</var> option, ruleset evaluation will terminate when
+    the anchor is exited if the packet is matched by any rule within the
+  anchor.</p>
+<p class="Pp"><var class="Ar">anchor</var> rules are evaluated relative to the
+    anchor in which they are contained. For example, all
+    <var class="Ar">anchor</var> rules specified in the main ruleset will
+    reference anchor attachment points underneath the main ruleset, and
+    <var class="Ar">anchor</var> rules specified in a file loaded from a
+    <var class="Ar">load anchor</var> rule will be attached under that anchor
+    point.</p>
+<p class="Pp">Rules may be contained in <var class="Ar">anchor</var> attachment
+    points which do not contain any rules when the main ruleset is loaded, and
+    later such anchors can be manipulated through <a class="Xr">pfctl(8)</a>
+    without reloading the main ruleset or other anchors. For example,</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+ext_if = &quot;kue0&quot;
+block on $ext_if all
+anchor spam
+pass out on $ext_if all
+pass in on $ext_if proto tcp from any \
+      to $ext_if port smtp
+</pre>
+</div>
+<p class="Pp">blocks all packets on the external interface by default, then
+    evaluates all rules in the <var class="Ar">anchor</var> named
+    &quot;spam&quot;, and finally passes all outgoing connections and incoming
+    connections to port 25.</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+# echo &quot;block in quick from 1.2.3.4 to any&quot; | \
+      pfctl -a spam -f -
+</pre>
+</div>
+<p class="Pp">This loads a single rule into the <var class="Ar">anchor</var>,
+    which blocks all packets from a specific address.</p>
+<p class="Pp">The anchor can also be populated by adding a <var class="Ar">load
+    anchor</var> rule after the <var class="Ar">anchor</var> rule:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+anchor spam
+load anchor spam from &quot;/etc/pf-spam.conf&quot;
+</pre>
+</div>
+<p class="Pp">When <a class="Xr">pfctl(8)</a> loads
+    <code class="Nm">pf.conf</code>, it will also load all the rules from the
+    file <span class="Pa">/etc/pf-spam.conf</span> into the anchor.</p>
+<p class="Pp">Optionally, <var class="Ar">anchor</var> rules can specify packet
+    filtering parameters using the same syntax as filter rules. When parameters
+    are used, the <var class="Ar">anchor</var> rule is only evaluated for
+    matching packets. This allows conditional evaluation of anchors, like:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+block on $ext_if all
+anchor spam proto tcp from any to any port smtp
+pass out on $ext_if all
+pass in on $ext_if proto tcp from any to $ext_if port smtp
+</pre>
+</div>
+<p class="Pp">The rules inside <var class="Ar">anchor</var> spam are only
+    evaluated for <var class="Ar">tcp</var> packets with destination port 25.
+    Hence,</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+# echo &quot;block in quick from 1.2.3.4 to any&quot; | \
+      pfctl -a spam -f -
+</pre>
+</div>
+<p class="Pp">will only block connections from 1.2.3.4 to port 25.</p>
+<p class="Pp">Anchors may end with the asterisk (&#x2018;*&#x2019;) character,
+    which signifies that all anchors attached at that point should be evaluated
+    in the alphabetical ordering of their anchor name. For example,</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+anchor &quot;spam/*&quot;
+</pre>
+</div>
+<p class="Pp">will evaluate each rule in each anchor attached to the
+    <code class="Li">spam</code> anchor. Note that it will only evaluate anchors
+    that are directly attached to the <code class="Li">spam</code> anchor, and
+    will not descend to evaluate anchors recursively.</p>
+<p class="Pp">Since anchors are evaluated relative to the anchor in which they
+    are contained, there is a mechanism for accessing the parent and ancestor
+    anchors of a given anchor. Similar to file system path name resolution, if
+    the sequence &#x201C;..&#x201D; appears as an anchor path component, the
+    parent anchor of the current anchor in the path evaluation at that point
+    will become the new current anchor. As an example, consider the
+  following:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+# echo ' anchor &quot;spam/allowed&quot; ' | pfctl -f -
+# echo -e ' anchor &quot;../banned&quot; \n pass' | \
+      pfctl -a spam/allowed -f -
+</pre>
+</div>
+<p class="Pp">Evaluation of the main ruleset will lead into the
+    <code class="Li">spam/allowed</code> anchor, which will evaluate the rules
+    in the <code class="Li">spam/banned</code> anchor, if any, before finally
+    evaluating the <var class="Ar">pass</var> rule.</p>
+<p class="Pp">Filter rule <var class="Ar">anchors</var> can also be loaded
+    inline in the ruleset within a brace ('{' '}') delimited block. Brace
+    delimited blocks may contain rules or other brace-delimited blocks. When
+    anchors are loaded this way the anchor name becomes optional.</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+anchor &quot;external&quot; on egress {
+	block
+	anchor out {
+		pass proto tcp from any to port { 25, 80, 443 }
+	}
+	pass in proto tcp to any port 22
+}
+</pre>
+</div>
+<p class="Pp">Since the parser specification for anchor names is a string, any
+    reference to an anchor name containing &#x2018;/&#x2019; characters will
+    require double quote (&#x2018;&quot;&#x2019;) characters around the anchor
+    name.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TRANSLATION_EXAMPLES"><a class="permalink" href="#TRANSLATION_EXAMPLES">TRANSLATION
+  EXAMPLES</a></h1>
+This example maps incoming requests on port 80 to port 8080, on which a daemon
+  is running (because, for example, it is not run as root, and therefore lacks
+  permission to bind to port 80).
+<div class="Bd Pp">
+<pre>
+# use a macro for the interface name, so it can be changed easily
+ext_if = &quot;ne3&quot;
+
+# map daemon on 8080 to appear to be on 80
+rdr on $ext_if proto tcp from any to any port 80 -&gt; 127.0.0.1 port 8080
+</pre>
+</div>
+<p class="Pp">If the <var class="Ar">pass</var> modifier is given, packets
+    matching the translation rule are passed without inspecting the filter
+    rules:</p>
+<div class="Bd Pp">
+<pre>
+rdr pass on $ext_if proto tcp from any to any port 80 -&gt; 127.0.0.1 \
+      port 8080
+</pre>
+</div>
+<p class="Pp">In the example below, vlan12 is configured as 192.168.168.1; the
+    machine translates all packets coming from 192.168.168.0/24 to 204.92.77.111
+    when they are going out any interface except vlan12. This has the net effect
+    of making traffic from the 192.168.168.0/24 network appear as though it is
+    the Internet routable address 204.92.77.111 to nodes behind any interface on
+    the router except for the nodes on vlan12. (Thus, 192.168.168.1 can talk to
+    the 192.168.168.0/24 nodes.)</p>
+<div class="Bd Pp">
+<pre>
+nat on ! vlan12 from 192.168.168.0/24 to any -&gt; 204.92.77.111
+</pre>
+</div>
+<p class="Pp">In the example below, the machine sits between a fake internal
+    144.19.74.* network, and a routable external IP of 204.92.77.100. The
+    <var class="Ar">no nat</var> rule excludes protocol AH from being
+    translated.</p>
+<div class="Bd Pp">
+<pre>
+# NO NAT
+no nat on $ext_if proto ah from 144.19.74.0/24 to any
+nat on $ext_if from 144.19.74.0/24 to any -&gt; 204.92.77.100
+</pre>
+</div>
+<p class="Pp">In the example below, packets bound for one specific server, as
+    well as those generated by the sysadmins are not proxied; all other
+    connections are.</p>
+<div class="Bd Pp">
+<pre>
+# NO RDR
+no rdr on $int_if proto { tcp, udp } from any to $server port 80
+no rdr on $int_if proto { tcp, udp } from $sysadmins to any port 80
+rdr on $int_if proto { tcp, udp } from any to any port 80 -&gt; 127.0.0.1 \
+      port 80
+</pre>
+</div>
+<p class="Pp">This longer example uses both a NAT and a redirection. The
+    external interface has the address 157.161.48.183. On localhost, we are
+    running <a class="Xr">ftp-proxy(8)</a>, waiting for FTP sessions to be
+    redirected to it. The three mandatory anchors for
+    <a class="Xr">ftp-proxy(8)</a> are omitted from this example; see the
+    <a class="Xr">ftp-proxy(8)</a> manpage.</p>
+<div class="Bd Pp">
+<pre>
+# NAT
+# Translate outgoing packets' source addresses (any protocol).
+# In this case, any address but the gateway's external address is mapped.
+nat on $ext_if inet from ! ($ext_if) to any -&gt; ($ext_if)
+
+# NAT PROXYING
+# Map outgoing packets' source port to an assigned proxy port instead of
+# an arbitrary port.
+# In this case, proxy outgoing isakmp with port 500 on the gateway.
+nat on $ext_if inet proto udp from any port = isakmp to any -&gt; ($ext_if) \
+      port 500
+
+# BINAT
+# Translate outgoing packets' source address (any protocol).
+# Translate incoming packets' destination address to an internal machine
+# (bidirectional).
+binat on $ext_if from 10.1.2.150 to any -&gt; $ext_if
+
+# RDR
+# Translate incoming packets' destination addresses.
+# As an example, redirect a TCP and UDP port to an internal machine.
+rdr on $ext_if inet proto tcp from any to ($ext_if) port 8080 \
+      -&gt; 10.1.2.151 port 22
+rdr on $ext_if inet proto udp from any to ($ext_if) port 8080 \
+      -&gt; 10.1.2.151 port 53
+
+# RDR
+# Translate outgoing ftp control connections to send them to localhost
+# for proxying with ftp-proxy(8) running on port 8021.
+rdr on $int_if proto tcp from any to any port 21 -&gt; 127.0.0.1 port 8021
+</pre>
+</div>
+<p class="Pp">In this example, a NAT gateway is set up to translate internal
+    addresses using a pool of public addresses (192.0.2.16/28) and to redirect
+    incoming web server connections to a group of web servers on the internal
+    network.</p>
+<div class="Bd Pp">
+<pre>
+# NAT LOAD BALANCE
+# Translate outgoing packets' source addresses using an address pool.
+# A given source address is always translated to the same pool address by
+# using the source-hash keyword.
+nat on $ext_if inet from any to any -&gt; 192.0.2.16/28 source-hash
+
+# RDR ROUND ROBIN
+# Translate incoming web server connections to a group of web servers on
+# the internal network.
+rdr on $ext_if proto tcp from any to any port 80 \
+      -&gt; { 10.1.2.155, 10.1.2.160, 10.1.2.161 } round-robin
+</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILTER_EXAMPLES"><a class="permalink" href="#FILTER_EXAMPLES">FILTER
+  EXAMPLES</a></h1>
+<div class="Bd">
+<pre>
+# The external interface is kue0
+# (157.161.48.183, the only routable address)
+# and the private network is 10.0.0.0/8, for which we are doing NAT.
+
+# use a macro for the interface name, so it can be changed easily
+ext_if = &quot;kue0&quot;
+
+# normalize all incoming traffic
+scrub in on $ext_if all fragment reassemble
+
+# block and log everything by default
+block return log on $ext_if all
+
+# block anything coming from source we have no back routes for
+block in from no-route to any
+
+# block packets whose ingress interface does not match the one in
+# the route back to their source address
+block in from urpf-failed to any
+
+# block and log outgoing packets that do not have our address as source,
+# they are either spoofed or something is misconfigured (NAT disabled,
+# for instance), we want to be nice and do not send out garbage.
+block out log quick on $ext_if from ! 157.161.48.183 to any
+
+# silently drop broadcasts (cable modem noise)
+block in quick on $ext_if from any to 255.255.255.255
+
+# block and log incoming packets from reserved address space and invalid
+# addresses, they are either spoofed or misconfigured, we cannot reply to
+# them anyway (hence, no return-rst).
+block in log quick on $ext_if from { 10.0.0.0/8, 172.16.0.0/12, \
+      192.168.0.0/16, 255.255.255.255/32 } to any
+
+# ICMP
+
+# pass out/in certain ICMP queries and keep state (ping)
+# state matching is done on host addresses and ICMP id (not type/code),
+# so replies (like 0/0 for 8/0) will match queries
+# ICMP error messages (which always refer to a TCP/UDP packet) are
+# handled by the TCP/UDP states
+pass on $ext_if inet proto icmp all icmp-type 8 code 0
+
+# UDP
+
+# pass out all UDP connections and keep state
+pass out on $ext_if proto udp all
+
+# pass in certain UDP connections and keep state (DNS)
+pass in on $ext_if proto udp from any to any port domain
+
+# TCP
+
+# pass out all TCP connections and modulate state
+pass out on $ext_if proto tcp all modulate state
+
+# pass in certain TCP connections and keep state (SSH, SMTP, DNS, IDENT)
+pass in on $ext_if proto tcp from any to any port { ssh, smtp, domain, \
+      auth }
+
+# Do not allow Windows 9x SMTP connections since they are typically
+# a viral worm. Alternately we could limit these OSes to 1 connection each.
+block in on $ext_if proto tcp from any os {&quot;Windows 95&quot;, &quot;Windows 98&quot;} \
+      to any port smtp
+
+# IPv6
+# pass in/out all IPv6 traffic: note that we have to enable this in two
+# different ways, on both our physical interface and our tunnel
+pass quick on gif0 inet6
+pass quick on $ext_if proto ipv6
+
+# Packet Tagging
+
+# three interfaces: $int_if, $ext_if, and $wifi_if (wireless). NAT is
+# being done on $ext_if for all outgoing packets. tag packets in on
+# $int_if and pass those tagged packets out on $ext_if.  all other
+# outgoing packets (i.e., packets from the wireless network) are only
+# permitted to access port 80.
+
+pass in on $int_if from any to any tag INTNET
+pass in on $wifi_if from any to any
+
+block out on $ext_if from any to any
+pass out quick on $ext_if tagged INTNET
+pass out on $ext_if proto tcp from any to any port 80
+
+# tag incoming packets as they are redirected to spamd(8). use the tag
+# to pass those packets through the packet filter.
+
+rdr on $ext_if inet proto tcp from &lt;spammers&gt; to port smtp \
+	tag SPAMD -&gt; 127.0.0.1 port spamd
+
+block in on $ext_if
+pass in on $ext_if inet proto tcp tagged SPAMD
+</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="GRAMMAR"><a class="permalink" href="#GRAMMAR">GRAMMAR</a></h1>
+Syntax for <code class="Nm">pf.conf</code> in BNF:
+<div class="Bd Pp">
+<pre>
+line           = ( option | pf-rule | nat-rule | binat-rule | rdr-rule |
+                 antispoof-rule | altq-rule | queue-rule | trans-anchors |
+                 anchor-rule | anchor-close | load-anchor | table-rule |
+                 include )
+
+option         = &quot;set&quot; ( [ &quot;timeout&quot; ( timeout | &quot;{&quot; timeout-list &quot;}&quot; ) ] |
+                 [ &quot;ruleset-optimization&quot; [ &quot;none&quot; | &quot;basic&quot; | &quot;profile&quot; ]] |
+                 [ &quot;optimization&quot; [ &quot;default&quot; | &quot;normal&quot; |
+                 &quot;high-latency&quot; | &quot;satellite&quot; |
+                 &quot;aggressive&quot; | &quot;conservative&quot; ] ]
+                 [ &quot;limit&quot; ( limit-item | &quot;{&quot; limit-list &quot;}&quot; ) ] |
+                 [ &quot;loginterface&quot; ( interface-name | &quot;none&quot; ) ] |
+                 [ &quot;block-policy&quot; ( &quot;drop&quot; | &quot;return&quot; ) ] |
+                 [ &quot;state-policy&quot; ( &quot;if-bound&quot; | &quot;floating&quot; ) ]
+                 [ &quot;require-order&quot; ( &quot;yes&quot; | &quot;no&quot; ) ]
+                 [ &quot;fingerprints&quot; filename ] |
+                 [ &quot;skip on&quot; ifspec ] |
+                 [ &quot;debug&quot; ( &quot;none&quot; | &quot;urgent&quot; | &quot;misc&quot; | &quot;loud&quot; ) ] )
+
+pf-rule        = action [ ( &quot;in&quot; | &quot;out&quot; ) ]
+                 [ &quot;log&quot; [ &quot;(&quot; logopts &quot;)&quot;] ] [ &quot;quick&quot; ]
+                 [ &quot;on&quot; ifspec ] [ &quot;fastroute&quot; | route ] [ af ] [ protospec ]
+                 hosts [ filteropt-list ]
+
+logopts        = logopt [ &quot;,&quot; logopts ]
+logopt         = &quot;all&quot; | &quot;user&quot; | &quot;to&quot; interface-name
+
+filteropt-list = filteropt-list filteropt | filteropt
+filteropt      = user | group | flags | icmp-type | icmp6-type | tos |
+                 ( &quot;no&quot; | &quot;keep&quot; | &quot;modulate&quot; | &quot;synproxy&quot; ) &quot;state&quot;
+                 [ &quot;(&quot; state-opts &quot;)&quot; ] |
+                 &quot;fragment&quot; | &quot;no-df&quot; | &quot;min-ttl&quot; number |
+                 &quot;max-mss&quot; number | &quot;random-id&quot; | &quot;reassemble tcp&quot; |
+                 fragmentation | &quot;allow-opts&quot; |
+                 &quot;label&quot; string | &quot;tag&quot; string | [ ! ] &quot;tagged&quot; string |
+                 &quot;queue&quot; ( string | &quot;(&quot; string [ [ &quot;,&quot; ] string ] &quot;)&quot; ) |
+                 &quot;rtable&quot; number | &quot;probability&quot; number&quot;%&quot;
+
+nat-rule       = [ &quot;no&quot; ] &quot;nat&quot; [ &quot;pass&quot; [ &quot;log&quot; [ &quot;(&quot; logopts &quot;)&quot; ] ] ]
+                 [ &quot;on&quot; ifspec ] [ af ]
+                 [ protospec ] hosts [ &quot;tag&quot; string ] [ &quot;tagged&quot; string ]
+                 [ &quot;-&gt;&quot; ( redirhost | &quot;{&quot; redirhost-list &quot;}&quot; )
+                 [ portspec ] [ pooltype ] [ &quot;static-port&quot; ] ]
+
+binat-rule     = [ &quot;no&quot; ] &quot;binat&quot; [ &quot;pass&quot; [ &quot;log&quot; [ &quot;(&quot; logopts &quot;)&quot; ] ] ]
+                 [ &quot;on&quot; interface-name ] [ af ]
+                 [ &quot;proto&quot; ( proto-name | proto-number ) ]
+                 &quot;from&quot; address [ &quot;/&quot; mask-bits ] &quot;to&quot; ipspec
+                 [ &quot;tag&quot; string ] [ &quot;tagged&quot; string ]
+                 [ &quot;-&gt;&quot; address [ &quot;/&quot; mask-bits ] ]
+
+rdr-rule       = [ &quot;no&quot; ] &quot;rdr&quot; [ &quot;pass&quot; [ &quot;log&quot; [ &quot;(&quot; logopts &quot;)&quot; ] ] ]
+                 [ &quot;on&quot; ifspec ] [ af ]
+                 [ protospec ] hosts [ &quot;tag&quot; string ] [ &quot;tagged&quot; string ]
+                 [ &quot;-&gt;&quot; ( redirhost | &quot;{&quot; redirhost-list &quot;}&quot; )
+                 [ portspec ] [ pooltype ] ]
+
+antispoof-rule = &quot;antispoof&quot; [ &quot;log&quot; ] [ &quot;quick&quot; ]
+                 &quot;for&quot; ifspec [ af ] [ &quot;label&quot; string ]
+
+table-rule     = &quot;table&quot; &quot;&lt;&quot; string &quot;&gt;&quot; [ tableopts-list ]
+tableopts-list = tableopts-list tableopts | tableopts
+tableopts      = &quot;persist&quot; | &quot;const&quot; | &quot;file&quot; string |
+                 &quot;{&quot; [ tableaddr-list ] &quot;}&quot;
+tableaddr-list = tableaddr-list [ &quot;,&quot; ] tableaddr-spec | tableaddr-spec
+tableaddr-spec = [ &quot;!&quot; ] tableaddr [ &quot;/&quot; mask-bits ]
+tableaddr      = hostname | ifspec | &quot;self&quot; |
+                 ipv4-dotted-quad | ipv6-coloned-hex
+
+altq-rule      = &quot;altq on&quot; interface-name queueopts-list
+                 &quot;queue&quot; subqueue
+queue-rule     = &quot;queue&quot; string [ &quot;on&quot; interface-name ] queueopts-list
+                 subqueue
+
+anchor-rule    = &quot;anchor&quot; [ string ] [ ( &quot;in&quot; | &quot;out&quot; ) ] [ &quot;on&quot; ifspec ]
+                 [ af ] [ protospec ] [ hosts ] [ filteropt-list ] [ &quot;{&quot; ]
+
+anchor-close   = &quot;}&quot;
+
+trans-anchors  = ( &quot;nat-anchor&quot; | &quot;rdr-anchor&quot; | &quot;binat-anchor&quot; ) string
+                 [ &quot;on&quot; ifspec ] [ af ] [ &quot;proto&quot; ] [ protospec ] [ hosts ]
+
+load-anchor    = &quot;load anchor&quot; string &quot;from&quot; filename
+
+queueopts-list = queueopts-list queueopts | queueopts
+queueopts      = [ &quot;bandwidth&quot; bandwidth-spec ] |
+                 [ &quot;qlimit&quot; number ] | [ &quot;tbrsize&quot; number ] |
+                 [ &quot;priority&quot; number ] | [ schedulers ]
+schedulers     = ( cbq-def | priq-def | hfsc-def )
+bandwidth-spec = &quot;number&quot; ( &quot;b&quot; | &quot;Kb&quot; | &quot;Mb&quot; | &quot;Gb&quot; | &quot;%&quot; )
+
+action         = &quot;pass&quot; | &quot;block&quot; [ return ] | [ &quot;no&quot; ] &quot;scrub&quot;
+return         = &quot;drop&quot; | &quot;return&quot; | &quot;return-rst&quot; [ &quot;( ttl&quot; number &quot;)&quot; ] |
+                 &quot;return-icmp&quot; [ &quot;(&quot; icmpcode [ [ &quot;,&quot; ] icmp6code ] &quot;)&quot; ] |
+                 &quot;return-icmp6&quot; [ &quot;(&quot; icmp6code &quot;)&quot; ]
+icmpcode       = ( icmp-code-name | icmp-code-number )
+icmp6code      = ( icmp6-code-name | icmp6-code-number )
+
+ifspec         = ( [ &quot;!&quot; ] ( interface-name | interface-group ) ) |
+                 &quot;{&quot; interface-list &quot;}&quot;
+interface-list = [ &quot;!&quot; ] ( interface-name | interface-group )
+                 [ [ &quot;,&quot; ] interface-list ]
+route          = ( &quot;route-to&quot; | &quot;reply-to&quot; | &quot;dup-to&quot; )
+                 ( routehost | &quot;{&quot; routehost-list &quot;}&quot; )
+                 [ pooltype ]
+af             = &quot;inet&quot; | &quot;inet6&quot;
+
+protospec      = &quot;proto&quot; ( proto-name | proto-number |
+                 &quot;{&quot; proto-list &quot;}&quot; )
+proto-list     = ( proto-name | proto-number ) [ [ &quot;,&quot; ] proto-list ]
+
+hosts          = &quot;all&quot; |
+                 &quot;from&quot; ( &quot;any&quot; | &quot;no-route&quot; | &quot;urpf-failed&quot; | &quot;self&quot; | host |
+                 &quot;{&quot; host-list &quot;}&quot; | &quot;route&quot; string ) [ port ] [ os ]
+                 &quot;to&quot;   ( &quot;any&quot; | &quot;no-route&quot; | &quot;self&quot; | host |
+                 &quot;{&quot; host-list &quot;}&quot; | &quot;route&quot; string ) [ port ]
+
+ipspec         = &quot;any&quot; | host | &quot;{&quot; host-list &quot;}&quot;
+host           = [ &quot;!&quot; ] ( address [ &quot;/&quot; mask-bits ] | &quot;&lt;&quot; string &quot;&gt;&quot; )
+redirhost      = address [ &quot;/&quot; mask-bits ]
+routehost      = &quot;(&quot; interface-name [ address [ &quot;/&quot; mask-bits ] ] &quot;)&quot;
+address        = ( interface-name | interface-group |
+                 &quot;(&quot; ( interface-name | interface-group ) &quot;)&quot; |
+                 hostname | ipv4-dotted-quad | ipv6-coloned-hex )
+host-list      = host [ [ &quot;,&quot; ] host-list ]
+redirhost-list = redirhost [ [ &quot;,&quot; ] redirhost-list ]
+routehost-list = routehost [ [ &quot;,&quot; ] routehost-list ]
+
+port           = &quot;port&quot; ( unary-op | binary-op | &quot;{&quot; op-list &quot;}&quot; )
+portspec       = &quot;port&quot; ( number | name ) [ &quot;:&quot; ( &quot;*&quot; | number | name ) ]
+os             = &quot;os&quot;  ( os-name | &quot;{&quot; os-list &quot;}&quot; )
+user           = &quot;user&quot; ( unary-op | binary-op | &quot;{&quot; op-list &quot;}&quot; )
+group          = &quot;group&quot; ( unary-op | binary-op | &quot;{&quot; op-list &quot;}&quot; )
+
+unary-op       = [ &quot;=&quot; | &quot;!=&quot; | &quot;&lt;&quot; | &quot;&#x2264;&quot; | &quot;&gt;&quot; | &quot;&#x2265;&quot; ]
+                 ( name | number )
+binary-op      = number ( &quot;&lt;&gt;&quot; | &quot;&gt;&lt;&quot; | &quot;:&quot; ) number
+op-list        = ( unary-op | binary-op ) [ [ &quot;,&quot; ] op-list ]
+
+os-name        = operating-system-name
+os-list        = os-name [ [ &quot;,&quot; ] os-list ]
+
+flags          = &quot;flags&quot; ( [ flag-set ] &quot;/&quot;  flag-set | &quot;any&quot; )
+flag-set       = [ &quot;F&quot; ] [ &quot;S&quot; ] [ &quot;R&quot; ] [ &quot;P&quot; ] [ &quot;A&quot; ] [ &quot;U&quot; ] [ &quot;E&quot; ]
+                 [ &quot;W&quot; ]
+
+icmp-type      = &quot;icmp-type&quot; ( icmp-type-code | &quot;{&quot; icmp-list &quot;}&quot; )
+icmp6-type     = &quot;icmp6-type&quot; ( icmp-type-code | &quot;{&quot; icmp-list &quot;}&quot; )
+icmp-type-code = ( icmp-type-name | icmp-type-number )
+                 [ &quot;code&quot; ( icmp-code-name | icmp-code-number ) ]
+icmp-list      = icmp-type-code [ [ &quot;,&quot; ] icmp-list ]
+
+tos            = &quot;tos&quot; ( &quot;lowdelay&quot; | &quot;throughput&quot; | &quot;reliability&quot; |
+                 [ &quot;0x&quot; ] number )
+
+state-opts     = state-opt [ [ &quot;,&quot; ] state-opts ]
+state-opt      = ( &quot;max&quot; number | &quot;no-sync&quot; | timeout |
+                 &quot;source-track&quot; [ ( &quot;rule&quot; | &quot;global&quot; ) ] |
+                 &quot;max-src-nodes&quot; number | &quot;max-src-states&quot; number |
+                 &quot;max-src-conn&quot; number |
+                 &quot;max-src-conn-rate&quot; number &quot;/&quot; number |
+                 &quot;overload&quot; &quot;&lt;&quot; string &quot;&gt;&quot; [ &quot;flush&quot; ] |
+                 &quot;if-bound&quot; | &quot;floating&quot; )
+
+fragmentation  = [ &quot;fragment reassemble&quot; | &quot;fragment crop&quot; |
+                 &quot;fragment drop-ovl&quot; ]
+
+timeout-list   = timeout [ [ &quot;,&quot; ] timeout-list ]
+timeout        = ( &quot;tcp.first&quot; | &quot;tcp.opening&quot; | &quot;tcp.established&quot; |
+                 &quot;tcp.closing&quot; | &quot;tcp.finwait&quot; | &quot;tcp.closed&quot; |
+                 &quot;udp.first&quot; | &quot;udp.single&quot; | &quot;udp.multiple&quot; |
+                 &quot;icmp.first&quot; | &quot;icmp.error&quot; |
+                 &quot;other.first&quot; | &quot;other.single&quot; | &quot;other.multiple&quot; |
+                 &quot;frag&quot; | &quot;interval&quot; | &quot;src.track&quot; |
+                 &quot;adaptive.start&quot; | &quot;adaptive.end&quot; ) number
+
+limit-list     = limit-item [ [ &quot;,&quot; ] limit-list ]
+limit-item     = ( &quot;states&quot; | &quot;frags&quot; | &quot;src-nodes&quot; ) number
+
+pooltype       = ( &quot;bitmask&quot; | &quot;random&quot; |
+                 &quot;source-hash&quot; [ ( hex-key | string-key ) ] |
+                 &quot;round-robin&quot; ) [ sticky-address ]
+
+subqueue       = string | &quot;{&quot; queue-list &quot;}&quot;
+queue-list     = string [ [ &quot;,&quot; ] string ]
+cbq-def        = &quot;cbq&quot; [ &quot;(&quot; cbq-opt [ [ &quot;,&quot; ] cbq-opt ] &quot;)&quot; ]
+priq-def       = &quot;priq&quot; [ &quot;(&quot; priq-opt [ [ &quot;,&quot; ] priq-opt ] &quot;)&quot; ]
+hfsc-def       = &quot;hfsc&quot; [ &quot;(&quot; hfsc-opt [ [ &quot;,&quot; ] hfsc-opt ] &quot;)&quot; ]
+cbq-opt        = ( &quot;default&quot; | &quot;borrow&quot; | &quot;red&quot; | &quot;ecn&quot; | &quot;rio&quot; )
+priq-opt       = ( &quot;default&quot; | &quot;red&quot; | &quot;ecn&quot; | &quot;rio&quot; )
+hfsc-opt       = ( &quot;default&quot; | &quot;red&quot; | &quot;ecn&quot; | &quot;rio&quot; |
+                 linkshare-sc | realtime-sc | upperlimit-sc )
+linkshare-sc   = &quot;linkshare&quot; sc-spec
+realtime-sc    = &quot;realtime&quot; sc-spec
+upperlimit-sc  = &quot;upperlimit&quot; sc-spec
+sc-spec        = ( bandwidth-spec |
+                 &quot;(&quot; bandwidth-spec number bandwidth-spec &quot;)&quot; )
+</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag Bl-compact">
+  <dt><span class="Pa">/etc/hosts</span></dt>
+  <dd>Host name database.</dd>
+  <dt><span class="Pa">/etc/pf.conf</span></dt>
+  <dd>Default location of the ruleset file.</dd>
+  <dt><span class="Pa">/etc/pf.os</span></dt>
+  <dd>Default location of OS fingerprints.</dd>
+  <dt><span class="Pa">/etc/protocols</span></dt>
+  <dd>Protocol name database.</dd>
+  <dt><span class="Pa">/etc/services</span></dt>
+  <dd>Service name database.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">icmp(4)</a>, <a class="Xr">icmp6(4)</a>, <a class="Xr">ip(4)</a>,
+  <a class="Xr">ip6(4)</a>, <a class="Xr">route(4)</a>,
+  <a class="Xr">tcp(4)</a>, <a class="Xr">udp(4)</a>,
+  <a class="Xr">hosts(5)</a>, <a class="Xr">pf.os(5)</a>,
+  <a class="Xr">protocols(5)</a>, <a class="Xr">services(5)</a>,
+  <a class="Xr">ftp-proxy(8)</a>, <a class="Xr">pfctl(8)</a>,
+  <a class="Xr">route(8)</a>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+The <code class="Nm">pf.conf</code> file format first appeared in
+  <span class="Ux">OpenBSD 3.0</span>.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">February 11, 2008</td>
+    <td class="foot-os">Mac OS X 10.15</td>
+  </tr>
+</table>
+</body>
+</html>

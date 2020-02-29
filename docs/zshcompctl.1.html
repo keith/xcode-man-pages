@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>ZSHCOMPCTL(1)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">ZSHCOMPCTL(1)</td>
+    <td class="head-vol">General Commands Manual</td>
+    <td class="head-rtitle">ZSHCOMPCTL(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+zshcompctl - zsh programmable completion
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+This version of zsh has two ways of performing completion of words on the
+  command line. New users of the shell may prefer to use the newer and more
+  powerful system based on shell functions; this is described in
+  <i>zshcompsys</i>(1), and the basic shell mechanisms which support it are
+  described in <i>zshcompwid</i>(1). This manual entry describes the older
+  <b>compctl</b> command.
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>compctl</b> [ <b>-CDT</b> ] <i>options</i> [ <i>command</i> ... ]</dt>
+  <dd></dd>
+  <dt><b>compctl </b>[ <b>-CDT</b> ] <i>options</i> [ <b>-x</b> <i>pattern</i>
+    <i>options</i> <b>-</b> ... <b>-</b><b>-</b> ]</dt>
+  <dd></dd>
+  <dt><b> </b>[ <b>+</b> <i>options</i> [ <b>-x</b> ... <b>-</b><b>-</b> ] ...
+    [<b>+</b>] ] [ <i>command</i> ... ]</dt>
+  <dd></dd>
+  <dt><b>compctl</b> <b>-M</b> <i>match-specs</i> ...</dt>
+  <dd></dd>
+  <dt><b>compctl</b> <b>-L</b> [ <b>-CDTM</b> ] [ <i>command</i> ... ]</dt>
+  <dd></dd>
+  <dt><b>compctl</b> <b>+</b> <i>command</i> ...</dt>
+  <dd></dd>
+</dl>
+<p class="Pp">Control the editor's completion behavior according to the supplied
+    set of <i>options</i>. Various editing commands, notably
+    <b>expand-or-complete-word</b>, usually bound to tab, will attempt to
+    complete a word typed by the user, while others, notably
+    <b>delete-char-or-list</b>, usually bound to ^D in EMACS editing mode, list
+    the possibilities; <b>compctl</b> controls what those possibilities are.
+    They may for example be filenames (the most common case, and hence the
+    default), shell variables, or words from a user-specified list.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMMAND_FLAGS"><a class="permalink" href="#COMMAND_FLAGS">COMMAND
+  FLAGS</a></h1>
+Completion of the arguments of a command may be different for each command or
+  may use the default. The behavior when completing the command word itself may
+  also be separately specified. These correspond to the following flags and
+  arguments, all of which (except for <b>-L</b>) may be combined with any
+  combination of the <i>options</i> described subsequently in the section
+  `Option Flags':
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><i>command</i> ...</dt>
+  <dd>controls completion for the named commands, which must be listed last on
+      the command line. If completion is attempted for a command with a pathname
+      containing slashes and no completion definition is found, the search is
+      retried with the last pathname component. If the command starts with a
+      <b>=</b>, completion is tried with the pathname of the command.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Any of the <i>command</i> strings may be patterns of the form
+    normally used for filename generation. These should be quoted to protect
+    them from immediate expansion; for example the command string <b>'foo*'</b>
+    arranges for completion of the words of any command beginning with
+    <b>foo</b>. When completion is attempted, all pattern completions are tried
+    in the reverse order of their definition until one matches. By default,
+    completion then proceeds as normal, i.e. the shell will try to generate more
+    matches for the specific command on the command line; this can be overridden
+    by including <b>-tn</b> in the flags for the pattern completion.</p>
+<p class="Pp">Note that aliases are expanded before the command name is
+    determined unless the <b>COMPLETE_ALIASES</b> option is set. Commands may
+    not be combined with the <b>-C</b>, <b>-D</b> or <b>-T</b> flags.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>-C</b></dt>
+  <dd>controls completion when the command word itself is being completed. If no
+      <b>compctl -C</b> command has been issued, the names of any executable
+      command (whether in the path or specific to the shell, such as aliases or
+      functions) are completed.</dd>
+  <dt><b>-D</b></dt>
+  <dd>controls default completion behavior for the arguments of commands not
+      assigned any special behavior. If no <b>compctl -D</b> command has been
+      issued, filenames are completed.</dd>
+  <dt><b>-T</b></dt>
+  <dd>supplies completion flags to be used before any other processing is done,
+      even before processing for <b>compctl</b>s defined for specific commands.
+      This is especially useful when combined with extended completion (the
+      <b>-x</b> flag, see the section `Extended Completion' below). Using this
+      flag you can define default behavior which will apply to all commands
+      without exception, or you can alter the standard behavior for all
+      commands. For example, if your access to the user database is too slow
+      and/or it contains too many users (so that completion after `<b>~</b>' is
+      too slow to be usable), you can use</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>compctl -T -x 's[~] C[0,[^/]#]' -k friends -S/ -tn</b>
+</pre>
+</div>
+<p class="Pp">to complete the strings in the array <b>friends</b> after a
+    `<b>~</b>'. The <b>C[</b><i>...</i><b>]</b> argument is necessary so that
+    this form of <b>~</b>-completion is not tried after the directory name is
+    finished.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>-L</b></dt>
+  <dd>lists the existing completion behavior in a manner suitable for putting
+      into a start-up script; the existing behavior is not changed. Any
+      combination of the above forms, or the <b>-M</b> flag (which must follow
+      the <b>-L</b> flag), may be specified, otherwise all defined completions
+      are listed. Any other flags supplied are ignored.</dd>
+  <dt><i>no argument</i></dt>
+  <dd>If no argument is given, <b>compctl</b> lists all defined completions in
+      an abbreviated form; with a list of <i>options</i>, all completions with
+      those flags set (not counting extended completion) are listed.</dd>
+</dl>
+<p class="Pp">If the <b>+</b> flag is alone and followed immediately by the
+    <i>command</i> list, the completion behavior for all the commands in the
+    list is reset to the default. In other words, completion will subsequently
+    use the options specified by the <b>-D</b> flag.</p>
+<p class="Pp">The form with <b>-M</b> as the first and only option defines
+    global matching specifications (see zshcompwid). The match specifications
+    given will be used for every completion attempt (only when using
+    <b>compctl</b>, not with the new completion system) and are tried in the
+    order in which they are defined until one generates at least one match.
+    E.g.:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>compctl -M '' 'm:{a-zA-Z}={A-Za-z}'</b>
+</pre>
+</div>
+<p class="Pp">This will first try completion without any global match
+    specifications (the empty string) and, if that generates no matches, will
+    try case insensitive completion.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTION_FLAGS"><a class="permalink" href="#OPTION_FLAGS">OPTION
+  FLAGS</a></h1>
+<dl class="Bl-tag">
+  <dt>[ <b>-fcFBdeaRGovNAIOPZEnbjrzu/12</b> ]</dt>
+  <dd></dd>
+  <dt>[ <b>-k</b> <i>array</i> ] [ <b>-g</b> <i>globstring</i> ] [ <b>-s</b>
+    <i>subststring</i> ]</dt>
+  <dd></dd>
+  <dt>[ <b>-K</b> <i>function</i> ]</dt>
+  <dd></dd>
+  <dt>[ <b>-Q</b> ] [ <b>-P</b> <i>prefix</i> ] [ <b>-S</b> <i>suffix</i> ]</dt>
+  <dd></dd>
+  <dt>[ <b>-W</b> <i>file-prefix</i> ] [ <b>-H</b> <i>num pattern</i> ]</dt>
+  <dd></dd>
+  <dt>[ <b>-q</b> ] [ <b>-X</b> <i>explanation</i> ] [ <b>-Y</b>
+    <i>explanation</i> ]</dt>
+  <dd></dd>
+  <dt>[ <b>-y</b> <i>func-or-var</i> ] [ <b>-l</b> <i>cmd</i> ] [ <b>-h</b>
+    <i>cmd</i> ] [ <b>-U</b> ]</dt>
+  <dd></dd>
+  <dt>[ <b>-t</b> <i>continue</i> ] [ <b>-J</b> <i>name</i> ] [ <b>-V</b>
+    <i>name</i> ]</dt>
+  <dd></dd>
+  <dt>[ <b>-M</b> <i>match-spec</i> ]</dt>
+  <dd></dd>
+</dl>
+<p class="Pp">The remaining <i>options</i> specify the type of command arguments
+    to look for during completion. Any combination of these flags may be
+    specified; the result is a sorted list of all the possibilities. The options
+    are as follows.</p>
+<section class="Ss">
+<h2 class="Ss" id="Simple_Flags"><a class="permalink" href="#Simple_Flags">Simple
+  Flags</a></h2>
+These produce completion lists made up by the shell itself:
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>-f</b></dt>
+  <dd>Filenames and file system paths.</dd>
+  <dt><b>-/</b></dt>
+  <dd>Just file system paths.</dd>
+  <dt><b>-c</b></dt>
+  <dd>Command names, including aliases, shell functions, builtins and reserved
+      words.</dd>
+  <dt><b>-F</b></dt>
+  <dd>Function names.</dd>
+  <dt><b>-B</b></dt>
+  <dd>Names of builtin commands.</dd>
+  <dt><b>-m</b></dt>
+  <dd>Names of external commands.</dd>
+  <dt><b>-w</b></dt>
+  <dd>Reserved words.</dd>
+  <dt><b>-a</b></dt>
+  <dd>Alias names.</dd>
+  <dt><b>-R</b></dt>
+  <dd>Names of regular (non-global) aliases.</dd>
+  <dt><b>-G</b></dt>
+  <dd>Names of global aliases.</dd>
+  <dt><b>-d</b></dt>
+  <dd>This can be combined with <b>-F</b>, <b>-B</b>, <b>-w</b>, <b>-a</b>,
+      <b>-R</b> and <b>-G</b> to get names of disabled functions, builtins,
+      reserved words or aliases.</dd>
+  <dt><b>-e</b></dt>
+  <dd>This option (to show enabled commands) is in effect by default, but may be
+      combined with <b>-d</b>; <b>-de</b> in combination with <b>-F</b>,
+      <b>-B</b>, <b>-w</b>, <b>-a</b>, <b>-R</b> and <b>-G</b> will complete
+      names of functions, builtins, reserved words or aliases whether or not
+      they are disabled.</dd>
+  <dt><b>-o</b></dt>
+  <dd>Names of shell options (see <i>zshoptions</i>(1)).</dd>
+  <dt><b>-v</b></dt>
+  <dd>Names of any variable defined in the shell.</dd>
+  <dt><b>-N</b></dt>
+  <dd>Names of scalar (non-array) parameters.</dd>
+  <dt><b>-A</b></dt>
+  <dd>Array names.</dd>
+  <dt><b>-I</b></dt>
+  <dd>Names of integer variables.</dd>
+  <dt><b>-O</b></dt>
+  <dd>Names of read-only variables.</dd>
+  <dt><b>-p</b></dt>
+  <dd>Names of parameters used by the shell (including special parameters).</dd>
+  <dt><b>-Z</b></dt>
+  <dd>Names of shell special parameters.</dd>
+  <dt><b>-E</b></dt>
+  <dd>Names of environment variables.</dd>
+  <dt><b>-n</b></dt>
+  <dd>Named directories.</dd>
+  <dt><b>-b</b></dt>
+  <dd>Key binding names.</dd>
+  <dt><b>-j</b></dt>
+  <dd>Job names: the first word of the job leader's command line. This is useful
+      with the <b>kill</b> builtin.</dd>
+  <dt><b>-r</b></dt>
+  <dd>Names of running jobs.</dd>
+  <dt><b>-z</b></dt>
+  <dd>Names of suspended jobs.</dd>
+  <dt><b>-u</b></dt>
+  <dd>User names.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Flags_with_Arguments"><a class="permalink" href="#Flags_with_Arguments">Flags
+  with Arguments</a></h2>
+These have user supplied arguments to determine how the list of completions is
+  to be made up:
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>-k</b> <i>array</i></dt>
+  <dd>Names taken from the elements of <b>$</b><i>array</i> (note that the
+      `<b>$</b>' does not appear on the command line). Alternatively, the
+      argument <i>array</i> itself may be a set of space- or comma-separated
+      values in parentheses, in which any delimiter may be escaped with a
+      backslash; in this case the argument should be quoted. For example,</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>compctl -k &quot;(cputime filesize datasize stacksize</b>
+<b>	       coredumpsize resident descriptors)&quot; limit</b>
+</pre>
+</div>
+</div>
+<dl class="Bl-tag">
+  <dt><b>-g</b> <i>globstring</i></dt>
+  <dd>The <i>globstring</i> is expanded using filename globbing; it should be
+      quoted to protect it from immediate expansion. The resulting filenames are
+      taken as the possible completions. Use `<b>*(/)</b>' instead of
+      `<b>*/</b>' for directories. The <b>fignore</b> special parameter is not
+      applied to the resulting files. More than one pattern may be given
+      separated by blanks. (Note that brace expansion is <i>not</i> part of
+      globbing. Use the syntax `<b>(either|or)</b>' to match alternatives.)</dd>
+  <dt><b>-s</b> <i>subststring</i></dt>
+  <dd>The <i>subststring</i> is split into words and these words are than
+      expanded using all shell expansion mechanisms (see <i>zshexpn</i>(1)). The
+      resulting words are taken as possible completions. The <b>fignore</b>
+      special parameter is not applied to the resulting files. Note that
+      <b>-g</b> is faster for filenames.</dd>
+  <dt><b>-K</b> <i>function</i></dt>
+  <dd>Call the given function to get the completions. Unless the name starts
+      with an underscore, the function is passed two arguments: the prefix and
+      the suffix of the word on which completion is to be attempted, in other
+      words those characters before the cursor position, and those from the
+      cursor position onwards. The whole command line can be accessed with the
+      <b>-c</b> and <b>-l</b> flags of the <b>read</b> builtin. The function
+      should set the variable <b>reply</b> to an array containing the
+      completions (one completion per element); note that <b>reply</b> should
+      not be made local to the function. From such a function the command line
+      can be accessed with the <b>-c</b> and <b>-l</b> flags to the <b>read</b>
+      builtin. For example,</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>function whoson { reply=(`users`); }</b>
+<b>compctl -K whoson talk</b>
+</pre>
+</div>
+<p class="Pp">completes only logged-on users after `<b>talk</b>'. Note that
+    `<b>whoson</b>' must return an array, so `<b>reply=`users`</b>' would be
+    incorrect.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>-H</b> <i>num pattern</i></dt>
+  <dd>The possible completions are taken from the last <i>num</i> history lines.
+      Only words matching <i>pattern</i> are taken. If <i>num</i> is zero or
+      negative the whole history is searched and if <i>pattern</i> is the empty
+      string all words are taken (as with `<b>*</b>'). A typical use is</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>compctl -D -f + -H 0 ''</b>
+</pre>
+</div>
+<p class="Pp">which forces completion to look back in the history list for a
+    word if no filename matches.</p>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Control_Flags"><a class="permalink" href="#Control_Flags">Control
+  Flags</a></h2>
+These do not directly specify types of name to be completed, but manipulate the
+  options that do:
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>-Q</b></dt>
+  <dd>This instructs the shell not to quote any metacharacters in the possible
+      completions. Normally the results of a completion are inserted into the
+      command line with any metacharacters quoted so that they are interpreted
+      as normal characters. This is appropriate for filenames and ordinary
+      strings. However, for special effects, such as inserting a backquoted
+      expression from a completion array (<b>-k</b>) so that the expression will
+      not be evaluated until the complete line is executed, this option must be
+      used.</dd>
+  <dt><b>-P</b> <i>prefix</i></dt>
+  <dd>The <i>prefix</i> is inserted just before the completed string; any
+      initial part already typed will be completed and the whole <i>prefix</i>
+      ignored for completion purposes. For example,</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>compctl -j -P &quot;%&quot; kill</b>
+</pre>
+</div>
+<p class="Pp">inserts a `%' after the kill command and then completes job
+  names.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>-S</b> <i>suffix</i></dt>
+  <dd>When a completion is found the <i>suffix</i> is inserted after the
+      completed string. In the case of menu completion the suffix is inserted
+      immediately, but it is still possible to cycle through the list of
+      completions by repeatedly hitting the same key.</dd>
+  <dt><b>-W</b> <i>file-prefix</i></dt>
+  <dd>With directory <i>file-prefix</i>: for command, file, directory and
+      globbing completion (options <b>-c</b>, <b>-f</b>, <b>-/</b>, <b>-g</b>),
+      the file prefix is implicitly added in front of the completion. For
+      example,</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>compctl -/ -W ~/Mail maildirs</b>
+</pre>
+</div>
+<p class="Pp">completes any subdirectories to any depth beneath the directory
+    <b>~/Mail</b>, although that prefix does not appear on the command line. The
+    <i>file-prefix</i> may also be of the form accepted by the <b>-k</b> flag,
+    i.e. the name of an array or a literal list in parenthesis. In this case all
+    the directories in the list will be searched for possible completions.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>-q</b></dt>
+  <dd>If used with a suffix as specified by the <b>-S</b> option, this causes
+      the suffix to be removed if the next character typed is a blank or does
+      not insert anything or if the suffix consists of only one character and
+      the next character typed is the same character; this the same rule used
+      for the <b>AUTO_REMOVE_SLASH</b> option. The option is most useful for
+      list separators (comma, colon, etc.).</dd>
+  <dt><b>-l</b> <i>cmd</i></dt>
+  <dd>This option restricts the range of command line words that are considered
+      to be arguments. If combined with one of the extended completion patterns
+      `<b>p[</b>...<b>]</b>', `<b>r[</b>...<b>]</b>', or `<b>R[</b>...<b>]</b>'
+      (see the section `Extended Completion' below) the range is restricted to
+      the range of arguments specified in the brackets. Completion is then
+      performed as if these had been given as arguments to the <i>cmd</i>
+      supplied with the option. If the <i>cmd</i> string is empty the first word
+      in the range is instead taken as the command name, and command name
+      completion performed on the first word in the range. For example,</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>compctl -x 'r[-exec,;]' -l '' -- find</b>
+</pre>
+</div>
+<p class="Pp">completes arguments between `<b>-exec</b>' and the following
+    `<b>;</b>' (or the end of the command line if there is no such string) as if
+    they were a separate command line.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>-h</b> <i>cmd</i></dt>
+  <dd>Normally zsh completes quoted strings as a whole. With this option,
+      completion can be done separately on different parts of such strings. It
+      works like the <b>-l</b> option but makes the completion code work on the
+      parts of the current word that are separated by spaces. These parts are
+      completed as if they were arguments to the given <i>cmd</i>. If <i>cmd</i>
+      is the empty string, the first part is completed as a command name, as
+      with <b>-l</b>.</dd>
+  <dt><b>-U</b></dt>
+  <dd>Use the whole list of possible completions, whether or not they actually
+      match the word on the command line. The word typed so far will be deleted.
+      This is most useful with a function (given by the <b>-K</b> option) which
+      can examine the word components passed to it (or via the <b>read</b>
+      builtin's <b>-c</b> and <b>-l</b> flags) and use its own criteria to
+      decide what matches. If there is no completion, the original word is
+      retained. Since the produced possible completions seldom have interesting
+      common prefixes and suffixes, menu completion is started immediately if
+      <b>AUTO_MENU</b> is set and this flag is used.</dd>
+  <dt><b>-y</b> <i>func-or-var</i></dt>
+  <dd>The list provided by <i>func-or-var</i> is displayed instead of the list
+      of completions whenever a listing is required; the actual completions to
+      be inserted are not affected. It can be provided in two ways. Firstly, if
+      <i>func-or-var</i> begins with a <b>$</b> it defines a variable, or if it
+      begins with a left parenthesis a literal array, which contains the list. A
+      variable may have been set by a call to a function using the <b>-K</b>
+      option. Otherwise it contains the name of a function which will be
+      executed to create the list. The function will be passed as an argument
+      list all matching completions, including prefixes and suffixes expanded in
+      full, and should set the array <b>reply</b> to the result. In both cases,
+      the display list will only be retrieved after a complete list of matches
+      has been created.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Note that the returned list does not have to correspond, even in
+    length, to the original set of matches, and may be passed as a scalar
+    instead of an array. No special formatting of characters is performed on the
+    output in this case; in particular, newlines are printed literally and if
+    they appear output in columns is suppressed.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>-X</b> <i>explanation</i></dt>
+  <dd>Print <i>explanation</i> when trying completion on the current set of
+      options. A `<b>%n</b>' in this string is replaced by the number of matches
+      that were added for this explanation string. The explanation only appears
+      if completion was tried and there was no unique match, or when listing
+      completions. Explanation strings will be listed together with the matches
+      of the group specified together with the <b>-X</b> option (using the
+      <b>-J</b> or <b>-V</b> option). If the same explanation string is given to
+      multiple <b>-X</b> options, the string appears only once (for each group)
+      and the number of matches shown for the `<b>%n</b>' is the total number of
+      all matches for each of these uses. In any case, the explanation string
+      will only be shown if there was at least one match added for the
+      explanation string.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">The sequences <b>%B</b>, <b>%b</b>, <b>%S</b>, <b>%s</b>,
+    <b>%U</b>, and <b>%u</b> specify output attributes (bold, standout, and
+    underline), <b>%F</b>, <b>%f</b>, <b>%K</b>, <b>%k</b> specify foreground
+    and background colours, and <b>%{</b><i>...</i><b>%}</b> can be used to
+    include literal escape sequences as in prompts.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>-Y</b> <i>explanation</i></dt>
+  <dd>Identical to <b>-X</b>, except that the <i>explanation</i> first undergoes
+      expansion following the usual rules for strings in double quotes. The
+      expansion will be carried out after any functions are called for the
+      <b>-K</b> or <b>-y</b> options, allowing them to set variables.</dd>
+  <dt><b>-t</b> <i>continue</i></dt>
+  <dd>The <i>continue</i>-string contains a character that specifies which set
+      of completion flags should be used next. It is useful:</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">(i) With <b>-T</b>, or when trying a list of pattern completions,
+    when <b>compctl</b> would usually continue with ordinary processing after
+    finding matches; this can be suppressed with `<b>-tn</b>'.</p>
+<p class="Pp">(ii) With a list of alternatives separated by <b>+</b>, when
+    <b>compctl</b> would normally stop when one of the alternatives generates
+    matches. It can be forced to consider the next set of completions by adding
+    `<b>-t+</b>' to the flags of the alternative before the `<b>+</b>'.</p>
+<p class="Pp">(iii) In an extended completion list (see below), when
+    <b>compctl</b> would normally continue until a set of conditions succeeded,
+    then use only the immediately following flags. With `<b>-t-</b>',
+    <b>compctl</b> will continue trying extended completions after the next
+    `<b>-</b>'; with `<b>-tx</b>' it will attempt completion with the default
+    flags, in other words those before the `<b>-x</b>'.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>-J</b> <i>name</i></dt>
+  <dd>This gives the name of the group the matches should be placed in. Groups
+      are listed and sorted separately; likewise, menu completion will offer the
+      matches in the groups in the order in which the groups were defined. If no
+      group name is explicitly given, the matches are stored in a group named
+      <b>default</b>. The first time a group name is encountered, a group with
+      that name is created. After that all matches with the same group name are
+      stored in that group.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">This can be useful with non-exclusive alternative completions. For
+    example, in</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>compctl -f -J files -t+ + -v -J variables foo</b>
+</pre>
+</div>
+<p class="Pp">both files and variables are possible completions, as the
+    <b>-t+</b> forces both sets of alternatives before and after the <b>+</b> to
+    be considered at once. Because of the <b>-J</b> options, however, all files
+    are listed before all variables.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>-V</b> <i>name</i></dt>
+  <dd>Like <b>-J</b>, but matches within the group will not be sorted in
+      listings nor in menu completion. These unsorted groups are in a different
+      name space from the sorted ones, so groups defined as <b>-J files</b> and
+      <b>-V</b> <b>files</b> are distinct.</dd>
+  <dt><b>-1</b></dt>
+  <dd>If given together with the <b>-V</b> option, makes only consecutive
+      duplicates in the group be removed. Note that groups with and without this
+      flag are in different name spaces.</dd>
+  <dt><b>-2</b></dt>
+  <dd>If given together with the <b>-J</b> or <b>-V</b> option, makes all
+      duplicates be kept. Again, groups with and without this flag are in
+      different name spaces.</dd>
+  <dt><b>-M</b> <i>match-spec</i></dt>
+  <dd>This defines additional matching control specifications that should be
+      used only when testing words for the list of flags this flag appears in.
+      The format of the <i>match-spec</i> string is described in
+    zshcompwid.</dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ALTERNATIVE_COMPLETION"><a class="permalink" href="#ALTERNATIVE_COMPLETION">ALTERNATIVE
+  COMPLETION</a></h1>
+<dl class="Bl-tag">
+  <dt><b>compctl</b> [ <b>-CDT</b> ] <i>options</i> <b>+</b> <i>options</i> [
+    <b>+</b> ... ] [ <b>+</b> ] <i>command</i> ...</dt>
+  <dd></dd>
+</dl>
+<p class="Pp">The form with `<b>+</b>' specifies alternative options. Completion
+    is tried with the options before the first `<b>+</b>'. If this produces no
+    matches completion is tried with the flags after the `<b>+</b>' and so on.
+    If there are no flags after the last `<b>+</b>' and a match has not been
+    found up to that point, default completion is tried. If the list of flags
+    contains a <b>-t</b> with a <b>+</b> character, the next list of flags is
+    used even if the current list produced matches.</p>
+<p class="Pp">Additional options are available that restrict completion to some
+    part of the command line; this is referred to as `extended completion'.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXTENDED_COMPLETION"><a class="permalink" href="#EXTENDED_COMPLETION">EXTENDED
+  COMPLETION</a></h1>
+<dl class="Bl-tag">
+  <dt><b>compctl </b>[ <b>-CDT</b> ] <i>options</i> <b>-x</b> <i>pattern</i>
+    <i>options</i> <b>-</b> ... <b>-</b><b>-</b></dt>
+  <dd></dd>
+  <dt><b> </b>[ <i>command</i> ... ]</dt>
+  <dd></dd>
+  <dt><b>compctl </b>[ <b>-CDT</b> ] <i>options</i> [ <b>-x</b> <i>pattern</i>
+    <i>options</i> <b>-</b> ... <b>-</b><b>-</b> ]</dt>
+  <dd></dd>
+  <dt><b> </b>[ <b>+</b> <i>options</i> [ <b>-x</b> ... <b>-</b><b>-</b> ] ...
+    [<b>+</b>] ] [ <i>command</i> ... ]</dt>
+  <dd></dd>
+</dl>
+<p class="Pp">The form with `<b>-x</b>' specifies extended completion for the
+    commands given; as shown, it may be combined with alternative completion
+    using `<b>+</b>'. Each <i>pattern</i> is examined in turn; when a match is
+    found, the corresponding <i>options</i>, as described in the section `Option
+    Flags' above, are used to generate possible completions. If no
+    <i>pattern</i> matches, the <i>options</i> given before the <b>-x</b> are
+    used.</p>
+<p class="Pp">Note that each pattern should be supplied as a single argument and
+    should be quoted to prevent expansion of metacharacters by the shell.</p>
+<p class="Pp">A <i>pattern</i> is built of sub-patterns separated by commas; it
+    matches if at least one of these sub-patterns matches (they are `or'ed).
+    These sub-patterns are in turn composed of other sub-patterns separated by
+    white spaces which match if all of the sub-patterns match (they are
+    `and'ed). An element of the sub-patterns is of the form
+    `<i>c</i><b>[</b>...<b>][</b>...<b>]</b>', where the pairs of brackets may
+    be repeated as often as necessary, and matches if any of the sets of
+    brackets match (an `or'). The example below makes this clearer.</p>
+<p class="Pp">The elements may be any of the following:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>s[</b><i>string</i><b>]</b>...</dt>
+  <dd>Matches if the current word on the command line starts with one of the
+      strings given in brackets. The <i>string</i> is not removed and is not
+      part of the completion.</dd>
+  <dt><b>S[</b><i>string</i><b>]</b>...</dt>
+  <dd>Like <b>s[</b><i>string</i><b>]</b> except that the <i>string</i> is part
+      of the completion.</dd>
+  <dt><b>p[</b><i>from</i><b>,</b><i>to</i><b>]</b>...</dt>
+  <dd>Matches if the number of the current word is between one of the
+      <i>from</i> and <i>to</i> pairs inclusive. The comma and <i>to</i> are
+      optional; <i>to</i> defaults to the same value as <i>from</i>. The numbers
+      may be negative: <b>-</b><i>n</i> refers to the <i>n</i>'th last word on
+      the line.</dd>
+  <dt><b>c[</b><i>offset</i><b>,</b><i>string</i><b>]</b>...</dt>
+  <dd>Matches if the <i>string</i> matches the word offset by <i>offset</i> from
+      the current word position. Usually <i>offset</i> will be negative.</dd>
+  <dt><b>C[</b><i>offset</i><b>,</b><i>pattern</i><b>]</b>...</dt>
+  <dd>Like <b>c</b> but using pattern matching instead.</dd>
+  <dt><b>w[</b><i>index</i><b>,</b><i>string</i><b>]</b>...</dt>
+  <dd>Matches if the word in position <i>index</i> is equal to the corresponding
+      <i>string</i>. Note that the word count is made after any alias
+    expansion.</dd>
+  <dt><b>W[</b><i>index</i><b>,</b><i>pattern</i><b>]</b>...</dt>
+  <dd>Like <b>w</b> but using pattern matching instead.</dd>
+  <dt><b>n[</b><i>index</i><b>,</b><i>string</i><b>]</b>...</dt>
+  <dd>Matches if the current word contains <i>string</i>. Anything up to and
+      including the <i>index</i>th occurrence of this string will not be
+      considered part of the completion, but the rest will. <i>index</i> may be
+      negative to count from the end: in most cases, <i>index</i> will be 1 or
+      -1. For example,</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>compctl -s '`users`' -x 'n[1,@]' -k hosts -- talk</b>
+</pre>
+</div>
+<p class="Pp">will usually complete usernames, but if you insert an <b>@</b>
+    after the name, names from the array <i>hosts</i> (assumed to contain
+    hostnames, though you must make the array yourself) will be completed. Other
+    commands such as <b>rcp</b> can be handled similarly.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>N[</b><i>index</i><b>,</b><i>string</i><b>]</b>...</dt>
+  <dd>Like <b>n</b> except that the string will be taken as a character class.
+      Anything up to and including the <i>index</i>th occurrence of any of the
+      characters in <i>string</i> will not be considered part of the
+    completion.</dd>
+  <dt><b>m[</b><i>min</i><b>,</b><i>max</i><b>]</b>...</dt>
+  <dd>Matches if the total number of words lies between <i>min</i> and
+      <i>max</i> inclusive.</dd>
+  <dt><b>r[</b><i>str1</i><b>,</b><i>str2</i><b>]</b>...</dt>
+  <dd>Matches if the cursor is after a word with prefix <i>str1</i>. If there is
+      also a word with prefix <i>str2</i> on the command line after the one
+      matched by <i>str1</i> it matches only if the cursor is before this word.
+      If the comma and <i>str2</i> are omitted, it matches if the cursor is
+      after a word with prefix <i>str1</i>.</dd>
+  <dt><b>R[</b><i>str1</i><b>,</b><i>str2</i><b>]</b>...</dt>
+  <dd>Like <b>r</b> but using pattern matching instead.</dd>
+  <dt><b>q[</b><i>str</i><b>]</b>...</dt>
+  <dd>Matches the word currently being completed is in single quotes and the
+      <i>str</i> begins with the letter `s', or if completion is done in double
+      quotes and <i>str</i> starts with the letter `d', or if completion is done
+      in backticks and <i>str</i> starts with a `b'.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<div class="Bd-indent">
+<pre>
+<b>compctl -u -x 's[+] c[-1,-f],s[-f+]' \ </b>
+<b>  -g '~/Mail/*(:t)' - 's[-f],c[-1,-f]' -f -- mail</b>
+</pre>
+</div>
+<p class="Pp">This is to be interpreted as follows:</p>
+<p class="Pp">If the current command is <b>mail</b>, then</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+if ((the current word begins with <b>+</b> and the previous word is <b>-f</b>)
+or (the current word begins with <b>-f+</b>)), then complete the
+non-directory part (the `<b>:t</b>' glob modifier) of files in the directory
+<b>~/Mail</b>; else
+</pre>
+<pre>
+if the current word begins with <b>-f</b> or the previous word was <b>-f</b>, then
+complete any file; else
+</pre>
+<pre>
+complete user names.
+</pre>
+</div>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">February 3, 2019</td>
+    <td class="foot-os">zsh 5.7.1</td>
+  </tr>
+</table>
+</body>
+</html>

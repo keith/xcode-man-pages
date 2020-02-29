@@ -1,0 +1,2431 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>ZSHMISC(1)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">ZSHMISC(1)</td>
+    <td class="head-vol">General Commands Manual</td>
+    <td class="head-rtitle">ZSHMISC(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+zshmisc - everything and then some
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SIMPLE_COMMANDS_&amp;_PIPELINES"><a class="permalink" href="#SIMPLE_COMMANDS_&amp;_PIPELINES">SIMPLE
+  COMMANDS &amp; PIPELINES</a></h1>
+A <i>simple command</i> is a sequence of optional parameter assignments followed
+  by blank-separated words, with optional redirections interspersed. For a
+  description of assignment, see the beginning of <i>zshparam</i>(1).
+<p class="Pp">The first word is the command to be executed, and the remaining
+    words, if any, are arguments to the command. If a command name is given, the
+    parameter assignments modify the environment of the command when it is
+    executed. The value of a simple command is its exit status, or 128 plus the
+    signal number if terminated by a signal. For example,</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>echo foo</b>
+</pre>
+</div>
+<p class="Pp">is a simple command with arguments.</p>
+<p class="Pp">A <i>pipeline</i> is either a simple command, or a sequence of two
+    or more simple commands where each command is separated from the next by
+    `<b>|</b>' or `<b>|&amp;</b>'. Where commands are separated by `<b>|</b>',
+    the standard output of the first command is connected to the standard input
+    of the next. `<b>|&amp;</b>' is shorthand for `<b>2&gt;&amp;1 |</b>', which
+    connects both the standard output and the standard error of the command to
+    the standard input of the next. The value of a pipeline is the value of the
+    last command, unless the pipeline is preceded by `<b>!</b>' in which case
+    the value is the logical inverse of the value of the last command. For
+    example,</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>echo foo | sed 's/foo/bar/'</b>
+</pre>
+</div>
+<p class="Pp">is a pipeline, where the output (`<b>foo</b>' plus a newline) of
+    the first command will be passed to the input of the second.</p>
+<p class="Pp">If a pipeline is preceded by `<b>coproc</b>', it is executed as a
+    coprocess; a two-way pipe is established between it and the parent shell.
+    The shell can read from or write to the coprocess by means of the
+    `<b>&gt;&amp;p</b>' and `<b>&lt;&amp;p</b>' redirection operators or with
+    `<b>print -p</b>' and `<b>read -p</b>'. A pipeline cannot be preceded by
+    both `<b>coproc</b>' and `<b>!</b>'. If job control is active, the coprocess
+    can be treated in other than input and output as an ordinary background
+  job.</p>
+<p class="Pp">A <i>sublist</i> is either a single pipeline, or a sequence of two
+    or more pipelines separated by `<b>&amp;&amp;</b>' or `<b>||</b>'. If two
+    pipelines are separated by `<b>&amp;&amp;</b>', the second pipeline is
+    executed only if the first succeeds (returns a zero status). If two
+    pipelines are separated by `<b>||</b>', the second is executed only if the
+    first fails (returns a nonzero status). Both operators have equal precedence
+    and are left associative. The value of the sublist is the value of the last
+    pipeline executed. For example,</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>dmesg | grep panic &amp;&amp; print yes</b>
+</pre>
+</div>
+<p class="Pp">is a sublist consisting of two pipelines, the second just a simple
+    command which will be executed if and only if the <b>grep</b> command
+    returns a zero status. If it does not, the value of the sublist is that
+    return status, else it is the status returned by the <b>print</b> (almost
+    certainly zero).</p>
+<p class="Pp">A <i>list</i> is a sequence of zero or more sublists, in which
+    each sublist is terminated by `<b>;</b>', `<b>&amp;</b>', `<b>&amp;|</b>',
+    `<b>&amp;!</b>', or a newline. This terminator may optionally be omitted
+    from the last sublist in the list when the list appears as a complex command
+    inside `<b>(</b>...<b>)</b>' or `<b>{</b>...<b>}</b>'. When a sublist is
+    terminated by `<b>;</b>' or newline, the shell waits for it to finish before
+    executing the next sublist. If a sublist is terminated by a `<b>&amp;</b>',
+    `<b>&amp;|</b>', or `<b>&amp;!</b>', the shell executes the last pipeline in
+    it in the background, and does not wait for it to finish (note the
+    difference from other shells which execute the whole sublist in the
+    background). A backgrounded pipeline returns a status of zero.</p>
+<p class="Pp">More generally, a list can be seen as a set of any shell commands
+    whatsoever, including the complex commands below; this is implied wherever
+    the word `list' appears in later descriptions. For example, the commands in
+    a shell function form a special sort of list.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PRECOMMAND_MODIFIERS"><a class="permalink" href="#PRECOMMAND_MODIFIERS">PRECOMMAND
+  MODIFIERS</a></h1>
+A simple command may be preceded by a <i>precommand modifier</i>, which will
+  alter how the command is interpreted. These modifiers are shell builtin
+  commands with the exception of <b>nocorrect</b> which is a reserved word.
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>-</b></dt>
+  <dd>The command is executed with a `<b>-</b>' prepended to its <b>argv[0]</b>
+      string.</dd>
+  <dt><b>builtin</b></dt>
+  <dd>The command word is taken to be the name of a builtin command, rather than
+      a shell function or external command.</dd>
+  <dt><b>command</b> [ <b>-pvV</b> ]</dt>
+  <dd>The command word is taken to be the name of an external command, rather
+      than a shell function or builtin. If the <b>POSIX_BUILTINS</b> option is
+      set, builtins will also be executed but certain special properties of them
+      are suppressed. The <b>-p</b> flag causes a default path to be searched
+      instead of that in <b>$path</b>. With the <b>-v</b> flag, <b>command</b>
+      is similar to <b>whence</b> and with <b>-V</b>, it is equivalent to
+      <b>whence</b> <b>-v</b>.</dd>
+  <dt><b>exec</b> [ <b>-cl</b> ] [ <b>-a</b> <i>argv0</i> ]</dt>
+  <dd>The following command together with any arguments is run in place of the
+      current process, rather than as a sub-process. The shell does not fork and
+      is replaced. The shell does not invoke <b>TRAPEXIT</b>, nor does it source
+      <b>zlogout</b> files. The options are provided for compatibility with
+      other shells.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">The <b>-c</b> option clears the environment.</p>
+<p class="Pp">The <b>-l</b> option is equivalent to the <b>-</b> precommand
+    modifier, to treat the replacement command as a login shell; the command is
+    executed with a <b>-</b> prepended to its <b>argv[0]</b> string. This flag
+    has no effect if used together with the <b>-a</b> option.</p>
+<p class="Pp">The <b>-a</b> option is used to specify explicitly the
+    <b>argv[0]</b> string (the name of the command as seen by the process
+    itself) to be used by the replacement command and is directly equivalent to
+    setting a value for the <b>ARGV0</b> environment variable.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>nocorrect</b></dt>
+  <dd>Spelling correction is not done on any of the words. This must appear
+      before any other precommand modifier, as it is interpreted immediately,
+      before any parsing is done. It has no effect in non-interactive
+    shells.</dd>
+  <dt><b>noglob</b></dt>
+  <dd>Filename generation (globbing) is not performed on any of the words.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMPLEX_COMMANDS"><a class="permalink" href="#COMPLEX_COMMANDS">COMPLEX
+  COMMANDS</a></h1>
+A <i>complex command</i> in zsh is one of the following:
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>if</b> <i>list</i> <b>then</b> <i>list</i> [ <b>elif</b> <i>list</i>
+    <b>then</b> <i>list</i> ] ... [ <b>else</b> <i>list</i> ] <b>fi</b></dt>
+  <dd>The <b>if</b> <i>list</i> is executed, and if it returns a zero exit
+      status, the <b>then</b> <i>list</i> is executed. Otherwise, the
+      <b>elif</b> <i>list</i> is executed and if its status is zero, the
+      <b>then</b> <i>list</i> is executed. If each <b>elif</b> <i>list</i>
+      returns nonzero status, the <b>else</b> <i>list</i> is executed.</dd>
+  <dt><b>for</b> <i>name</i> ... [ <b>in</b> <i>word</i> ... ] <i>term</i>
+    <b>do</b> <i>list</i> <b>done</b></dt>
+  <dd>Expand the list of <i>word</i>s, and set the parameter <i>name</i> to each
+      of them in turn, executing <i>list</i> each time. If the `<b>in</b>
+      <i>word</i>' is omitted, use the positional parameters instead of the
+      <i>word</i>s.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">The <i>term</i> consists of one or more newline or <b>;</b> which
+    terminate the <i>word</i>s, and are optional when the `<b>in</b>
+    <i>word</i>' is omitted.</p>
+<p class="Pp">More than one parameter <i>name</i> can appear before the list of
+    <i>word</i>s. If <i>N</i> <i>name</i>s are given, then on each execution of
+    the loop the next <i>N</i> <i>word</i>s are assigned to the corresponding
+    parameters. If there are more <i>name</i>s than remaining <i>word</i>s, the
+    remaining parameters are each set to the empty string. Execution of the loop
+    ends when there is no remaining <i>word</i> to assign to the first
+    <i>name</i>. It is only possible for <b>in</b> to appear as the first
+    <i>name</i> in the list, else it will be treated as marking the end of the
+    list.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>for ((</b> [<i>expr1</i>] <b>;</b> [<i>expr2</i>] <b>;</b>
+    [<i>expr3</i>] <b>)) do</b> <i>list</i> <b>done</b></dt>
+  <dd>The arithmetic expression <i>expr1</i> is evaluated first (see the section
+      `Arithmetic Evaluation'). The arithmetic expression <i>expr2</i> is
+      repeatedly evaluated until it evaluates to zero and when non-zero,
+      <i>list</i> is executed and the arithmetic expression <i>expr3</i>
+      evaluated. If any expression is omitted, then it behaves as if it
+      evaluated to 1.</dd>
+  <dt><b>while</b> <i>list</i> <b>do</b> <i>list</i> <b>done</b></dt>
+  <dd>Execute the <b>do</b> <i>list</i> as long as the <b>while</b> <i>list</i>
+      returns a zero exit status.</dd>
+  <dt><b>until</b> <i>list</i> <b>do</b> <i>list</i> <b>done</b></dt>
+  <dd>Execute the <b>do</b> <i>list</i> as long as <b>until</b> <i>list</i>
+      returns a nonzero exit status.</dd>
+  <dt><b>repeat</b> <i>word</i> <b>do</b> <i>list</i> <b>done</b></dt>
+  <dd><i>word</i> is expanded and treated as an arithmetic expression, which
+      must evaluate to a number <i>n</i>. <i>list</i> is then executed <i>n</i>
+      times.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">The <b>repeat</b> syntax is disabled by default when the shell
+    starts in a mode emulating another shell. It can be enabled with the command
+    `<b>enable -r repeat</b>'</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>case</b> <i>word</i> <b>in</b> [ [<b>(</b>] <i>pattern</i> [ <b>|</b>
+    <i>pattern</i> ] ... <b>)</b> <i>list</i>
+    (<b>;;</b>|<b>;&amp;</b>|<b>;|</b>) ] ... <b>esac</b></dt>
+  <dd>Execute the <i>list</i> associated with the first <i>pattern</i> that
+      matches <i>word</i>, if any. The form of the patterns is the same as that
+      used for filename generation. See the section `Filename Generation'.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Note further that, unless the <b>SH_GLOB</b> option is set, the
+    whole pattern with alternatives is treated by the shell as equivalent to a
+    group of patterns within parentheses, although white space may appear about
+    the parentheses and the vertical bar and will be stripped from the pattern
+    at those points. White space may appear elsewhere in the pattern; this is
+    not stripped. If the <b>SH_GLOB</b> option is set, so that an opening
+    parenthesis can be unambiguously treated as part of the case syntax, the
+    expression is parsed into separate words and these are treated as strict
+    alternatives (as in other shells).</p>
+<p class="Pp">If the <i>list</i> that is executed is terminated with
+    <b>;&amp;</b> rather than <b>;;</b>, the following list is also executed.
+    The rule for the terminator of the following list <b>;;</b>, <b>;&amp;</b>
+    or <b>;|</b> is applied unless the <b>esac</b> is reached.</p>
+<p class="Pp">If the <i>list</i> that is executed is terminated with <b>;|</b>
+    the shell continues to scan the <i>pattern</i>s looking for the next match,
+    executing the corresponding <i>list</i>, and applying the rule for the
+    corresponding terminator <b>;;</b>, <b>;&amp;</b> or <b>;|</b>. Note that
+    <i>word</i> is not re-expanded; all applicable <i>pattern</i>s are tested
+    with the same <i>word</i>.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>select</b> <i>name</i> [ <b>in</b> <i>word</i> ... <i>term</i> ]
+    <b>do</b> <i>list</i> <b>done</b></dt>
+  <dd>where <i>term</i> is one or more newline or <b>;</b> to terminate the
+      <i>word</i>s. Print the set of <i>word</i>s, each preceded by a number. If
+      the <b>in</b> <i>word</i> is omitted, use the positional parameters. The
+      <b>PROMPT3</b> prompt is printed and a line is read from the line editor
+      if the shell is interactive and that is active, or else standard input. If
+      this line consists of the number of one of the listed <i>word</i>s, then
+      the parameter <i>name</i> is set to the <i>word</i> corresponding to this
+      number. If this line is empty, the selection list is printed again.
+      Otherwise, the value of the parameter <i>name</i> is set to null. The
+      contents of the line read from standard input is saved in the parameter
+      <b>REPLY</b>. <i>list</i> is executed for each selection until a break or
+      end-of-file is encountered.</dd>
+  <dt><b>(</b> <i>list</i> <b>)</b></dt>
+  <dd>Execute <i>list</i> in a subshell. Traps set by the <b>trap</b> builtin
+      are reset to their default values while executing <i>list</i>.</dd>
+  <dt><b>{</b> <i>list</i> <b>}</b></dt>
+  <dd>Execute <i>list</i>.</dd>
+  <dt><b>{</b> <i>try-list</i> <b>} always {</b> <i>always-list</i>
+    <b>}</b></dt>
+  <dd>First execute <i>try-list</i>. Regardless of errors, or <b>break</b>,
+      <b>continue</b>, or <b>return</b> commands encountered within
+      <i>try-list</i>, execute <i>always-list</i>. Execution then continues from
+      the result of the execution of <i>try-list</i>; in other words, any error,
+      or <b>break</b>, <b>continue</b>, or <b>return</b> command is treated in
+      the normal way, as if <i>always-list</i> were not present. The two chunks
+      of code are referred to as the `try block' and the `always block'.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Optional newlines or semicolons may appear after the
+    <b>always</b>; note, however, that they may <i>not</i> appear between the
+    preceding closing brace and the <b>always</b>.</p>
+<p class="Pp">An `error' in this context is a condition such as a syntax error
+    which causes the shell to abort execution of the current function, script,
+    or list. Syntax errors encountered while the shell is parsing the code do
+    not cause the <i>always-list</i> to be executed. For example, an erroneously
+    constructed <b>if</b> block in <b>try-list</b> would cause the shell to
+    abort during parsing, so that <b>always-list</b> would not be executed,
+    while an erroneous substitution such as <b>${*foo*}</b> would cause a
+    run-time error, after which <b>always-list</b> would be executed.</p>
+<p class="Pp">An error condition can be tested and reset with the special
+    integer variable <b>TRY_BLOCK_ERROR</b>. Outside an <b>always-list</b> the
+    value is irrelevant, but it is initialised to <b>-1</b>. Inside
+    <b>always-list</b>, the value is 1 if an error occurred in the
+    <b>try-list</b>, else 0. If <b>TRY_BLOCK_ERROR</b> is set to 0 during the
+    <b>always-list</b>, the error condition caused by the <b>try-list</b> is
+    reset, and shell execution continues normally after the end of
+    <b>always-list</b>. Altering the value during the <b>try-list</b> is not
+    useful (unless this forms part of an enclosing <b>always</b> block).</p>
+<p class="Pp">Regardless of <b>TRY_BLOCK_ERROR</b>, after the end of
+    <b>always-list</b> the normal shell status <b>$?</b> is the value returned
+    from <b>try-list</b>. This will be non-zero if there was an error, even if
+    <b>TRY_BLOCK_ERROR</b> was set to zero.</p>
+<p class="Pp">The following executes the given code, ignoring any errors it
+    causes. This is an alternative to the usual convention of protecting code by
+    executing it in a subshell.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>{</b>
+<b>    # code which may cause an error</b>
+<b>  } always {</b>
+<b>    # This code is executed regardless of the error.</b>
+<b>    (( TRY_BLOCK_ERROR = 0 ))</b>
+<b>}</b>
+<b># The error condition has been reset.</b>
+</pre>
+</div>
+<p class="Pp">An <b>exit</b> command (or a <b>return</b> command executed at the
+    outermost function level of a script) encountered in <b>try-list</b> does
+    <i>not</i> cause the execution of <i>always-list</i>. Instead, the shell
+    exits immediately after any <b>EXIT</b> trap has been executed.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>function</b> <i>word</i> ... [ <b>()</b> ] [ <i>term</i> ] <b>{</b>
+    <i>list</i> <b>}</b></dt>
+  <dd></dd>
+  <dt><i>word</i> ... <b>()</b> [ <i>term</i> ] <b>{</b> <i>list</i>
+    <b>}</b></dt>
+  <dd></dd>
+  <dt><i>word</i> ... <b>()</b> [ <i>term</i> ] <i>command</i></dt>
+  <dd>where <i>term</i> is one or more newline or <b>;</b>. Define a function
+      which is referenced by any one of <i>word</i>. Normally, only one
+      <i>word</i> is provided; multiple <i>word</i>s are usually only useful for
+      setting traps. The body of the function is the <i>list</i> between the
+      <b>{</b> and <b>}</b>. See the section `Functions'.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If the option <b>SH_GLOB</b> is set for compatibility with other
+    shells, then whitespace may appear between the left and right parentheses
+    when there is a single <i>word</i>; otherwise, the parentheses will be
+    treated as forming a globbing pattern in that case.</p>
+<p class="Pp">In any of the forms above, a redirection may appear outside the
+    function body, for example</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>func() { ... } 2&gt;&amp;1</b>
+</pre>
+</div>
+<p class="Pp">The redirection is stored with the function and applied whenever
+    the function is executed. Any variables in the redirection are expanded at
+    the point the function is executed, but outside the function scope.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>time</b> [ <i>pipeline</i> ]</dt>
+  <dd>The <i>pipeline</i> is executed, and timing statistics are reported on the
+      standard error in the form specified by the <b>TIMEFMT</b> parameter. If
+      <i>pipeline</i> is omitted, print statistics about the shell process and
+      its children.</dd>
+  <dt><b>[[</b> <i>exp</i> <b>]]</b></dt>
+  <dd>Evaluates the conditional expression <i>exp</i> and return a zero exit
+      status if it is true. See the section `Conditional Expressions' for a
+      description of <i>exp</i>.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ALTERNATE_FORMS_FOR_COMPLEX_COMMANDS"><a class="permalink" href="#ALTERNATE_FORMS_FOR_COMPLEX_COMMANDS">ALTERNATE
+  FORMS FOR COMPLEX COMMANDS</a></h1>
+Many of zsh's complex commands have alternate forms. These are non-standard and
+  are likely not to be obvious even to seasoned shell programmers; they should
+  not be used anywhere that portability of shell code is a concern.
+<p class="Pp">The short versions below only work if <i>sublist</i> is of the
+    form `<b>{</b> <i>list</i> <b>}</b>' or if the <b>SHORT_LOOPS</b> option is
+    set. For the <b>if</b>, <b>while</b> and <b>until</b> commands, in both
+    these cases the test part of the loop must also be suitably delimited, such
+    as by `<b>[[</b> <i>...</i> <b>]]</b>' or `<b>((</b> <i>...</i> <b>))</b>',
+    else the end of the test will not be recognized. For the <b>for</b>,
+    <b>repeat</b>, <b>case</b> and <b>select</b> commands no such special form
+    for the arguments is necessary, but the other condition (the special form of
+    <i>sublist</i> or use of the <b>SHORT_LOOPS</b> option) still applies.</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>if</b> <i>list</i> <b>{</b> <i>list</i> <b>}</b> [ <b>elif</b>
+    <i>list</i> <b>{</b> <i>list</i> <b>}</b> ] ... [ <b>else {</b> <i>list</i>
+    <b>}</b> ]</dt>
+  <dd>An alternate form of <b>if</b>. The rules mean that</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>if [[ -o ignorebraces ]] {</b>
+<b>  print yes</b>
+<b>}</b>
+</pre>
+</div>
+<p class="Pp">works, but</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>if true {  # Does not work!</b>
+<b>  print yes</b>
+<b>}</b>
+</pre>
+</div>
+<p class="Pp">does <i>not</i>, since the test is not suitably delimited.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>if</b> <i>list</i> <i>sublist</i></dt>
+  <dd>A short form of the alternate <b>if</b>. The same limitations on the form
+      of <i>list</i> apply as for the previous form.</dd>
+  <dt><b>for</b> <i>name</i> ... <b>(</b> <i>word</i> ... <b>)</b>
+    <i>sublist</i></dt>
+  <dd>A short form of <b>for</b>.</dd>
+  <dt><b>for</b> <i>name</i> ... [ <b>in</b> <i>word</i> ... ] <i>term</i>
+    <i>sublist</i></dt>
+  <dd>where <i>term</i> is at least one newline or <b>;</b>. Another short form
+      of <b>for</b>.</dd>
+  <dt><b>for ((</b> [<i>expr1</i>] <b>;</b> [<i>expr2</i>] <b>;</b>
+    [<i>expr3</i>] <b>))</b> <i>sublist</i></dt>
+  <dd>A short form of the arithmetic <b>for</b> command.</dd>
+  <dt><b>foreach</b> <i>name</i> ... <b>(</b> <i>word</i> ... <b>)</b>
+    <i>list</i> <b>end</b></dt>
+  <dd>Another form of <b>for</b>.</dd>
+  <dt><b>while</b> <i>list</i> <b>{</b> <i>list</i> <b>}</b></dt>
+  <dd>An alternative form of <b>while</b>. Note the limitations on the form of
+      <i>list</i> mentioned above.</dd>
+  <dt><b>until</b> <i>list</i> <b>{</b> <i>list</i> <b>}</b></dt>
+  <dd>An alternative form of <b>until</b>. Note the limitations on the form of
+      <i>list</i> mentioned above.</dd>
+  <dt><b>repeat</b> <i>word</i> <i>sublist</i></dt>
+  <dd>This is a short form of <b>repeat</b>.</dd>
+  <dt><b>case</b> <i>word</i> <b>{</b> [ [<b>(</b>] <i>pattern</i> [ <b>|</b>
+    <i>pattern</i> ] ... <b>)</b> <i>list</i>
+    (<b>;;</b>|<b>;&amp;</b>|<b>;|</b>) ] ... <b>}</b></dt>
+  <dd>An alternative form of <b>case</b>.</dd>
+  <dt><b>select</b> <i>name</i> [ <b>in</b> <i>word</i> ... <i>term</i> ]
+    <i>sublist</i></dt>
+  <dd>where <i>term</i> is at least one newline or <b>;</b>. A short form of
+      <b>select</b>.</dd>
+  <dt><b>function</b> <i>word</i> ... [ <b>()</b> ] [ <i>term</i> ]
+    <i>sublist</i></dt>
+  <dd>This is a short form of <b>function</b>.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RESERVED_WORDS"><a class="permalink" href="#RESERVED_WORDS">RESERVED
+  WORDS</a></h1>
+The following words are recognized as reserved words when used as the first word
+  of a command unless quoted or disabled using <b>disable -r</b>:
+<p class="Pp"><b>do done esac then elif else fi for case</b> <b>if while
+    function repeat time until</b> <b>select coproc nocorrect foreach end ! [[ {
+    }</b> <b>declare export float integer local readonly typeset</b></p>
+<p class="Pp">Additionally, `<b>}</b>' is recognized in any position if neither
+    the <b>IGNORE_BRACES</b> option nor the <b>IGNORE_CLOSE_BRACES</b> option is
+    set.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ERRORS"><a class="permalink" href="#ERRORS">ERRORS</a></h1>
+Certain errors are treated as fatal by the shell: in an interactive shell, they
+  cause control to return to the command line, and in a non-interactive shell
+  they cause the shell to be aborted. In older versions of zsh, a
+  non-interactive shell running a script would not abort completely, but would
+  resume execution at the next command to be read from the script, skipping the
+  remainder of any functions or shell constructs such as loops or conditions;
+  this somewhat illogical behaviour can be recovered by setting the option
+  <b>CONTINUE_ON_ERROR</b>.
+<p class="Pp">Fatal errors found in non-interactive shells include:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>Failure to parse shell options passed when invoking the shell</dd>
+  <dt>&#x2022;</dt>
+  <dd>Failure to change options with the <b>set</b> builtin</dd>
+  <dt>&#x2022;</dt>
+  <dd>Parse errors of all sorts, including failures to parse mathematical
+      expressions</dd>
+  <dt>&#x2022;</dt>
+  <dd>Failures to set or modify variable behaviour with <b>typeset</b>,
+      <b>local</b>, <b>declare</b>, <b>export</b>, <b>integer</b>,
+    <b>float</b></dd>
+  <dt>&#x2022;</dt>
+  <dd>Execution of incorrectly positioned loop control structures
+      (<b>continue</b>, <b>break</b>)</dd>
+  <dt>&#x2022;</dt>
+  <dd>Attempts to use regular expression with no regular expression module
+      available</dd>
+  <dt>&#x2022;</dt>
+  <dd>Disallowed operations when the <b>RESTRICTED</b> options is set</dd>
+  <dt>&#x2022;</dt>
+  <dd>Failure to create a pipe needed for a pipeline</dd>
+  <dt>&#x2022;</dt>
+  <dd>Failure to create a multio</dd>
+  <dt>&#x2022;</dt>
+  <dd>Failure to autoload a module needed for a declared shell feature</dd>
+  <dt>&#x2022;</dt>
+  <dd>Errors creating command or process substitutions</dd>
+  <dt>&#x2022;</dt>
+  <dd>Syntax errors in glob qualifiers</dd>
+  <dt>&#x2022;</dt>
+  <dd>File generation errors where not caught by the option
+    <b>BAD_PATTERN</b></dd>
+  <dt>&#x2022;</dt>
+  <dd>All bad patterns used for matching within case statements</dd>
+  <dt>&#x2022;</dt>
+  <dd>File generation failures where not caused by <b>NO_MATCH</b> or similar
+      options</dd>
+  <dt>&#x2022;</dt>
+  <dd>All file generation errors where the pattern was used to create a
+    multio</dd>
+  <dt>&#x2022;</dt>
+  <dd>Memory errors where detected by the shell</dd>
+  <dt>&#x2022;</dt>
+  <dd>Invalid subscripts to shell variables</dd>
+  <dt>&#x2022;</dt>
+  <dd>Attempts to assign read-only variables</dd>
+  <dt>&#x2022;</dt>
+  <dd>Logical errors with variables such as assignment to the wrong type</dd>
+  <dt>&#x2022;</dt>
+  <dd>Use of invalid variable names</dd>
+  <dt>&#x2022;</dt>
+  <dd>Errors in variable substitution syntax</dd>
+  <dt>&#x2022;</dt>
+  <dd>Failure to convert characters in <b>$'</b>...<b>'</b> expressions</dd>
+</dl>
+<p class="Pp">If the <b>POSIX_BUILTINS</b> option is set, more errors associated
+    with shell builtin commands are treated as fatal, as specified by the POSIX
+    standard.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMMENTS"><a class="permalink" href="#COMMENTS">COMMENTS</a></h1>
+In non-interactive shells, or in interactive shells with the
+  <b>INTERACTIVE_COMMENTS</b> option set, a word beginning with the third
+  character of the <b>histchars</b> parameter (`<b>#</b>' by default) causes
+  that word and all the following characters up to a newline to be ignored.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ALIASING"><a class="permalink" href="#ALIASING">ALIASING</a></h1>
+Every eligible <i>word</i> in the shell input is checked to see if there is an
+  alias defined for it. If so, it is replaced by the text of the alias if it is
+  in command position (if it could be the first word of a simple command), or if
+  the alias is global. If the replacement text ends with a space, the next word
+  in the shell input is always eligible for purposes of alias expansion. An
+  alias is defined using the <b>alias</b> builtin; global aliases may be defined
+  using the <b>-g</b> option to that builtin.
+<p class="Pp">A <i>word</i> is defined as:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>Any plain string or glob pattern</dd>
+  <dt>&#x2022;</dt>
+  <dd>Any quoted string, using any quoting method (note that the quotes must be
+      part of the alias definition for this to be eligible)</dd>
+  <dt>&#x2022;</dt>
+  <dd>Any parameter reference or command substitution</dd>
+  <dt>&#x2022;</dt>
+  <dd>Any series of the foregoing, concatenated without whitespace or other
+      tokens between them</dd>
+  <dt>&#x2022;</dt>
+  <dd>Any reserved word (<b>case</b>, <b>do</b>, <b>else</b>, etc.)</dd>
+  <dt>&#x2022;</dt>
+  <dd>With global aliasing, any command separator, any redirection operator, and
+      `<b>(</b>' or `<b>)</b>' when not part of a glob pattern</dd>
+</dl>
+<p class="Pp">Alias expansion is done on the shell input before any other
+    expansion except history expansion. Therefore, if an alias is defined for
+    the word <b>foo</b>, alias expansion may be avoided by quoting part of the
+    word, e.g. <b>\foo</b>. Any form of quoting works, although there is nothing
+    to prevent an alias being defined for the quoted form such as <b>\foo</b> as
+    well.</p>
+<p class="Pp">When <b>POSIX_ALIASES</b> is set, only plain unquoted strings are
+    eligible for aliasing. The <b>alias</b> builtin does not reject ineligible
+    aliases, but they are not expanded.</p>
+<p class="Pp">For use with completion, which would remove an initial backslash
+    followed by a character that isn't special, it may be more convenient to
+    quote the word by starting with a single quote, i.e. <b>'foo</b>; completion
+    will automatically add the trailing single quote.</p>
+<section class="Ss">
+<h2 class="Ss" id="Alias_difficulties"><a class="permalink" href="#Alias_difficulties">Alias
+  difficulties</a></h2>
+Although aliases can be used in ways that bend normal shell syntax, not every
+  string of non-white-space characters can be used as an alias.
+<p class="Pp">Any set of characters not listed as a word above is not a word,
+    hence no attempt is made to expand it as an alias, no matter how it is
+    defined (i.e. via the builtin or the special parameter <b>aliases</b>
+    described in the section THE ZSH/PARAMETER MODULE in <i>zshmodules</i>(1)).
+    However, as noted in the case of <b>POSIX_ALIASES</b> above, the shell does
+    not attempt to deduce whether the string corresponds to a word at the time
+    the alias is created.</p>
+<p class="Pp">For example, an expression containing an <b>=</b> at the start of
+    a command line is an assignment and cannot be expanded as an alias; a lone
+    <b>=</b> is not an assignment but can only be set as an alias using the
+    parameter, as otherwise the <b>=</b> is taken part of the syntax of the
+    builtin command.</p>
+<p class="Pp">It is not presently possible to alias the `<b>((</b>' token that
+    introduces arithmetic expressions, because until a full statement has been
+    parsed, it cannot be distinguished from two consecutive `<b>(</b>' tokens
+    introducing nested subshells. Also, if a separator such as <b>&amp;&amp;</b>
+    is aliased, <b>\&amp;&amp;</b> turns into the two tokens <b>\&amp;</b> and
+    <b>&amp;</b>, each of which may have been aliased separately. Similarly for
+    <b>\&lt;&lt;</b>, <b>\&gt;|</b>, etc.</p>
+<p class="Pp">There is a commonly encountered problem with aliases illustrated
+    by the following code:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>alias echobar='echo bar'; echobar</b>
+</pre>
+</div>
+<p class="Pp">This prints a message that the command <b>echobar</b> could not be
+    found. This happens because aliases are expanded when the code is read in;
+    the entire line is read in one go, so that when <b>echobar</b> is executed
+    it is too late to expand the newly defined alias. This is often a problem in
+    shell scripts, functions, and code executed with `<b>source</b>' or
+    `<b>.</b>'. Consequently, use of functions rather than aliases is
+    recommended in non-interactive code.</p>
+<p class="Pp">Note also the unhelpful interaction of aliases and function
+    definitions:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>alias func='noglob func'</b>
+<b>func() {</b>
+<b>    echo Do something with $*</b>
+<b>}</b>
+</pre>
+</div>
+<p class="Pp">Because aliases are expanded in function definitions, this causes
+    the following command to be executed:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>noglob func() {</b>
+<b>    echo Do something with $*</b>
+<b>}</b>
+</pre>
+</div>
+<p class="Pp">which defines <b>noglob</b> as well as <b>func</b> as functions
+    with the body given. To avoid this, either quote the name <b>func</b> or use
+    the alternative function definition form `<b>function func</b>'. Ensuring
+    the alias is defined after the function works but is problematic if the code
+    fragment might be re-executed.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="QUOTING"><a class="permalink" href="#QUOTING">QUOTING</a></h1>
+A character may be <i>quoted</i> (that is, made to stand for itself) by
+  preceding it with a `<b>\</b>'. `<b>\</b>' followed by a newline is ignored.
+<p class="Pp">A string enclosed between `<b>$'</b>' and `<b>'</b>' is processed
+    the same way as the string arguments of the <b>print</b> builtin, and the
+    resulting string is considered to be entirely quoted. A literal `<b>'</b>'
+    character can be included in the string by using the `<b>\'</b>' escape.</p>
+<p class="Pp">All characters enclosed between a pair of single quotes
+    (<b>''</b>) that is not preceded by a `<b>$</b>' are quoted. A single quote
+    cannot appear within single quotes unless the option <b>RC_QUOTES</b> is
+    set, in which case a pair of single quotes are turned into a single quote.
+    For example,</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>print ''''</b>
+</pre>
+</div>
+<p class="Pp">outputs nothing apart from a newline if <b>RC_QUOTES</b> is not
+    set, but one single quote if it is set.</p>
+<p class="Pp">Inside double quotes (<b>&quot;&quot;</b>), parameter and command
+    substitution occur, and `<b>\</b>' quotes the characters `<b>\</b>',
+    `<b>`</b>', `<b>&quot;</b>', `<b>$</b>', and the first character of
+    <b>$histchars</b> (default `<b>!</b>').</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REDIRECTION"><a class="permalink" href="#REDIRECTION">REDIRECTION</a></h1>
+If a command is followed by <b>&amp;</b> and job control is not active, then the
+  default standard input for the command is the empty file <b>/dev/null</b>.
+  Otherwise, the environment for the execution of a command contains the file
+  descriptors of the invoking shell as modified by input/output specifications.
+<p class="Pp">The following may appear anywhere in a simple command or may
+    precede or follow a complex command. Expansion occurs before <i>word</i> or
+    <i>digit</i> is used except as noted below. If the result of substitution on
+    <i>word</i> produces more than one filename, redirection occurs for each
+    separate filename in turn.</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>&lt;</b> <i>word</i></dt>
+  <dd>Open file <i>word</i> for reading as standard input. It is an error to
+      open a file in this fashion if it does not exist.</dd>
+  <dt><b>&lt;&gt;</b> <i>word</i></dt>
+  <dd>Open file <i>word</i> for reading and writing as standard input. If the
+      file does not exist then it is created.</dd>
+  <dt><b>&gt;</b> <i>word</i></dt>
+  <dd>Open file <i>word</i> for writing as standard output. If the file does not
+      exist then it is created. If the file exists, and the <b>CLOBBER</b>
+      option is unset, this causes an error; otherwise, it is truncated to zero
+      length.</dd>
+  <dt><b>&gt;|</b> <i>word</i></dt>
+  <dd></dd>
+  <dt><b>&gt;!</b> <i>word</i></dt>
+  <dd>Same as <b>&gt;</b>, except that the file is truncated to zero length if
+      it exists, even if <b>CLOBBER</b> is unset.</dd>
+  <dt><b>&gt;&gt;</b> <i>word</i></dt>
+  <dd>Open file <i>word</i> for writing in append mode as standard output. If
+      the file does not exist, and the <b>CLOBBER</b> option is unset, this
+      causes an error; otherwise, the file is created.</dd>
+  <dt><b>&gt;&gt;|</b> <i>word</i></dt>
+  <dd></dd>
+  <dt><b>&gt;&gt;!</b> <i>word</i></dt>
+  <dd>Same as <b>&gt;&gt;</b>, except that the file is created if it does not
+      exist, even if <b>CLOBBER</b> is unset.</dd>
+  <dt><b>&lt;&lt;</b>[<b>-</b>] <i>word</i></dt>
+  <dd>The shell input is read up to a line that is the same as <i>word</i>, or
+      to an end-of-file. No parameter expansion, command substitution or
+      filename generation is performed on <i>word</i>. The resulting document,
+      called a <i>here-document</i>, becomes the standard input.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If any character of <i>word</i> is quoted with single or double
+    quotes or a `<b>\</b>', no interpretation is placed upon the characters of
+    the document. Otherwise, parameter and command substitution occurs,
+    `<b>\</b>' followed by a newline is removed, and `<b>\</b>' must be used to
+    quote the characters `<b>\</b>', `<b>$</b>', `<b>`</b>' and the first
+    character of <i>word</i>.</p>
+<p class="Pp">Note that <i>word</i> itself does not undergo shell expansion.
+    Backquotes in <i>word</i> do not have their usual effect; instead they
+    behave similarly to double quotes, except that the backquotes themselves are
+    passed through unchanged. (This information is given for completeness and it
+    is not recommended that backquotes be used.) Quotes in the form
+    <b>$'</b><i>...</i><b>'</b> have their standard effect of expanding
+    backslashed references to special characters.</p>
+<p class="Pp">If <b>&lt;&lt;-</b> is used, then all leading tabs are stripped
+    from <i>word</i> and from the document.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>&lt;&lt;&lt;</b> <i>word</i></dt>
+  <dd>Perform shell expansion on <i>word</i> and pass the result to standard
+      input. This is known as a <i>here-string</i>. Compare the use of
+      <i>word</i> in here-documents above, where <i>word</i> does not undergo
+      shell expansion.</dd>
+  <dt><b>&lt;&amp;</b> <i>number</i></dt>
+  <dd></dd>
+  <dt><b>&gt;&amp;</b> <i>number</i></dt>
+  <dd>The standard input/output is duplicated from file descriptor <i>number</i>
+      (see <i>dup2</i>(2)).</dd>
+  <dt><b>&lt;&amp; -</b></dt>
+  <dd></dd>
+  <dt><b>&gt;&amp; -</b></dt>
+  <dd>Close the standard input/output.</dd>
+  <dt><b>&lt;&amp; p</b></dt>
+  <dd></dd>
+  <dt><b>&gt;&amp; p</b></dt>
+  <dd>The input/output from/to the coprocess is moved to the standard
+      input/output.</dd>
+  <dt><b>&gt;&amp;</b> <i>word</i></dt>
+  <dd></dd>
+  <dt><b>&amp;&gt;</b> <i>word</i></dt>
+  <dd>(Except where `<b>&gt;&amp;</b> <i>word</i>' matches one of the above
+      syntaxes; `<b>&amp;&gt;</b>' can always be used to avoid this ambiguity.)
+      Redirects both standard output and standard error (file descriptor 2) in
+      the manner of `<b>&gt;</b> <i>word</i>'. Note that this does <i>not</i>
+      have the same effect as `<b>&gt;</b> <i>word</i> <b>2&gt;&amp;1</b>' in
+      the presence of multios (see the section below).</dd>
+  <dt><b>&gt;&amp;|</b> <i>word</i></dt>
+  <dd></dd>
+  <dt><b>&gt;&amp;!</b> <i>word</i></dt>
+  <dd></dd>
+  <dt><b>&amp;&gt;|</b> <i>word</i></dt>
+  <dd></dd>
+  <dt><b>&amp;&gt;!</b> <i>word</i></dt>
+  <dd>Redirects both standard output and standard error (file descriptor 2) in
+      the manner of `<b>&gt;|</b> <i>word</i>'.</dd>
+  <dt><b>&gt;&gt;&amp;</b> <i>word</i></dt>
+  <dd></dd>
+  <dt><b>&amp;&gt;&gt;</b> <i>word</i></dt>
+  <dd>Redirects both standard output and standard error (file descriptor 2) in
+      the manner of `<b>&gt;&gt;</b> <i>word</i>'.</dd>
+  <dt><b>&gt;&gt;&amp;|</b> <i>word</i></dt>
+  <dd></dd>
+  <dt><b>&gt;&gt;&amp;!</b> <i>word</i></dt>
+  <dd></dd>
+  <dt><b>&amp;&gt;&gt;|</b> <i>word</i></dt>
+  <dd></dd>
+  <dt><b>&amp;&gt;&gt;!</b> <i>word</i></dt>
+  <dd>Redirects both standard output and standard error (file descriptor 2) in
+      the manner of `<b>&gt;&gt;|</b> <i>word</i>'.</dd>
+</dl>
+<p class="Pp">If one of the above is preceded by a digit, then the file
+    descriptor referred to is that specified by the digit instead of the default
+    0 or 1. The order in which redirections are specified is significant. The
+    shell evaluates each redirection in terms of the (<i>file descriptor</i>,
+    <i>file</i>) association at the time of evaluation. For example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+... <b>1&gt;</b><i>fname</i> <b>2&gt;&amp;1</b>
+</pre>
+</div>
+<p class="Pp">first associates file descriptor 1 with file <i>fname</i>. It then
+    associates file descriptor 2 with the file associated with file descriptor 1
+    (that is, <i>fname</i>). If the order of redirections were reversed, file
+    descriptor 2 would be associated with the terminal (assuming file descriptor
+    1 had been) and then file descriptor 1 would be associated with file
+    <i>fname</i>.</p>
+<p class="Pp">The `<b>|&amp;</b>' command separator described in <i>Simple
+    Commands &amp; Pipelines</i> in <i>zshmisc</i>(1) is a shorthand for
+    `<b>2&gt;&amp;1 |</b>'.</p>
+<p class="Pp">The various forms of process substitution,
+    `<b>&lt;(</b><i>list</i><b>)</b>', and `<b>=(</b><i>list</i><b>)</b>' for
+    input and `<b>&gt;(</b><i>list</i><b>)</b>' for output, are often used
+    together with redirection. For example, if <i>word</i> in an output
+    redirection is of the form `<b>&gt;(</b><i>list</i><b>)</b>' then the output
+    is piped to the command represented by <i>list</i>. See <i>Process
+    Substitution</i> in <i>zshexpn</i>(1).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPENING_FILE_DESCRIPTORS_USING_PARAMETERS"><a class="permalink" href="#OPENING_FILE_DESCRIPTORS_USING_PARAMETERS">OPENING
+  FILE DESCRIPTORS USING PARAMETERS</a></h1>
+When the shell is parsing arguments to a command, and the shell option
+  <b>IGNORE_BRACES</b> is not set, a different form of redirection is allowed:
+  instead of a digit before the operator there is a valid shell identifier
+  enclosed in braces. The shell will open a new file descriptor that is
+  guaranteed to be at least 10 and set the parameter named by the identifier to
+  the file descriptor opened. No whitespace is allowed between the closing brace
+  and the redirection character. For example:
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+... <b>{myfd}&gt;&amp;1</b>
+</pre>
+</div>
+<p class="Pp">This opens a new file descriptor that is a duplicate of file
+    descriptor 1 and sets the parameter <b>myfd</b> to the number of the file
+    descriptor, which will be at least 10. The new file descriptor can be
+    written to using the syntax <b>&gt;&amp;$myfd</b>.</p>
+<p class="Pp">The syntax <b>{</b><i>varid</i><b>}&gt;&amp;-</b>, for example
+    <b>{myfd}&gt;&amp;-</b>, may be used to close a file descriptor opened in
+    this fashion. Note that the parameter given by <i>varid</i> must previously
+    be set to a file descriptor in this case.</p>
+<p class="Pp">It is an error to open or close a file descriptor in this fashion
+    when the parameter is readonly. However, it is not an error to read or write
+    a file descriptor using <b>&lt;&amp;$</b><i>param</i> or
+    <b>&gt;&amp;$</b><i>param</i> if <i>param</i> is readonly.</p>
+<p class="Pp">If the option <b>CLOBBER</b> is unset, it is an error to open a
+    file descriptor using a parameter that is already set to an open file
+    descriptor previously allocated by this mechanism. Unsetting the parameter
+    before using it for allocating a file descriptor avoids the error.</p>
+<p class="Pp">Note that this mechanism merely allocates or closes a file
+    descriptor; it does not perform any redirections from or to it. It is
+    usually convenient to allocate a file descriptor prior to use as an argument
+    to <b>exec</b>. The syntax does not in any case work when used around
+    complex commands such as parenthesised subshells or loops, where the opening
+    brace is interpreted as part of a command list to be executed in the current
+    shell.</p>
+<p class="Pp">The following shows a typical sequence of allocation, use, and
+    closing of a file descriptor:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>integer myfd</b>
+<b>exec {myfd}&gt;~/logs/mylogfile.txt</b>
+<b>print This is a log message. &gt;&amp;$myfd</b>
+<b>exec {myfd}&gt;&amp;-</b>
+</pre>
+</div>
+<p class="Pp">Note that the expansion of the variable in the expression
+    <b>&gt;&amp;$myfd</b> occurs at the point the redirection is opened. This is
+    after the expansion of command arguments and after any redirections to the
+    left on the command line have been processed.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MULTIOS"><a class="permalink" href="#MULTIOS">MULTIOS</a></h1>
+If the user tries to open a file descriptor for writing more than once, the
+  shell opens the file descriptor as a pipe to a process that copies its input
+  to all the specified outputs, similar to <b>tee</b>, provided the
+  <b>MULTIOS</b> option is set, as it is by default. Thus:
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>date &gt;foo &gt;bar</b>
+</pre>
+</div>
+<p class="Pp">writes the date to two files, named `<b>foo</b>' and `<b>bar</b>'.
+    Note that a pipe is an implicit redirection; thus</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>date &gt;foo | cat</b>
+</pre>
+</div>
+<p class="Pp">writes the date to the file `<b>foo</b>', and also pipes it to
+    cat.</p>
+<p class="Pp">Note that the shell opens all the files to be used in the multio
+    process immediately, not at the point they are about to be written.</p>
+<p class="Pp">Note also that redirections are always expanded in order. This
+    happens regardless of the setting of the <b>MULTIOS</b> option, but with the
+    option in effect there are additional consequences. For example, the meaning
+    of the expression <b>&gt;&amp;1</b> will change after a previous
+    redirection:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>date &gt;&amp;1 &gt;output</b>
+</pre>
+</div>
+<p class="Pp">In the case above, the <b>&gt;&amp;1</b> refers to the standard
+    output at the start of the line; the result is similar to the <b>tee</b>
+    command. However, consider:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>date &gt;output &gt;&amp;1</b>
+</pre>
+</div>
+<p class="Pp">As redirections are evaluated in order, when the <b>&gt;&amp;1</b>
+    is encountered the standard output is set to the file <b>output</b> and
+    another copy of the output is therefore sent to that file. This is unlikely
+    to be what is intended.</p>
+<p class="Pp">If the <b>MULTIOS</b> option is set, the word after a redirection
+    operator is also subjected to filename generation (globbing). Thus</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>: &gt; *</b>
+</pre>
+</div>
+<p class="Pp">will truncate all files in the current directory, assuming there's
+    at least one. (Without the <b>MULTIOS</b> option, it would create an empty
+    file called `<b>*</b>'.) Similarly, you can do</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>echo exit 0 &gt;&gt; *.sh</b>
+</pre>
+</div>
+<p class="Pp">If the user tries to open a file descriptor for reading more than
+    once, the shell opens the file descriptor as a pipe to a process that copies
+    all the specified inputs to its output in the order specified, provided the
+    <b>MULTIOS</b> option is set. It should be noted that each file is opened
+    immediately, not at the point where it is about to be read: this behaviour
+    differs from <b>cat</b>, so if strictly standard behaviour is needed,
+    <b>cat</b> should be used instead.</p>
+<p class="Pp">Thus</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>sort &lt;foo &lt;fubar</b>
+</pre>
+</div>
+<p class="Pp">or even</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>sort &lt;f{oo,ubar}</b>
+</pre>
+</div>
+<p class="Pp">is equivalent to `<b>cat foo fubar | sort</b>'.</p>
+<p class="Pp">Expansion of the redirection argument occurs at the point the
+    redirection is opened, at the point described above for the expansion of the
+    variable in <b>&gt;&amp;$myfd</b>.</p>
+<p class="Pp">Note that a pipe is an implicit redirection; thus</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>cat bar | sort &lt;foo</b>
+</pre>
+</div>
+<p class="Pp">is equivalent to `<b>cat bar foo | sort</b>' (note the order of
+    the inputs).</p>
+<p class="Pp">If the <b>MULTIOS</b> option is <i>un</i>set, each redirection
+    replaces the previous redirection for that file descriptor. However, all
+    files redirected to are actually opened, so</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>echo Hello &gt; bar &gt; baz</b>
+</pre>
+</div>
+<p class="Pp">when <b>MULTIOS</b> is unset will truncate `<b>bar</b>', and write
+    `<b>Hello</b>' into `<b>baz</b>'.</p>
+<p class="Pp">There is a problem when an output multio is attached to an
+    external program. A simple example shows this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>cat file &gt;file1 &gt;file2</b>
+<b>cat file1 file2</b>
+</pre>
+</div>
+<p class="Pp">Here, it is possible that the second `<b>cat</b>' will not display
+    the full contents of <b>file1</b> and <b>file2</b> (i.e. the original
+    contents of <b>file</b> repeated twice).</p>
+<p class="Pp">The reason for this is that the multios are spawned after the
+    <b>cat</b> process is forked from the parent shell, so the parent shell does
+    not wait for the multios to finish writing data. This means the command as
+    shown can exit before <b>file1</b> and <b>file2</b> are completely written.
+    As a workaround, it is possible to run the <b>cat</b> process as part of a
+    job in the current shell:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>{ cat file } &gt;file &gt;file2</b>
+</pre>
+</div>
+<p class="Pp">Here, the <b>{</b><i>...</i><b>}</b> job will pause to wait for
+    both files to be written.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REDIRECTIONS_WITH_NO_COMMAND"><a class="permalink" href="#REDIRECTIONS_WITH_NO_COMMAND">REDIRECTIONS
+  WITH NO COMMAND</a></h1>
+When a simple command consists of one or more redirection operators and zero or
+  more parameter assignments, but no command name, zsh can behave in several
+  ways.
+<p class="Pp">If the parameter <b>NULLCMD</b> is not set or the option
+    <b>CSH_NULLCMD</b> is set, an error is caused. This is the <b>csh</b>
+    behavior and <b>CSH_NULLCMD</b> is set by default when emulating
+  <b>csh</b>.</p>
+<p class="Pp">If the option <b>SH_NULLCMD</b> is set, the builtin `<b>:</b>' is
+    inserted as a command with the given redirections. This is the default when
+    emulating <b>sh</b> or <b>ksh</b>.</p>
+<p class="Pp">Otherwise, if the parameter <b>NULLCMD</b> is set, its value will
+    be used as a command with the given redirections. If both <b>NULLCMD</b> and
+    <b>READNULLCMD</b> are set, then the value of the latter will be used
+    instead of that of the former when the redirection is an input. The default
+    for <b>NULLCMD</b> is `<b>cat</b>' and for <b>READNULLCMD</b> is
+    `<b>more</b>'. Thus</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>&lt; file</b>
+</pre>
+</div>
+<p class="Pp">shows the contents of <b>file</b> on standard output, with paging
+    if that is a terminal. <b>NULLCMD</b> and <b>READNULLCMD</b> may refer to
+    shell functions.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMMAND_EXECUTION"><a class="permalink" href="#COMMAND_EXECUTION">COMMAND
+  EXECUTION</a></h1>
+If a command name contains no slashes, the shell attempts to locate it. If there
+  exists a shell function by that name, the function is invoked as described in
+  the section `Functions'. If there exists a shell builtin by that name, the
+  builtin is invoked.
+<p class="Pp">Otherwise, the shell searches each element of <b>$path</b> for a
+    directory containing an executable file by that name. If the search is
+    unsuccessful, the shell prints an error message and returns a nonzero exit
+    status.</p>
+<p class="Pp">If execution fails because the file is not in executable format,
+    and the file is not a directory, it is assumed to be a shell script.
+    <b>/bin/sh</b> is spawned to execute it. If the program is a file beginning
+    with `<b>#!</b>', the remainder of the first line specifies an interpreter
+    for the program. The shell will execute the specified interpreter on
+    operating systems that do not handle this executable format in the
+  kernel.</p>
+<p class="Pp">If no external command is found but a function
+    <b>command_not_found_handler</b> exists the shell executes this function
+    with all command line arguments. The return status of the function becomes
+    the status of the command. If the function wishes to mimic the behaviour of
+    the shell when the command is not found, it should print the message
+    `<b>command not found:</b> <i>cmd</i>' to standard error and return status
+    127. Note that the handler is executed in a subshell forked to execute an
+    external command, hence changes to directories, shell parameters, etc. have
+    no effect on the main shell.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FUNCTIONS"><a class="permalink" href="#FUNCTIONS">FUNCTIONS</a></h1>
+Shell functions are defined with the <b>function</b> reserved word or the
+  special syntax `<i>funcname</i> <b>()</b>'. Shell functions are read in and
+  stored internally. Alias names are resolved when the function is read.
+  Functions are executed like commands with the arguments passed as positional
+  parameters. (See the section `Command Execution'.)
+<p class="Pp">Functions execute in the same process as the caller and share all
+    files and present working directory with the caller. A trap on <b>EXIT</b>
+    set inside a function is executed after the function completes in the
+    environment of the caller.</p>
+<p class="Pp">The <b>return</b> builtin is used to return from function
+  calls.</p>
+<p class="Pp">Function identifiers can be listed with the <b>functions</b>
+    builtin. Functions can be undefined with the <b>unfunction</b> builtin.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTOLOADING_FUNCTIONS"><a class="permalink" href="#AUTOLOADING_FUNCTIONS">AUTOLOADING
+  FUNCTIONS</a></h1>
+A function can be marked as <i>undefined</i> using the <b>autoload</b> builtin
+  (or `<b>functions -u</b>' or `<b>typeset -fu</b>'). Such a function has no
+  body. When the function is first executed, the shell searches for its
+  definition using the elements of the <b>fpath</b> variable. Thus to define
+  functions for autoloading, a typical sequence is:
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>fpath=(~/myfuncs $fpath)</b>
+<b>autoload myfunc1 myfunc2 ...</b>
+</pre>
+</div>
+<p class="Pp">The usual alias expansion during reading will be suppressed if the
+    <b>autoload</b> builtin or its equivalent is given the option <b>-U</b>.
+    This is recommended for the use of functions supplied with the zsh
+    distribution. Note that for functions precompiled with the <b>zcompile</b>
+    builtin command the flag <b>-U</b> must be provided when the <b>.zwc</b>
+    file is created, as the corresponding information is compiled into the
+    latter.</p>
+<p class="Pp">For each <i>element</i> in <b>fpath</b>, the shell looks for three
+    possible files, the newest of which is used to load the definition for the
+    function:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><i>element</i><b>.zwc</b></dt>
+  <dd>A file created with the <b>zcompile</b> builtin command, which is expected
+      to contain the definitions for all functions in the directory named
+      <i>element</i>. The file is treated in the same manner as a directory
+      containing files for functions and is searched for the definition of the
+      function. If the definition is not found, the search for a definition
+      proceeds with the other two possibilities described below.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If <i>element</i> already includes a <b>.zwc</b> extension (i.e.
+    the extension was explicitly given by the user), <i>element</i> is searched
+    for the definition of the function without comparing its age to that of
+    other files; in fact, there does not need to be any directory named
+    <i>element</i> without the suffix. Thus including an element such as
+    `<b>/usr/local/funcs.zwc</b>' in <b>fpath</b> will speed up the search for
+    functions, with the disadvantage that functions included must be explicitly
+    recompiled by hand before the shell notices any changes.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><i>element</i><b>/</b><i>function</i><b>.zwc</b></dt>
+  <dd>A file created with <b>zcompile</b>, which is expected to contain the
+      definition for <i>function</i>. It may include other function definitions
+      as well, but those are neither loaded nor executed; a file found in this
+      way is searched <i>only</i> for the definition of <i>function</i>.</dd>
+  <dt><i>element</i><b>/</b><i>function</i></dt>
+  <dd>A file of zsh command text, taken to be the definition for
+      <i>function</i>.</dd>
+</dl>
+<p class="Pp">In summary, the order of searching is, first, in the <i>parents
+    of</i> directories in <b>fpath</b> for the newer of either a compiled
+    directory or a directory in <b>fpath</b>; second, if more than one of these
+    contains a definition for the function that is sought, the leftmost in the
+    <b>fpath</b> is chosen; and third, within a directory, the newer of either a
+    compiled function or an ordinary function definition is used.</p>
+<p class="Pp">If the <b>KSH_AUTOLOAD</b> option is set, or the file contains
+    only a simple definition of the function, the file's contents will be
+    executed. This will normally define the function in question, but may also
+    perform initialization, which is executed in the context of the function
+    execution, and may therefore define local parameters. It is an error if the
+    function is not defined by loading the file.</p>
+<p class="Pp">Otherwise, the function body (with no surrounding
+    `<i>funcname</i><b>()</b> <b>{</b><i>...</i><b>}</b>') is taken to be the
+    complete contents of the file. This form allows the file to be used directly
+    as an executable shell script. If processing of the file results in the
+    function being re-defined, the function itself is not re-executed. To force
+    the shell to perform initialization and then call the function defined, the
+    file should contain initialization code (which will be executed then
+    discarded) in addition to a complete function definition (which will be
+    retained for subsequent calls to the function), and a call to the shell
+    function, including any arguments, at the end.</p>
+<p class="Pp">For example, suppose the autoload file <b>func</b> contains</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>func() { print This is func; }</b>
+<b>print func is initialized</b>
+</pre>
+</div>
+<p class="Pp">then `<b>func; func</b>' with <b>KSH_AUTOLOAD</b> set will produce
+    both messages on the first call, but only the message `<b>This is func</b>'
+    on the second and subsequent calls. Without <b>KSH_AUTOLOAD</b> set, it will
+    produce the initialization message on the first call, and the other message
+    on the second and subsequent calls.</p>
+<p class="Pp">It is also possible to create a function that is not marked as
+    autoloaded, but which loads its own definition by searching <b>fpath</b>, by
+    using `<b>autoload -X</b>' within a shell function. For example, the
+    following are equivalent:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>myfunc() {</b>
+<b>  autoload -X</b>
+<b>}</b>
+<b>myfunc args...</b>
+</pre>
+</div>
+<p class="Pp">and</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>unfunction myfunc   # if myfunc was defined</b>
+<b>autoload myfunc</b>
+<b>myfunc args...</b>
+</pre>
+</div>
+<p class="Pp">In fact, the <b>functions</b> command outputs `<b>builtin autoload
+    -X</b>' as the body of an autoloaded function. This is done so that</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>eval &quot;$(functions)&quot;</b>
+</pre>
+</div>
+<p class="Pp">produces a reasonable result. A true autoloaded function can be
+    identified by the presence of the comment `<b># undefined</b>' in the body,
+    because all comments are discarded from defined functions.</p>
+<p class="Pp">To load the definition of an autoloaded function <b>myfunc</b>
+    without executing <b>myfunc</b>, use:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>autoload +X myfunc</b>
+</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ANONYMOUS_FUNCTIONS"><a class="permalink" href="#ANONYMOUS_FUNCTIONS">ANONYMOUS
+  FUNCTIONS</a></h1>
+If no name is given for a function, it is `anonymous' and is handled specially.
+  Either form of function definition may be used: a `<b>()</b>' with no
+  preceding name, or a `<b>function</b>' with an immediately following open
+  brace. The function is executed immediately at the point of definition and is
+  not stored for future use. The function name is set to `<b>(anon)</b>'.
+<p class="Pp">Arguments to the function may be specified as words following the
+    closing brace defining the function, hence if there are none no arguments
+    (other than <b>$0</b>) are set. This is a difference from the way other
+    functions are parsed: normal function definitions may be followed by certain
+    keywords such as `<b>else</b>' or `<b>fi</b>', which will be treated as
+    arguments to anonymous functions, so that a newline or semicolon is needed
+    to force keyword interpretation.</p>
+<p class="Pp">Note also that the argument list of any enclosing script or
+    function is hidden (as would be the case for any other function called at
+    this point).</p>
+<p class="Pp">Redirections may be applied to the anonymous function in the same
+    manner as to a current-shell structure enclosed in braces. The main use of
+    anonymous functions is to provide a scope for local variables. This is
+    particularly convenient in start-up files as these do not provide their own
+    local variable scope.</p>
+<p class="Pp">For example,</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>variable=outside</b>
+<b>function {</b>
+<b>  local variable=inside</b>
+<b>  print &quot;I am $variable with arguments $*&quot;</b>
+<b>} this and that</b>
+<b>print &quot;I am $variable&quot;</b>
+</pre>
+</div>
+<p class="Pp">outputs the following:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>I am inside with arguments this and that</b>
+<b>I am outside</b>
+</pre>
+</div>
+<p class="Pp">Note that function definitions with arguments that expand to
+    nothing, for example `<b>name=; function $name { </b><i>...</i><b> }</b>',
+    are not treated as anonymous functions. Instead, they are treated as normal
+    function definitions where the definition is silently discarded.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SPECIAL_FUNCTIONS"><a class="permalink" href="#SPECIAL_FUNCTIONS">SPECIAL
+  FUNCTIONS</a></h1>
+Certain functions, if defined, have special meaning to the shell.
+<section class="Ss">
+<h2 class="Ss" id="Hook_Functions"><a class="permalink" href="#Hook_Functions">Hook
+  Functions</a></h2>
+For the functions below, it is possible to define an array that has the same
+  name as the function with `<b>_functions</b>' appended. Any element in such an
+  array is taken as the name of a function to execute; it is executed in the
+  same context and with the same arguments as the basic function. For example,
+  if <b>$chpwd_functions</b> is an array containing the values `<b>mychpwd</b>',
+  `<b>chpwd_save_dirstack</b>', then the shell attempts to execute the functions
+  `<b>chpwd</b>', `<b>mychpwd</b>' and `<b>chpwd_save_dirstack</b>', in that
+  order. Any function that does not exist is silently ignored. A function found
+  by this mechanism is referred to elsewhere as a `hook function'. An error in
+  any function causes subsequent functions not to be run. Note further that an
+  error in a <b>precmd</b> hook causes an immediately following <b>periodic</b>
+  function not to run (though it may run at the next opportunity).
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>chpwd</b></dt>
+  <dd>Executed whenever the current working directory is changed.</dd>
+  <dt><b>periodic</b></dt>
+  <dd>If the parameter <b>PERIOD</b> is set, this function is executed every
+      <b>$PERIOD</b> seconds, just before a prompt. Note that if multiple
+      functions are defined using the array <b>periodic_functions</b> only one
+      period is applied to the complete set of functions, and the scheduled time
+      is not reset if the list of functions is altered. Hence the set of
+      functions is always called together.</dd>
+  <dt><b>precmd</b></dt>
+  <dd>Executed before each prompt. Note that precommand functions are not
+      re-executed simply because the command line is redrawn, as happens, for
+      example, when a notification about an exiting job is displayed.</dd>
+  <dt><b>preexec</b></dt>
+  <dd>Executed just after a command has been read and is about to be executed.
+      If the history mechanism is active (regardless of whether the line was
+      discarded from the history buffer), the string that the user typed is
+      passed as the first argument, otherwise it is an empty string. The actual
+      command that will be executed (including expanded aliases) is passed in
+      two different forms: the second argument is a single-line, size-limited
+      version of the command (with things like function bodies elided); the
+      third argument contains the full text that is being executed.</dd>
+  <dt><b>zshaddhistory</b></dt>
+  <dd>Executed when a history line has been read interactively, but before it is
+      executed. The sole argument is the complete history line (so that any
+      terminating newline will still be present).</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If any of the hook functions returns status 1 (or any non-zero
+    value other than 2, though this is not guaranteed for future versions of the
+    shell) the history line will not be saved, although it lingers in the
+    history until the next line is executed, allowing you to reuse or edit it
+    immediately.</p>
+<p class="Pp">If any of the hook functions returns status 2 the history line
+    will be saved on the internal history list, but not written to the history
+    file. In case of a conflict, the first non-zero status value is taken.</p>
+<p class="Pp">A hook function may call `<b>fc -p</b> <i>...</i>' to switch the
+    history context so that the history is saved in a different file from the
+    that in the global <b>HISTFILE</b> parameter. This is handled specially: the
+    history context is automatically restored after the processing of the
+    history line is finished.</p>
+<p class="Pp">The following example function works with one of the options
+    <b>INC_APPEND_HISTORY</b> or <b>SHARE_HISTORY</b> set, in order that the
+    line is written out immediately after the history entry is added. It first
+    adds the history line to the normal history with the newline stripped, which
+    is usually the correct behaviour. Then it switches the history context so
+    that the line will be written to a history file in the current
+  directory.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>zshaddhistory() {</b>
+<b>  print -sr -- ${1%%$'\n'}</b>
+<b>  fc -p .zsh_local_history</b>
+<b>}</b>
+</pre>
+</div>
+</div>
+<dl class="Bl-tag">
+  <dt><b>zshexit</b></dt>
+  <dd>Executed at the point where the main shell is about to exit normally. This
+      is not called by exiting subshells, nor when the <b>exec</b> precommand
+      modifier is used before an external command. Also, unlike <b>TRAPEXIT</b>,
+      it is not called when functions exit.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Trap_Functions"><a class="permalink" href="#Trap_Functions">Trap
+  Functions</a></h2>
+The functions below are treated specially but do not have corresponding hook
+  arrays.
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>TRAP</b><i>NAL</i></dt>
+  <dd>If defined and non-null, this function will be executed whenever the shell
+      catches a signal <b>SIG</b><i>NAL</i>, where <i>NAL</i> is a signal name
+      as specified for the <b>kill</b> builtin. The signal number will be passed
+      as the first parameter to the function.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If a function of this form is defined and null, the shell and
+    processes spawned by it will ignore <b>SIG</b><i>NAL</i>.</p>
+<p class="Pp">The return status from the function is handled specially. If it is
+    zero, the signal is assumed to have been handled, and execution continues
+    normally. Otherwise, the shell will behave as interrupted except that the
+    return status of the trap is retained.</p>
+<p class="Pp">Programs terminated by uncaught signals typically return the
+    status 128 plus the signal number. Hence the following causes the handler
+    for <b>SIGINT</b> to print a message, then mimic the usual effect of the
+    signal.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>TRAPINT() {</b>
+<b>  print &quot;Caught SIGINT, aborting.&quot;</b>
+<b>  return $(( 128 + $1 ))</b>
+<b>}</b>
+</pre>
+</div>
+<p class="Pp">The functions <b>TRAPZERR</b>, <b>TRAPDEBUG</b> and
+    <b>TRAPEXIT</b> are never executed inside other traps.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>TRAPDEBUG</b></dt>
+  <dd>If the option <b>DEBUG_BEFORE_CMD</b> is set (as it is by default),
+      executed before each command; otherwise executed after each command. See
+      the description of the <b>trap</b> builtin in <i>zshbuiltins</i>(1) for
+      details of additional features provided in debug traps.</dd>
+  <dt><b>TRAPEXIT</b></dt>
+  <dd>Executed when the shell exits, or when the current function exits if
+      defined inside a function. The value of <b>$?</b> at the start of
+      execution is the exit status of the shell or the return status of the
+      function exiting.</dd>
+  <dt><b>TRAPZERR</b></dt>
+  <dd>Executed whenever a command has a non-zero exit status. However, the
+      function is not executed if the command occurred in a sublist followed by
+      `<b>&amp;&amp;</b>' or `<b>||</b>'; only the final command in a sublist of
+      this type causes the trap to be executed. The function <b>TRAPERR</b> acts
+      the same as <b>TRAPZERR</b> on systems where there is no <b>SIGERR</b>
+      (this is the usual case).</dd>
+</dl>
+<p class="Pp">The functions beginning `<b>TRAP</b>' may alternatively be defined
+    with the <b>trap</b> builtin: this may be preferable for some uses. Setting
+    a trap with one form removes any trap of the other form for the same signal;
+    removing a trap in either form removes all traps for the same signal. The
+    forms</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>TRAPNAL() { </b>
+<b> # code</b>
+<b>}</b>
+</pre>
+</div>
+<p class="Pp">('function traps') and</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>trap '</b>
+<b> # code</b>
+<b>' NAL</b>
+</pre>
+</div>
+<p class="Pp">('list traps') are equivalent in most ways, the exceptions being
+    the following:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>Function traps have all the properties of normal functions, appearing in
+      the list of functions and being called with their own function context
+      rather than the context where the trap was triggered.</dd>
+  <dt>&#x2022;</dt>
+  <dd>The return status from function traps is special, whereas a return from a
+      list trap causes the surrounding context to return with the given
+    status.</dd>
+  <dt>&#x2022;</dt>
+  <dd>Function traps are not reset within subshells, in accordance with zsh
+      behaviour; list traps are reset, in accordance with POSIX behaviour.</dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="JOBS"><a class="permalink" href="#JOBS">JOBS</a></h1>
+If the <b>MONITOR</b> option is set, an interactive shell associates a
+  <i>job</i> with each pipeline. It keeps a table of current jobs, printed by
+  the <b>jobs</b> command, and assigns them small integer numbers. When a job is
+  started asynchronously with `<b>&amp;</b>', the shell prints a line to
+  standard error which looks like:
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>[1] 1234</b>
+</pre>
+</div>
+<p class="Pp">indicating that the job which was started asynchronously was job
+    number 1 and had one (top-level) process, whose process ID was 1234.</p>
+<p class="Pp">If a job is started with `<b>&amp;|</b>' or `<b>&amp;!</b>', then
+    that job is immediately disowned. After startup, it does not have a place in
+    the job table, and is not subject to the job control features described
+    here.</p>
+<p class="Pp">If you are running a job and wish to do something else you may hit
+    the key ^Z (control-Z) which sends a <b>TSTP</b> signal to the current job:
+    this key may be redefined by the <b>susp</b> option of the external
+    <b>stty</b> command. The shell will then normally indicate that the job has
+    been `suspended', and print another prompt. You can then manipulate the
+    state of this job, putting it in the background with the <b>bg</b> command,
+    or run some other commands and then eventually bring the job back into the
+    foreground with the foreground command <b>fg</b>. A ^Z takes effect
+    immediately and is like an interrupt in that pending output and unread input
+    are discarded when it is typed.</p>
+<p class="Pp">A job being run in the background will suspend if it tries to read
+    from the terminal.</p>
+<p class="Pp">Note that if the job running in the foreground is a shell
+    function, then suspending it will have the effect of causing the shell to
+    fork. This is necessary to separate the function's state from that of the
+    parent shell performing the job control, so that the latter can return to
+    the command line prompt. As a result, even if <b>fg</b> is used to continue
+    the job the function will no longer be part of the parent shell, and any
+    variables set by the function will not be visible in the parent shell. Thus
+    the behaviour is different from the case where the function was never
+    suspended. Zsh is different from many other shells in this regard.</p>
+<p class="Pp">One additional side effect is that use of <b>disown</b> with a job
+    created by suspending shell code in this fashion is delayed: the job can
+    only be disowned once any process started from the parent shell has
+    terminated. At that point, the disowned job disappears silently from the job
+    list.</p>
+<p class="Pp">The same behaviour is found when the shell is executing code as
+    the right hand side of a pipeline or any complex shell construct such as
+    <b>if</b>, <b>for</b>, etc., in order that the entire block of code can be
+    managed as a single job. Background jobs are normally allowed to produce
+    output, but this can be disabled by giving the command `<b>stty tostop</b>'.
+    If you set this tty option, then background jobs will suspend when they try
+    to produce output like they do when they try to read input.</p>
+<p class="Pp">When a command is suspended and continued later with the <b>fg</b>
+    or <b>wait</b> builtins, zsh restores tty modes that were in effect when it
+    was suspended. This (intentionally) does not apply if the command is
+    continued via `<b>kill -CONT</b>', nor when it is continued with
+  <b>bg</b>.</p>
+<p class="Pp">There are several ways to refer to jobs in the shell. A job can be
+    referred to by the process ID of any process of the job or by one of the
+    following:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>%</b><i>number</i></dt>
+  <dd>The job with the given number.</dd>
+  <dt><b>%</b><i>string</i></dt>
+  <dd>The last job whose command line begins with <i>string</i>.</dd>
+  <dt><b>%?</b><i>string</i></dt>
+  <dd>The last job whose command line contains <i>string</i>.</dd>
+  <dt><b>%%</b></dt>
+  <dd>Current job.</dd>
+  <dt><b>%+</b></dt>
+  <dd>Equivalent to `<b>%%</b>'.</dd>
+  <dt><b>%-</b></dt>
+  <dd>Previous job.</dd>
+</dl>
+<p class="Pp">The shell learns immediately whenever a process changes state. It
+    normally informs you whenever a job becomes blocked so that no further
+    progress is possible. If the <b>NOTIFY</b> option is not set, it waits until
+    just before it prints a prompt before it informs you. All such notifications
+    are sent directly to the terminal, not to the standard output or standard
+    error.</p>
+<p class="Pp">When the monitor mode is on, each background job that completes
+    triggers any trap set for <b>CHLD</b>.</p>
+<p class="Pp">When you try to leave the shell while jobs are running or
+    suspended, you will be warned that `You have suspended (running) jobs'. You
+    may use the <b>jobs</b> command to see what they are. If you do this or
+    immediately try to exit again, the shell will not warn you a second time;
+    the suspended jobs will be terminated, and the running jobs will be sent a
+    <b>SIGHUP</b> signal, if the <b>HUP</b> option is set.</p>
+<p class="Pp">To avoid having the shell terminate the running jobs, either use
+    the <b>nohup</b> command (see <i>nohup</i>(1)) or the <b>disown</b>
+  builtin.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SIGNALS"><a class="permalink" href="#SIGNALS">SIGNALS</a></h1>
+The <b>INT</b> and <b>QUIT</b> signals for an invoked command are ignored if the
+  command is followed by `<b>&amp;</b>' and the <b>MONITOR</b> option is not
+  active. The shell itself always ignores the <b>QUIT</b> signal. Otherwise,
+  signals have the values inherited by the shell from its parent (but see the
+  <b>TRAP</b><i>NAL</i> special functions in the section `Functions').
+<p class="Pp">Certain jobs are run asynchronously by the shell other than those
+    explicitly put into the background; even in cases where the shell would
+    usually wait for such jobs, an explicit <b>exit</b> command or exit due to
+    the option <b>ERR_EXIT</b> will cause the shell to exit without waiting.
+    Examples of such asynchronous jobs are process substitution, see the section
+    PROCESS SUBSTITUTION in the <i>zshexpn</i>(1) manual page, and the handler
+    processes for multios, see the section MULTIOS in the <i>zshmisc</i>(1)
+    manual page.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ARITHMETIC_EVALUATION"><a class="permalink" href="#ARITHMETIC_EVALUATION">ARITHMETIC
+  EVALUATION</a></h1>
+The shell can perform integer and floating point arithmetic, either using the
+  builtin <b>let</b>, or via a substitution of the form
+  <b>$((</b><i>...</i><b>))</b>. For integers, the shell is usually compiled to
+  use 8-byte precision where this is available, otherwise precision is 4 bytes.
+  This can be tested, for example, by giving the command `<b>print - $((
+  12345678901 ))</b>'; if the number appears unchanged, the precision is at
+  least 8 bytes. Floating point arithmetic always uses the `double' type with
+  whatever corresponding precision is provided by the compiler and the library.
+<p class="Pp">The <b>let</b> builtin command takes arithmetic expressions as
+    arguments; each is evaluated separately. Since many of the arithmetic
+    operators, as well as spaces, require quoting, an alternative form is
+    provided: for any command which begins with a `<b>((</b>', all the
+    characters until a matching `<b>))</b>' are treated as a quoted expression
+    and arithmetic expansion performed as for an argument of <b>let</b>. More
+    precisely, `<b>((</b><i>...</i><b>))</b>' is equivalent to `<b>let
+    &quot;</b><i>...</i><b>&quot;</b>'. The return status is 0 if the arithmetic
+    value of the expression is non-zero, 1 if it is zero, and 2 if an error
+    occurred.</p>
+<p class="Pp">For example, the following statement</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>(( val = 2 + 1 ))</b>
+</pre>
+</div>
+<p class="Pp">is equivalent to</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>let &quot;val = 2 + 1&quot;</b>
+</pre>
+</div>
+<p class="Pp">both assigning the value 3 to the shell variable <b>val</b> and
+    returning a zero status.</p>
+<p class="Pp">Integers can be in bases other than 10. A leading `<b>0x</b>' or
+    `<b>0X</b>' denotes hexadecimal and a leading `<b>0b</b>' or `<b>0B</b>'
+    binary. Integers may also be of the form `<i>base</i><b>#</b><i>n</i>',
+    where <i>base</i> is a decimal number between two and thirty-six
+    representing the arithmetic base and <i>n</i> is a number in that base (for
+    example, `<b>16#ff</b>' is 255 in hexadecimal). The <i>base</i><b>#</b> may
+    also be omitted, in which case base 10 is used. For backwards compatibility
+    the form `<b>[</b><i>base</i><b>]</b><i>n</i>' is also accepted.</p>
+<p class="Pp">An integer expression or a base given in the form
+    `<i>base</i><b>#</b><i>n</i>' may contain underscores (`<b>_</b>') after the
+    leading digit for visual guidance; these are ignored in computation.
+    Examples are <b>1_000_000</b> or <b>0xffff_ffff</b> which are equivalent to
+    <b>1000000</b> and <b>0xffffffff</b> respectively.</p>
+<p class="Pp">It is also possible to specify a base to be used for output in the
+    form `<b>[#</b><i>base</i><b>]</b>', for example `<b>[#16]</b>'. This is
+    used when outputting arithmetical substitutions or when assigning to scalar
+    parameters, but an explicitly defined integer or floating point parameter
+    will not be affected. If an integer variable is implicitly defined by an
+    arithmetic expression, any base specified in this way will be set as the
+    variable's output arithmetic base as if the option `<b>-i</b> <i>base</i>'
+    to the <b>typeset</b> builtin had been used. The expression has no
+    precedence and if it occurs more than once in a mathematical expression, the
+    last encountered is used. For clarity it is recommended that it appear at
+    the beginning of an expression. As an example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>typeset -i 16 y</b>
+<b>print $(( [#8] x = 32, y = 32 ))</b>
+<b>print $x $y</b>
+</pre>
+</div>
+<p class="Pp">outputs first `<b>8#40</b>', the rightmost value in the given
+    output base, and then `<b>8#40 16#20</b>', because <b>y</b> has been
+    explicitly declared to have output base 16, while <b>x</b> (assuming it does
+    not already exist) is implicitly typed by the arithmetic evaluation, where
+    it acquires the output base 8.</p>
+<p class="Pp">The <i>base</i> may be replaced or followed by an underscore,
+    which may itself be followed by a positive integer (if it is missing the
+    value 3 is used). This indicates that underscores should be inserted into
+    the output string, grouping the number for visual clarity. The following
+    integer specifies the number of digits to group together. For example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>setopt cbases</b>
+<b>print $(( [#16_4] 65536 ** 2 ))</b>
+</pre>
+</div>
+<p class="Pp">outputs `<b>0x1_0000_0000</b>'.</p>
+<p class="Pp">The feature can be used with floating point numbers, in which case
+    the base must be omitted; grouping is away from the decimal point. For
+    example,</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>zmodload zsh/mathfunc</b>
+<b>print $(( [#_] sqrt(1e7) ))</b>
+</pre>
+</div>
+<p class="Pp">outputs `<b>3_162.277_660_168_379_5</b>' (the number of decimal
+    places shown may vary).</p>
+<p class="Pp">If the <b>C_BASES</b> option is set, hexadecimal numbers are
+    output in the standard C format, for example `<b>0xFF</b>' instead of the
+    usual `<b>16#FF</b>'. If the option <b>OCTAL_ZEROES</b> is also set (it is
+    not by default), octal numbers will be treated similarly and hence appear as
+    `<b>077</b>' instead of `<b>8#77</b>'. This option has no effect on the
+    output of bases other than hexadecimal and octal, and these formats are
+    always understood on input.</p>
+<p class="Pp">When an output base is specified using the
+    `<b>[#</b><i>base</i><b>]</b>' syntax, an appropriate base prefix will be
+    output if necessary, so that the value output is valid syntax for input. If
+    the <b>#</b> is doubled, for example `<b>[##16]</b>', then no base prefix is
+    output.</p>
+<p class="Pp">Floating point constants are recognized by the presence of a
+    decimal point or an exponent. The decimal point may be the first character
+    of the constant, but the exponent character <b>e</b> or <b>E</b> may not, as
+    it will be taken for a parameter name. All numeric parts (before and after
+    the decimal point and in the exponent) may contain underscores after the
+    leading digit for visual guidance; these are ignored in computation.</p>
+<p class="Pp">An arithmetic expression uses nearly the same syntax and
+    associativity of expressions as in C.</p>
+<p class="Pp">In the native mode of operation, the following operators are
+    supported (listed in decreasing order of precedence):</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>+ - ! ~ ++ --</b></dt>
+  <dd>unary plus/minus, logical NOT, complement, {pre,post}{in,de}crement</dd>
+  <dt><b>&lt;&lt; &gt;&gt;</b></dt>
+  <dd>bitwise shift left, right</dd>
+  <dt><b>&amp;</b></dt>
+  <dd>bitwise AND</dd>
+  <dt><b>^</b></dt>
+  <dd>bitwise XOR</dd>
+  <dt><b>|</b></dt>
+  <dd>bitwise OR</dd>
+  <dt><b>**</b></dt>
+  <dd>exponentiation</dd>
+  <dt><b>* / %</b></dt>
+  <dd>multiplication, division, modulus (remainder)</dd>
+  <dt><b>+ -</b></dt>
+  <dd>addition, subtraction</dd>
+  <dt><b>&lt; &gt; &lt;= &gt;=</b></dt>
+  <dd>comparison</dd>
+  <dt><b>== !=</b></dt>
+  <dd>equality and inequality</dd>
+  <dt><b>&amp;&amp;</b></dt>
+  <dd>logical AND</dd>
+  <dt><b>|| ^^</b></dt>
+  <dd>logical OR, XOR</dd>
+  <dt><b>? :</b></dt>
+  <dd>ternary operator</dd>
+  <dt><b>= += -= *= /= %= &amp;= ^= |= &lt;&lt;= &gt;&gt;= &amp;&amp;= ||= ^^=
+    **=</b></dt>
+  <dd>assignment</dd>
+  <dt><b>,</b></dt>
+  <dd>comma operator</dd>
+</dl>
+<p class="Pp">The operators `<b>&amp;&amp;</b>', `<b>||</b>',
+    `<b>&amp;&amp;=</b>', and `<b>||=</b>' are short-circuiting, and only one of
+    the latter two expressions in a ternary operator is evaluated. Note the
+    precedence of the bitwise AND, OR, and XOR operators.</p>
+<p class="Pp">With the option <b>C_PRECEDENCES</b> the precedences (but no other
+    properties) of the operators are altered to be the same as those in most
+    other languages that support the relevant operators:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>+ - ! ~ ++ --</b></dt>
+  <dd>unary plus/minus, logical NOT, complement, {pre,post}{in,de}crement</dd>
+  <dt><b>**</b></dt>
+  <dd>exponentiation</dd>
+  <dt><b>* / %</b></dt>
+  <dd>multiplication, division, modulus (remainder)</dd>
+  <dt><b>+ -</b></dt>
+  <dd>addition, subtraction</dd>
+  <dt><b>&lt;&lt; &gt;&gt;</b></dt>
+  <dd>bitwise shift left, right</dd>
+  <dt><b>&lt; &gt; &lt;= &gt;=</b></dt>
+  <dd>comparison</dd>
+  <dt><b>== !=</b></dt>
+  <dd>equality and inequality</dd>
+  <dt><b>&amp;</b></dt>
+  <dd>bitwise AND</dd>
+  <dt><b>^</b></dt>
+  <dd>bitwise XOR</dd>
+  <dt><b>|</b></dt>
+  <dd>bitwise OR</dd>
+  <dt><b>&amp;&amp;</b></dt>
+  <dd>logical AND</dd>
+  <dt><b>^^</b></dt>
+  <dd>logical XOR</dd>
+  <dt><b>||</b></dt>
+  <dd>logical OR</dd>
+  <dt><b>? :</b></dt>
+  <dd>ternary operator</dd>
+  <dt><b>= += -= *= /= %= &amp;= ^= |= &lt;&lt;= &gt;&gt;= &amp;&amp;= ||= ^^=
+    **=</b></dt>
+  <dd>assignment</dd>
+  <dt><b>,</b></dt>
+  <dd>comma operator</dd>
+</dl>
+<p class="Pp">Note the precedence of exponentiation in both cases is below that
+    of unary operators, hence `<b>-3**2</b>' evaluates as `<b>9</b>', not
+    `<b>-9</b>'. Use parentheses where necessary: `<b>-(3**2)</b>'. This is for
+    compatibility with other shells.</p>
+<p class="Pp">Mathematical functions can be called with the syntax
+    `<i>func</i><b>(</b><i>args</i><b>)</b>', where the function decides if the
+    <i>args</i> is used as a string or a comma-separated list of arithmetic
+    expressions. The shell currently defines no mathematical functions by
+    default, but the module <b>zsh/mathfunc</b> may be loaded with the
+    <b>zmodload</b> builtin to provide standard floating point mathematical
+    functions.</p>
+<p class="Pp">An expression of the form `<b>##</b><i>x</i>' where <i>x</i> is
+    any character sequence such as `<b>a</b>', `<b>^A</b>', or `<b>\M-\C-x</b>'
+    gives the value of this character and an expression of the form
+    `<b>#</b><i>name</i>' gives the value of the first character of the contents
+    of the parameter <i>name</i>. Character values are according to the
+    character set used in the current locale; for multibyte character handling
+    the option <b>MULTIBYTE</b> must be set. Note that this form is different
+    from `<b>$#</b><i>name</i>', a standard parameter substitution which gives
+    the length of the parameter <i>name</i>. `<b>#\</b>' is accepted instead of
+    `<b>##</b>', but its use is deprecated.</p>
+<p class="Pp">Named parameters and subscripted arrays can be referenced by name
+    within an arithmetic expression without using the parameter expansion
+    syntax. For example,</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>((val2 = val1 * 2))</b>
+</pre>
+</div>
+<p class="Pp">assigns twice the value of <b>$val1</b> to the parameter named
+    <b>val2</b>.</p>
+<p class="Pp">An internal integer representation of a named parameter can be
+    specified with the <b>integer</b> builtin. Arithmetic evaluation is
+    performed on the value of each assignment to a named parameter declared
+    integer in this manner. Assigning a floating point number to an integer
+    results in rounding towards zero.</p>
+<p class="Pp">Likewise, floating point numbers can be declared with the
+    <b>float</b> builtin; there are two types, differing only in their output
+    format, as described for the <b>typeset</b> builtin. The output format can
+    be bypassed by using arithmetic substitution instead of the parameter
+    substitution, i.e. `<b>${</b><i>float</i><b>}</b>' uses the defined format,
+    but `<b>$((</b><i>float</i><b>))</b>' uses a generic floating point
+  format.</p>
+<p class="Pp">Promotion of integer to floating point values is performed where
+    necessary. In addition, if any operator which requires an integer
+    (`<b>&amp;</b>', `<b>|</b>', `<b>^</b>', `<b>&lt;&lt;</b>',
+    `<b>&gt;&gt;</b>' and their equivalents with assignment) is given a floating
+    point argument, it will be silently rounded towards zero except for
+    `<b>~</b>' which rounds down.</p>
+<p class="Pp">Users should beware that, in common with many other programming
+    languages but not software designed for calculation, the evaluation of an
+    expression in zsh is taken a term at a time and promotion of integers to
+    floating point does not occur in terms only containing integers. A typical
+    result of this is that a division such as <b>6/8</b> is truncated, in this
+    being rounded towards 0. The <b>FORCE_FLOAT</b> shell option can be used in
+    scripts or functions where floating point evaluation is required
+  throughout.</p>
+<p class="Pp">Scalar variables can hold integer or floating point values at
+    different times; there is no memory of the numeric type in this case.</p>
+<p class="Pp">If a variable is first assigned in a numeric context without
+    previously being declared, it will be implicitly typed as <b>integer</b> or
+    <b>float</b> and retain that type either until the type is explicitly
+    changed or until the end of the scope. This can have unforeseen
+    consequences. For example, in the loop</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>for (( f = 0; f &lt; 1; f += 0.1 )); do</b>
+<b># use $f</b>
+<b>done</b>
+</pre>
+</div>
+<p class="Pp">if <b>f</b> has not already been declared, the first assignment
+    will cause it to be created as an integer, and consequently the operation
+    `<b>f += 0.1</b>' will always cause the result to be truncated to zero, so
+    that the loop will fail. A simple fix would be to turn the initialization
+    into `<b>f = 0.0</b>'. It is therefore best to declare numeric variables
+    with explicit types.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONDITIONAL_EXPRESSIONS"><a class="permalink" href="#CONDITIONAL_EXPRESSIONS">CONDITIONAL
+  EXPRESSIONS</a></h1>
+A <i>conditional expression</i> is used with the <b>[[</b> compound command to
+  test attributes of files and to compare strings. Each expression can be
+  constructed from one or more of the following unary or binary expressions:
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>-a</b> <i>file</i></dt>
+  <dd>true if <i>file</i> exists.</dd>
+  <dt><b>-b</b> <i>file</i></dt>
+  <dd>true if <i>file</i> exists and is a block special file.</dd>
+  <dt><b>-c</b> <i>file</i></dt>
+  <dd>true if <i>file</i> exists and is a character special file.</dd>
+  <dt><b>-d</b> <i>file</i></dt>
+  <dd>true if <i>file</i> exists and is a directory.</dd>
+  <dt><b>-e</b> <i>file</i></dt>
+  <dd>true if <i>file</i> exists.</dd>
+  <dt><b>-f</b> <i>file</i></dt>
+  <dd>true if <i>file</i> exists and is a regular file.</dd>
+  <dt><b>-g</b> <i>file</i></dt>
+  <dd>true if <i>file</i> exists and has its setgid bit set.</dd>
+  <dt><b>-h</b> <i>file</i></dt>
+  <dd>true if <i>file</i> exists and is a symbolic link.</dd>
+  <dt><b>-k</b> <i>file</i></dt>
+  <dd>true if <i>file</i> exists and has its sticky bit set.</dd>
+  <dt><b>-n</b> <i>string</i></dt>
+  <dd>true if length of <i>string</i> is non-zero.</dd>
+  <dt><b>-o</b> <i>option</i></dt>
+  <dd>true if option named <i>option</i> is on. <i>option</i> may be a single
+      character, in which case it is a single letter option name. (See the
+      section `Specifying Options'.)</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">When no option named <i>option</i> exists, and the
+    <b>POSIX_BUILTINS</b> option hasn't been set, return 3 with a warning. If
+    that option is set, return 1 with no warning.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>-p</b> <i>file</i></dt>
+  <dd>true if <i>file</i> exists and is a FIFO special file (named pipe).</dd>
+  <dt><b>-r</b> <i>file</i></dt>
+  <dd>true if <i>file</i> exists and is readable by current process.</dd>
+  <dt><b>-s</b> <i>file</i></dt>
+  <dd>true if <i>file</i> exists and has size greater than zero.</dd>
+  <dt><b>-t</b> <i>fd</i></dt>
+  <dd>true if file descriptor number <i>fd</i> is open and associated with a
+      terminal device. (note: <i>fd</i> is not optional)</dd>
+  <dt><b>-u</b> <i>file</i></dt>
+  <dd>true if <i>file</i> exists and has its setuid bit set.</dd>
+  <dt><b>-v</b> <i>varname</i></dt>
+  <dd>true if shell variable <i>varname</i> is set.</dd>
+  <dt><b>-w</b> <i>file</i></dt>
+  <dd>true if <i>file</i> exists and is writable by current process.</dd>
+  <dt><b>-x</b> <i>file</i></dt>
+  <dd>true if <i>file</i> exists and is executable by current process. If
+      <i>file</i> exists and is a directory, then the current process has
+      permission to search in the directory.</dd>
+  <dt><b>-z</b> <i>string</i></dt>
+  <dd>true if length of <i>string</i> is zero.</dd>
+  <dt><b>-L</b> <i>file</i></dt>
+  <dd>true if <i>file</i> exists and is a symbolic link.</dd>
+  <dt><b>-O</b> <i>file</i></dt>
+  <dd>true if <i>file</i> exists and is owned by the effective user ID of this
+      process.</dd>
+  <dt><b>-G</b> <i>file</i></dt>
+  <dd>true if <i>file</i> exists and its group matches the effective group ID of
+      this process.</dd>
+  <dt><b>-S</b> <i>file</i></dt>
+  <dd>true if <i>file</i> exists and is a socket.</dd>
+  <dt><b>-N</b> <i>file</i></dt>
+  <dd>true if <i>file</i> exists and its access time is not newer than its
+      modification time.</dd>
+  <dt><i>file1</i> <b>-nt</b> <i>file2</i></dt>
+  <dd>true if <i>file1</i> exists and is newer than <i>file2</i>.</dd>
+  <dt><i>file1</i> <b>-ot</b> <i>file2</i></dt>
+  <dd>true if <i>file1</i> exists and is older than <i>file2</i>.</dd>
+  <dt><i>file1</i> <b>-ef</b> <i>file2</i></dt>
+  <dd>true if <i>file1</i> and <i>file2</i> exist and refer to the same
+    file.</dd>
+  <dt><i>string</i> <b>=</b> <i>pattern</i></dt>
+  <dd></dd>
+  <dt><i>string</i> <b>==</b> <i>pattern</i></dt>
+  <dd>true if <i>string</i> matches <i>pattern</i>. The two forms are exactly
+      equivalent. The `<b>=</b>' form is the traditional shell syntax (and hence
+      the only one generally used with the <b>test</b> and <b>[</b> builtins);
+      the `<b>==</b>' form provides compatibility with other sorts of computer
+      language.</dd>
+  <dt><i>string</i> <b>!=</b> <i>pattern</i></dt>
+  <dd>true if <i>string</i> does not match <i>pattern</i>.</dd>
+  <dt><i>string</i> <b>=~</b> <i>regexp</i></dt>
+  <dd>true if <i>string</i> matches the regular expression <i>regexp</i>. If the
+      option <b>RE_MATCH_PCRE</b> is set <i>regexp</i> is tested as a PCRE
+      regular expression using the <b>zsh/pcre</b> module, else it is tested as
+      a POSIX extended regular expression using the <b>zsh/regex</b> module.
+      Upon successful match, some variables will be updated; no variables are
+      changed if the matching fails.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If the option <b>BASH_REMATCH</b> is not set the scalar parameter
+    <b>MATCH</b> is set to the substring that matched the pattern and the
+    integer parameters <b>MBEGIN</b> and <b>MEND</b> to the index of the start
+    and end, respectively, of the match in <i>string</i>, such that if
+    <i>string</i> is contained in variable <b>var</b> the expression
+    `<b>${var[$MBEGIN,$MEND]}</b>' is identical to `<b>$MATCH</b>'. The setting
+    of the option <b>KSH_ARRAYS</b> is respected. Likewise, the array
+    <b>match</b> is set to the substrings that matched parenthesised
+    subexpressions and the arrays <b>mbegin</b> and <b>mend</b> to the indices
+    of the start and end positions, respectively, of the substrings within
+    <i>string</i>. The arrays are not set if there were no parenthesised
+    subexpresssions. For example, if the string `<b>a short string</b>' is
+    matched against the regular expression `<b>s(...)t</b>', then (assuming the
+    option <b>KSH_ARRAYS</b> is not set) <b>MATCH</b>, <b>MBEGIN</b> and
+    <b>MEND</b> are `<b>short</b>', <b>3</b> and <b>7</b>, respectively, while
+    <b>match</b>, <b>mbegin</b> and <b>mend</b> are single entry arrays
+    containing the strings `<b>hor</b>', `<b>4</b>' and `<b>6</b>',
+    respectively.</p>
+<p class="Pp">If the option <b>BASH_REMATCH</b> is set the array
+    <b>BASH_REMATCH</b> is set to the substring that matched the pattern
+    followed by the substrings that matched parenthesised subexpressions within
+    the pattern.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><i>string1</i> <b>&lt;</b> <i>string2</i></dt>
+  <dd>true if <i>string1</i> comes before <i>string2</i> based on ASCII value of
+      their characters.</dd>
+  <dt><i>string1</i> <b>&gt;</b> <i>string2</i></dt>
+  <dd>true if <i>string1</i> comes after <i>string2</i> based on ASCII value of
+      their characters.</dd>
+  <dt><i>exp1</i> <b>-eq</b> <i>exp2</i></dt>
+  <dd>true if <i>exp1</i> is numerically equal to <i>exp2</i>. Note that for
+      purely numeric comparisons use of the <b>((</b><i>...</i><b>))</b> builtin
+      described in the section `ARITHMETIC EVALUATION' is more convenient than
+      conditional expressions.</dd>
+  <dt><i>exp1</i> <b>-ne</b> <i>exp2</i></dt>
+  <dd>true if <i>exp1</i> is numerically not equal to <i>exp2</i>.</dd>
+  <dt><i>exp1</i> <b>-lt</b> <i>exp2</i></dt>
+  <dd>true if <i>exp1</i> is numerically less than <i>exp2</i>.</dd>
+  <dt><i>exp1</i> <b>-gt</b> <i>exp2</i></dt>
+  <dd>true if <i>exp1</i> is numerically greater than <i>exp2</i>.</dd>
+  <dt><i>exp1</i> <b>-le</b> <i>exp2</i></dt>
+  <dd>true if <i>exp1</i> is numerically less than or equal to <i>exp2</i>.</dd>
+  <dt><i>exp1</i> <b>-ge</b> <i>exp2</i></dt>
+  <dd>true if <i>exp1</i> is numerically greater than or equal to
+    <i>exp2</i>.</dd>
+  <dt><b>(</b> <i>exp</i> <b>)</b></dt>
+  <dd>true if <i>exp</i> is true.</dd>
+  <dt><b>!</b> <i>exp</i></dt>
+  <dd>true if <i>exp</i> is false.</dd>
+  <dt><i>exp1</i> <b>&amp;&amp;</b> <i>exp2</i></dt>
+  <dd>true if <i>exp1</i> and <i>exp2</i> are both true.</dd>
+  <dt><i>exp1</i> <b>||</b> <i>exp2</i></dt>
+  <dd>true if either <i>exp1</i> or <i>exp2</i> is true.</dd>
+</dl>
+<p class="Pp">For compatibility, if there is a single argument that is not
+    syntactically significant, typically a variable, the condition is treated as
+    a test for whether the expression expands as a string of non-zero length. In
+    other words, <b>[[ $var ]]</b> is the same as <b>[[ -n</b> <b>$var ]]</b>.
+    It is recommended that the second, explicit, form be used where
+  possible.</p>
+<p class="Pp">Normal shell expansion is performed on the <i>file</i>,
+    <i>string</i> and <i>pattern</i> arguments, but the result of each expansion
+    is constrained to be a single word, similar to the effect of double
+  quotes.</p>
+<p class="Pp">Filename generation is not performed on any form of argument to
+    conditions. However, it can be forced in any case where normal shell
+    expansion is valid and when the option <b>EXTENDED_GLOB</b> is in effect by
+    using an explicit glob qualifier of the form <b>(#q)</b> at the end of the
+    string. A normal glob qualifier expression may appear between the `<b>q</b>'
+    and the closing parenthesis; if none appears the expression has no effect
+    beyond causing filename generation. The results of filename generation are
+    joined together to form a single word, as with the results of other forms of
+    expansion.</p>
+<p class="Pp">This special use of filename generation is only available with the
+    <b>[[</b> syntax. If the condition occurs within the <b>[</b> or <b>test</b>
+    builtin commands then globbing occurs instead as part of normal command line
+    expansion before the condition is evaluated. In this case it may generate
+    multiple words which are likely to confuse the syntax of the test
+  command.</p>
+<p class="Pp">For example,</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>[[ -n file*(#qN) ]]</b>
+</pre>
+</div>
+<p class="Pp">produces status zero if and only if there is at least one file in
+    the current directory beginning with the string `<b>file</b>'. The globbing
+    qualifier <b>N</b> ensures that the expression is empty if there is no
+    matching file.</p>
+<p class="Pp">Pattern metacharacters are active for the <i>pattern</i>
+    arguments; the patterns are the same as those used for filename generation,
+    see <i>zshexpn</i>(1), but there is no special behaviour of `<b>/</b>' nor
+    initial dots, and no glob qualifiers are allowed.</p>
+<p class="Pp">In each of the above expressions, if <i>file</i> is of the form
+    `<b>/dev/fd/</b><i>n</i>', where <i>n</i> is an integer, then the test
+    applied to the open file whose descriptor number is <i>n</i>, even if the
+    underlying system does not support the <b>/dev/fd</b> directory.</p>
+<p class="Pp">In the forms which do numeric comparison, the expressions
+    <i>exp</i> undergo arithmetic expansion as if they were enclosed in
+    <b>$((</b><i>...</i><b>))</b>.</p>
+<p class="Pp">For example, the following:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>[[ ( -f foo || -f bar ) &amp;&amp; $report = y* ]] &amp;&amp; print File exists.</b>
+</pre>
+</div>
+<p class="Pp">tests if either file <b>foo</b> or file <b>bar</b> exists, and if
+    so, if the value of the parameter <b>report</b> begins with `<b>y</b>'; if
+    the complete condition is true, the message `<b>File exists.</b>' is
+    printed.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXPANSION_OF_PROMPT_SEQUENCES"><a class="permalink" href="#EXPANSION_OF_PROMPT_SEQUENCES">EXPANSION
+  OF PROMPT SEQUENCES</a></h1>
+Prompt sequences undergo a special form of expansion. This type of expansion is
+  also available using the <b>-P</b> option to the <b>print</b> builtin.
+<p class="Pp">If the <b>PROMPT_SUBST</b> option is set, the prompt string is
+    first subjected to <i>parameter expansion</i>, <i>command substitution</i>
+    and <i>arithmetic expansion</i>. See <i>zshexpn</i>(1).</p>
+<p class="Pp">Certain escape sequences may be recognised in the prompt
+  string.</p>
+<p class="Pp">If the <b>PROMPT_BANG</b> option is set, a `<b>!</b>' in the
+    prompt is replaced by the current history event number. A literal `<b>!</b>'
+    may then be represented as `<b>!!</b>'.</p>
+<p class="Pp">If the <b>PROMPT_PERCENT</b> option is set, certain escape
+    sequences that start with `<b>%</b>' are expanded. Many escapes are followed
+    by a single character, although some of these take an optional integer
+    argument that should appear between the `<b>%</b>' and the next character of
+    the sequence. More complicated escape sequences are available to provide
+    conditional expansion.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SIMPLE_PROMPT_ESCAPES"><a class="permalink" href="#SIMPLE_PROMPT_ESCAPES">SIMPLE
+  PROMPT ESCAPES</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Special_characters"><a class="permalink" href="#Special_characters">Special
+  characters</a></h2>
+<dl class="Bl-tag">
+  <dt><b>%%</b></dt>
+  <dd>A `<b>%</b>'.</dd>
+  <dt><b>%)</b></dt>
+  <dd>A `<b>)</b>'.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Login_information"><a class="permalink" href="#Login_information">Login
+  information</a></h2>
+<dl class="Bl-tag">
+  <dt><b>%l</b></dt>
+  <dd>The line (tty) the user is logged in on, without `<b>/dev/</b>' prefix. If
+      the name starts with `<b>/dev/tty</b>', that prefix is stripped.</dd>
+  <dt><b>%M</b></dt>
+  <dd>The full machine hostname.</dd>
+  <dt><b>%m</b></dt>
+  <dd>The hostname up to the first `<b>.</b>'. An integer may follow the
+      `<b>%</b>' to specify how many components of the hostname are desired.
+      With a negative integer, trailing components of the hostname are
+    shown.</dd>
+  <dt><b>%n</b></dt>
+  <dd><b>$USERNAME</b>.</dd>
+  <dt><b>%y</b></dt>
+  <dd>The line (tty) the user is logged in on, without `<b>/dev/</b>' prefix.
+      This does not treat `<b>/dev/tty</b>' names specially.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Shell_state"><a class="permalink" href="#Shell_state">Shell
+  state</a></h2>
+<dl class="Bl-tag">
+  <dt><b>%#</b></dt>
+  <dd>A `<b>#</b>' if the shell is running with privileges, a `<b>%</b>' if not.
+      Equivalent to `<b>%(!.#.%%)</b>'. The definition of `privileged', for
+      these purposes, is that either the effective user ID is zero, or, if
+      POSIX.1e capabilities are supported, that at least one capability is
+      raised in either the Effective or Inheritable capability vectors.</dd>
+  <dt><b>%?</b></dt>
+  <dd>The return status of the last command executed just before the
+    prompt.</dd>
+  <dt><b>%_</b></dt>
+  <dd>The status of the parser, i.e. the shell constructs (like `<b>if</b>' and
+      `<b>for</b>') that have been started on the command line. If given an
+      integer number that many strings will be printed; zero or negative or no
+      integer means print as many as there are. This is most useful in prompts
+      <b>PS2</b> for continuation lines and <b>PS4</b> for debugging with the
+      <b>XTRACE</b> option; in the latter case it will also work
+      non-interactively.</dd>
+  <dt><b>%^</b></dt>
+  <dd>The status of the parser in reverse. This is the same as `<b>%_</b>' other
+      than the order of strings. It is often used in <b>RPS2</b>.</dd>
+  <dt><b>%d</b></dt>
+  <dd></dd>
+  <dt><b>%/</b></dt>
+  <dd>Current working directory. If an integer follows the `<b>%</b>', it
+      specifies a number of trailing components of the current working directory
+      to show; zero means the whole path. A negative integer specifies leading
+      components, i.e. <b>%-1d</b> specifies the first component.</dd>
+  <dt><b>%~</b></dt>
+  <dd>As <b>%d</b> and <b>%/</b>, but if the current working directory starts
+      with <b>$HOME</b>, that part is replaced by a `<b>~</b>'. Furthermore, if
+      it has a named directory as its prefix, that part is replaced by a
+      `<b>~</b>' followed by the name of the directory, but only if the result
+      is shorter than the full path; see <i>Dynamic</i> and <i>Static named
+      directories</i> in <i>zshexpn</i>(1).</dd>
+  <dt><b>%e</b></dt>
+  <dd>Evaluation depth of the current sourced file, shell function, or
+      <b>eval</b>. This is incremented or decremented every time the value of
+      <b>%N</b> is set or reverted to a previous value, respectively. This is
+      most useful for debugging as part of <b>$PS4</b>.</dd>
+  <dt><b>%h</b></dt>
+  <dd></dd>
+  <dt><b>%!</b></dt>
+  <dd>Current history event number.</dd>
+  <dt><b>%i</b></dt>
+  <dd>The line number currently being executed in the script, sourced file, or
+      shell function given by <b>%N</b>. This is most useful for debugging as
+      part of <b>$PS4</b>.</dd>
+  <dt><b>%I</b></dt>
+  <dd>The line number currently being executed in the file <b>%x</b>. This is
+      similar to <b>%i</b>, but the line number is always a line number in the
+      file where the code was defined, even if the code is a shell
+    function.</dd>
+  <dt><b>%j</b></dt>
+  <dd>The number of jobs.</dd>
+  <dt><b>%L</b></dt>
+  <dd>The current value of <b>$SHLVL</b>.</dd>
+  <dt><b>%N</b></dt>
+  <dd>The name of the script, sourced file, or shell function that zsh is
+      currently executing, whichever was started most recently. If there is
+      none, this is equivalent to the parameter <b>$0</b>. An integer may follow
+      the `<b>%</b>' to specify a number of trailing path components to show;
+      zero means the full path. A negative integer specifies leading
+    components.</dd>
+  <dt><b>%x</b></dt>
+  <dd>The name of the file containing the source code currently being executed.
+      This behaves as <b>%N</b> except that function and eval command names are
+      not shown, instead the file where they were defined.</dd>
+  <dt><b>%c</b></dt>
+  <dd></dd>
+  <dt><b>%.</b></dt>
+  <dd></dd>
+  <dt><b>%C</b></dt>
+  <dd>Trailing component of the current working directory. An integer may follow
+      the `<b>%</b>' to get more than one component. Unless `<b>%C</b>' is used,
+      tilde contraction is performed first. These are deprecated as <b>%c</b>
+      and <b>%C</b> are equivalent to <b>%1~</b> and <b>%1/</b>, respectively,
+      while explicit positive integers have the same effect as for the latter
+      two sequences.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Date_and_time"><a class="permalink" href="#Date_and_time">Date
+  and time</a></h2>
+<dl class="Bl-tag">
+  <dt><b>%D</b></dt>
+  <dd>The date in <i>yy</i><b>-</b><i>mm</i><b>-</b><i>dd</i> format.</dd>
+  <dt><b>%T</b></dt>
+  <dd>Current time of day, in 24-hour format.</dd>
+  <dt><b>%t</b></dt>
+  <dd></dd>
+  <dt><b>%@</b></dt>
+  <dd>Current time of day, in 12-hour, am/pm format.</dd>
+  <dt><b>%*</b></dt>
+  <dd>Current time of day in 24-hour format, with seconds.</dd>
+  <dt><b>%w</b></dt>
+  <dd>The date in <i>day</i><b>-</b><i>dd</i> format.</dd>
+  <dt><b>%W</b></dt>
+  <dd>The date in <i>mm</i><b>/</b><i>dd</i><b>/</b><i>yy</i> format.</dd>
+  <dt><b>%D{</b><i>string</i><b>}</b></dt>
+  <dd><i>string</i> is formatted using the <b>strftime</b> function. See
+      <i>strftime</i>(3) for more details. Various zsh extensions provide
+      numbers with no leading zero or space if the number is a single
+    digit:</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>%f</b></dt>
+  <dd>a day of the month</dd>
+  <dt><b>%K</b></dt>
+  <dd>the hour of the day on the 24-hour clock</dd>
+  <dt><b>%L</b></dt>
+  <dd>the hour of the day on the 12-hour clock</dd>
+</dl>
+<p class="Pp">In addition, if the system supports the POSIX <b>gettimeofday</b>
+    system call, <b>%.</b> provides decimal fractions of a second since the
+    epoch with leading zeroes. By default three decimal places are provided, but
+    a number of digits up to 9 may be given following the <b>%</b>; hence
+    <b>%6.</b> outputs microseconds, and <b>%9.</b> outputs nanoseconds. (The
+    latter requires a nanosecond-precision <b>clock_gettime</b>; systems lacking
+    this will return a value multiplied by the appropriate power of 10.) A
+    typical example of this is the format `<b>%D{%H:%M:%S.%.}</b>'.</p>
+<p class="Pp">The GNU extension <b>%N</b> is handled as a synonym for
+    <b>%9.</b>.</p>
+<p class="Pp">Additionally, the GNU extension that a `<b>-</b>' between the
+    <b>%</b> and the format character causes a leading zero or space to be
+    stripped is handled directly by the shell for the format characters
+    <b>d</b>, <b>f</b>, <b>H</b>, <b>k</b>, <b>l</b>, <b>m</b>, <b>M</b>,
+    <b>S</b> and <b>y</b>; any other format characters are provided to the
+    system's strftime(3) with any leading `<b>-</b>' present, so the handling is
+    system dependent. Further GNU (or other) extensions are also passed to
+    strftime(3) and may work if the system supports them.</p>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Visual_effects"><a class="permalink" href="#Visual_effects">Visual
+  effects</a></h2>
+<dl class="Bl-tag">
+  <dt><b>%B</b> (<b>%b</b>)</dt>
+  <dd>Start (stop) boldface mode.</dd>
+  <dt><b>%E</b></dt>
+  <dd>Clear to end of line.</dd>
+  <dt><b>%U</b> (<b>%u</b>)</dt>
+  <dd>Start (stop) underline mode.</dd>
+  <dt><b>%S</b> (<b>%s</b>)</dt>
+  <dd>Start (stop) standout mode.</dd>
+  <dt><b>%F</b> (<b>%f</b>)</dt>
+  <dd>Start (stop) using a different foreground colour, if supported by the
+      terminal. The colour may be specified two ways: either as a numeric
+      argument, as normal, or by a sequence in braces following the <b>%F</b>,
+      for example <b>%F{red}</b>. In the latter case the values allowed are as
+      described for the <b>fg</b> <b>zle_highlight</b> attribute; see
+      <i>Character Highlighting</i> in <i>zshzle</i>(1). This means that numeric
+      colours are allowed in the second format also.</dd>
+  <dt><b>%K</b> (<b>%k</b>)</dt>
+  <dd>Start (stop) using a different bacKground colour. The syntax is identical
+      to that for <b>%F</b> and <b>%f</b>.</dd>
+  <dt><b>%{</b>...<b>%}</b></dt>
+  <dd>Include a string as a literal escape sequence. The string within the
+      braces should not change the cursor position. Brace pairs can nest.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">A positive numeric argument between the <b>%</b> and the <b>{</b>
+    is treated as described for <b>%G</b> below.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>%G</b></dt>
+  <dd>Within a <b>%{</b>...<b>%}</b> sequence, include a `glitch': that is,
+      assume that a single character width will be output. This is useful when
+      outputting characters that otherwise cannot be correctly handled by the
+      shell, such as the alternate character set on some terminals. The
+      characters in question can be included within a <b>%{</b>...<b>%}</b>
+      sequence together with the appropriate number of <b>%G</b> sequences to
+      indicate the correct width. An integer between the `<b>%</b>' and
+      `<b>G</b>' indicates a character width other than one. Hence
+      <b>%{</b><i>seq</i><b>%2G%}</b> outputs <i>seq</i> and assumes it takes up
+      the width of two standard characters.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Multiple uses of <b>%G</b> accumulate in the obvious fashion; the
+    position of the <b>%G</b> is unimportant. Negative integers are not
+  handled.</p>
+<p class="Pp">Note that when prompt truncation is in use it is advisable to
+    divide up output into single characters within each <b>%{</b>...<b>%}</b>
+    group so that the correct truncation point can be found.</p>
+</div>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONDITIONAL_SUBSTRINGS_IN_PROMPTS"><a class="permalink" href="#CONDITIONAL_SUBSTRINGS_IN_PROMPTS">CONDITIONAL
+  SUBSTRINGS IN PROMPTS</a></h1>
+<dl class="Bl-tag">
+  <dt><b>%v</b></dt>
+  <dd>The value of the first element of the <b>psvar</b> array parameter.
+      Following the `<b>%</b>' with an integer gives that element of the array.
+      Negative integers count from the end of the array.</dd>
+  <dt><b>%(</b><i>x</i><b>.</b><i>true-text</i><b>.</b><i>false-text</i><b>)</b></dt>
+  <dd>Specifies a ternary expression. The character following the <i>x</i> is
+      arbitrary; the same character is used to separate the text for the `true'
+      result from that for the `false' result. This separator may not appear in
+      the <i>true-text</i>, except as part of a %-escape sequence. A `<b>)</b>'
+      may appear in the <i>false-text</i> as `<b>%)</b>'. <i>true-text</i> and
+      <i>false-text</i> may both contain arbitrarily-nested escape sequences,
+      including further ternary expressions.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">The left parenthesis may be preceded or followed by a positive
+    integer <i>n</i>, which defaults to zero. A negative integer will be
+    multiplied by -1, except as noted below for `<b>l</b>'. The test character
+    <i>x</i> may be any of the following:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>!</b></dt>
+  <dd>True if the shell is running with privileges.</dd>
+  <dt><b>#</b></dt>
+  <dd>True if the effective uid of the current process is <i>n</i>.</dd>
+  <dt><b>?</b></dt>
+  <dd>True if the exit status of the last command was <i>n</i>.</dd>
+  <dt><b>_</b></dt>
+  <dd>True if at least <i>n</i> shell constructs were started.</dd>
+  <dt><b>C</b></dt>
+  <dd></dd>
+  <dt><b>/</b></dt>
+  <dd>True if the current absolute path has at least <i>n</i> elements relative
+      to the root directory, hence <b>/</b> is counted as 0 elements.</dd>
+  <dt><b>c</b></dt>
+  <dd></dd>
+  <dt><b>.</b></dt>
+  <dd></dd>
+  <dt><b>~</b></dt>
+  <dd>True if the current path, with prefix replacement, has at least <i>n</i>
+      elements relative to the root directory, hence <b>/</b> is counted as 0
+      elements.</dd>
+  <dt><b>D</b></dt>
+  <dd>True if the month is equal to <i>n</i> (January = 0).</dd>
+  <dt><b>d</b></dt>
+  <dd>True if the day of the month is equal to <i>n</i>.</dd>
+  <dt><b>e</b></dt>
+  <dd>True if the evaluation depth is at least <i>n</i>.</dd>
+  <dt><b>g</b></dt>
+  <dd>True if the effective gid of the current process is <i>n</i>.</dd>
+  <dt><b>j</b></dt>
+  <dd>True if the number of jobs is at least <i>n</i>.</dd>
+  <dt><b>L</b></dt>
+  <dd>True if the <b>SHLVL</b> parameter is at least <i>n</i>.</dd>
+  <dt><b>l</b></dt>
+  <dd>True if at least <i>n</i> characters have already been printed on the
+      current line. When <i>n</i> is negative, true if at least
+      <b>abs</b><b>(</b><i>n</i><b>)</b> characters remain before the opposite
+      margin (thus the left margin for <b>RPROMPT</b>).</dd>
+  <dt><b>S</b></dt>
+  <dd>True if the <b>SECONDS</b> parameter is at least <i>n</i>.</dd>
+  <dt><b>T</b></dt>
+  <dd>True if the time in hours is equal to <i>n</i>.</dd>
+  <dt><b>t</b></dt>
+  <dd>True if the time in minutes is equal to <i>n</i>.</dd>
+  <dt><b>v</b></dt>
+  <dd>True if the array <b>psvar</b> has at least <i>n</i> elements.</dd>
+  <dt><b>V</b></dt>
+  <dd>True if element <i>n</i> of the array <b>psvar</b> is set and
+    non-empty.</dd>
+  <dt><b>w</b></dt>
+  <dd>True if the day of the week is equal to <i>n</i> (Sunday = 0).</dd>
+</dl>
+</div>
+<dl class="Bl-tag">
+  <dt><b>%&lt;</b><i>string</i><b>&lt;</b></dt>
+  <dd></dd>
+  <dt><b>%&gt;</b><i>string</i><b>&gt;</b></dt>
+  <dd></dd>
+  <dt><b>%[</b><i>xstring</i><b>]</b></dt>
+  <dd>Specifies truncation behaviour for the remainder of the prompt string. The
+      third, deprecated, form is equivalent to `<b>%</b><i>xstringx</i>', i.e.
+      <i>x</i> may be `<b>&lt;</b>' or `<b>&gt;</b>'. The <i>string</i> will be
+      displayed in place of the truncated portion of any string; note this does
+      not undergo prompt expansion.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">The numeric argument, which in the third form may appear
+    immediately after the `<b>[</b>', specifies the maximum permitted length of
+    the various strings that can be displayed in the prompt. In the first two
+    forms, this numeric argument may be negative, in which case the truncation
+    length is determined by subtracting the absolute value of the numeric
+    argument from the number of character positions remaining on the current
+    prompt line. If this results in a zero or negative length, a length of 1 is
+    used. In other words, a negative argument arranges that after truncation at
+    least <i>n</i> characters remain before the right margin (left margin for
+    <b>RPROMPT</b>).</p>
+<p class="Pp">The forms with `<b>&lt;</b>' truncate at the left of the string,
+    and the forms with `<b>&gt;</b>' truncate at the right of the string. For
+    example, if the current directory is `<b>/home/pike</b>', the prompt
+    `<b>%8&lt;..&lt;%/</b>' will expand to `<b>..e/pike</b>'. In this string,
+    the terminating character (`<b>&lt;</b>', `<b>&gt;</b>' or `<b>]</b>'), or
+    in fact any character, may be quoted by a preceding `<b>\</b>'; note when
+    using <b>print -P</b>, however, that this must be doubled as the string is
+    also subject to standard <b>print</b> processing, in addition to any
+    backslashes removed by a double quoted string: the worst case is therefore
+    `<b>print -P &quot;%&lt;\\\\&lt;&lt;...&quot;</b>'.</p>
+<p class="Pp">If the <i>string</i> is longer than the specified truncation
+    length, it will appear in full, completely replacing the truncated
+  string.</p>
+<p class="Pp">The part of the prompt string to be truncated runs to the end of
+    the string, or to the end of the next enclosing group of the `<b>%(</b>'
+    construct, or to the next truncation encountered at the same grouping level
+    (i.e. truncations inside a `<b>%(</b>' are separate), which ever comes
+    first. In particular, a truncation with argument zero (e.g.,
+    `<b>%&lt;&lt;</b>') marks the end of the range of the string to be truncated
+    while turning off truncation from there on. For example, the prompt
+    `<b>%10&lt;...&lt;%~%&lt;&lt;%# </b>' will print a truncated representation
+    of the current directory, followed by a `<b>%</b>' or `<b>#</b>', followed
+    by a space. Without the `<b>%&lt;&lt;</b>', those two characters would be
+    included in the string to be truncated. Note that `<b>%-0&lt;&lt;</b>' is
+    not equivalent to `<b>%&lt;&lt;</b>' but specifies that the prompt is
+    truncated at the right margin.</p>
+<p class="Pp">Truncation applies only within each individual line of the prompt,
+    as delimited by embedded newlines (if any). If the total length of any line
+    of the prompt after truncation is greater than the terminal width, or if the
+    part to be truncated contains embedded newlines, truncation behavior is
+    undefined and may change in a future version of the shell. Use
+    `<b>%-</b><i>n</i><b>(l.</b><i>true-text</i><b>.</b><i>false-text</i><b>)</b>'
+    to remove parts of the prompt when the available space is less than
+    <i>n</i>.</p>
+</div>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">February 3, 2019</td>
+    <td class="foot-os">zsh 5.7.1</td>
+  </tr>
+</table>
+</body>
+</html>

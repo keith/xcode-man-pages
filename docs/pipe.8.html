@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>PIPE(8)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">PIPE(8)</td>
+    <td class="head-vol">System Manager's Manual</td>
+    <td class="head-rtitle">PIPE(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+pipe - Postfix delivery to external command
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>
+<b>pipe</b> [generic Postfix daemon options] command_attributes...
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<br/>
+The <b>pipe</b>(8) daemon processes requests from the Postfix queue manager to
+  deliver messages to external commands. This program expects to be run from the
+  <b>master</b>(8) process manager.
+<p class="Pp">Message attributes such as sender address, recipient address and
+    next-hop host name can be specified as command-line macros that are expanded
+    before the external command is executed.</p>
+<p class="Pp">The <b>pipe</b>(8) daemon updates queue files and marks recipients
+    as finished, or it informs the queue manager that delivery should be tried
+    again at a later time. Delivery status reports are sent to the
+    <b>bounce</b>(8), <b>defer</b>(8) or <b>trace</b>(8) daemon as
+  appropriate.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SINGLE-RECIPIENT_DELIVERY"><a class="permalink" href="#SINGLE-RECIPIENT_DELIVERY">SINGLE-RECIPIENT
+  DELIVERY</a></h1>
+<pre>
+</pre>
+Some destinations cannot handle more than one recipient per delivery request.
+  Examples are pagers or fax machines. In addition, multi-recipient delivery is
+  undesirable when prepending a <b>Delivered-to:</b> or <b>X-Original-To:</b>
+  message header.
+<p class="Pp">To prevent Postfix from sending multiple recipients per delivery
+    request, specify</p>
+<p class="Pp"></p>
+<pre>
+    <i>transport</i><b>_destination_recipient_limit = 1</b>
+</pre>
+<p class="Pp">in the Postfix <b>main.cf</b> file, where <i>transport</i> is the
+    name in the first column of the Postfix <b>master.cf</b> entry for the
+    pipe-based delivery transport.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMMAND_ATTRIBUTE_SYNTAX"><a class="permalink" href="#COMMAND_ATTRIBUTE_SYNTAX">COMMAND
+  ATTRIBUTE SYNTAX</a></h1>
+<pre>
+</pre>
+The external command attributes are given in the <b>master.cf</b> file at the
+  end of a service definition. The syntax is as follows:
+<dl class="Bl-tag">
+  <dt><b>chroot=</b><i>pathname</i> (optional)</dt>
+  <dd>Change the process root directory and working directory to the named
+      directory. This happens before switching to the privileges specified with
+      the <b>user</b> attribute, and before executing the optional
+      <b>directory=</b> <i>pathname</i> directive. Delivery is deferred in case
+      of failure.
+    <p class="Pp">This feature is available as of Postfix 2.3.</p>
+  </dd>
+  <dt><b>directory=</b><i>pathname</i> (optional)</dt>
+  <dd>Change to the named directory before executing the external command. The
+      directory must be accessible for the user specified with the <b>user</b>
+      attribute (see below). The default working directory is
+      <b>$queue_directory</b>. Delivery is deferred in case of failure.
+    <p class="Pp">This feature is available as of Postfix 2.2.</p>
+  </dd>
+  <dt><b>eol=</b><i>string</i> (optional, default: <b>\n</b>)</dt>
+  <dd>The output record delimiter. Typically one would use either <b>\r\n</b> or
+      <b>\n</b>. The usual C-style backslash escape sequences are recognized:
+      <b>\a \b \f \n \r \t \v</b> <b>\</b><i>ddd</i> (up to three octal digits)
+      and <b>\\</b>.</dd>
+  <dt><b>flags=BDFORXhqu.&gt;</b> (optional)</dt>
+  <dd>Optional message processing flags. By default, a message is copied
+      unchanged.</dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>B</b></dt>
+  <dd>Append a blank line at the end of each message. This is required by some
+      mail user agents that recognize &quot;<b>From </b>&quot; lines only when
+      preceded by a blank line.</dd>
+  <dt><b>D</b></dt>
+  <dd>Prepend a &quot;<b>Delivered-To: </b><i>recipient</i>&quot; message header
+      with the envelope recipient address. Note: for this to work, the
+      <i>transport</i><b>_destination_recipient_limit</b> must be 1 (see
+      SINGLE-RECIPIENT DELIVERY above for details).
+    <p class="Pp">The <b>D</b> flag also enforces loop detection (Postfix 2.5
+        and later): if a message already contains a <b>Delivered-To:</b> header
+        with the same recipient address, then the message is returned as
+        undeliverable. The address comparison is case insensitive.</p>
+    <p class="Pp">This feature is available as of Postfix 2.0.</p>
+  </dd>
+  <dt><b>F</b></dt>
+  <dd>Prepend a &quot;<b>From </b><i>sender time_stamp</i>&quot; envelope header
+      to the message content. This is expected by, for example, <b>UUCP</b>
+      software.</dd>
+  <dt><b>O</b></dt>
+  <dd>Prepend an &quot;<b>X-Original-To: </b><i>recipient</i>&quot; message
+      header with the recipient address as given to Postfix. Note: for this to
+      work, the <i>transport</i><b>_destination_recipient_limit</b> must be 1
+      (see SINGLE-RECIPIENT DELIVERY above for details).
+    <p class="Pp">This feature is available as of Postfix 2.0.</p>
+  </dd>
+  <dt><b>R</b></dt>
+  <dd>Prepend a <b>Return-Path:</b> message header with the envelope sender
+      address.</dd>
+  <dt><b>X</b></dt>
+  <dd>Indicate that the external command performs final delivery. This flag
+      affects the status reported in &quot;success&quot; DSN (delivery status
+      notification) messages, and changes it from &quot;relayed&quot; into
+      &quot;delivered&quot;.
+    <p class="Pp">This feature is available as of Postfix 2.5.</p>
+  </dd>
+  <dt><b>h</b></dt>
+  <dd>Fold the command-line <b>$original_recipient</b> and <b>$recipient</b>
+      address domain part (text to the right of the right-most <b>@</b>
+      character) to lower case; fold the entire command-line <b>$domain</b> and
+      <b>$nexthop</b> host or domain information to lower case. This is
+      recommended for delivery via <b>UUCP</b>.</dd>
+  <dt><b>q</b></dt>
+  <dd>Quote white space and other special characters in the command-line
+      <b>$sender</b>, <b>$original_recipient</b> and <b>$recipient</b> address
+      localparts (text to the left of the right-most <b>@</b> character),
+      according to an 8-bit transparent version of RFC 822. This is recommended
+      for delivery via <b>UUCP</b> or <b>BSMTP</b>.
+    <p class="Pp">The result is compatible with the address parsing of
+        command-line recipients by the Postfix <b>sendmail</b>(1) mail
+        submission command.</p>
+    <p class="Pp">The <b>q</b> flag affects only entire addresses, not the
+        partial address information from the <b>$user</b>, <b>$extension</b> or
+        <b>$mailbox</b> command-line macros.</p>
+  </dd>
+  <dt><b>u</b></dt>
+  <dd>Fold the command-line <b>$original_recipient</b> and <b>$recipient</b>
+      address localpart (text to the left of the right-most <b>@</b> character)
+      to lower case. This is recommended for delivery via <b>UUCP</b>.</dd>
+  <dt><b>.</b></dt>
+  <dd>Prepend &quot;<b>.</b>&quot; to lines starting with &quot;<b>.</b>&quot;.
+      This is needed by, for example, <b>BSMTP</b> software.</dd>
+  <dt><b>&gt;</b></dt>
+  <dd>Prepend &quot;<b>&gt;</b>&quot; to lines starting with &quot;<b>From
+      </b>&quot;. This is expected by, for example, <b>UUCP</b> software.</dd>
+</dl>
+</div>
+<dl class="Bl-tag">
+  <dt><b>null_sender</b>=<i>replacement</i> (default: MAILER-DAEMON)</dt>
+  <dd>Replace the null sender address (typically used for delivery status
+      notifications) with the specified text when expanding the <b>$sender</b>
+      command-line macro, and when generating a From_ or Return-Path: message
+      header.
+    <p class="Pp">If the null sender replacement text is a non-empty string then
+        it is affected by the <b>q</b> flag for address quoting in command-line
+        arguments.</p>
+    <p class="Pp">The null sender replacement text may be empty; this form is
+        recommended for content filters that feed mail back into Postfix. The
+        empty sender address is not affected by the <b>q</b> flag for address
+        quoting in command-line arguments.</p>
+    <p class="Pp">Caution: a null sender address is easily mis-parsed by naive
+        software. For example, when the <b>pipe</b>(8) daemon executes a command
+        such as:</p>
+    <p class="Pp"></p>
+    <pre>
+    <i>Wrong</i>: command -f$sender -- $recipient
+    </pre>
+  </dd>
+  <dt></dt>
+  <dd>the command will mis-parse the -f option value when the sender address is
+      a null string. For correct parsing, specify <b>$sender</b> as an argument
+      by itself:
+    <p class="Pp"></p>
+    <pre>
+    <i>Right</i>: command -f $sender -- $recipient
+    </pre>
+  </dd>
+  <dt></dt>
+  <dd>This feature is available as of Postfix 2.3.</dd>
+  <dt><b>size</b>=<i>size_limit</i> (optional)</dt>
+  <dd>Don't deliver messages that exceed this size limit (in bytes); return them
+      to the sender instead.</dd>
+  <dt><b>user</b>=<i>username</i> (required)</dt>
+  <dd></dd>
+  <dt><b>user</b>=<i>username</i>:<i>groupname</i></dt>
+  <dd>Execute the external command with the user ID and group ID of the
+      specified <i>username</i>. The software refuses to execute commands with
+      root privileges, or with the privileges of the mail system owner. If
+      <i>groupname</i> is specified, the corresponding group ID is used instead
+      of the group ID of <i>username</i>.</dd>
+  <dt><b>argv</b>=<i>command</i>... (required)</dt>
+  <dd>The command to be executed. This must be specified as the last command
+      attribute. The command is executed directly, i.e. without interpretation
+      of shell meta characters by a shell command interpreter.
+    <p class="Pp">Specify &quot;{&quot; and &quot;}&quot; around command
+        arguments that contain whitespace (Postfix 3.0 and later). Whitespace
+        after &quot;{&quot; and before &quot;}&quot; is ignored.</p>
+    <p class="Pp">In the command argument vector, the following macros are
+        recognized and replaced with corresponding information from the Postfix
+        queue manager delivery request.</p>
+    <p class="Pp">In addition to the form ${<i>name</i>}, the forms $<i>name</i>
+        and the deprecated form $(<i>name</i>) are also recognized. Specify
+        <b>$$</b> where a single <b>$</b> is wanted.</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>${client_address}</b></dt>
+  <dd>This macro expands to the remote client network address.
+    <p class="Pp">This feature is available as of Postfix 2.2.</p>
+  </dd>
+  <dt><b>${client_helo}</b></dt>
+  <dd>This macro expands to the remote client HELO command parameter.
+    <p class="Pp">This feature is available as of Postfix 2.2.</p>
+  </dd>
+  <dt><b>${client_hostname}</b></dt>
+  <dd>This macro expands to the remote client hostname.
+    <p class="Pp">This feature is available as of Postfix 2.2.</p>
+  </dd>
+  <dt><b>${client_port}</b></dt>
+  <dd>This macro expands to the remote client TCP port number.
+    <p class="Pp">This feature is available as of Postfix 2.5.</p>
+  </dd>
+  <dt><b>${client_protocol}</b></dt>
+  <dd>This macro expands to the remote client protocol.
+    <p class="Pp">This feature is available as of Postfix 2.2.</p>
+  </dd>
+  <dt><b>${domain}</b></dt>
+  <dd>This macro expands to the domain portion of the recipient address. For
+      example, with an address <i>user+foo@domain</i> the domain is
+      <i>domain</i>.
+    <p class="Pp">This information is modified by the <b>h</b> flag for case
+        folding.</p>
+    <p class="Pp">This feature is available as of Postfix 2.5.</p>
+  </dd>
+  <dt><b>${extension}</b></dt>
+  <dd>This macro expands to the extension part of a recipient address. For
+      example, with an address <i>user+foo@domain</i> the extension is
+      <i>foo</i>.
+    <p class="Pp">A command-line argument that contains <b>${extension}</b>
+        expands into as many command-line arguments as there are recipients.</p>
+    <p class="Pp">This information is modified by the <b>u</b> flag for case
+        folding.</p>
+  </dd>
+  <dt><b>${mailbox}</b></dt>
+  <dd>This macro expands to the complete local part of a recipient address. For
+      example, with an address <i>user+foo@domain</i> the mailbox is
+      <i>user+foo</i>.
+    <p class="Pp">A command-line argument that contains <b>${mailbox}</b>
+        expands to as many command-line arguments as there are recipients.</p>
+    <p class="Pp">This information is modified by the <b>u</b> flag for case
+        folding.</p>
+  </dd>
+  <dt><b>${nexthop}</b></dt>
+  <dd>This macro expands to the next-hop hostname.
+    <p class="Pp">This information is modified by the <b>h</b> flag for case
+        folding.</p>
+  </dd>
+  <dt><b>${original_recipient}</b></dt>
+  <dd>This macro expands to the complete recipient address before any address
+      rewriting or aliasing.
+    <p class="Pp">A command-line argument that contains
+        <b>${original_recipient}</b> expands to as many command-line arguments
+        as there are recipients.</p>
+    <p class="Pp">This information is modified by the <b>hqu</b> flags for
+        quoting and case folding.</p>
+    <p class="Pp">This feature is available as of Postfix 2.5.</p>
+  </dd>
+  <dt><b>${queue_id}</b></dt>
+  <dd>This macro expands to the queue id.
+    <p class="Pp">This feature is available as of Postfix 2.11.</p>
+  </dd>
+  <dt><b>${recipient}</b></dt>
+  <dd>This macro expands to the complete recipient address.
+    <p class="Pp">A command-line argument that contains <b>${recipient}</b>
+        expands to as many command-line arguments as there are recipients.</p>
+    <p class="Pp">This information is modified by the <b>hqu</b> flags for
+        quoting and case folding.</p>
+  </dd>
+  <dt><b>${sasl_method}</b></dt>
+  <dd>This macro expands to the name of the SASL authentication mechanism in the
+      AUTH command when the Postfix SMTP server received the message.
+    <p class="Pp">This feature is available as of Postfix 2.2.</p>
+  </dd>
+  <dt><b>${sasl_sender}</b></dt>
+  <dd>This macro expands to the SASL sender name (i.e. the original submitter as
+      per RFC 4954) in the MAIL FROM command when the Postfix SMTP server
+      received the message.
+    <p class="Pp">This feature is available as of Postfix 2.2.</p>
+  </dd>
+  <dt><b>${sasl_username}</b></dt>
+  <dd>This macro expands to the SASL user name in the AUTH command when the
+      Postfix SMTP server received the message.
+    <p class="Pp">This feature is available as of Postfix 2.2.</p>
+  </dd>
+  <dt><b>${sender}</b></dt>
+  <dd>This macro expands to the envelope sender address. By default, the null
+      sender address expands to MAILER-DAEMON; this can be changed with the
+      <b>null_sender</b> attribute, as described above.
+    <p class="Pp">This information is modified by the <b>q</b> flag for
+      quoting.</p>
+  </dd>
+  <dt><b>${size}</b></dt>
+  <dd>This macro expands to Postfix's idea of the message size, which is an
+      approximation of the size of the message as delivered.</dd>
+  <dt><b>${user}</b></dt>
+  <dd>This macro expands to the username part of a recipient address. For
+      example, with an address <i>user+foo@domain</i> the username part is
+      <i>user</i>.
+    <p class="Pp">A command-line argument that contains <b>${user}</b> expands
+        into as many command-line arguments as there are recipients.</p>
+    <p class="Pp">This information is modified by the <b>u</b> flag for case
+        folding.</p>
+  </dd>
+</dl>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
+<pre>
+RFC 3463 (Enhanced status codes)
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DIAGNOSTICS"><a class="permalink" href="#DIAGNOSTICS">DIAGNOSTICS</a></h1>
+<br/>
+Command exit status codes are expected to follow the conventions defined in
+  &lt;<b>sysexits.h</b>&gt;. Exit status 0 means normal successful completion.
+<p class="Pp">In the case of a non-zero exit status, a limited amount of command
+    output is logged, and reported in a delivery status notification. When the
+    output begins with a 4.X.X or 5.X.X enhanced status code, the status code
+    takes precedence over the non-zero exit status (Postfix version 2.3 and
+    later).</p>
+<p class="Pp">After successful delivery (zero exit status) a limited amount of
+    command output is logged, and reported in &quot;success&quot; delivery
+    status notifications (Postfix 3.0 and later). This command output is not
+    examined for the presence of an enhanced status code.</p>
+<p class="Pp">Problems and transactions are logged to <b>syslogd</b>(8).
+    Corrupted message files are marked so that the queue manager can move them
+    to the <b>corrupt</b> queue for further inspection.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SECURITY"><a class="permalink" href="#SECURITY">SECURITY</a></h1>
+<pre>
+</pre>
+This program needs a dual personality 1) to access the private Postfix queue and
+  IPC mechanisms, and 2) to execute external commands as the specified user. It
+  is therefore security sensitive.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION_PARAMETERS"><a class="permalink" href="#CONFIGURATION_PARAMETERS">CONFIGURATION
+  PARAMETERS</a></h1>
+<pre>
+</pre>
+Changes to <b>main.cf</b> are picked up automatically as <b>pipe</b>(8)
+  processes run for only a limited amount of time. Use the command
+  &quot;<b>postfix reload</b>&quot; to speed up a change.
+<p class="Pp">The text below provides only a parameter summary. See
+    <b>postconf</b>(5) for more details including examples.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RESOURCE_AND_RATE_CONTROLS"><a class="permalink" href="#RESOURCE_AND_RATE_CONTROLS">RESOURCE
+  AND RATE CONTROLS</a></h1>
+<pre>
+</pre>
+In the text below, <i>transport</i> is the first field in a <b>master.cf</b>
+  entry.
+<dl class="Bl-tag">
+  <dt><i>transport</i><b>_destination_concurrency_limit
+    ($default_destination_concurrency_limit)</b></dt>
+  <dd>Limit the number of parallel deliveries to the same destination, for
+      delivery via the named <i>transport</i>. The limit is enforced by the
+      Postfix queue manager.</dd>
+  <dt><i>transport</i><b>_destination_recipient_limit
+    ($default_destination_recipient_limit)</b></dt>
+  <dd>Limit the number of recipients per message delivery, for delivery via the
+      named <i>transport</i>. The limit is enforced by the Postfix queue
+      manager.</dd>
+  <dt><i>transport</i><b>_time_limit ($command_time_limit)</b></dt>
+  <dd>Limit the time for delivery to external command, for delivery via the
+      named <i>transport</i>. The limit is enforced by the pipe delivery agent.
+    <p class="Pp">Postfix 2.4 and later support a suffix that specifies the time
+        unit: s (seconds), m (minutes), h (hours), d (days), w (weeks). The
+        default time unit is seconds.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MISCELLANEOUS_CONTROLS"><a class="permalink" href="#MISCELLANEOUS_CONTROLS">MISCELLANEOUS
+  CONTROLS</a></h1>
+<pre>
+</pre>
+<dl class="Bl-tag">
+  <dt><b>config_directory (see 'postconf -d' output)</b></dt>
+  <dd>The default location of the Postfix main.cf and master.cf configuration
+      files.</dd>
+  <dt><b>daemon_timeout (18000s)</b></dt>
+  <dd>How much time a Postfix daemon process may take to handle a request before
+      it is terminated by a built-in watchdog timer.</dd>
+  <dt><b>delay_logging_resolution_limit (2)</b></dt>
+  <dd>The maximal number of digits after the decimal point when logging
+      sub-second delay values.</dd>
+  <dt><b>export_environment (see 'postconf -d' output)</b></dt>
+  <dd>The list of environment variables that a Postfix process will export to
+      non-Postfix processes.</dd>
+  <dt><b>ipc_timeout (3600s)</b></dt>
+  <dd>The time limit for sending or receiving information over an internal
+      communication channel.</dd>
+  <dt><b>mail_owner (postfix)</b></dt>
+  <dd>The UNIX system account that owns the Postfix queue and most Postfix
+      daemon processes.</dd>
+  <dt><b>max_idle (100s)</b></dt>
+  <dd>The maximum amount of time that an idle Postfix daemon process waits for
+      an incoming connection before terminating voluntarily.</dd>
+  <dt><b>max_use (100)</b></dt>
+  <dd>The maximal number of incoming connections that a Postfix daemon process
+      will service before terminating voluntarily.</dd>
+  <dt><b>process_id (read-only)</b></dt>
+  <dd>The process ID of a Postfix command or daemon process.</dd>
+  <dt><b>process_name (read-only)</b></dt>
+  <dd>The process name of a Postfix command or daemon process.</dd>
+  <dt><b>queue_directory (see 'postconf -d' output)</b></dt>
+  <dd>The location of the Postfix top-level queue directory.</dd>
+  <dt><b>recipient_delimiter (empty)</b></dt>
+  <dd>The set of characters that can separate a user name from its extension
+      (example: user+foo), or a .forward file name from its extension (example:
+      .forward+foo).</dd>
+  <dt><b>syslog_facility (mail)</b></dt>
+  <dd>The syslog facility of Postfix logging.</dd>
+  <dt><b>syslog_name (see 'postconf -d' output)</b></dt>
+  <dd>A prefix that is prepended to the process name in syslog records, so that,
+      for example, &quot;smtpd&quot; becomes &quot;prefix/smtpd&quot;.</dd>
+</dl>
+<p class="Pp">Available in Postfix version 3.0 and later:</p>
+<dl class="Bl-tag">
+  <dt><b>pipe_delivery_status_filter ($default_delivery_status_filter)</b></dt>
+  <dd>Optional filter for the <b>pipe</b>(8) delivery agent to change the
+      delivery status code or explanatory text of successful or unsuccessful
+      deliveries.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<pre>
+qmgr(8), queue manager
+bounce(8), delivery status reports
+postconf(5), configuration parameters
+master(5), generic daemon options
+master(8), process manager
+syslogd(8), system logging
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LICENSE"><a class="permalink" href="#LICENSE">LICENSE</a></h1>
+<pre>
+</pre>
+The Secure Mailer license must be distributed with this software.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR(S)"><a class="permalink" href="#AUTHOR(S)">AUTHOR(S)</a></h1>
+<pre>
+Wietse Venema
+IBM T.J. Watson Research
+P.O. Box 704
+Yorktown Heights, NY 10598, USA
+Wietse Venema
+Google, Inc.
+111 8th Avenue
+New York, NY 10011, USA
+</pre>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date"></td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+</body>
+</html>

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   $FreeBSD: head/contrib/tzcode/stdtime/tzfile.5 259446 2013-12-16 01:58:12Z bjk $
+ -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>TZFILE(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">TZFILE(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">TZFILE(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">tzfile</code> &#x2014;
+<div class="Nd">timezone information</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<code class="In">#include &lt;<a class="In">tzfile.h</a>&gt;</code>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The time zone information files used by <a class="Xr">tzset(3)</a> begin with
+  the magic characters &#x201C;<code class="Li">TZif</code>&#x201D; to identify
+  them as time zone information files, followed by a character identifying the
+  version of the file's format (as of 2005, either an ASCII NUL or a '2')
+  followed by fifteen bytes containing zeroes reserved for future use, followed
+  by four four-byte values written in a ``standard'' byte order (the high-order
+  byte of the value is written first). These values are, in order:
+<p class="Pp"></p>
+<dl class="Bl-tag Bl-compact">
+  <dt><var class="Va">tzh_ttisgmtcnt</var></dt>
+  <dd>The number of UTC/local indicators stored in the file.</dd>
+  <dt><var class="Va">tzh_ttisstdcnt</var></dt>
+  <dd>The number of standard/wall indicators stored in the file.</dd>
+  <dt><var class="Va">tzh_leapcnt</var></dt>
+  <dd>The number of leap seconds for which data is stored in the file.</dd>
+  <dt><var class="Va">tzh_timecnt</var></dt>
+  <dd>The number of ``transition times'' for which data is stored in the
+    file.</dd>
+  <dt><var class="Va">tzh_typecnt</var></dt>
+  <dd>The number of ``local time types'' for which data is stored in the file
+      (must not be zero).</dd>
+  <dt><var class="Va">tzh_charcnt</var></dt>
+  <dd>The number of characters of ``time zone abbreviation strings'' stored in
+      the file.</dd>
+</dl>
+<p class="Pp">The above header is followed by <var class="Va">tzh_timecnt</var>
+    four-byte values of type <var class="Fa">long</var>, sorted in ascending
+    order. These values are written in ``standard'' byte order. Each is used as
+    a transition time (as returned by <a class="Xr">time(3)</a>) at which the
+    rules for computing local time change. Next come
+    <var class="Va">tzh_timecnt</var> one-byte values of type
+    <var class="Fa">unsigned char</var>; each one tells which of the different
+    types of ``local time'' types described in the file is associated with the
+    same-indexed transition time. These values serve as indices into an array of
+    <var class="Fa">ttinfo</var> structures (with
+    <var class="Fa">tzh_typecnt</var> entries) that appears next in the file;
+    these structures are defined as follows:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+struct ttinfo {
+	long	tt_gmtoff;
+	int	tt_isdst;
+	unsigned int	tt_abbrind;
+};
+</pre>
+</div>
+<p class="Pp">Each structure is written as a four-byte value for
+    <var class="Va">tt_gmtoff</var> of type <var class="Fa">long</var>, in a
+    standard byte order, followed by a one-byte value for
+    <var class="Va">tt_isdst</var> and a one-byte value for
+    <var class="Va">tt_abbrind</var>. In each structure,
+    <var class="Va">tt_gmtoff</var> gives the number of seconds to be added to
+    UTC, <code class="Li">tt_isdst</code> tells whether
+    <code class="Li">tm_isdst</code> should be set by
+    <a class="Xr">localtime(3)</a> and <var class="Va">tt_abbrind</var> serves
+    as an index into the array of time zone abbreviation characters that follow
+    the <code class="Li">ttinfo</code> structure(s) in the file.</p>
+<p class="Pp">Then there are <var class="Va">tzh_leapcnt</var> pairs of
+    four-byte values, written in standard byte order; the first value of each
+    pair gives the time (as returned by <a class="Xr">time(3)</a>) at which a
+    leap second occurs; the second gives the <i class="Em">total</i> number of
+    leap seconds to be applied after the given time. The pairs of values are
+    sorted in ascending order by time.</p>
+<p class="Pp">Then there are <var class="Va">tzh_ttisstdcnt</var> standard/wall
+    indicators, each stored as a one-byte value; they tell whether the
+    transition times associated with local time types were specified as standard
+    time or wall clock time, and are used when a time zone file is used in
+    handling POSIX-style time zone environment variables.</p>
+<p class="Pp">Finally there are <var class="Va">tzh_ttisgmtcnt</var> UTC/local
+    indicators, each stored as a one-byte value; they tell whether the
+    transition times associated with local time types were specified as UTC or
+    local time, and are used when a time zone file is used in handling
+    POSIX-style time zone environment variables.</p>
+<p class="Pp"><code class="Nm">localtime</code> uses the first standard-time
+    <code class="Li">ttinfo</code> structure in the file (or simply the first
+    <code class="Li">ttinfo</code> structure in the absence of a standard-time
+    structure) if either <code class="Li">tzh_timecnt</code> is zero or the time
+    argument is less than the first transition time recorded in the file.</p>
+<p class="Pp">For version-2-format time zone files, the above header and data is
+    followed by a second header and data, identical in format except that eight
+    bytes are used for each transition time or leap second time. After the
+    second header and data comes a newline-enclosed,
+    POSIX-TZ-environment-variable-style string for use in handling instants
+    after the last transition time stored in the file (with nothing between the
+    newlines if there is no POSIX representation for such instants).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">ctime(3)</a>, <a class="Xr">time2posix(3)</a>,
+  <a class="Xr">zic(8)</a>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">September 13, 1994</td>
+    <td class="foot-os">Mac OS X 10.15</td>
+  </tr>
+</table>
+</body>
+</html>

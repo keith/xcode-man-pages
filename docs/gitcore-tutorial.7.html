@@ -1,0 +1,1835 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   t
+       Title: gitcore-tutorial
+      Author: [FIXME: author] [see http://docbook.sf.net/el/author]
+   Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+        Date: 02/24/2019
+      Manual: Git Manual
+      Source: Git 2.21.0
+    Language: English
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>GITCORE-TUTORIAL(7)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">GITCORE-TUTORIAL(7)</td>
+    <td class="head-vol">Git Manual</td>
+    <td class="head-rtitle">GITCORE-TUTORIAL(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+gitcore-tutorial - A Git core tutorial for developers
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+git *
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+This tutorial explains how to use the &quot;core&quot; Git commands to set up
+  and work with a Git repository.
+<p class="Pp">If you just need to use Git as a revision control system you may
+    prefer to start with &quot;A Tutorial Introduction to Git&quot;
+    (<b>gittutorial</b>(7)) or <b>the Git User Manual</b>[1].</p>
+<p class="Pp">However, an understanding of these low-level tools can be helpful
+    if you want to understand Git&#x2019;s internals.</p>
+<p class="Pp">The core Git is often called &quot;plumbing&quot;, with the
+    prettier user interfaces on top of it called &quot;porcelain&quot;. You may
+    not want to use the plumbing directly very often, but it can be good to know
+    what the plumbing does when the porcelain isn&#x2019;t flushing.</p>
+<p class="Pp">Back when this document was originally written, many porcelain
+    commands were shell scripts. For simplicity, it still uses them as examples
+    to illustrate how plumbing is fit together to form the porcelain commands.
+    The source tree includes some of these scripts in contrib/examples/ for
+    reference. Although these are not implemented as shell scripts anymore, the
+    description of what the plumbing layer commands do is still valid.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp">Deeper technical details are often marked as Notes, which you can
+    skip on your first reading.</p>
+<p class="Pp"></p>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CREATING_A_GIT_REPOSITORY"><a class="permalink" href="#CREATING_A_GIT_REPOSITORY">CREATING
+  A GIT REPOSITORY</a></h1>
+Creating a new Git repository couldn&#x2019;t be easier: all Git repositories
+  start out empty, and the only thing you need to do is find yourself a
+  subdirectory that you want to use as a working tree - either an empty one for
+  a totally new project, or an existing working tree that you want to import
+  into Git.
+<p class="Pp">For our first example, we&#x2019;re going to start a totally new
+    repository from scratch, with no pre-existing files, and we&#x2019;ll call
+    it <i>git-tutorial</i>. To start up, create a subdirectory for it, change
+    into that subdirectory, and initialize the Git infrastructure with <i>git
+    init</i>:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ mkdir git-tutorial
+$ cd git-tutorial
+$ git init
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">to which Git will reply</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+Initialized empty Git repository in .git/
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">which is just Git&#x2019;s way of saying that you haven&#x2019;t
+    been doing anything strange, and that it will have created a local
+    <b>.git</b> directory setup for your new project. You will now have a
+    <b>.git</b> directory, and you can inspect that with <i>ls</i>. For your new
+    empty project, it should show you three entries, among other things:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;a file called <b>HEAD</b>, that has <b>ref:
+  refs/heads/master</b> in it. This is similar to a symbolic link and points at
+  <b>refs/heads/master</b> relative to the <b>HEAD</b> file.
+<p class="Pp">Don&#x2019;t worry about the fact that the file that the
+    <b>HEAD</b> link points to doesn&#x2019;t even exist yet &#x2014; you
+    haven&#x2019;t created the commit that will start your <b>HEAD</b>
+    development branch yet.</p>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;a subdirectory called <b>objects</b>, which will
+  contain all the objects of your project. You should never have any real reason
+  to look at the objects directly, but you might want to know that these objects
+  are what contains all the real <i>data</i> in your repository.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;a subdirectory called <b>refs</b>, which contains
+  references to objects.</div>
+<p class="Pp">In particular, the <b>refs</b> subdirectory will contain two other
+    subdirectories, named <b>heads</b> and <b>tags</b> respectively. They do
+    exactly what their names imply: they contain references to any number of
+    different <i>heads</i> of development (aka <i>branches</i>), and to any
+    <i>tags</i> that you have created to name specific versions in your
+    repository.</p>
+<p class="Pp">One note: the special <b>master</b> head is the default branch,
+    which is why the <b>.git/HEAD</b> file was created points to it even if it
+    doesn&#x2019;t yet exist. Basically, the <b>HEAD</b> link is supposed to
+    always point to the branch you are working on right now, and you always
+    start out expecting to work on the <b>master</b> branch.</p>
+<p class="Pp">However, this is only a convention, and you can name your branches
+    anything you want, and don&#x2019;t have to ever even <i>have</i> a
+    <b>master</b> branch. A number of the Git tools will assume that
+    <b>.git/HEAD</b> is valid, though.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp">An <i>object</i> is identified by its 160-bit SHA-1 hash, aka
+    <i>object name</i>, and a reference to an object is always the 40-byte hex
+    representation of that SHA-1 name. The files in the <b>refs</b> subdirectory
+    are expected to contain these hex references (usually with a final <b>\n</b>
+    at the end), and you should thus expect to see a number of 41-byte files
+    containing these references in these <b>refs</b> subdirectories when you
+    actually start populating your tree.</p>
+<p class="Pp"></p>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp">An advanced user may want to take a look at
+    <b>gitrepository-layout</b>(5) after finishing this tutorial.</p>
+<p class="Pp"></p>
+</div>
+<p class="Pp">You have now created your first Git repository. Of course, since
+    it&#x2019;s empty, that&#x2019;s not very useful, so let&#x2019;s start
+    populating it with data.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="POPULATING_A_GIT_REPOSITORY"><a class="permalink" href="#POPULATING_A_GIT_REPOSITORY">POPULATING
+  A GIT REPOSITORY</a></h1>
+We&#x2019;ll keep this simple and stupid, so we&#x2019;ll start off with
+  populating a few trivial files just to get a feel for it.
+<p class="Pp">Start off with just creating any random files that you want to
+    maintain in your Git repository. We&#x2019;ll start off with a few bad
+    examples, just to get a feel for how this works:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ echo &quot;Hello World&quot; &gt;hello
+$ echo &quot;Silly example&quot; &gt;example
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">you have now created two files in your working tree (aka
+    <i>working directory</i>), but to actually check in your hard work, you will
+    have to go through two steps:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;fill in the <i>index</i> file (aka <i>cache</i>)
+  with the information about your working tree state.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;commit that index file as an object.</div>
+<p class="Pp">The first step is trivial: when you want to tell Git about any
+    changes to your working tree, you use the <i>git update-index</i> program.
+    That program normally just takes a list of filenames you want to update, but
+    to avoid trivial mistakes, it refuses to add new entries to the index (or
+    remove existing ones) unless you explicitly tell it that you&#x2019;re
+    adding a new entry with the <b>--add</b> flag (or removing an entry with the
+    <b>--remove</b>) flag.</p>
+<p class="Pp">So to populate the index with the two files you just created, you
+    can do</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git update-index --add hello example
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">and you have now told Git to track those two files.</p>
+<p class="Pp">In fact, as you did that, if you now look into your object
+    directory, you&#x2019;ll notice that Git will have added two new objects to
+    the object database. If you did exactly the steps above, you should now be
+    able to do</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ ls .git/objects/??/*
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">and see two files:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+.git/objects/55/7db03de997c86a4a028e1ebd3a1ceb225be238
+.git/objects/f2/4c74a2e500f5ee1332c86b94199f52b1d1d962
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">which correspond with the objects with names of <b>557db...</b>
+    and <b>f24c7...</b> respectively.</p>
+<p class="Pp">If you want to, you can use <i>git cat-file</i> to look at those
+    objects, but you&#x2019;ll have to use the object name, not the filename of
+    the object:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git cat-file -t 557db03de997c86a4a028e1ebd3a1ceb225be238
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">where the <b>-t</b> tells <i>git cat-file</i> to tell you what the
+    &quot;type&quot; of the object is. Git will tell you that you have a
+    &quot;blob&quot; object (i.e., just a regular file), and you can see the
+    contents with</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git cat-file blob 557db03
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">which will print out &quot;Hello World&quot;. The object
+    <b>557db03</b> is nothing more than the contents of your file
+  <b>hello</b>.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp">Don&#x2019;t confuse that object with the file <b>hello</b>
+    itself. The object is literally just those specific <b>contents</b> of the
+    file, and however much you later change the contents in file <b>hello</b>,
+    the object we just looked at will never change. Objects are immutable.</p>
+<p class="Pp"></p>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp">The second example demonstrates that you can abbreviate the object
+    name to only the first several hexadecimal digits in most places.</p>
+<p class="Pp"></p>
+</div>
+<p class="Pp">Anyway, as we mentioned previously, you normally never actually
+    take a look at the objects themselves, and typing long 40-character hex
+    names is not something you&#x2019;d normally want to do. The above
+    digression was just to show that <i>git update-index</i> did something
+    magical, and actually saved away the contents of your files into the Git
+    object database.</p>
+<p class="Pp">Updating the index did something else too: it created a
+    <b>.git/index</b> file. This is the index that describes your current
+    working tree, and something you should be very aware of. Again, you normally
+    never worry about the index file itself, but you should be aware of the fact
+    that you have not actually really &quot;checked in&quot; your files into Git
+    so far, you&#x2019;ve only <b>told</b> Git about them.</p>
+<p class="Pp">However, since Git knows about them, you can now start using some
+    of the most basic Git commands to manipulate the files or look at their
+    status.</p>
+<p class="Pp">In particular, let&#x2019;s not even check in the two files into
+    Git yet, we&#x2019;ll start off by adding another line to <b>hello</b>
+    first:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ echo &quot;It's a new day for git&quot; &gt;&gt;hello
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">and you can now, since you told Git about the previous state of
+    <b>hello</b>, ask Git what has changed in the tree compared to your old
+    index, using the <i>git diff-files</i> command:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git diff-files
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Oops. That wasn&#x2019;t very readable. It just spit out its own
+    internal version of a <i>diff</i>, but that internal version really just
+    tells you that it has noticed that &quot;hello&quot; has been modified, and
+    that the old object contents it had have been replaced with something
+  else.</p>
+<p class="Pp">To make it readable, we can tell <i>git diff-files</i> to output
+    the differences as a patch, using the <b>-p</b> flag:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git diff-files -p
+diff --git a/hello b/hello
+index 557db03..263414f 100644
+--- a/hello
++++ b/hello
+@@ -1 +1,2 @@
+ Hello World
++It's a new day for git
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">i.e. the diff of the change we caused by adding another line to
+    <b>hello</b>.</p>
+<p class="Pp">In other words, <i>git diff-files</i> always shows us the
+    difference between what is recorded in the index, and what is currently in
+    the working tree. That&#x2019;s very useful.</p>
+<p class="Pp">A common shorthand for <b>git diff-files -p</b> is to just write
+    <b>git diff</b>, which will do the same thing.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git diff
+diff --git a/hello b/hello
+index 557db03..263414f 100644
+--- a/hello
++++ b/hello
+@@ -1 +1,2 @@
+ Hello World
++It's a new day for git
+</pre>
+</div>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMMITTING_GIT_STATE"><a class="permalink" href="#COMMITTING_GIT_STATE">COMMITTING
+  GIT STATE</a></h1>
+Now, we want to go to the next stage in Git, which is to take the files that Git
+  knows about in the index, and commit them as a real tree. We do that in two
+  phases: creating a <i>tree</i> object, and committing that <i>tree</i> object
+  as a <i>commit</i> object together with an explanation of what the tree was
+  all about, along with information of how we came to that state.
+<p class="Pp">Creating a tree object is trivial, and is done with <i>git
+    write-tree</i>. There are no options or other input: <b>git write-tree</b>
+    will take the current index state, and write an object that describes that
+    whole index. In other words, we&#x2019;re now tying together all the
+    different filenames with their contents (and their permissions), and
+    we&#x2019;re creating the equivalent of a Git &quot;directory&quot;
+  object:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git write-tree
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">and this will just output the name of the resulting tree, in this
+    case (if you have done exactly as I&#x2019;ve described) it should be</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+8988da15d077d4829fc51d8544c097def6644dbb
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">which is another incomprehensible object name. Again, if you want
+    to, you can use <b>git cat-file -t 8988d...</b> to see that this time the
+    object is not a &quot;blob&quot; object, but a &quot;tree&quot; object (you
+    can also use <b>git cat-file</b> to actually output the raw object contents,
+    but you&#x2019;ll see mainly a binary mess, so that&#x2019;s less
+    interesting).</p>
+<p class="Pp">However &#x2014; normally you&#x2019;d never use <i>git
+    write-tree</i> on its own, because normally you always commit a tree into a
+    commit object using the <i>git commit-tree</i> command. In fact, it&#x2019;s
+    easier to not actually use <i>git write-tree</i> on its own at all, but to
+    just pass its result in as an argument to <i>git commit-tree</i>.</p>
+<p class="Pp"><i>git commit-tree</i> normally takes several arguments &#x2014;
+    it wants to know what the <i>parent</i> of a commit was, but since this is
+    the first commit ever in this new repository, and it has no parents, we only
+    need to pass in the object name of the tree. However, <i>git commit-tree</i>
+    also wants to get a commit message on its standard input, and it will write
+    out the resulting object name for the commit to its standard output.</p>
+<p class="Pp">And this is where we create the <b>.git/refs/heads/master</b> file
+    which is pointed at by <b>HEAD</b>. This file is supposed to contain the
+    reference to the top-of-tree of the master branch, and since that&#x2019;s
+    exactly what <i>git commit-tree</i> spits out, we can do this all with a
+    sequence of simple shell commands:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ tree=$(git write-tree)
+$ commit=$(echo 'Initial commit' | git commit-tree $tree)
+$ git update-ref HEAD $commit
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">In this case this creates a totally new commit that is not related
+    to anything else. Normally you do this only <b>once</b> for a project ever,
+    and all later commits will be parented on top of an earlier commit.</p>
+<p class="Pp">Again, normally you&#x2019;d never actually do this by hand. There
+    is a helpful script called <b>git commit</b> that will do all of this for
+    you. So you could have just written <b>git commit</b> instead, and it would
+    have done the above magic scripting for you.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MAKING_A_CHANGE"><a class="permalink" href="#MAKING_A_CHANGE">MAKING
+  A CHANGE</a></h1>
+Remember how we did the <i>git update-index</i> on file <b>hello</b> and then we
+  changed <b>hello</b> afterward, and could compare the new state of
+  <b>hello</b> with the state we saved in the index file?
+<p class="Pp">Further, remember how I said that <i>git write-tree</i> writes the
+    contents of the <b>index</b> file to the tree, and thus what we just
+    committed was in fact the <b>original</b> contents of the file <b>hello</b>,
+    not the new ones. We did that on purpose, to show the difference between the
+    index state, and the state in the working tree, and how they don&#x2019;t
+    have to match, even when we commit things.</p>
+<p class="Pp">As before, if we do <b>git diff-files -p</b> in our git-tutorial
+    project, we&#x2019;ll still see the same difference we saw last time: the
+    index file hasn&#x2019;t changed by the act of committing anything. However,
+    now that we have committed something, we can also learn to use a new
+    command: <i>git diff-index</i>.</p>
+<p class="Pp">Unlike <i>git diff-files</i>, which showed the difference between
+    the index file and the working tree, <i>git diff-index</i> shows the
+    differences between a committed <b>tree</b> and either the index file or the
+    working tree. In other words, <i>git diff-index</i> wants a tree to be
+    diffed against, and before we did the commit, we couldn&#x2019;t do that,
+    because we didn&#x2019;t have anything to diff against.</p>
+<p class="Pp">But now we can do</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git diff-index -p HEAD
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">(where <b>-p</b> has the same meaning as it did in <i>git
+    diff-files</i>), and it will show us the same difference, but for a totally
+    different reason. Now we&#x2019;re comparing the working tree not against
+    the index file, but against the tree we just wrote. It just so happens that
+    those two are obviously the same, so we get the same result.</p>
+<p class="Pp">Again, because this is a common operation, you can also just
+    shorthand it with</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git diff HEAD
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">which ends up doing the above for you.</p>
+<p class="Pp">In other words, <i>git diff-index</i> normally compares a tree
+    against the working tree, but when given the <b>--cached</b> flag, it is
+    told to instead compare against just the index cache contents, and ignore
+    the current working tree state entirely. Since we just wrote the index file
+    to HEAD, doing <b>git diff-index --cached -p HEAD</b> should thus return an
+    empty set of differences, and that&#x2019;s exactly what it does.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp"><i>git diff-index</i> really always uses the index for its
+    comparisons, and saying that it compares a tree against the working tree is
+    thus not strictly accurate. In particular, the list of files to compare (the
+    &quot;meta-data&quot;) <b>always</b> comes from the index file, regardless
+    of whether the <b>--cached</b> flag is used or not. The <b>--cached</b> flag
+    really only determines whether the file <b>contents</b> to be compared come
+    from the working tree or not.</p>
+<p class="Pp">This is not hard to understand, as soon as you realize that Git
+    simply never knows (or cares) about files that it is not told about
+    explicitly. Git will never go <b>looking</b> for files to compare, it
+    expects you to tell it what the files are, and that&#x2019;s what the index
+    is there for.</p>
+<p class="Pp"></p>
+</div>
+<p class="Pp">However, our next step is to commit the <b>change</b> we did, and
+    again, to understand what&#x2019;s going on, keep in mind the difference
+    between &quot;working tree contents&quot;, &quot;index file&quot; and
+    &quot;committed tree&quot;. We have changes in the working tree that we want
+    to commit, and we always have to work through the index file, so the first
+    thing we need to do is to update the index cache:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git update-index hello
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">(note how we didn&#x2019;t need the <b>--add</b> flag this time,
+    since Git knew about the file already).</p>
+<p class="Pp">Note what happens to the different <i>git diff-*</i> versions
+    here. After we&#x2019;ve updated <b>hello</b> in the index, <b>git
+    diff-files -p</b> now shows no differences, but <b>git diff-index -p
+    HEAD</b> still <b>does</b> show that the current state is different from the
+    state we committed. In fact, now <i>git diff-index</i> shows the same
+    difference whether we use the <b>--cached</b> flag or not, since now the
+    index is coherent with the working tree.</p>
+<p class="Pp">Now, since we&#x2019;ve updated <b>hello</b> in the index, we can
+    commit the new version. We could do it by writing the tree by hand again,
+    and committing the tree (this time we&#x2019;d have to use the <b>-p
+    HEAD</b> flag to tell commit that the HEAD was the <b>parent</b> of the new
+    commit, and that this wasn&#x2019;t an initial commit any more), but
+    you&#x2019;ve done that once already, so let&#x2019;s just use the helpful
+    script this time:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git commit
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">which starts an editor for you to write the commit message and
+    tells you a bit about what you have done.</p>
+<p class="Pp">Write whatever message you want, and all the lines that start with
+    <i>#</i> will be pruned out, and the rest will be used as the commit message
+    for the change. If you decide you don&#x2019;t want to commit anything after
+    all at this point (you can continue to edit things and update the index),
+    you can just leave an empty message. Otherwise <b>git commit</b> will commit
+    the change for you.</p>
+<p class="Pp">You&#x2019;ve now made your first real Git commit. And if
+    you&#x2019;re interested in looking at what <b>git commit</b> really does,
+    feel free to investigate: it&#x2019;s a few very simple shell scripts to
+    generate the helpful (?) commit message headers, and a few one-liners that
+    actually do the commit itself (<i>git commit</i>).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INSPECTING_CHANGES"><a class="permalink" href="#INSPECTING_CHANGES">INSPECTING
+  CHANGES</a></h1>
+While creating changes is useful, it&#x2019;s even more useful if you can tell
+  later what changed. The most useful command for this is another of the
+  <i>diff</i> family, namely <i>git diff-tree</i>.
+<p class="Pp"><i>git diff-tree</i> can be given two arbitrary trees, and it will
+    tell you the differences between them. Perhaps even more commonly, though,
+    you can give it just a single commit object, and it will figure out the
+    parent of that commit itself, and show the difference directly. Thus, to get
+    the same diff that we&#x2019;ve already seen several times, we can now
+  do</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git diff-tree -p HEAD
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">(again, <b>-p</b> means to show the difference as a human-readable
+    patch), and it will show what the last commit (in <b>HEAD</b>) actually
+    changed.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp">Here is an ASCII art by Jon Loeliger that illustrates how various
+    <i>diff-*</i> commands compare things.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+            diff-tree
+             +----+
+             |    |
+             |    |
+             V    V
+          +-----------+
+          | Object DB |
+          |  Backing  |
+          |   Store   |
+          +-----------+
+            ^    ^
+            |    |
+            |    |  diff-index --cached
+            |    |
+diff-index  |    V
+            |  +-----------+
+            |  |   Index   |
+            |  |  &quot;cache&quot;  |
+            |  +-----------+
+            |    ^
+            |    |
+            |    |  diff-files
+            |    |
+            V    V
+          +-----------+
+          |  Working  |
+          | Directory |
+          +-----------+
+</pre>
+</div>
+<p class="Pp"></p>
+</div>
+<p class="Pp">More interestingly, you can also give <i>git diff-tree</i> the
+    <b>--pretty</b> flag, which tells it to also show the commit message and
+    author and date of the commit, and you can tell it to show a whole series of
+    diffs. Alternatively, you can tell it to be &quot;silent&quot;, and not show
+    the diffs at all, but just show the actual commit message.</p>
+<p class="Pp">In fact, together with the <i>git rev-list</i> program (which
+    generates a list of revisions), <i>git diff-tree</i> ends up being a
+    veritable fount of changes. You can emulate <b>git log</b>, <b>git log
+    -p</b>, etc. with a trivial script that pipes the output of <b>git
+    rev-list</b> to <b>git diff-tree --stdin</b>, which was exactly how early
+    versions of <b>git log</b> were implemented.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TAGGING_A_VERSION"><a class="permalink" href="#TAGGING_A_VERSION">TAGGING
+  A VERSION</a></h1>
+In Git, there are two kinds of tags, a &quot;light&quot; one, and an
+  &quot;annotated tag&quot;.
+<p class="Pp">A &quot;light&quot; tag is technically nothing more than a branch,
+    except we put it in the <b>.git/refs/tags/</b> subdirectory instead of
+    calling it a <b>head</b>. So the simplest form of tag involves nothing more
+    than</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git tag my-first-tag
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">which just writes the current <b>HEAD</b> into the
+    <b>.git/refs/tags/my-first-tag</b> file, after which point you can then use
+    this symbolic name for that particular state. You can, for example, do</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git diff my-first-tag
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">to diff your current state against that tag which at this point
+    will obviously be an empty diff, but if you continue to develop and commit
+    stuff, you can use your tag as an &quot;anchor-point&quot; to see what has
+    changed since you tagged it.</p>
+<p class="Pp">An &quot;annotated tag&quot; is actually a real Git object, and
+    contains not only a pointer to the state you want to tag, but also a small
+    tag name and message, along with optionally a PGP signature that says that
+    yes, you really did that tag. You create these annotated tags with either
+    the <b>-a</b> or <b>-s</b> flag to <i>git tag</i>:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git tag -s &lt;tagname&gt;
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">which will sign the current <b>HEAD</b> (but you can also give it
+    another argument that specifies the thing to tag, e.g., you could have
+    tagged the current <b>mybranch</b> point by using <b>git tag &lt;tagname&gt;
+    mybranch</b>).</p>
+<p class="Pp">You normally only do signed tags for major releases or things like
+    that, while the light-weight tags are useful for any marking you want to do
+    &#x2014; any time you decide that you want to remember a certain point, just
+    create a private tag for it, and you have a nice symbolic name for the state
+    at that point.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYING_REPOSITORIES"><a class="permalink" href="#COPYING_REPOSITORIES">COPYING
+  REPOSITORIES</a></h1>
+Git repositories are normally totally self-sufficient and relocatable. Unlike
+  CVS, for example, there is no separate notion of &quot;repository&quot; and
+  &quot;working tree&quot;. A Git repository normally <b>is</b> the working
+  tree, with the local Git information hidden in the <b>.git</b> subdirectory.
+  There is nothing else. What you see is what you got.
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp">You can tell Git to split the Git internal information from the
+    directory that it tracks, but we&#x2019;ll ignore that for now: it&#x2019;s
+    not how normal projects work, and it&#x2019;s really only meant for special
+    uses. So the mental model of &quot;the Git information is always tied
+    directly to the working tree that it describes&quot; may not be technically
+    100% accurate, but it&#x2019;s a good model for all normal use.</p>
+<p class="Pp"></p>
+</div>
+<p class="Pp">This has two implications:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;if you grow bored with the tutorial repository
+  you created (or you&#x2019;ve made a mistake and want to start all over), you
+  can just do simple
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ rm -rf git-tutorial
+</pre>
+</div>
+<p class="Pp">and it will be gone. There&#x2019;s no external repository, and
+    there&#x2019;s no history outside the project you created.</p>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;if you want to move or duplicate a Git
+  repository, you can do so. There is <i>git clone</i> command, but if all you
+  want to do is just to create a copy of your repository (with all the full
+  history that went along with it), you can do so with a regular <b>cp -a
+  git-tutorial new-git-tutorial</b>.
+<p class="Pp">Note that when you&#x2019;ve moved or copied a Git repository,
+    your Git index file (which caches various information, notably some of the
+    &quot;stat&quot; information for the files involved) will likely need to be
+    refreshed. So after you do a <b>cp -a</b> to create a new copy,
+    you&#x2019;ll want to do</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git update-index --refresh
+</pre>
+</div>
+<p class="Pp">in the new repository to make sure that the index file is up to
+    date.</p>
+</div>
+<p class="Pp">Note that the second point is true even across machines. You can
+    duplicate a remote Git repository with <b>any</b> regular copy mechanism, be
+    it <i>scp</i>, <i>rsync</i> or <i>wget</i>.</p>
+<p class="Pp">When copying a remote repository, you&#x2019;ll want to at a
+    minimum update the index cache when you do this, and especially with other
+    peoples' repositories you often want to make sure that the index cache is in
+    some known state (you don&#x2019;t know <b>what</b> they&#x2019;ve done and
+    not yet checked in), so usually you&#x2019;ll precede the <i>git
+    update-index</i> with a</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git read-tree --reset HEAD
+$ git update-index --refresh
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">which will force a total index re-build from the tree pointed to
+    by <b>HEAD</b>. It resets the index contents to <b>HEAD</b>, and then the
+    <i>git update-index</i> makes sure to match up all index entries with the
+    checked-out files. If the original repository had uncommitted changes in its
+    working tree, <b>git update-index --refresh</b> notices them and tells you
+    they need to be updated.</p>
+<p class="Pp">The above can also be written as simply</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git reset
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">and in fact a lot of the common Git command combinations can be
+    scripted with the <b>git xyz</b> interfaces. You can learn things by just
+    looking at what the various git scripts do. For example, <b>git reset</b>
+    used to be the above two lines implemented in <i>git reset</i>, but some
+    things like <i>git status</i> and <i>git commit</i> are slightly more
+    complex scripts around the basic Git commands.</p>
+<p class="Pp">Many (most?) public remote repositories will not contain any of
+    the checked out files or even an index file, and will <b>only</b> contain
+    the actual core Git files. Such a repository usually doesn&#x2019;t even
+    have the <b>.git</b> subdirectory, but has all the Git files directly in the
+    repository.</p>
+<p class="Pp">To create your own local live copy of such a &quot;raw&quot; Git
+    repository, you&#x2019;d first create your own subdirectory for the project,
+    and then copy the raw repository contents into the <b>.git</b> directory.
+    For example, to create your own copy of the Git repository, you&#x2019;d do
+    the following</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ mkdir my-git
+$ cd my-git
+$ rsync -rL rsync://rsync.kernel.org/pub/scm/git/git.git/ .git
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">followed by</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git read-tree HEAD
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">to populate the index. However, now you have populated the index,
+    and you have all the Git internal files, but you will notice that you
+    don&#x2019;t actually have any of the working tree files to work on. To get
+    those, you&#x2019;d check them out with</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git checkout-index -u -a
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">where the <b>-u</b> flag means that you want the checkout to keep
+    the index up to date (so that you don&#x2019;t have to refresh it
+    afterward), and the <b>-a</b> flag means &quot;check out all files&quot; (if
+    you have a stale copy or an older version of a checked out tree you may also
+    need to add the <b>-f</b> flag first, to tell <i>git checkout-index</i> to
+    <b>force</b> overwriting of any old files).</p>
+<p class="Pp">Again, this can all be simplified with</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git clone git://git.kernel.org/pub/scm/git/git.git/ my-git
+$ cd my-git
+$ git checkout
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">which will end up doing all of the above for you.</p>
+<p class="Pp">You have now successfully copied somebody else&#x2019;s (mine)
+    remote repository, and checked it out.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CREATING_A_NEW_BRANCH"><a class="permalink" href="#CREATING_A_NEW_BRANCH">CREATING
+  A NEW BRANCH</a></h1>
+Branches in Git are really nothing more than pointers into the Git object
+  database from within the <b>.git/refs/</b> subdirectory, and as we already
+  discussed, the <b>HEAD</b> branch is nothing but a symlink to one of these
+  object pointers.
+<p class="Pp">You can at any time create a new branch by just picking an
+    arbitrary point in the project history, and just writing the SHA-1 name of
+    that object into a file under <b>.git/refs/heads/</b>. You can use any
+    filename you want (and indeed, subdirectories), but the convention is that
+    the &quot;normal&quot; branch is called <b>master</b>. That&#x2019;s just a
+    convention, though, and nothing enforces it.</p>
+<p class="Pp">To show that as an example, let&#x2019;s go back to the
+    git-tutorial repository we used earlier, and create a branch in it. You do
+    that by simply just saying that you want to check out a new branch:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git checkout -b mybranch
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">will create a new branch based at the current <b>HEAD</b>
+    position, and switch to it.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp">If you make the decision to start your new branch at some other
+    point in the history than the current <b>HEAD</b>, you can do so by just
+    telling <i>git checkout</i> what the base of the checkout would be. In other
+    words, if you have an earlier tag or branch, you&#x2019;d just do</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git checkout -b mybranch earlier-commit
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">and it would create the new branch <b>mybranch</b> at the earlier
+    commit, and check out the state at that time.</p>
+<p class="Pp"></p>
+</div>
+<p class="Pp">You can always just jump back to your original <b>master</b>
+    branch by doing</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git checkout master
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">(or any other branch-name, for that matter) and if you forget
+    which branch you happen to be on, a simple</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ cat .git/HEAD
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">will tell you where it&#x2019;s pointing. To get the list of
+    branches you have, you can say</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git branch
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">which used to be nothing more than a simple script around <b>ls
+    .git/refs/heads</b>. There will be an asterisk in front of the branch you
+    are currently on.</p>
+<p class="Pp">Sometimes you may wish to create a new branch <i>without</i>
+    actually checking it out and switching to it. If so, just use the
+  command</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git branch &lt;branchname&gt; [startingpoint]
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">which will simply <i>create</i> the branch, but will not do
+    anything further. You can then later &#x2014; once you decide that you want
+    to actually develop on that branch &#x2014; switch to that branch with a
+    regular <i>git checkout</i> with the branchname as the argument.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MERGING_TWO_BRANCHES"><a class="permalink" href="#MERGING_TWO_BRANCHES">MERGING
+  TWO BRANCHES</a></h1>
+One of the ideas of having a branch is that you do some (possibly experimental)
+  work in it, and eventually merge it back to the main branch. So assuming you
+  created the above <b>mybranch</b> that started out being the same as the
+  original <b>master</b> branch, let&#x2019;s make sure we&#x2019;re in that
+  branch, and do some work there.
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git checkout mybranch
+$ echo &quot;Work, work, work&quot; &gt;&gt;hello
+$ git commit -m &quot;Some work.&quot; -i hello
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Here, we just added another line to <b>hello</b>, and we used a
+    shorthand for doing both <b>git update-index hello</b> and <b>git commit</b>
+    by just giving the filename directly to <b>git commit</b>, with an <b>-i</b>
+    flag (it tells Git to <i>include</i> that file in addition to what you have
+    done to the index file so far when making the commit). The <b>-m</b> flag is
+    to give the commit log message from the command line.</p>
+<p class="Pp">Now, to make it a bit more interesting, let&#x2019;s assume that
+    somebody else does some work in the original branch, and simulate that by
+    going back to the master branch, and editing the same file differently
+    there:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git checkout master
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Here, take a moment to look at the contents of <b>hello</b>, and
+    notice how they don&#x2019;t contain the work we just did in <b>mybranch</b>
+    &#x2014; because that work hasn&#x2019;t happened in the <b>master</b>
+    branch at all. Then do</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ echo &quot;Play, play, play&quot; &gt;&gt;hello
+$ echo &quot;Lots of fun&quot; &gt;&gt;example
+$ git commit -m &quot;Some fun.&quot; -i hello example
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">since the master branch is obviously in a much better mood.</p>
+<p class="Pp">Now, you&#x2019;ve got two branches, and you decide that you want
+    to merge the work done. Before we do that, let&#x2019;s introduce a cool
+    graphical tool that helps you view what&#x2019;s going on:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ gitk --all
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">will show you graphically both of your branches (that&#x2019;s
+    what the <b>--all</b> means: normally it will just show you your current
+    <b>HEAD</b>) and their histories. You can also see exactly how they came to
+    be from a common source.</p>
+<p class="Pp">Anyway, let&#x2019;s exit <i>gitk</i> (<b>^Q</b> or the File
+    menu), and decide that we want to merge the work we did on the
+    <b>mybranch</b> branch into the <b>master</b> branch (which is currently our
+    <b>HEAD</b> too). To do that, there&#x2019;s a nice script called <i>git
+    merge</i>, which wants to know which branches you want to resolve and what
+    the merge is all about:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git merge -m &quot;Merge work in mybranch&quot; mybranch
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">where the first argument is going to be used as the commit message
+    if the merge can be resolved automatically.</p>
+<p class="Pp">Now, in this case we&#x2019;ve intentionally created a situation
+    where the merge will need to be fixed up by hand, though, so Git will do as
+    much of it as it can automatically (which in this case is just merge the
+    <b>example</b> file, which had no differences in the <b>mybranch</b>
+    branch), and say:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+        Auto-merging hello
+        CONFLICT (content): Merge conflict in hello
+        Automatic merge failed; fix conflicts and then commit the result.
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">It tells you that it did an &quot;Automatic merge&quot;, which
+    failed due to conflicts in <b>hello</b>.</p>
+<p class="Pp">Not to worry. It left the (trivial) conflict in <b>hello</b> in
+    the same form you should already be well used to if you&#x2019;ve ever used
+    CVS, so let&#x2019;s just open <b>hello</b> in our editor (whatever that may
+    be), and fix it up somehow. I&#x2019;d suggest just making it so that
+    <b>hello</b> contains all four lines:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+Hello World
+It's a new day for git
+Play, play, play
+Work, work, work
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">and once you&#x2019;re happy with your manual merge, just do a</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git commit -i hello
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">which will very loudly warn you that you&#x2019;re now committing
+    a merge (which is correct, so never mind), and you can write a small merge
+    message about your adventures in <i>git merge</i>-land.</p>
+<p class="Pp">After you&#x2019;re done, start up <b>gitk --all</b> to see
+    graphically what the history looks like. Notice that <b>mybranch</b> still
+    exists, and you can switch to it, and continue to work with it if you want
+    to. The <b>mybranch</b> branch will not contain the merge, but next time you
+    merge it from the <b>master</b> branch, Git will know how you merged it, so
+    you&#x2019;ll not have to do <i>that</i> merge again.</p>
+<p class="Pp">Another useful tool, especially if you do not always work in
+    X-Window environment, is <b>git show-branch</b>.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git show-branch --topo-order --more=1 master mybranch
+* [master] Merge work in mybranch
+ ! [mybranch] Some work.
+--
+-  [master] Merge work in mybranch
+*+ [mybranch] Some work.
+*  [master^] Some fun.
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">The first two lines indicate that it is showing the two branches
+    with the titles of their top-of-the-tree commits, you are currently on
+    <b>master</b> branch (notice the asterisk <b>*</b> character), and the first
+    column for the later output lines is used to show commits contained in the
+    <b>master</b> branch, and the second column for the <b>mybranch</b> branch.
+    Three commits are shown along with their titles. All of them have non blank
+    characters in the first column (<b>*</b> shows an ordinary commit on the
+    current branch, <b>-</b> is a merge commit), which means they are now part
+    of the <b>master</b> branch. Only the &quot;Some work&quot; commit has the
+    plus <b>+</b> character in the second column, because <b>mybranch</b> has
+    not been merged to incorporate these commits from the master branch. The
+    string inside brackets before the commit log message is a short name you can
+    use to name the commit. In the above example, <i>master</i> and
+    <i>mybranch</i> are branch heads. <i>master^</i> is the first parent of
+    <i>master</i> branch head. Please see <b>gitrevisions</b>(7) if you want to
+    see more complex cases.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp">Without the <i>--more=1</i> option, <i>git show-branch</i> would
+    not output the <i>[master^]</i> commit, as <i>[mybranch]</i> commit is a
+    common ancestor of both <i>master</i> and <i>mybranch</i> tips. Please see
+    <b>git-show-branch</b>(1) for details.</p>
+<p class="Pp"></p>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp">If there were more commits on the <i>master</i> branch after the
+    merge, the merge commit itself would not be shown by <i>git show-branch</i>
+    by default. You would need to provide <b>--sparse</b> option to make the
+    merge commit visible in this case.</p>
+<p class="Pp"></p>
+</div>
+<p class="Pp">Now, let&#x2019;s pretend you are the one who did all the work in
+    <b>mybranch</b>, and the fruit of your hard work has finally been merged to
+    the <b>master</b> branch. Let&#x2019;s go back to <b>mybranch</b>, and run
+    <i>git merge</i> to get the &quot;upstream changes&quot; back to your
+    branch.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git checkout mybranch
+$ git merge -m &quot;Merge upstream changes.&quot; master
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">This outputs something like this (the actual commit object names
+    would be different)</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+Updating from ae3a2da... to a80b4aa....
+Fast-forward (no commit created; -m option ignored)
+ example | 1 +
+ hello   | 1 +
+ 2 files changed, 2 insertions(+)
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Because your branch did not contain anything more than what had
+    already been merged into the <b>master</b> branch, the merge operation did
+    not actually do a merge. Instead, it just updated the top of the tree of
+    your branch to that of the <b>master</b> branch. This is often called
+    <i>fast-forward</i> merge.</p>
+<p class="Pp">You can run <b>gitk --all</b> again to see how the commit ancestry
+    looks like, or run <i>show-branch</i>, which tells you this.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git show-branch master mybranch
+! [master] Merge work in mybranch
+ * [mybranch] Merge work in mybranch
+--
+-- [master] Merge work in mybranch
+</pre>
+</div>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MERGING_EXTERNAL_WORK"><a class="permalink" href="#MERGING_EXTERNAL_WORK">MERGING
+  EXTERNAL WORK</a></h1>
+It&#x2019;s usually much more common that you merge with somebody else than
+  merging with your own branches, so it&#x2019;s worth pointing out that Git
+  makes that very easy too, and in fact, it&#x2019;s not that different from
+  doing a <i>git merge</i>. In fact, a remote merge ends up being nothing more
+  than &quot;fetch the work from a remote repository into a temporary tag&quot;
+  followed by a <i>git merge</i>.
+<p class="Pp">Fetching from a remote repository is done by, unsurprisingly,
+    <i>git fetch</i>:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git fetch &lt;remote-repository&gt;
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">One of the following transports can be used to name the repository
+    to download from:</p>
+<p class="Pp">SSH</p>
+<div class="Bd-indent"><b>remote.machine:/path/to/repo.git/</b> or
+<p class="Pp"><b>ssh://remote.machine/path/to/repo.git/</b></p>
+<p class="Pp">This transport can be used for both uploading and downloading, and
+    requires you to have a log-in privilege over <b>ssh</b> to the remote
+    machine. It finds out the set of objects the other side lacks by exchanging
+    the head commits both ends have and transfers (close to) minimum set of
+    objects. It is by far the most efficient way to exchange Git objects between
+    repositories.</p>
+</div>
+<p class="Pp">Local directory</p>
+<div class="Bd-indent"><b>/path/to/repo.git/</b>
+<p class="Pp">This transport is the same as SSH transport but uses <i>sh</i> to
+    run both ends on the local machine instead of running other end on the
+    remote machine via <i>ssh</i>.</p>
+</div>
+<p class="Pp">Git Native</p>
+<div class="Bd-indent"><b>git://remote.machine/path/to/repo.git/</b>
+<p class="Pp">This transport was designed for anonymous downloading. Like SSH
+    transport, it finds out the set of objects the downstream side lacks and
+    transfers (close to) minimum set of objects.</p>
+</div>
+<p class="Pp">HTTP(S)</p>
+<div class="Bd-indent"><b>http://remote.machine/path/to/repo.git/</b>
+<p class="Pp">Downloader from http and https URL first obtains the topmost
+    commit object name from the remote site by looking at the specified refname
+    under <b>repo.git/refs/</b> directory, and then tries to obtain the commit
+    object by downloading from <b>repo.git/objects/xx/xxx...</b> using the
+    object name of that commit object. Then it reads the commit object to find
+    out its parent commits and the associate tree object; it repeats this
+    process until it gets all the necessary objects. Because of this behavior,
+    they are sometimes also called <i>commit walkers</i>.</p>
+<p class="Pp">The <i>commit walkers</i> are sometimes also called <i>dumb
+    transports</i>, because they do not require any Git aware smart server like
+    Git Native transport does. Any stock HTTP server that does not even support
+    directory index would suffice. But you must prepare your repository with
+    <i>git update-server-info</i> to help dumb transport downloaders.</p>
+</div>
+<p class="Pp">Once you fetch from the remote repository, you <b>merge</b> that
+    with your current branch.</p>
+<p class="Pp">However &#x2014; it&#x2019;s such a common thing to <b>fetch</b>
+    and then immediately <b>merge</b>, that it&#x2019;s called <b>git pull</b>,
+    and you can simply do</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git pull &lt;remote-repository&gt;
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">and optionally give a branch-name for the remote end as a second
+    argument.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp">You could do without using any branches at all, by keeping as many
+    local repositories as you would like to have branches, and merging between
+    them with <i>git pull</i>, just like you merge between branches. The
+    advantage of this approach is that it lets you keep a set of files for each
+    <b>branch</b> checked out and you may find it easier to switch back and
+    forth if you juggle multiple lines of development simultaneously. Of course,
+    you will pay the price of more disk usage to hold multiple working trees,
+    but disk space is cheap these days.</p>
+<p class="Pp"></p>
+</div>
+<p class="Pp">It is likely that you will be pulling from the same remote
+    repository from time to time. As a short hand, you can store the remote
+    repository URL in the local repository&#x2019;s config file like this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git config remote.linus.url http://www.kernel.org/pub/scm/git/git.git/
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">and use the &quot;linus&quot; keyword with <i>git pull</i> instead
+    of the full URL.</p>
+<p class="Pp">Examples.</p>
+<p class="Pp"></p>
+<div class="Bd-indent"> 1.<b>git pull linus</b></div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 2.<b>git pull linus tag v0.99.1</b></div>
+<p class="Pp">the above are equivalent to:</p>
+<p class="Pp"></p>
+<div class="Bd-indent"> 1.<b>git pull http://www.kernel.org/pub/scm/git/git.git/
+  HEAD</b></div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 2.<b>git pull http://www.kernel.org/pub/scm/git/git.git/
+  tag v0.99.1</b></div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HOW_DOES_THE_MERGE_WORK?"><a class="permalink" href="#HOW_DOES_THE_MERGE_WORK?">HOW
+  DOES THE MERGE WORK?</a></h1>
+We said this tutorial shows what plumbing does to help you cope with the
+  porcelain that isn&#x2019;t flushing, but we so far did not talk about how the
+  merge really works. If you are following this tutorial the first time,
+  I&#x2019;d suggest to skip to &quot;Publishing your work&quot; section and
+  come back here later.
+<p class="Pp">OK, still with me? To give us an example to look at, let&#x2019;s
+    go back to the earlier repository with &quot;hello&quot; and
+    &quot;example&quot; file, and bring ourselves back to the pre-merge
+  state:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git show-branch --more=2 master mybranch
+! [master] Merge work in mybranch
+ * [mybranch] Merge work in mybranch
+--
+-- [master] Merge work in mybranch
++* [master^2] Some work.
++* [master^] Some fun.
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Remember, before running <i>git merge</i>, our <b>master</b> head
+    was at &quot;Some fun.&quot; commit, while our <b>mybranch</b> head was at
+    &quot;Some work.&quot; commit.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git checkout mybranch
+$ git reset --hard master^2
+$ git checkout master
+$ git reset --hard master^
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">After rewinding, the commit structure should look like this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git show-branch
+* [master] Some fun.
+ ! [mybranch] Some work.
+--
+*  [master] Some fun.
+ + [mybranch] Some work.
+*+ [master^] Initial commit
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Now we are ready to experiment with the merge by hand.</p>
+<p class="Pp"><b>git merge</b> command, when merging two branches, uses 3-way
+    merge algorithm. First, it finds the common ancestor between them. The
+    command it uses is <i>git merge-base</i>:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ mb=$(git merge-base HEAD mybranch)
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">The command writes the commit object name of the common ancestor
+    to the standard output, so we captured its output to a variable, because we
+    will be using it in the next step. By the way, the common ancestor commit is
+    the &quot;Initial commit&quot; commit in this case. You can tell it by:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git name-rev --name-only --tags $mb
+my-first-tag
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">After finding out a common ancestor commit, the second step is
+    this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git read-tree -m -u $mb HEAD mybranch
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">This is the same <i>git read-tree</i> command we have already
+    seen, but it takes three trees, unlike previous examples. This reads the
+    contents of each tree into different <i>stage</i> in the index file (the
+    first tree goes to stage 1, the second to stage 2, etc.). After reading
+    three trees into three stages, the paths that are the same in all three
+    stages are <i>collapsed</i> into stage 0. Also paths that are the same in
+    two of three stages are collapsed into stage 0, taking the SHA-1 from either
+    stage 2 or stage 3, whichever is different from stage 1 (i.e. only one side
+    changed from the common ancestor).</p>
+<p class="Pp">After <i>collapsing</i> operation, paths that are different in
+    three trees are left in non-zero stages. At this point, you can inspect the
+    index file with this command:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git ls-files --stage
+100644 7f8b141b65fdcee47321e399a2598a235a032422 0       example
+100644 557db03de997c86a4a028e1ebd3a1ceb225be238 1       hello
+100644 ba42a2a96e3027f3333e13ede4ccf4498c3ae942 2       hello
+100644 cc44c73eb783565da5831b4d820c962954019b69 3       hello
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">In our example of only two files, we did not have unchanged files
+    so only <i>example</i> resulted in collapsing. But in real-life large
+    projects, when only a small number of files change in one commit, this
+    <i>collapsing</i> tends to trivially merge most of the paths fairly quickly,
+    leaving only a handful of real changes in non-zero stages.</p>
+<p class="Pp">To look at only non-zero stages, use <b>--unmerged</b> flag:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git ls-files --unmerged
+100644 557db03de997c86a4a028e1ebd3a1ceb225be238 1       hello
+100644 ba42a2a96e3027f3333e13ede4ccf4498c3ae942 2       hello
+100644 cc44c73eb783565da5831b4d820c962954019b69 3       hello
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">The next step of merging is to merge these three versions of the
+    file, using 3-way merge. This is done by giving <i>git merge-one-file</i>
+    command as one of the arguments to <i>git merge-index</i> command:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git merge-index git-merge-one-file hello
+Auto-merging hello
+ERROR: Merge conflict in hello
+fatal: merge program failed
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp"><i>git merge-one-file</i> script is called with parameters to
+    describe those three versions, and is responsible to leave the merge results
+    in the working tree. It is a fairly straightforward shell script, and
+    eventually calls <i>merge</i> program from RCS suite to perform a file-level
+    3-way merge. In this case, <i>merge</i> detects conflicts, and the merge
+    result with conflict marks is left in the working tree.. This can be seen if
+    you run <b>ls-files --stage</b> again at this point:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git ls-files --stage
+100644 7f8b141b65fdcee47321e399a2598a235a032422 0       example
+100644 557db03de997c86a4a028e1ebd3a1ceb225be238 1       hello
+100644 ba42a2a96e3027f3333e13ede4ccf4498c3ae942 2       hello
+100644 cc44c73eb783565da5831b4d820c962954019b69 3       hello
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">This is the state of the index file and the working file after
+    <i>git merge</i> returns control back to you, leaving the conflicting merge
+    for you to resolve. Notice that the path <b>hello</b> is still unmerged, and
+    what you see with <i>git diff</i> at this point is differences since stage 2
+    (i.e. your version).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PUBLISHING_YOUR_WORK"><a class="permalink" href="#PUBLISHING_YOUR_WORK">PUBLISHING
+  YOUR WORK</a></h1>
+So, we can use somebody else&#x2019;s work from a remote repository, but how can
+  <b>you</b> prepare a repository to let other people pull from it?
+<p class="Pp">You do your real work in your working tree that has your primary
+    repository hanging under it as its <b>.git</b> subdirectory. You
+    <b>could</b> make that repository accessible remotely and ask people to pull
+    from it, but in practice that is not the way things are usually done. A
+    recommended way is to have a public repository, make it reachable by other
+    people, and when the changes you made in your primary working tree are in
+    good shape, update the public repository from it. This is often called
+    <i>pushing</i>.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp">This public repository could further be mirrored, and that is how
+    Git repositories at <b>kernel.org</b> are managed.</p>
+<p class="Pp"></p>
+</div>
+<p class="Pp">Publishing the changes from your local (private) repository to
+    your remote (public) repository requires a write privilege on the remote
+    machine. You need to have an SSH account there to run a single command,
+    <i>git-receive-pack</i>.</p>
+<p class="Pp">First, you need to create an empty repository on the remote
+    machine that will house your public repository. This empty repository will
+    be populated and be kept up to date by pushing into it later. Obviously,
+    this repository creation needs to be done only once.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp"><i>git push</i> uses a pair of commands, <i>git send-pack</i> on
+    your local machine, and <i>git-receive-pack</i> on the remote machine. The
+    communication between the two over the network internally uses an SSH
+    connection.</p>
+<p class="Pp"></p>
+</div>
+<p class="Pp">Your private repository&#x2019;s Git directory is usually
+    <b>.git</b>, but your public repository is often named after the project
+    name, i.e. <b>&lt;project&gt;.git</b>. Let&#x2019;s create such a public
+    repository for project <b>my-git</b>. After logging into the remote machine,
+    create an empty directory:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ mkdir my-git.git
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Then, make that directory into a Git repository by running <i>git
+    init</i>, but this time, since its name is not the usual <b>.git</b>, we do
+    things slightly differently:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ GIT_DIR=my-git.git git init
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Make sure this directory is available for others you want your
+    changes to be pulled via the transport of your choice. Also you need to make
+    sure that you have the <i>git-receive-pack</i> program on the
+  <b>$PATH</b>.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp">Many installations of sshd do not invoke your shell as the login
+    shell when you directly run programs; what this means is that if your login
+    shell is <i>bash</i>, only <b>.bashrc</b> is read and not
+    <b>.bash_profile</b>. As a workaround, make sure <b>.bashrc</b> sets up
+    <b>$PATH</b> so that you can run <i>git-receive-pack</i> program.</p>
+<p class="Pp"></p>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp">If you plan to publish this repository to be accessed over http,
+    you should do <b>mv my-git.git/hooks/post-update.sample
+    my-git.git/hooks/post-update</b> at this point. This makes sure that every
+    time you push into this repository, <b>git update-server-info</b> is
+  run.</p>
+<p class="Pp"></p>
+</div>
+<p class="Pp">Your &quot;public repository&quot; is now ready to accept your
+    changes. Come back to the machine you have your private repository. From
+    there, run this command:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git push &lt;public-host&gt;:/path/to/my-git.git master
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">This synchronizes your public repository to match the named branch
+    head (i.e. <b>master</b> in this case) and objects reachable from them in
+    your current repository.</p>
+<p class="Pp">As a real example, this is how I update my public Git repository.
+    Kernel.org mirror network takes care of the propagation to other publicly
+    visible machines:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git push master.kernel.org:/pub/scm/git/git.git/
+</pre>
+</div>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PACKING_YOUR_REPOSITORY"><a class="permalink" href="#PACKING_YOUR_REPOSITORY">PACKING
+  YOUR REPOSITORY</a></h1>
+Earlier, we saw that one file under <b>.git/objects/??/</b> directory is stored
+  for each Git object you create. This representation is efficient to create
+  atomically and safely, but not so convenient to transport over the network.
+  Since Git objects are immutable once they are created, there is a way to
+  optimize the storage by &quot;packing them together&quot;. The command
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git repack
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">will do it for you. If you followed the tutorial examples, you
+    would have accumulated about 17 objects in <b>.git/objects/??/</b>
+    directories by now. <i>git repack</i> tells you how many objects it packed,
+    and stores the packed file in the <b>.git/objects/pack</b> directory.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp">You will see two files, <b>pack-*.pack</b> and <b>pack-*.idx</b>,
+    in <b>.git/objects/pack</b> directory. They are closely related to each
+    other, and if you ever copy them by hand to a different repository for
+    whatever reason, you should make sure you copy them together. The former
+    holds all the data from the objects in the pack, and the latter holds the
+    index for random access.</p>
+<p class="Pp"></p>
+</div>
+<p class="Pp">If you are paranoid, running <i>git verify-pack</i> command would
+    detect if you have a corrupt pack, but do not worry too much. Our programs
+    are always perfect ;-).</p>
+<p class="Pp">Once you have packed objects, you do not need to leave the
+    unpacked objects that are contained in the pack file anymore.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git prune-packed
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">would remove them for you.</p>
+<p class="Pp">You can try running <b>find .git/objects -type f</b> before and
+    after you run <b>git prune-packed</b> if you are curious. Also <b>git
+    count-objects</b> would tell you how many unpacked objects are in your
+    repository and how much space they are consuming.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp"><b>git pull</b> is slightly cumbersome for HTTP transport, as a
+    packed repository may contain relatively few objects in a relatively large
+    pack. If you expect many HTTP pulls from your public repository you might
+    want to repack &amp; prune often, or never.</p>
+<p class="Pp"></p>
+</div>
+<p class="Pp">If you run <b>git repack</b> again at this point, it will say
+    &quot;Nothing new to pack.&quot;. Once you continue your development and
+    accumulate the changes, running <b>git repack</b> again will create a new
+    pack, that contains objects created since you packed your repository the
+    last time. We recommend that you pack your project soon after the initial
+    import (unless you are starting your project from scratch), and then run
+    <b>git repack</b> every once in a while, depending on how active your
+    project is.</p>
+<p class="Pp">When a repository is synchronized via <b>git push</b> and <b>git
+    pull</b> objects packed in the source repository are usually stored unpacked
+    in the destination. While this allows you to use different packing
+    strategies on both ends, it also means you may need to repack both
+    repositories every once in a while.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="WORKING_WITH_OTHERS"><a class="permalink" href="#WORKING_WITH_OTHERS">WORKING
+  WITH OTHERS</a></h1>
+Although Git is a truly distributed system, it is often convenient to organize
+  your project with an informal hierarchy of developers. Linux kernel
+  development is run this way. There is a nice illustration (page 17,
+  &quot;Merges to Mainline&quot;) in <b>Randy Dunlap&#x2019;s
+  presentation</b>[2].
+<p class="Pp">It should be stressed that this hierarchy is purely
+    <b>informal</b>. There is nothing fundamental in Git that enforces the
+    &quot;chain of patch flow&quot; this hierarchy implies. You do not have to
+    pull from only one remote repository.</p>
+<p class="Pp">A recommended workflow for a &quot;project lead&quot; goes like
+    this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent"> 1.Prepare your primary repository on your local machine.
+  Your work is done there.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 2.Prepare a public repository accessible to others.
+<p class="Pp">If other people are pulling from your repository over dumb
+    transport protocols (HTTP), you need to keep this repository <i>dumb
+    transport friendly</i>. After <b>git init</b>,
+    <b>$GIT_DIR/hooks/post-update.sample</b> copied from the standard templates
+    would contain a call to <i>git update-server-info</i> but you need to
+    manually enable the hook with <b>mv post-update.sample post-update</b>. This
+    makes sure <i>git update-server-info</i> keeps the necessary files up to
+    date.</p>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 3.Push into the public repository from your primary
+  repository.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 4.<i>git repack</i> the public repository. This
+  establishes a big pack that contains the initial set of objects as the
+  baseline, and possibly <i>git prune</i> if the transport used for pulling from
+  your repository supports packed repositories.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 5.Keep working in your primary repository. Your changes
+  include modifications of your own, patches you receive via e-mails, and merges
+  resulting from pulling the &quot;public&quot; repositories of your
+  &quot;subsystem maintainers&quot;.
+<p class="Pp">You can repack this private repository whenever you feel like.</p>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 6.Push your changes to the public repository, and
+  announce it to the public.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 7.Every once in a while, <i>git repack</i> the public
+  repository. Go back to step 5. and continue working.</div>
+<p class="Pp">A recommended work cycle for a &quot;subsystem maintainer&quot;
+    who works on that project and has an own &quot;public repository&quot; goes
+    like this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent"> 1.Prepare your work repository, by running <i>git
+  clone</i> on the public repository of the &quot;project lead&quot;. The URL
+  used for the initial cloning is stored in the remote.origin.url configuration
+  variable.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 2.Prepare a public repository accessible to others, just
+  like the &quot;project lead&quot; person does.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 3.Copy over the packed files from &quot;project
+  lead&quot; public repository to your public repository, unless the
+  &quot;project lead&quot; repository lives on the same machine as yours. In the
+  latter case, you can use <b>objects/info/alternates</b> file to point at the
+  repository you are borrowing from.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 4.Push into the public repository from your primary
+  repository. Run <i>git repack</i>, and possibly <i>git prune</i> if the
+  transport used for pulling from your repository supports packed
+  repositories.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 5.Keep working in your primary repository. Your changes
+  include modifications of your own, patches you receive via e-mails, and merges
+  resulting from pulling the &quot;public&quot; repositories of your
+  &quot;project lead&quot; and possibly your &quot;sub-subsystem
+  maintainers&quot;.
+<p class="Pp">You can repack this private repository whenever you feel like.</p>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 6.Push your changes to your public repository, and ask
+  your &quot;project lead&quot; and possibly your &quot;sub-subsystem
+  maintainers&quot; to pull from it.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 7.Every once in a while, <i>git repack</i> the public
+  repository. Go back to step 5. and continue working.</div>
+<p class="Pp">A recommended work cycle for an &quot;individual developer&quot;
+    who does not have a &quot;public&quot; repository is somewhat different. It
+    goes like this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent"> 1.Prepare your work repository, by <i>git clone</i> the
+  public repository of the &quot;project lead&quot; (or a &quot;subsystem
+  maintainer&quot;, if you work on a subsystem). The URL used for the initial
+  cloning is stored in the remote.origin.url configuration variable.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 2.Do your work in your repository on <i>master</i>
+  branch.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 3.Run <b>git fetch origin</b> from the public repository
+  of your upstream every once in a while. This does only the first half of
+  <b>git pull</b> but does not merge. The head of the public repository is
+  stored in <b>.git/refs/remotes/origin/master</b>.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 4.Use <b>git cherry origin</b> to see which ones of your
+  patches were accepted, and/or use <b>git rebase origin</b> to port your
+  unmerged changes forward to the updated upstream.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 5.Use <b>git format-patch origin</b> to prepare patches
+  for e-mail submission to your upstream and send it out. Go back to step 2. and
+  continue.</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="WORKING_WITH_OTHERS,_SHARED_REPOSITORY_STYLE"><a class="permalink" href="#WORKING_WITH_OTHERS,_SHARED_REPOSITORY_STYLE">WORKING
+  WITH OTHERS, SHARED REPOSITORY STYLE</a></h1>
+If you are coming from a CVS background, the style of cooperation suggested in
+  the previous section may be new to you. You do not have to worry. Git supports
+  the &quot;shared public repository&quot; style of cooperation you are probably
+  more familiar with as well.
+<p class="Pp">See <b>gitcvs-migration</b>(7) for the details.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUNDLING_YOUR_WORK_TOGETHER"><a class="permalink" href="#BUNDLING_YOUR_WORK_TOGETHER">BUNDLING
+  YOUR WORK TOGETHER</a></h1>
+It is likely that you will be working on more than one thing at a time. It is
+  easy to manage those more-or-less independent tasks using branches with Git.
+<p class="Pp">We have already seen how branches work previously, with &quot;fun
+    and work&quot; example using two branches. The idea is the same if there are
+    more than two branches. Let&#x2019;s say you started out from
+    &quot;master&quot; head, and have some new code in the &quot;master&quot;
+    branch, and two independent fixes in the &quot;commit-fix&quot; and
+    &quot;diff-fix&quot; branches:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git show-branch
+! [commit-fix] Fix commit message normalization.
+ ! [diff-fix] Fix rename detection.
+  * [master] Release candidate #1
+---
+ +  [diff-fix] Fix rename detection.
+ +  [diff-fix~1] Better common substring algorithm.
++   [commit-fix] Fix commit message normalization.
+  * [master] Release candidate #1
+++* [diff-fix~2] Pretty-print messages.
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Both fixes are tested well, and at this point, you want to merge
+    in both of them. You could merge in <i>diff-fix</i> first and then
+    <i>commit-fix</i> next, like this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git merge -m &quot;Merge fix in diff-fix&quot; diff-fix
+$ git merge -m &quot;Merge fix in commit-fix&quot; commit-fix
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Which would result in:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git show-branch
+! [commit-fix] Fix commit message normalization.
+ ! [diff-fix] Fix rename detection.
+  * [master] Merge fix in commit-fix
+---
+  - [master] Merge fix in commit-fix
++ * [commit-fix] Fix commit message normalization.
+  - [master~1] Merge fix in diff-fix
+ +* [diff-fix] Fix rename detection.
+ +* [diff-fix~1] Better common substring algorithm.
+  * [master~2] Release candidate #1
+++* [master~3] Pretty-print messages.
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">However, there is no particular reason to merge in one branch
+    first and the other next, when what you have are a set of truly independent
+    changes (if the order mattered, then they are not independent by
+    definition). You could instead merge those two branches into the current
+    branch at once. First let&#x2019;s undo what we just did and start over. We
+    would want to get the master branch before these two merges by resetting it
+    to <i>master~2</i>:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git reset --hard master~2
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">You can make sure <b>git show-branch</b> matches the state before
+    those two <i>git merge</i> you just did. Then, instead of running two <i>git
+    merge</i> commands in a row, you would merge these two branch heads (this is
+    known as <i>making an Octopus</i>):</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git merge commit-fix diff-fix
+$ git show-branch
+! [commit-fix] Fix commit message normalization.
+ ! [diff-fix] Fix rename detection.
+  * [master] Octopus merge of branches 'diff-fix' and 'commit-fix'
+---
+  - [master] Octopus merge of branches 'diff-fix' and 'commit-fix'
++ * [commit-fix] Fix commit message normalization.
+ +* [diff-fix] Fix rename detection.
+ +* [diff-fix~1] Better common substring algorithm.
+  * [master~1] Release candidate #1
+++* [master~2] Pretty-print messages.
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Note that you should not do Octopus just because you can. An
+    octopus is a valid thing to do and often makes it easier to view the commit
+    history if you are merging more than two independent changes at the same
+    time. However, if you have merge conflicts with any of the branches you are
+    merging in and need to hand resolve, that is an indication that the
+    development happened in those branches were not independent after all, and
+    you should merge two at a time, documenting how you resolved the conflicts,
+    and the reason why you preferred changes made in one side over the other.
+    Otherwise it would make the project history harder to follow, not
+  easier.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>gittutorial</b>(7), <b>gittutorial-2</b>(7), <b>gitcvs-migration</b>(7),
+  <b>git-help</b>(1), <b>giteveryday</b>(7), <b>The Git User&#x2019;s
+  Manual</b>[1]
+</section>
+<section class="Sh">
+<h1 class="Sh" id="GIT"><a class="permalink" href="#GIT">GIT</a></h1>
+Part of the <b>git</b>(1) suite
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<dl class="Bl-tag">
+  <dt> 1.</dt>
+  <dd>the Git User Manual</dd>
+</dl>
+<div class="Bd-indent">git-htmldocs/user-manual.html</div>
+<dl class="Bl-tag">
+  <dt> 2.</dt>
+  <dd>Randy Dunlap&#x2019;s presentation</dd>
+</dl>
+<div class="Bd-indent">https://web.archive.org/web/20120915203609/http://www.xenotime.net/linux/mentor/linux-mentoring-2006.pdf</div>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">02/24/2019</td>
+    <td class="foot-os">Git 2.21.0</td>
+  </tr>
+</table>
+</body>
+</html>

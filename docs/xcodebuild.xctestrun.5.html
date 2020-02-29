@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>xcodebuild.xctestrun(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">xcodebuild.xctestrun(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">xcodebuild.xctestrun(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">xcodebuild.xctestrun</code> &#x2014;
+<div class="Nd">Test run parameters files for
+  <code class="Nm">xcodebuild</code></div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+This document details the parameters contained in an xctestrun file. During the
+  <var class="Ar">build-for-testing</var> action,
+  <code class="Nm">xcodebuild</code> extracts parameters from the scheme
+  provided to the <var class="Ar">build-for-testing</var> action and writes the
+  parameters to an xctestrun file in the built products directory. A developer
+  can edit the parameters in the xctestrun file and then provide the file to the
+  <code class="Nm">xcodebuild</code> <var class="Ar">test-without-building</var>
+  action with the <code class="Fl">-xctestrun</code> option.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="VERSION"><a class="permalink" href="#VERSION">VERSION</a></h1>
+This document describes version 2 of the xctestrun file format, which is
+  supported by Xcode 11 and later and includes support for running a set of test
+  targets multiple times using test configurations.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PROPERTY_LIST_STRUCTURE"><a class="permalink" href="#PROPERTY_LIST_STRUCTURE">PROPERTY
+  LIST STRUCTURE</a></h1>
+An xctestrun file is formatted as a property list organized using the following
+  top-level structure:
+<ul class="Bl-bullet Bd-indent">
+  <li>TestConfigurations &lt;array&gt;
+    <ul class="Bl-bullet Bd-indent Bl-compact">
+      <li>Item 0 &lt;dictionary&gt;
+        <ul class="Bl-bullet Bd-indent Bl-compact">
+          <li>Name &lt;string&gt;</li>
+          <li>TestTargets &lt;array&gt;
+            <ul class="Bl-bullet Bd-indent Bl-compact">
+              <li>Item 0 &lt;dictionary&gt;
+                <ul class="Bl-bullet Bd-indent Bl-compact">
+                  <li>(Test target keys...)</li>
+                </ul>
+              </li>
+              <li>...</li>
+              <li>Item N &lt;dictionary&gt;</li>
+            </ul>
+          </li>
+        </ul>
+        <p class="Pp"></p>
+      </li>
+      <li>...</li>
+      <li>Item N &lt;dictionary&gt;</li>
+    </ul>
+  </li>
+  <li>CodeCoverageBuildableInfos &lt;array&gt;
+    <ul class="Bl-bullet Bd-indent Bl-compact">
+      <li>Item 0 &lt;dictionary&gt;
+        <ul class="Bl-bullet Bd-indent Bl-compact">
+          <li>(Code coverage buildable info keys...)</li>
+        </ul>
+      </li>
+      <li>...</li>
+      <li>Item N &lt;dictionary&gt;</li>
+    </ul>
+  </li>
+  <li>__xctestrun_metadata__ &lt;dictionary&gt;
+    <ul class="Bl-bullet Bd-indent Bl-compact">
+      <li>FormatVersion = 2 &lt;number&gt;</li>
+    </ul>
+  </li>
+</ul>
+<p class="Pp">See the sections below for information about each top-level
+  item.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TEST_CONFIGURATIONS_SECTION"><a class="permalink" href="#TEST_CONFIGURATIONS_SECTION">TEST
+  CONFIGURATIONS SECTION</a></h1>
+The top-level <code class="Nm">TestConfigurations</code> array contains the list
+  of test configurations to use when testing. Each entry is a dictionary
+  containing metadata and a list of test targets to include.
+<section class="Ss">
+<h2 class="Ss" id="Name"><a class="permalink" href="#Name">Name</a></h2>
+The name of the configuration. This name should be unique among the dictionaries
+  in the <code class="Nm">TestConfigurations</code> array.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="TestTargets"><a class="permalink" href="#TestTargets">TestTargets</a></h2>
+An array containing the list of test targets to include in the test
+  configuration. Each test target is a dictionary containing information about
+  how to test a particular test bundle, and can contain many different
+  parameters, as described below.
+<p class="Pp">The following parameters are mandatory during basic commands:</p>
+<dl class="Bl-ohang Bd-indent">
+  <dt><b class="Sy">BlueprintName &lt;string&gt;</b></dt>
+  <dd>The name of the test target, without the file extension of its build
+      product.</dd>
+  <dt><b class="Sy">TestBundlePath &lt;string&gt;</b></dt>
+  <dd>A path to the test bundle to be tested. The
+      <code class="Nm">xcodebuild</code> tool will expand the following
+      placeholder strings in the path:
+    <p class="Pp"></p>
+    <dl class="Bl-ohang Bd-indent Bl-compact">
+      <dt><b class="Sy">__TESTROOT__</b></dt>
+      <dd></dd>
+      <dt><b class="Sy">__TESTHOST__</b></dt>
+      <dd></dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">TestHostPath &lt;string&gt;</b></dt>
+  <dd>A path to the test host. For framework tests, this should be a path to the
+      xctest command line tool. For application hosted tests, this should be a
+      path the application host. For UI tests, this should be a path to the test
+      runner application that the UI test target produces. The
+      <code class="Nm">xcodebuild</code> tool will expand the following
+      placeholder strings in the path:
+    <p class="Pp"></p>
+    <dl class="Bl-ohang Bd-indent Bl-compact">
+      <dt><b class="Sy">__TESTROOT__</b></dt>
+      <dd></dd>
+      <dt><b class="Sy">__PLATFORMS__</b></dt>
+      <dd></dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">UITargetAppPath &lt;string&gt;</b></dt>
+  <dd>A path to the target application for UI tests. The parameter is mandatory
+      for UI tests only. The <code class="Nm">xcodebuild</code> tool will expand
+      the following placeholder strings in the path:
+    <dl class="Bl-ohang Bd-indent">
+      <dt><b class="Sy">__TESTROOT__</b></dt>
+      <dd></dd>
+    </dl>
+  </dd>
+</dl>
+<p class="Pp">These parameters are optional for all commands:</p>
+<dl class="Bl-ohang Bd-indent">
+  <dt><b class="Sy">EnvironmentVariables &lt;dictionary of string keys and
+    values&gt;</b></dt>
+  <dd>The environment variables from the scheme test action that
+      <code class="Nm">xcodebuild</code> will provide to the test host
+    process.</dd>
+  <dt><b class="Sy">CommandLineArguments &lt;array of string values&gt;</b></dt>
+  <dd>The command line arguments from the scheme test action that
+      <code class="Nm">xcodebuild</code> will provide to the test host
+    process.</dd>
+  <dt><b class="Sy">UITargetAppEnvironmentVariables &lt;dictionary of string
+    keys and values&gt;</b></dt>
+  <dd>The environment variables that <code class="Nm">xcodebuild</code> will
+      provide to the target application during UI tests.</dd>
+  <dt><b class="Sy">UITargetAppCommandLineArguments &lt;array of string
+    values&gt;</b></dt>
+  <dd>The command line arguments that <code class="Nm">xcodebuild</code> will
+      provide to the target application during UI tests.</dd>
+  <dt><b class="Sy">BaselinePath &lt;string&gt;</b></dt>
+  <dd>A path to a performance test baseline that xcodebuild will provide to the
+      tests. The <code class="Nm">xcodebuild</code> tool will expand the
+      following placeholder strings in the path:
+    <dl class="Bl-ohang Bd-indent">
+      <dt><b class="Sy">__TESTBUNDLE__</b></dt>
+      <dd></dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">TreatMissingBaselinesAsFailures &lt;bool&gt;</b></dt>
+  <dd>Whether or not a test failure should be reported for performance test
+      cases which do not have a baseline.</dd>
+  <dt><b class="Sy">SkipTestIdentifiers &lt;array of strings&gt;</b></dt>
+  <dd>An array of test identifiers that <code class="Nm">xcodebuild</code>
+      should exclude from the test run.
+    <dl class="Bl-ohang Bd-indent">
+      <dt><b class="Sy">Test Identifier Format</b></dt>
+      <dd>Identifiers for both Swift and Objective-C tests are:
+        <dl class="Bl-ohang Bd-indent">
+          <dt>Test-Class-Name[/Test-Method-Name]</dt>
+          <dd></dd>
+        </dl>
+        <p class="Pp">To exclude all the tests in a class Example.m, the
+            identifier is just &quot;Example&quot;. To exclude one specific test
+            in the class, the identifier is &quot;Example/testExample&quot;.</p>
+      </dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">OnlyTestIdentifiers &lt;array of strings&gt;</b></dt>
+  <dd>An array of test identifiers that <code class="Nm">xcodebuild</code>
+      should include in the test run. All other tests will be excluded from the
+      test run. The format for the identifiers is described above.</dd>
+  <dt><b class="Sy">UITargetAppMainThreadCheckerEnabled &lt;bool&gt;</b></dt>
+  <dd>Whether or not the Main Thread Checker should be enabled for apps launched
+      during UI tests.</dd>
+  <dt><b class="Sy">GatherLocalizableStringsData &lt;bool&gt;</b></dt>
+  <dd>Whether or not localizable strings data should be gathered for apps
+      launched during UI tests.</dd>
+  <dt><b class="Sy">DependentProductPaths &lt;array of string
+    values&gt;</b></dt>
+  <dd>List of paths to the build products of this target and all of its
+      dependencies. Used to determine the bundle identifiers for apps during UI
+      tests.</dd>
+  <dt><b class="Sy">ProductModuleName &lt;string&gt;</b></dt>
+  <dd>The module name of this test target, as specified by the target's
+      <var class="Ar">PRODUCT_MODULE_NAME</var> build setting in Xcode.</dd>
+  <dt><b class="Sy">SystemAttachmentLifetime &lt;string&gt;</b></dt>
+  <dd>How long automatic UI testing screenshots should be kept. Should be one of
+      the following string values:
+    <dl class="Bl-ohang Bd-indent">
+      <dt><b class="Sy">keepAlways</b></dt>
+      <dd>Always keep attachments, even for tests that succeed.</dd>
+      <dt><b class="Sy">deleteOnSuccess</b></dt>
+      <dd>Keep attachments for tests that fail, and discard them for tests that
+          succeed.</dd>
+      <dt><b class="Sy">keepNever</b></dt>
+      <dd>Always discard attachments, regardless of whether the test succeeds or
+          fails.</dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">UserAttachmentLifetime &lt;string&gt;</b></dt>
+  <dd>How long custom file attachments should be kept. Should be one of the
+      string values specified in the
+      <var class="Ar">SystemAttachmentLifetime</var> section.</dd>
+  <dt><b class="Sy">ParallelizationEnabled &lt;bool&gt;</b></dt>
+  <dd>Whether or not the tests in this test target should be run in parallel
+      using multiple test runner processes.</dd>
+  <dt><b class="Sy">TestExecutionOrdering &lt;string&gt;</b></dt>
+  <dd>The order in which tests should be run. By default, tests are run in
+      alphabetical order and this field may be omitted, but tests may be run in
+      a randomized order by specifying this setting with the string value
+      &quot;random&quot;.</dd>
+  <dt><b class="Sy">TestLanguage &lt;string&gt;</b></dt>
+  <dd>Language identifier code for the language which tests should be run
+    using.</dd>
+  <dt><b class="Sy">TestRegion &lt;string&gt;</b></dt>
+  <dd>Region identifier code for the region which tests should be run
+    using.</dd>
+</dl>
+<p class="Pp">The following are for advanced commands that control how
+    <code class="Nm">xcodebuild</code> installs test artifacts onto test
+    destinations:</p>
+<dl class="Bl-ohang Bd-indent">
+  <dt><b class="Sy">UseDestinationArtifacts &lt;bool&gt;</b></dt>
+  <dd>An optional flag to indicate that <code class="Nm">xcodebuild</code>
+      should look on the destination for test artifacts. When this flag is set,
+      <code class="Nm">xcodebuild</code> will not install test artifacts to the
+      destination during testing. <var class="Ar">TestBundlePath,</var>
+      <var class="Ar">TestHostPath,</var> and
+      <var class="Ar">UITargetAppPath</var> should be excluded when this flag is
+      set. Instead, <code class="Nm">xcodebuild</code> requires the following
+      parameters.</dd>
+  <dt><b class="Sy">TestHostBundleIdentifier &lt;string&gt;</b></dt>
+  <dd>A bundle identifier for the test host on the destination. This parameter
+      is mandatory when <var class="Ar">UseDestinationArtifacts</var> is
+    set.</dd>
+  <dt><b class="Sy">TestBundleDestinationRelativePath &lt;string&gt;</b></dt>
+  <dd>A path to the test bundle on the destination. This parameter is mandatory
+      when <var class="Ar">UseDestinationArtifacts</var> is set. The
+      <code class="Nm">xcodebuild</code> tool will expand the following
+      placeholder strings in the path:
+    <dl class="Bl-ohang Bd-indent">
+      <dt><b class="Sy">__TESTHOST__</b></dt>
+      <dd></dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">UITargetAppBundleIdentifier &lt;string&gt;</b></dt>
+  <dd>A bundle identifier for the UI target application on the destination. This
+      parameter is mandatory when <var class="Ar">UseDestinationArtifacts</var>
+      is set.</dd>
+</dl>
+<p class="Pp">This last parameter is mandatory for all commands and is needed to
+    configure the test host environment:</p>
+<dl class="Bl-ohang Bd-indent">
+  <dt><b class="Sy">TestingEnvironmentVariables &lt;dictionary of string keys
+    and values&gt;</b></dt>
+  <dd>Additional testing environment variables that
+      <code class="Nm">xcodebuild</code> will provide to the
+      <var class="Ar">TestHostPath</var> process. The
+      <code class="Nm">xcodebuild</code> tool will expand the following
+      placeholder strings in the dictionary values:
+    <p class="Pp"></p>
+    <dl class="Bl-ohang Bd-indent Bl-compact">
+      <dt><b class="Sy">__TESTBUNDLE__</b></dt>
+      <dd></dd>
+      <dt><b class="Sy">__TESTHOST__</b></dt>
+      <dd></dd>
+      <dt><b class="Sy">__TESTROOT__</b></dt>
+      <dd></dd>
+      <dt><b class="Sy">__PLATFORMS__</b></dt>
+      <dd></dd>
+      <dt><b class="Sy">__SHAREDFRAMEWORKS__</b></dt>
+      <dd></dd>
+    </dl>
+  </dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CODE_COVERAGE_TARGETS_SECTION"><a class="permalink" href="#CODE_COVERAGE_TARGETS_SECTION">CODE
+  COVERAGE TARGETS SECTION</a></h1>
+The top-level <code class="Nm">CodeCoverageBuildableInfos</code> array contains
+  the list of targets for which code coverage information should be gathered
+  while testing. Each entry is a dictionary containing metadata about the
+  target. See the description of each field in the dictionary below.
+<dl class="Bl-ohang Bd-indent">
+  <dt><b class="Sy">Name &lt;string&gt;</b></dt>
+  <dd>The name of the target's product, including any file extension. For
+      example, &quot;AppTests.xctest&quot;.</dd>
+  <dt><b class="Sy">BuildableIdentifier &lt;string&gt;</b></dt>
+  <dd>The buildable identifier of the target from the project, formatted as:
+    <dl class="Bl-ohang Bd-indent">
+      <dt>&lt;Target-Identifier&gt;:&lt;Buildable-Identifier&gt;</dt>
+      <dd></dd>
+    </dl>
+    <p class="Pp">For example, &quot;123456ABCDEF:primary&quot;.</p>
+  </dd>
+  <dt><b class="Sy">IncludeInReport &lt;bool&gt;</b></dt>
+  <dd>Whether or not the target should be included in the code coverage
+    report.</dd>
+  <dt><b class="Sy">IsStatic &lt;bool&gt;</b></dt>
+  <dd>Whether or not the target is a static archive library.</dd>
+  <dt><b class="Sy">ProductPaths &lt;array of string values&gt;</b></dt>
+  <dd>List of file paths to the variants of this target's build product. The
+      <code class="Nm">xcodebuild</code> tool will expand the following
+      placeholder strings in the path:
+    <p class="Pp"></p>
+    <dl class="Bl-ohang Bd-indent Bl-compact">
+      <dt><b class="Sy">__TESTROOT__</b></dt>
+      <dd></dd>
+    </dl>
+    <p class="Pp">Although each target for code coverage only has a single
+        binary build product, this list may contain multiple entries because
+        there may be multiple test configurations in the xctestrun file (per the
+        top-level <var class="Ar">TestConfigurations</var> array) and those
+        configurations may have resulted in multiple build variants. Thus, each
+        entry in this list represents a unique variant of the target's build
+        product.</p>
+  </dd>
+  <dt><b class="Sy">Architectures &lt;array of string values&gt;</b></dt>
+  <dd>List of architectures for the variants of this target's build product.
+    <p class="Pp">Each architecture entry in this list describes the binary
+        build product at the corresponding index of the
+        <var class="Ar">ProductPaths</var> array. There may be multiple entries
+        in this list if the specified test configurations resulted in multiple
+        build variants, see <var class="Ar">ProductPaths</var> for more
+      details.</p>
+  </dd>
+  <dt><b class="Sy">SourceFiles &lt;array of string values&gt;</b></dt>
+  <dd>List of file paths of the source files in the target whose code coverage
+      should be measured. Any prefix which is common to all entries in this list
+      should be removed from each entry and specified in the
+      <var class="Ar">SourceFilesCommonPathPrefix</var> field, so that the
+      entries consist of only the portion of the file path after the common path
+      prefix.</dd>
+  <dt><b class="Sy">SourceFilesCommonPathPrefix &lt;string&gt;</b></dt>
+  <dd>A file path prefix which all the source file entries in
+      <var class="Ar">SourceFiles</var> have in common. This prefix is applied
+      to each entry in <var class="Ar">SourceFiles</var> to determine the full
+      path of each source file when generating the code coverage report.</dd>
+  <dt><b class="Sy">Toolchains &lt;array of string values&gt;</b></dt>
+  <dd>List of identifiers of Xcode toolchains to use when generating the code
+      coverage report.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="METADATA_SECTION"><a class="permalink" href="#METADATA_SECTION">METADATA
+  SECTION</a></h1>
+The top-level <code class="Nm">__xctestrun_metadata__</code> dictionary contains
+  special metadata about the format of the xctestrun file. It currently contains
+  only one field:
+<dl class="Bl-ohang Bd-indent">
+  <dt><b class="Sy">FormatVersion &lt;number&gt;</b></dt>
+  <dd>The version of the xctestrun file format. Currently equal to 2. This must
+      be specified in order for <code class="Nm">xcodebuild</code> to interpret
+      the xctestrun file correctly for the version indicated.</dd>
+</dl>
+<p class="Pp">If the <code class="Nm">__xctestrun_metadata__</code> section is
+    not present, <code class="Nm">xcodebuild</code> will interpret the xctestrun
+    file using an earlier format (version 1).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PLACEHOLDER_STRINGS"><a class="permalink" href="#PLACEHOLDER_STRINGS">PLACEHOLDER
+  STRINGS</a></h1>
+This section describes the various placeholder strings which may be used within
+  certain settings' values in an xctestrun file. See the description of each
+  setting to see which of these placeholders, if any, it supports.
+<dl class="Bl-ohang Bd-indent">
+  <dt><b class="Sy">__TESTBUNDLE__</b></dt>
+  <dd>The path to the test bundle. This is expanded to a device path when
+      <var class="Ar">UseDestinationArtifacts</var> is set.</dd>
+  <dt><b class="Sy">__TESTHOST__</b></dt>
+  <dd>The test host directory provided by TestHostPath.</dd>
+  <dt><b class="Sy">__TESTROOT__</b></dt>
+  <dd>The directory containing the xctestrun file.</dd>
+  <dt><b class="Sy">__PLATFORMS__</b></dt>
+  <dd>The platforms directory in the active Xcode.app.</dd>
+  <dt><b class="Sy">__SHAREDFRAMEWORKS__</b></dt>
+  <dd>The shared frameworks directory in the active Xcode.app.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE_PROPERTY_LIST"><a class="permalink" href="#EXAMPLE_PROPERTY_LIST">EXAMPLE
+  PROPERTY LIST</a></h1>
+This example will run tests from one test target called
+  <var class="Ar">MyAppTests.xctest</var> using one test configuration called
+  <var class="Ar">Configuration 1</var> :
+<p class="Pp"></p>
+<div class="Bd Bd-indent"><code class="Li">&lt;?xml version=&quot;1.0&quot;
+  encoding=&quot;UTF-8&quot;?&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">&lt;!DOCTYPE plist PUBLIC
+  &quot;-//Apple//DTD PLIST 1.0//EN&quot;
+  &quot;http://www.apple.com/DTDs/PropertyList-1.0.dtd&quot;&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">&lt;plist
+  version=&quot;1.0&quot;&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">&lt;dict&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">	&lt;key&gt;TestConfigurations&lt;/key&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">	&lt;array&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">		&lt;dict&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">			&lt;key&gt;Name&lt;/key&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">			&lt;string&gt;Configuration
+  1&lt;/string&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">			&lt;key&gt;TestTargets&lt;/key&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">			&lt;array&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">				&lt;dict&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">					&lt;key&gt;BlueprintName&lt;/key&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">					&lt;string&gt;MyAppTests&lt;/string&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">					&lt;key&gt;TestBundlePath&lt;/key&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">					&lt;string&gt;__TESTHOST__/PlugIns/MyAppTests.xctest&lt;/string&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">					&lt;key&gt;TestHostPath&lt;/key&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">					&lt;string&gt;__TESTROOT__/Debug-iphonesimulator/MyApp.app&lt;/string&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">					&lt;key&gt;UITargetAppPath&lt;/key&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">					&lt;string&gt;__TESTROOT__/Debug-iphonesimulator/MyApp.app&lt;/string&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">					&lt;key&gt;TestHostBundleIdentifier&lt;/key&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">					&lt;string&gt;com.example.MyApp&lt;/string&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">					&lt;key&gt;DependentProductPaths&lt;/key&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">					&lt;array&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">						&lt;string&gt;__TESTROOT__/Debug-iphonesimulator/MyApp.app&lt;/string&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">						&lt;string&gt;__TESTROOT__/Debug-iphonesimulator/MyApp.app/PlugIns/MyAppTests.xctest&lt;/string&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">					&lt;/array&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">					&lt;key&gt;TestingEnvironmentVariables&lt;/key&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">					&lt;dict&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">						&lt;key&gt;DYLD_FRAMEWORK_PATH&lt;/key&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">						&lt;string&gt;__TESTROOT__/Debug-iphonesimulator&lt;/string&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">						&lt;key&gt;DYLD_LIBRARY_PATH&lt;/key&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">						&lt;string&gt;__TESTROOT__/Debug-iphonesimulator&lt;/string&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">					&lt;/dict&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">					&lt;key&gt;ProductModuleName&lt;/key&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">					&lt;string&gt;MyAppTests&lt;/string&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">					&lt;key&gt;SystemAttachmentLifetime&lt;/key&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">					&lt;string&gt;deleteOnSuccess&lt;/string&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">					&lt;key&gt;UserAttachmentLifetime&lt;/key&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">					&lt;string&gt;deleteOnSuccess&lt;/string&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">				&lt;/dict&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">			&lt;/array&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">		&lt;/dict&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">	&lt;/array&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">	&lt;key&gt;CodeCoverageBuildableInfos&lt;/key&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">	&lt;array&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">		&lt;dict&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">			&lt;key&gt;Architectures&lt;/key&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">			&lt;array&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">				&lt;string&gt;x86_64&lt;/string&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">			&lt;/array&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">			&lt;key&gt;BuildableIdentifier&lt;/key&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">			&lt;string&gt;1234567890ABCDEF:primary&lt;/string&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">			&lt;key&gt;IncludeInReport&lt;/key&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">			&lt;true/&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">			&lt;key&gt;IsStatic&lt;/key&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">			&lt;false/&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">			&lt;key&gt;Name&lt;/key&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">			&lt;string&gt;MyApp.app&lt;/string&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">			&lt;key&gt;ProductPaths&lt;/key&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">			&lt;array&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">				&lt;string&gt;__TESTROOT__/Debug-iphonesimulator/MyApp.app/MyApp&lt;/string&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">			&lt;/array&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">			&lt;key&gt;SourceFiles&lt;/key&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">			&lt;array&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">				&lt;string&gt;ViewController.swift&lt;/string&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">				&lt;string&gt;AppDelegate.swift&lt;/string&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">			&lt;/array&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">			&lt;key&gt;SourceFilesCommonPathPrefix&lt;/key&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">			&lt;string&gt;/Users/johnappleseed/MyApp/MyApp/&lt;/string&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">			&lt;key&gt;Toolchains&lt;/key&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">			&lt;array&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">				&lt;string&gt;com.apple.dt.toolchain.XcodeDefault&lt;/string&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">			&lt;/array&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">		&lt;/dict&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">	&lt;/array&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">	&lt;key&gt;__xctestrun_metadata__&lt;/key&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">	&lt;dict&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">		&lt;key&gt;FormatVersion&lt;/key&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">		&lt;integer&gt;2&lt;/integer&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">	&lt;/dict&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">&lt;/dict&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">&lt;/plist&gt;</code></div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">xcodebuild(1)</a>
+<dl class="Bl-tag">
+</dl>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">July 1, 2019</td>
+    <td class="foot-os">macOS</td>
+  </tr>
+</table>
+</body>
+</html>

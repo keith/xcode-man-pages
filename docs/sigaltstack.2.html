@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+  	$NetBSD: sigaltstack.2,v 1.3 1995/02/27 10:41:52 cgd Exp $
+  
+   Copyright (c) 1983, 1991, 1992, 1993
+  	The Regents of the University of California.  All rights reserved.
+  
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions
+   are met:
+   1. Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+   2. Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+   3. All advertising materials mentioning features or use of this software
+      must display the following acknowledgement:
+  	This product includes software developed by the University of
+  	California, Berkeley and its contributors.
+   4. Neither the name of the University nor the names of its contributors
+      may be used to endorse or promote products derived from this software
+      without specific prior written permission.
+  
+   THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+   ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+   ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+   FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+   OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+   OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+   SUCH DAMAGE.
+  
+       @(#)sigaltstack.2	8.1 (Berkeley) 6/4/93
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>SIGALTSTACK(2)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SIGALTSTACK(2)</td>
+    <td class="head-vol">System Calls Manual</td>
+    <td class="head-rtitle">SIGALTSTACK(2)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">sigaltstack</code> &#x2014;
+<div class="Nd">set and/or get signal stack context</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<code class="In">#include <a class="In">&lt;signal.h&gt;</a></code>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">sigaltstack</code>(<var class="Fa">const stack_t *restrict
+    ss</var>, <var class="Fa">stack_t *restrict oss</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<code class="Fn">sigaltstack</code>() allows users to define an alternate stack
+  on which signals are to be processed. If <var class="Fa">ss</var> is non-zero,
+  it specifies a pointer to and the size of a <i class="Em">signal stack</i> on
+  which to deliver signals, and tells the system if the process is currently
+  executing on that stack. When a signal's action indicates its handler should
+  execute on the signal stack (specified with a <a class="Xr">sigaction(2)</a>
+  call), the system checks to see if the process is currently executing on that
+  stack. If the process is not currently executing on the signal stack, the
+  system arranges a switch to the signal stack for the duration of the signal
+  handler's execution.
+<p class="Pp">If <code class="Dv">SS_DISABLE</code> is set in
+    <var class="Fa">ss_flags</var>, <var class="Fa">ss_sp</var> and
+    <var class="Fa">ss_size</var> are ignored and the signal stack will be
+    disabled. Trying to disable an active stack will cause
+    <code class="Nm">sigaltstack</code> to return -1 with
+    <var class="Va">errno</var> set to <code class="Dv">EINVAL</code>. A
+    disabled stack will cause all signals to be taken on the regular user stack.
+    If the stack is later re-enabled then all signals that were specified to be
+    processed on an alternate stack will resume doing so.</p>
+<p class="Pp">If <var class="Fa">oss</var> is non-zero, the current signal stack
+    state is returned. The <var class="Fa">ss_flags</var> field will contain the
+    value <code class="Dv">SA_ONSTACK</code> if the process is currently on a
+    signal stack and <code class="Dv">SS_DISABLE</code> if the signal stack is
+    currently disabled.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+The value <code class="Dv">SIGSTKSZ</code> is defined to be the number of
+  bytes/chars that would be used to cover the usual case when allocating an
+  alternate stack area. The following code fragment is typically used to
+  allocate an alternate stack.
+<div class="Bd Pp Bd-indent">
+<pre>
+if ((sigstk.ss_sp = malloc(SIGSTKSZ)) == NULL)
+	/* error return */
+sigstk.ss_size = SIGSTKSZ;
+sigstk.ss_flags = 0;
+if (sigaltstack(&amp;sigstk,0) &lt; 0)
+	perror(&quot;sigaltstack&quot;);
+</pre>
+</div>
+An alternative approach is provided for programs with signal handlers that
+  require a specific amount of stack space other than the default size. The
+  value <code class="Dv">MINSIGSTKSZ</code> is defined to be the number of
+  bytes/chars that is required by the operating system to implement the
+  alternate stack feature. In computing an alternate stack size, programs should
+  add <code class="Dv">MINSIGSTKSZ</code> to their stack requirements to allow
+  for the operating system overhead.
+<p class="Pp">Signal stacks are automatically adjusted for the direction of
+    stack growth and alignment requirements. Signal stacks may or may not be
+    protected by the hardware and are not ``grown'' automatically as is done for
+    the normal stack. If the stack overflows and this space is not protected
+    unpredictable results may occur.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+Upon successful completion, a value of 0 is returned. Otherwise, a value of -1
+  is returned and <var class="Va">errno</var> is set to indicate the error.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ERRORS"><a class="permalink" href="#ERRORS">ERRORS</a></h1>
+<code class="Fn">sigaltstack</code>() will fail and the signal stack context
+  will remain unchanged if one of the following occurs.
+<dl class="Bl-tag">
+  <dt>[<a class="permalink" href="#EFAULT"><code class="Er" id="EFAULT">EFAULT</code></a>]</dt>
+  <dd>Either <var class="Fa">ss</var> or <var class="Fa">oss</var> points to
+      memory that is not a valid part of the process address space.</dd>
+  <dt>[<a class="permalink" href="#EINVAL"><code class="Er" id="EINVAL">EINVAL</code></a>]</dt>
+  <dd>An attempt is made to disable an active stack.</dd>
+  <dt>[<a class="permalink" href="#EINVAL_2"><code class="Er" id="EINVAL_2">EINVAL</code></a>]</dt>
+  <dd>The <var class="Fa">ss</var> argument is not a null pointer, and the
+      ss_flags member pointed to by <var class="Fa">ss</var> contains flags
+      other than SS_DISABLE.</dd>
+  <dt>[<a class="permalink" href="#ENOMEM"><code class="Er" id="ENOMEM">ENOMEM</code></a>]</dt>
+  <dd>The size of the alternate stack area is less than or equal to
+      <code class="Dv">MINSIGSTKSZ</code>.</dd>
+  <dt>[<a class="permalink" href="#EPERM"><code class="Er" id="EPERM">EPERM</code></a>]</dt>
+  <dd>An attempt was made to modify an active stack.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LEGACY_SYNOPSIS"><a class="permalink" href="#LEGACY_SYNOPSIS">LEGACY
+  SYNOPSIS</a></h1>
+<code class="In">#include <a class="In">&lt;sys/types.h&gt;</a></code>
+  <code class="In">#include <a class="In">&lt;signal.h&gt;</a></code>
+<p class="Pp">The include file
+    <code class="In">&lt;<a class="In">sys/types.h</a>&gt;</code> is
+  necessary.</p>
+<div class="Bd Pp">
+<pre>
+struct sigaltstack {
+	char   *ss_sp;
+	int	ss_size;
+	int     ss_flags;
+};
+</pre>
+</div>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">sigaltstack</code>(<var class="Fa">const struct sigaltstack
+    *ss</var>, <var class="Fa">struct sigaltstack *oss</var>);;</p>
+<p class="Pp">The variable types have changed. Specifically, the
+    <var class="Vt">sigaltstack</var> struct is no longer used.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMPATIBILITY"><a class="permalink" href="#COMPATIBILITY">COMPATIBILITY</a></h1>
+Use of the (obsolete) <var class="Vt">sigaltstack</var> struct will cause
+  compiler diagnostics. Use <var class="Vt">stack_t</var>, defined in
+  <code class="In">&lt;<a class="In">signal.h</a>&gt;</code>.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">sigaction(2)</a>, <a class="Xr">setjmp(3)</a>,
+  <a class="Xr">compat(5)</a>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+The predecessor to <code class="Nm">sigaltstack</code>, the
+  <code class="Fn">sigstack</code>() system call, appeared in
+  <span class="Ux">4.2BSD</span>.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">June 4, 1993</td>
+    <td class="foot-os">BSD 4.2</td>
+  </tr>
+</table>
+</body>
+</html>

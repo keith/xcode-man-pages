@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+  -
+   Copyright (c) 1992, 1993, 1994
+  	The Regents of the University of California.  All rights reserved.
+  
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions
+   are met:
+   1. Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+   2. Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+   4. Neither the name of the University nor the names of its contributors
+      may be used to endorse or promote products derived from this software
+      without specific prior written permission.
+  
+   THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+   ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+   ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+   FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+   OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+   OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+   SUCH DAMAGE.
+  
+  	@(#)symlink.7	8.3 (Berkeley) 3/31/94
+   $FreeBSD: src/bin/ln/symlink.7,v 1.30 2005/02/13 22:25:09 ru Exp $
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>SYMLINK(7)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SYMLINK(7)</td>
+    <td class="head-vol">Miscellaneous Information Manual</td>
+    <td class="head-rtitle">SYMLINK(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">symlink</code> &#x2014;
+<div class="Nd">symbolic link handling</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYMBOLIC_LINK_HANDLING"><a class="permalink" href="#SYMBOLIC_LINK_HANDLING">SYMBOLIC
+  LINK HANDLING</a></h1>
+Symbolic links are files that act as pointers to other files. To understand
+  their behavior, you must first understand how hard links work. A hard link to
+  a file is indistinguishable from the original file because it is a reference
+  to the object underlying the original file name. Changes to a file are
+  independent of the name used to reference the file. Hard links may not refer
+  to directories and may not reference files on different file systems. A
+  symbolic link contains the name of the file to which it is linked, i.e., it is
+  a pointer to another name, and not to an underlying object. For this reason,
+  symbolic links may reference directories and may span file systems.
+<p class="Pp">Because a symbolic link and its referenced object coexist in the
+    file system name space, confusion can arise in distinguishing between the
+    link itself and the referenced object. Historically, commands and system
+    calls have adopted their own link following conventions in a somewhat ad-hoc
+    fashion. Rules for more a uniform approach, as they are implemented in this
+    system, are outlined here. It is important that local applications conform
+    to these rules, too, so that the user interface can be as consistent as
+    possible.</p>
+<p class="Pp">Symbolic links are handled either by operating on the link itself,
+    or by operating on the object referenced by the link. In the latter case, an
+    application or system call is said to &#x201C;follow&#x201D; the link.
+    Symbolic links may reference other symbolic links, in which case the links
+    are dereferenced until an object that is not a symbolic link is found, a
+    symbolic link which references a file which does not exist is found, or a
+    loop is detected. (Loop detection is done by placing an upper limit on the
+    number of links that may be followed, and an error results if this limit is
+    exceeded.)</p>
+<p class="Pp">There are three separate areas that need to be discussed. They are
+    as follows:</p>
+<p class="Pp"></p>
+<ol class="Bl-enum Bd-indent Bl-compact">
+  <li>Symbolic links used as file name arguments for system calls.</li>
+  <li>Symbolic links specified as command line arguments to utilities that are
+      not traversing a file tree.</li>
+  <li>Symbolic links encountered by utilities that are traversing a file tree
+      (either specified on the command line or encountered as part of the file
+      hierarchy walk).</li>
+</ol>
+<section class="Ss">
+<h2 class="Ss" id="System_calls."><a class="permalink" href="#System_calls.">System
+  calls.</a></h2>
+The first area is symbolic links used as file name arguments for system calls.
+<p class="Pp">Except as noted below, all system calls follow symbolic links. For
+    example, if there were a symbolic link
+    &#x201C;<code class="Li">slink</code>&#x201D; which pointed to a file named
+    &#x201C;<code class="Li">afile</code>&#x201D;, the system call
+    &#x201C;<code class="Li">open(&quot;slink&quot; ...)</code>&#x201D; would
+    return a file descriptor to the file &#x201C;afile&#x201D;.</p>
+<p class="Pp">There are nine system calls that do not follow links, and which
+    operate on the symbolic link itself. They are:
+    <a class="Xr">lchflags(2)</a>, <a class="Xr">lchmod(2)</a>,
+    <a class="Xr">lchown(2)</a>, <a class="Xr">lstat(2)</a>,
+    <a class="Xr">lutimes(3)</a>, <a class="Xr">readlink(2)</a>,
+    <a class="Xr">rename(2)</a>, <a class="Xr">rmdir(2)</a>, and
+    <a class="Xr">unlink(2)</a>. Because <a class="Xr">remove(3)</a> is an alias
+    for <a class="Xr">unlink(2)</a>, it also does not follow symbolic links.
+    When <a class="Xr">rmdir(2)</a> is applied to a symbolic link, it fails with
+    the error <code class="Er">ENOTDIR</code>.</p>
+<p class="Pp">The owner and group of an existing symbolic link can be changed by
+    means of the <a class="Xr">lchown(2)</a> system call. The flags, access
+    permissions, owner/group and modification time of an existing symbolic link
+    can be changed by means of the <a class="Xr">lchflags(2)</a>,
+    <a class="Xr">lchmod(2)</a>, <a class="Xr">lchown(2)</a>, and
+    <a class="Xr">lutimes(3)</a> system calls, respectively. Of these, only the
+    flags are used by the system; the access permissions and ownership are
+    ignored.</p>
+<p class="Pp">The <span class="Ux">4.4BSD</span> system differs from historical
+    <span class="Ux">4BSD</span> systems in that the system call
+    <a class="Xr">chown(2)</a> has been changed to follow symbolic links. The
+    <a class="Xr">lchown(2)</a> system call was added later when the limitations
+    of the new <a class="Xr">chown(2)</a> became apparent.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Commands_not_traversing_a_file_tree."><a class="permalink" href="#Commands_not_traversing_a_file_tree.">Commands
+  not traversing a file tree.</a></h2>
+The second area is symbolic links, specified as command line file name
+  arguments, to commands which are not traversing a file tree.
+<p class="Pp">Except as noted below, commands follow symbolic links named as
+    command line arguments. For example, if there were a symbolic link
+    &#x201C;<code class="Li">slink</code>&#x201D; which pointed to a file named
+    &#x201C;<code class="Li">afile</code>&#x201D;, the command
+    &#x201C;<code class="Li">cat slink</code>&#x201D; would display the contents
+    of the file &#x201C;<code class="Li">afile</code>&#x201D;.</p>
+<p class="Pp">It is important to realize that this rule includes commands which
+    may optionally traverse file trees, e.g. the command
+    &#x201C;<code class="Li">chown file</code>&#x201D; is included in this rule,
+    while the command &#x201C;<code class="Li">chown -R file</code>&#x201D; is
+    not. (The latter is described in the third area, below.)</p>
+<p class="Pp">If it is explicitly intended that the command operate on the
+    symbolic link instead of following the symbolic link, e.g., it is desired
+    that &#x201C;<code class="Li">chown slink</code>&#x201D; change the
+    ownership of the file that &#x201C;<code class="Li">slink</code>&#x201D; is,
+    whether it is a symbolic link or not, the <code class="Fl">-h</code> option
+    should be used. In the above example, &#x201C;<code class="Li">chown root
+    slink</code>&#x201D; would change the ownership of the file referenced by
+    &#x201C;<code class="Li">slink</code>&#x201D;, while
+    &#x201C;<code class="Li">chown -h root slink</code>&#x201D; would change the
+    ownership of &#x201C;<code class="Li">slink</code>&#x201D; itself.</p>
+<p class="Pp">There are four exceptions to this rule. The
+    <a class="Xr">mv(1)</a> and <a class="Xr">rm(1)</a> commands do not follow
+    symbolic links named as arguments, but respectively attempt to rename and
+    delete them. (Note, if the symbolic link references a file via a relative
+    path, moving it to another directory may very well cause it to stop working,
+    since the path may no longer be correct.)</p>
+<p class="Pp">The <a class="Xr">ls(1)</a> command is also an exception to this
+    rule. For compatibility with historic systems (when
+    <code class="Nm">ls</code> is not doing a tree walk, i.e., the
+    <code class="Fl">-R</code> option is not specified), the
+    <code class="Nm">ls</code> command follows symbolic links named as arguments
+    if the <code class="Fl">-H</code> or <code class="Fl">-L</code> option is
+    specified, or if the <code class="Fl">-F</code>, <code class="Fl">-d</code>
+    or <code class="Fl">-l</code> options are not specified. (The
+    <code class="Nm">ls</code> command is the only command where the
+    <code class="Fl">-H</code> and <code class="Fl">-L</code> options affect its
+    behavior even though it is not doing a walk of a file tree.)</p>
+<p class="Pp">The <a class="Xr">file(1)</a> command is also an exception to this
+    rule. The <a class="Xr">file(1)</a> command does not follow symbolic links
+    named as argument by default. The <a class="Xr">file(1)</a> command does
+    follow symbolic links named as argument if <code class="Fl">-L</code> option
+    is specified.</p>
+<p class="Pp">The <span class="Ux">4.4BSD</span> system differs from historical
+    <span class="Ux">4BSD</span> systems in that the
+    <code class="Nm">chown</code> and <code class="Nm">chgrp</code> commands
+    follow symbolic links specified on the command line.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Commands_traversing_a_file_tree."><a class="permalink" href="#Commands_traversing_a_file_tree.">Commands
+  traversing a file tree.</a></h2>
+The following commands either optionally or always traverse file trees:
+  <a class="Xr">chflags(1)</a>, <a class="Xr">chgrp(1)</a>,
+  <a class="Xr">chmod(1)</a>, <a class="Xr">cp(1)</a>, <a class="Xr">du(1)</a>,
+  <a class="Xr">find(1)</a>, <a class="Xr">ls(1)</a>, <a class="Xr">pax(1)</a>,
+  <a class="Xr">rm(1)</a>, <a class="Xr">tar(1)</a> and
+  <a class="Xr">chown(8)</a>.
+<p class="Pp">It is important to realize that the following rules apply equally
+    to symbolic links encountered during the file tree traversal and symbolic
+    links listed as command line arguments.</p>
+<p class="Pp">The first rule applies to symbolic links that reference files that
+    are not of type directory. Operations that apply to symbolic links are
+    performed on the links themselves, but otherwise the links are ignored.</p>
+<p class="Pp">The command &#x201C;<code class="Li">rm -r slink
+    directory</code>&#x201D; will remove
+    &#x201C;<code class="Li">slink</code>&#x201D;, as well as any symbolic links
+    encountered in the tree traversal of
+    &#x201C;<code class="Li">directory</code>&#x201D;, because symbolic links
+    may be removed. In no case will <code class="Nm">rm</code> affect the file
+    which &#x201C;<code class="Li">slink</code>&#x201D; references in any
+  way.</p>
+<p class="Pp">The second rule applies to symbolic links that reference files of
+    type directory. Symbolic links which reference files of type directory are
+    never &#x201C;followed&#x201D; by default. This is often referred to as a
+    &#x201C;physical&#x201D; walk, as opposed to a &#x201C;logical&#x201D; walk
+    (where symbolic links referencing directories are followed).</p>
+<p class="Pp">As consistently as possible, you can make commands doing a file
+    tree walk follow any symbolic links named on the command line, regardless of
+    the type of file they reference, by specifying the
+    <code class="Fl">-H</code> (for &#x201C;half-logical&#x201D;) flag. This
+    flag is intended to make the command line name space look like the logical
+    name space. (Note, for commands that do not always do file tree traversals,
+    the <code class="Fl">-H</code> flag will be ignored if the
+    <code class="Fl">-R</code> flag is not also specified.)</p>
+<p class="Pp">For example, the command &#x201C;<code class="Li">chown -HR user
+    slink</code>&#x201D; will traverse the file hierarchy rooted in the file
+    pointed to by &#x201C;<code class="Li">slink</code>&#x201D;. Note, the
+    <code class="Fl">-H</code> is not the same as the previously discussed
+    <code class="Fl">-h</code> flag. The <code class="Fl">-H</code> flag causes
+    symbolic links specified on the command line to be dereferenced both for the
+    purposes of the action to be performed and the tree walk, and it is as if
+    the user had specified the name of the file to which the symbolic link
+    pointed.</p>
+<p class="Pp">As consistently as possible, you can make commands doing a file
+    tree walk follow any symbolic links named on the command line, as well as
+    any symbolic links encountered during the traversal, regardless of the type
+    of file they reference, by specifying the <code class="Fl">-L</code> (for
+    &#x201C;logical&#x201D;) flag. This flag is intended to make the entire name
+    space look like the logical name space. (Note, for commands that do not
+    always do file tree traversals, the <code class="Fl">-L</code> flag will be
+    ignored if the <code class="Fl">-R</code> flag is not also specified.)</p>
+<p class="Pp">For example, the command &#x201C;<code class="Li">chown -LR user
+    slink</code>&#x201D; will change the owner of the file referenced by
+    &#x201C;<code class="Li">slink</code>&#x201D;. If
+    &#x201C;<code class="Li">slink</code>&#x201D; references a directory,
+    <code class="Nm">chown</code> will traverse the file hierarchy rooted in the
+    directory that it references. In addition, if any symbolic links are
+    encountered in any file tree that <code class="Nm">chown</code> traverses,
+    they will be treated in the same fashion as
+    &#x201C;<code class="Li">slink</code>&#x201D;.</p>
+<p class="Pp">As consistently as possible, you can specify the default behavior
+    by specifying the <code class="Fl">-P</code> (for &#x201C;physical&#x201D;)
+    flag. This flag is intended to make the entire name space look like the
+    physical name space.</p>
+<p class="Pp">For commands that do not by default do file tree traversals, the
+    <code class="Fl">-H</code>, <code class="Fl">-L</code> and
+    <code class="Fl">-P</code> flags are ignored if the
+    <code class="Fl">-R</code> flag is not also specified. In addition, you may
+    specify the <code class="Fl">-H</code>, <code class="Fl">-L</code> and
+    <code class="Fl">-P</code> options more than once; the last one specified
+    determines the command's behavior. This is intended to permit you to alias
+    commands to behave one way or the other, and then override that behavior on
+    the command line.</p>
+<p class="Pp">The <a class="Xr">ls(1)</a> and <a class="Xr">rm(1)</a> commands
+    have exceptions to these rules. The <code class="Nm">rm</code> command
+    operates on the symbolic link, and not the file it references, and therefore
+    never follows a symbolic link. The <code class="Nm">rm</code> command does
+    not support the <code class="Fl">-H</code>, <code class="Fl">-L</code> or
+    <code class="Fl">-P</code> options.</p>
+<p class="Pp">To maintain compatibility with historic systems, the
+    <code class="Nm">ls</code> command acts a little differently. If you do not
+    specify the <code class="Fl">-F</code>, <code class="Fl">-d</code> or
+    <code class="Fl">-l</code> options, <code class="Nm">ls</code> will follow
+    symbolic links specified on the command line. If the
+    <code class="Fl">-L</code> flag is specified, <code class="Nm">ls</code>
+    follows all symbolic links, regardless of their type, whether specified on
+    the command line or encountered in the tree walk.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">chflags(1)</a>, <a class="Xr">chgrp(1)</a>,
+  <a class="Xr">chmod(1)</a>, <a class="Xr">cp(1)</a>, <a class="Xr">du(1)</a>,
+  <a class="Xr">find(1)</a>, <a class="Xr">ln(1)</a>, <a class="Xr">ls(1)</a>,
+  <a class="Xr">mv(1)</a>, <a class="Xr">pax(1)</a>, <a class="Xr">rm(1)</a>,
+  <a class="Xr">tar(1)</a>, <a class="Xr">lchflags(2)</a>,
+  <a class="Xr">lchmod(2)</a>, <a class="Xr">lchown(2)</a>,
+  <a class="Xr">lstat(2)</a>, <a class="Xr">lutimes(3)</a>,
+  <a class="Xr">readlink(2)</a>, <a class="Xr">rename(2)</a>,
+  <a class="Xr">symlink(2)</a>, <a class="Xr">unlink(2)</a>,
+  <a class="Xr">fts(3)</a>, <a class="Xr">remove(3)</a>,
+  <a class="Xr">chown(8)</a>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">March 31, 1994</td>
+    <td class="foot-os">Mac OS X 10.15</td>
+  </tr>
+</table>
+</body>
+</html>

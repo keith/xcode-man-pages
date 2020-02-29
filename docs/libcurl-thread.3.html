@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   **************************************************************************
+   *                                  _   _ ____  _
+   *  Project                     ___| | | |  _ \| |
+   *                             / __| | | | |_) | |
+   *                            | (__| |_| |  _ <| |___
+   *                             \___|\___/|_| \_\_____|
+   *
+   * Copyright (C) 2015 - 2018, Daniel Stenberg, <daniel@haxx.se>, et al.
+   *
+   * This software is licensed as described in the file COPYING, which
+   * you should have received as part of this distribution. The terms
+   * are also available at https://curl.haxx.se/docs/copyright.html.
+   *
+   * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+   * copies of the Software, and permit persons to whom the Software is
+   * furnished to do so, under the terms of the COPYING file.
+   *
+   * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+   * KIND, either express or implied.
+   *
+   **************************************************************************
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>libcurl-thread(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">libcurl-thread(3)</td>
+    <td class="head-vol">libcurl thread safety</td>
+    <td class="head-rtitle">libcurl-thread(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<p class="Pp"></p>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+libcurl-thread - libcurl thread safety
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Multi-threading_with_libcurl"><a class="permalink" href="#Multi-threading_with_libcurl">Multi-threading
+  with libcurl</a></h1>
+libcurl is thread safe but has no internal thread synchronization. You may have
+  to provide your own locking should you meet any of the thread safety
+  exceptions below.
+<p class="Pp"><b>Handles.</b> You must <b>never</b> share the same handle in
+    multiple threads. You can pass the handles around among threads, but you
+    must never use a single handle from more than one thread at any given
+  time.</p>
+<p class="Pp"><b>Shared objects.</b> You can share certain data between multiple
+    handles by using the share interface but you must provide your own locking
+    and set <i>curl_share_setopt(3)</i> CURLSHOPT_LOCKFUNC and
+    CURLSHOPT_UNLOCKFUNC.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TLS"><a class="permalink" href="#TLS">TLS</a></h1>
+If you are accessing HTTPS or FTPS URLs in a multi-threaded manner, you are then
+  of course using the underlying SSL library multi-threaded and those libs might
+  have their own requirements on this issue. You may need to provide one or two
+  functions to allow it to function properly:
+<dl class="Bl-tag">
+  <dt>OpenSSL</dt>
+  <dd>OpenSSL 1.1.0 &quot;can be safely used in multi-threaded applications
+      provided that support for the underlying OS threading API is
+      built-in.&quot;
+    <p class="Pp">https://www.openssl.org/docs/manmaster/crypto/threads.html#DESCRIPTION</p>
+    <p class="Pp">OpenSSL &lt;= 1.0.2 the user must set callbacks.</p>
+    <p class="Pp">https://www.openssl.org/docs/man1.0.2/crypto/threads.html#DESCRIPTION</p>
+    <p class="Pp">https://curl.haxx.se/libcurl/c/opensslthreadlock.html</p>
+    <p class="Pp"></p>
+  </dd>
+  <dt>GnuTLS</dt>
+  <dd>https://gnutls.org/manual/html_node/Thread-safety.html</dd>
+  <dt>NSS</dt>
+  <dd>thread-safe already without anything required.</dd>
+  <dt>PolarSSL</dt>
+  <dd>Required actions unknown.</dd>
+  <dt>yassl</dt>
+  <dd>Required actions unknown.</dd>
+  <dt>Secure-Transport</dt>
+  <dd>The engine is used by libcurl in a way that is fully thread-safe.</dd>
+  <dt>WinSSL</dt>
+  <dd>The engine is used by libcurl in a way that is fully thread-safe.</dd>
+  <dt>wolfSSL</dt>
+  <dd>The engine is used by libcurl in a way that is fully thread-safe.</dd>
+  <dt>BoringSSL</dt>
+  <dd>The engine is used by libcurl in a way that is fully thread-safe.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Other_areas_of_caution"><a class="permalink" href="#Other_areas_of_caution">Other
+  areas of caution</a></h1>
+<dl class="Bl-tag">
+  <dt>Signals</dt>
+  <dd>Signals are used for timing out name resolves (during DNS lookup) - when
+      built without using either the c-ares or threaded resolver backends. When
+      using multiple threads you should set the <i>CURLOPT_NOSIGNAL(3)</i>
+      option to 1L for all handles. Everything will or might work fine except
+      that timeouts are not honored during the DNS lookup - which you can work
+      around by building libcurl with c-ares or threaded-resolver support.
+      c-ares is a library that provides asynchronous name resolves. On some
+      platforms, libcurl simply will not function properly multi-threaded unless
+      the <i>CURLOPT_NOSIGNAL(3)</i> option is set.
+    <p class="Pp">When <i>CURLOPT_NOSIGNAL(3)</i> is set to 1L, your application
+        needs to deal with the risk of a SIGPIPE (that at least the OpenSSL
+        backend can trigger). Note that setting <i>CURLOPT_NOSIGNAL(3)</i> to 0L
+        will not work in a threaded situation as there will be race where
+        libcurl risks restoring the former signal handler while another thread
+        should still ignore it.</p>
+  </dd>
+  <dt>Name resolving</dt>
+  <dd><b>gethostby* functions and other system calls.</b> These functions,
+      provided by your operating system, must be thread safe. It is very
+      important that libcurl can find and use thread safe versions of these and
+      other system calls, as otherwise it can't function fully thread safe. Some
+      operating systems are known to have faulty thread implementations. We have
+      previously received problem reports on *BSD (at least in the past, they
+      may be working fine these days). Some operating systems that are known to
+      have solid and working thread support are Linux, Solaris and Windows.</dd>
+  <dt>curl_global_* functions</dt>
+  <dd>These functions are not thread safe. If you are using libcurl with
+      multiple threads it is especially important that before use you call
+      <i>curl_global_init(3)</i> or <i>curl_global_init_mem(3)</i> to explicitly
+      initialize the library and its dependents, rather than rely on the
+      &quot;lazy&quot; fail-safe initialization that takes place the first time
+      <i>curl_easy_init(3)</i> is called. For an in-depth explanation refer to
+      <i>libcurl(3)</i> section <b>GLOBAL CONSTANTS</b>.</dd>
+  <dt>Memory functions</dt>
+  <dd>These functions, provided either by your operating system or your own
+      replacements, must be thread safe. You can use
+      <i>curl_global_init_mem(3)</i> to set your own replacement memory
+      functions.</dd>
+  <dt>Non-safe functions</dt>
+  <dd><i>CURLOPT_DNS_USE_GLOBAL_CACHE(3)</i> is not thread-safe.</dd>
+</dl>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">October 30, 2018</td>
+    <td class="foot-os">libcurl 7.64.1</td>
+  </tr>
+</table>
+</body>
+</html>

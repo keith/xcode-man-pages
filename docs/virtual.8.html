@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>VIRTUAL(8)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">VIRTUAL(8)</td>
+    <td class="head-vol">System Manager's Manual</td>
+    <td class="head-rtitle">VIRTUAL(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+virtual - Postfix virtual domain mail delivery agent
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>
+<b>virtual</b> [generic Postfix daemon options]
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<br/>
+The <b>virtual</b>(8) delivery agent is designed for virtual mail hosting
+  services. Originally based on the Postfix <b>local</b>(8) delivery agent, this
+  agent looks up recipients with map lookups of their full recipient address,
+  instead of using hard-coded unix password file lookups of the address local
+  part only.
+<p class="Pp">This delivery agent only delivers mail. Other features such as
+    mail forwarding, out-of-office notifications, etc., must be configured via
+    virtual_alias maps or via similar lookup mechanisms.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MAILBOX_LOCATION"><a class="permalink" href="#MAILBOX_LOCATION">MAILBOX
+  LOCATION</a></h1>
+<pre>
+</pre>
+The mailbox location is controlled by the <b>virtual_mailbox_base</b> and
+  <b>virtual_mailbox_maps</b> configuration parameters (see below). The
+  <b>virtual_mailbox_maps</b> table is indexed by the recipient address as
+  described under TABLE SEARCH ORDER below.
+<p class="Pp">The mailbox pathname is constructed as follows:</p>
+<p class="Pp"></p>
+<pre>
+  <b>$virtual_mailbox_base/$virtual_mailbox_maps(</b><i>recipient</i><b>)</b>
+</pre>
+<p class="Pp">where <i>recipient</i> is the full recipient address.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="UNIX_MAILBOX_FORMAT"><a class="permalink" href="#UNIX_MAILBOX_FORMAT">UNIX
+  MAILBOX FORMAT</a></h1>
+<pre>
+</pre>
+When the mailbox location does not end in <b>/</b>, the message is delivered in
+  UNIX mailbox format. This format stores multiple messages in one textfile.
+<p class="Pp">The <b>virtual</b>(8) delivery agent prepends a &quot;<b>From
+    </b><i>sender</i> <i>time_stamp</i>&quot; envelope header to each message,
+    prepends a <b>Delivered-To:</b> message header with the envelope recipient
+    address, prepends an <b>X-Original-To:</b> header with the recipient address
+    as given to Postfix, prepends a <b>Return-Path:</b> message header with the
+    envelope sender address, prepends a <b>&gt;</b> character to lines beginning
+    with &quot;<b>From </b>&quot;, and appends an empty line.</p>
+<p class="Pp">The mailbox is locked for exclusive access while delivery is in
+    progress. In case of problems, an attempt is made to truncate the mailbox to
+    its original length.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="QMAIL_MAILDIR_FORMAT"><a class="permalink" href="#QMAIL_MAILDIR_FORMAT">QMAIL
+  MAILDIR FORMAT</a></h1>
+<pre>
+</pre>
+When the mailbox location ends in <b>/</b>, the message is delivered in qmail
+  <b>maildir</b> format. This format stores one message per file.
+<p class="Pp">The <b>virtual</b>(8) delivery agent prepends a
+    <b>Delivered-To:</b> message header with the final envelope recipient
+    address, prepends an <b>X-Original-To:</b> header with the recipient address
+    as given to Postfix, and prepends a <b>Return-Path:</b> message header with
+    the envelope sender address.</p>
+<p class="Pp">By definition, <b>maildir</b> format does not require
+    application-level file locking during mail delivery or retrieval.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MAILBOX_OWNERSHIP"><a class="permalink" href="#MAILBOX_OWNERSHIP">MAILBOX
+  OWNERSHIP</a></h1>
+<pre>
+</pre>
+Mailbox ownership is controlled by the <b>virtual_uid_maps</b> and
+  <b>virtual_gid_maps</b> lookup tables, which are indexed with the full
+  recipient address. Each table provides a string with the numerical user and
+  group ID, respectively.
+<p class="Pp">The <b>virtual_minimum_uid</b> parameter imposes a lower bound on
+    numerical user ID values that may be specified in any
+    <b>virtual_uid_maps</b>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CASE_FOLDING"><a class="permalink" href="#CASE_FOLDING">CASE
+  FOLDING</a></h1>
+<pre>
+</pre>
+All delivery decisions are made using the full recipient address, folded to
+  lower case. See also the next section for a few exceptions with optional
+  address extensions.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TABLE_SEARCH_ORDER"><a class="permalink" href="#TABLE_SEARCH_ORDER">TABLE
+  SEARCH ORDER</a></h1>
+<pre>
+</pre>
+Normally, a lookup table is specified as a text file that serves as input to the
+  <b>postmap</b>(1) command. The result, an indexed file in <b>dbm</b> or
+  <b>db</b> format, is used for fast searching by the mail system.
+<p class="Pp">The search order is as follows. The search stops upon the first
+    successful lookup.</p>
+<ul class="Bl-bullet">
+  <li>When the recipient has an optional address extension the
+      <i>user+extension@domain.tld</i> address is looked up first.
+    <p class="Pp">With Postfix versions before 2.1, the optional address
+        extension is always ignored.</p>
+  </li>
+  <li>The <i>user@domain.tld</i> address, without address extension, is looked
+      up next.</li>
+  <li>Finally, the recipient <i>@domain</i> is looked up.</li>
+</ul>
+<p class="Pp">When the table is provided via other means such as NIS, LDAP or
+    SQL, the same lookups are done as for ordinary indexed files.</p>
+<p class="Pp">Alternatively, a table can be provided as a regular-expression map
+    where patterns are given as regular expressions. In that case, only the full
+    recipient address is given to the regular-expression map.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SECURITY"><a class="permalink" href="#SECURITY">SECURITY</a></h1>
+<pre>
+</pre>
+The <b>virtual</b>(8) delivery agent is not security sensitive, provided that
+  the lookup tables with recipient user/group ID information are adequately
+  protected. This program is not designed to run chrooted.
+<p class="Pp">The <b>virtual</b>(8) delivery agent disallows regular expression
+    substitution of $1 etc. in regular expression lookup tables, because that
+    would open a security hole.</p>
+<p class="Pp">The <b>virtual</b>(8) delivery agent will silently ignore requests
+    to use the <b>proxymap</b>(8) server. Instead it will open the table
+    directly. Before Postfix version 2.2, the virtual delivery agent will
+    terminate with a fatal error.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
+<pre>
+RFC 822 (ARPA Internet Text Messages)
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DIAGNOSTICS"><a class="permalink" href="#DIAGNOSTICS">DIAGNOSTICS</a></h1>
+<br/>
+Mail bounces when the recipient has no mailbox or when the recipient is over
+  disk quota. In all other cases, mail for an existing recipient is deferred and
+  a warning is logged.
+<p class="Pp">Problems and transactions are logged to <b>syslogd</b>(8).
+    Corrupted message files are marked so that the queue manager can move them
+    to the <b>corrupt</b> queue afterwards.</p>
+<p class="Pp">Depending on the setting of the <b>notify_classes</b> parameter,
+    the postmaster is notified of bounces and of other trouble.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<br/>
+This delivery agent supports address extensions in email addresses and in lookup
+  table keys, but does not propagate address extension information to the result
+  of table lookup.
+<p class="Pp">Postfix should have lookup tables that can return multiple result
+    attributes. In order to avoid the inconvenience of maintaining three tables,
+    use an LDAP or MYSQL database.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION_PARAMETERS"><a class="permalink" href="#CONFIGURATION_PARAMETERS">CONFIGURATION
+  PARAMETERS</a></h1>
+<pre>
+</pre>
+Changes to <b>main.cf</b> are picked up automatically, as <b>virtual</b>(8)
+  processes run for only a limited amount of time. Use the command
+  &quot;<b>postfix reload</b>&quot; to speed up a change.
+<p class="Pp">The text below provides only a parameter summary. See
+    <b>postconf</b>(5) for more details including examples.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MAILBOX_DELIVERY_CONTROLS"><a class="permalink" href="#MAILBOX_DELIVERY_CONTROLS">MAILBOX
+  DELIVERY CONTROLS</a></h1>
+<pre>
+</pre>
+<dl class="Bl-tag">
+  <dt><b>virtual_mailbox_base (empty)</b></dt>
+  <dd>A prefix that the <b>virtual</b>(8) delivery agent prepends to all
+      pathname results from $virtual_mailbox_maps table lookups.</dd>
+  <dt><b>virtual_mailbox_maps (empty)</b></dt>
+  <dd>Optional lookup tables with all valid addresses in the domains that match
+      $virtual_mailbox_domains.</dd>
+  <dt><b>virtual_minimum_uid (100)</b></dt>
+  <dd>The minimum user ID value that the <b>virtual</b>(8) delivery agent
+      accepts as a result from $virtual_uid_maps table lookup.</dd>
+  <dt><b>virtual_uid_maps (empty)</b></dt>
+  <dd>Lookup tables with the per-recipient user ID that the <b>virtual</b>(8)
+      delivery agent uses while writing to the recipient's mailbox.</dd>
+  <dt><b>virtual_gid_maps (empty)</b></dt>
+  <dd>Lookup tables with the per-recipient group ID for <b>virtual</b>(8)
+      mailbox delivery.</dd>
+</dl>
+<p class="Pp">Available in Postfix version 2.0 and later:</p>
+<dl class="Bl-tag">
+  <dt><b>virtual_mailbox_domains ($virtual_mailbox_maps)</b></dt>
+  <dd>Postfix is final destination for the specified list of domains; mail is
+      delivered via the $virtual_transport mail delivery transport.</dd>
+  <dt><b>virtual_transport (virtual)</b></dt>
+  <dd>The default mail delivery transport and next-hop destination for final
+      delivery to domains listed with $virtual_mailbox_domains.</dd>
+</dl>
+<p class="Pp">Available in Postfix version 2.5.3 and later:</p>
+<dl class="Bl-tag">
+  <dt><b>strict_mailbox_ownership (yes)</b></dt>
+  <dd>Defer delivery when a mailbox file is not owned by its recipient.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LOCKING_CONTROLS"><a class="permalink" href="#LOCKING_CONTROLS">LOCKING
+  CONTROLS</a></h1>
+<pre>
+</pre>
+<dl class="Bl-tag">
+  <dt><b>virtual_mailbox_lock (see 'postconf -d' output)</b></dt>
+  <dd>How to lock a UNIX-style <b>virtual</b>(8) mailbox before attempting
+      delivery.</dd>
+  <dt><b>deliver_lock_attempts (20)</b></dt>
+  <dd>The maximal number of attempts to acquire an exclusive lock on a mailbox
+      file or <b>bounce</b>(8) logfile.</dd>
+  <dt><b>deliver_lock_delay (1s)</b></dt>
+  <dd>The time between attempts to acquire an exclusive lock on a mailbox file
+      or <b>bounce</b>(8) logfile.</dd>
+  <dt><b>stale_lock_time (500s)</b></dt>
+  <dd>The time after which a stale exclusive mailbox lockfile is removed.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RESOURCE_AND_RATE_CONTROLS"><a class="permalink" href="#RESOURCE_AND_RATE_CONTROLS">RESOURCE
+  AND RATE CONTROLS</a></h1>
+<pre>
+</pre>
+<dl class="Bl-tag">
+  <dt><b>virtual_destination_concurrency_limit
+    ($default_destination_concurrency_limit)</b></dt>
+  <dd>The maximal number of parallel deliveries to the same destination via the
+      virtual message delivery transport.</dd>
+  <dt><b>virtual_destination_recipient_limit
+    ($default_destination_recipient_limit)</b></dt>
+  <dd>The maximal number of recipients per message for the virtual message
+      delivery transport.</dd>
+  <dt><b>virtual_mailbox_limit (51200000)</b></dt>
+  <dd>The maximal size in bytes of an individual <b>virtual</b>(8) mailbox or
+      maildir file, or zero (no limit).</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MISCELLANEOUS_CONTROLS"><a class="permalink" href="#MISCELLANEOUS_CONTROLS">MISCELLANEOUS
+  CONTROLS</a></h1>
+<pre>
+</pre>
+<dl class="Bl-tag">
+  <dt><b>config_directory (see 'postconf -d' output)</b></dt>
+  <dd>The default location of the Postfix main.cf and master.cf configuration
+      files.</dd>
+  <dt><b>daemon_timeout (18000s)</b></dt>
+  <dd>How much time a Postfix daemon process may take to handle a request before
+      it is terminated by a built-in watchdog timer.</dd>
+  <dt><b>delay_logging_resolution_limit (2)</b></dt>
+  <dd>The maximal number of digits after the decimal point when logging
+      sub-second delay values.</dd>
+  <dt><b>ipc_timeout (3600s)</b></dt>
+  <dd>The time limit for sending or receiving information over an internal
+      communication channel.</dd>
+  <dt><b>max_idle (100s)</b></dt>
+  <dd>The maximum amount of time that an idle Postfix daemon process waits for
+      an incoming connection before terminating voluntarily.</dd>
+  <dt><b>max_use (100)</b></dt>
+  <dd>The maximal number of incoming connections that a Postfix daemon process
+      will service before terminating voluntarily.</dd>
+  <dt><b>process_id (read-only)</b></dt>
+  <dd>The process ID of a Postfix command or daemon process.</dd>
+  <dt><b>process_name (read-only)</b></dt>
+  <dd>The process name of a Postfix command or daemon process.</dd>
+  <dt><b>queue_directory (see 'postconf -d' output)</b></dt>
+  <dd>The location of the Postfix top-level queue directory.</dd>
+  <dt><b>syslog_facility (mail)</b></dt>
+  <dd>The syslog facility of Postfix logging.</dd>
+  <dt><b>syslog_name (see 'postconf -d' output)</b></dt>
+  <dd>A prefix that is prepended to the process name in syslog records, so that,
+      for example, &quot;smtpd&quot; becomes &quot;prefix/smtpd&quot;.</dd>
+</dl>
+<p class="Pp">Available in Postfix version 3.0 and later:</p>
+<dl class="Bl-tag">
+  <dt><b>virtual_delivery_status_filter
+    ($default_delivery_status_filter)</b></dt>
+  <dd>Optional filter for the <b>virtual</b>(8) delivery agent to change the
+      delivery status code or explanatory text of successful or unsuccessful
+      deliveries.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<pre>
+qmgr(8), queue manager
+bounce(8), delivery status reports
+postconf(5), configuration parameters
+syslogd(8), system logging
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="README_FILES"><a class="permalink" href="#README_FILES">README_FILES</a></h1>
+<pre>
+Use &quot;<b>postconf readme_directory</b>&quot; or
+&quot;<b>postconf html_directory</b>&quot; to locate this information.
+VIRTUAL_README, domain hosting howto
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LICENSE"><a class="permalink" href="#LICENSE">LICENSE</a></h1>
+<pre>
+</pre>
+The Secure Mailer license must be distributed with this software.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+<br/>
+<br/>
+This delivery agent was originally based on the Postfix local delivery agent.
+  Modifications mainly consisted of removing code that either was not applicable
+  or that was not safe in this context: aliases, ~user/.forward files, delivery
+  to &quot;|command&quot; or to /file/name.
+<p class="Pp">The <b>Delivered-To:</b> message header appears in the
+    <b>qmail</b> system by Daniel Bernstein.</p>
+<p class="Pp">The <b>maildir</b> structure appears in the <b>qmail</b> system by
+    Daniel Bernstein.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR(S)"><a class="permalink" href="#AUTHOR(S)">AUTHOR(S)</a></h1>
+<pre>
+Wietse Venema
+IBM T.J. Watson Research
+P.O. Box 704
+Yorktown Heights, NY 10598, USA
+Wietse Venema
+Google, Inc.
+111 8th Avenue
+New York, NY 10011, USA
+Andrew McNamara
+andrewm@connect.com.au
+connect.com.au Pty. Ltd.
+Level 3, 213 Miller St
+North Sydney 2060, NSW, Australia
+</pre>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date"></td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+</body>
+</html>

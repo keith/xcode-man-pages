@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>SLAPO-TRANSLUCENT(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SLAPO-TRANSLUCENT(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">SLAPO-TRANSLUCENT(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+slapo-translucent - Translucent Proxy overlay to slapd
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+/etc/openldap/slapd.conf
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The Translucent Proxy overlay can be used with a backend database such as
+  <b>slapd-bdb</b>(5) to create a &quot;translucent proxy&quot;. Entries
+  retrieved from a remote LDAP server may have some or all attributes
+  overridden, or new attributes added, by entries in the local database before
+  being presented to the client.
+<p class="Pp">A <b>search</b> operation is first populated with entries from the
+    remote LDAP server, the attributes of which are then overridden with any
+    attributes defined in the local database. Local overrides may be populated
+    with the <b>add</b>, <b>modify ,</b> and <b>modrdn</b> operations, the use
+    of which is restricted to the root user.</p>
+<p class="Pp">A <b>compare</b> operation will perform a comparison with
+    attributes defined in the local database record (if any) before any
+    comparison is made with data in the remote database.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION"><a class="permalink" href="#CONFIGURATION">CONFIGURATION</a></h1>
+The Translucent Proxy overlay uses a proxied database, typically a (set of)
+  remote LDAP server(s), which is configured with the options shown in
+  <b>slapd-ldap</b>(5), <b>slapd-meta</b>(5) or similar. These <b>slapd.conf</b>
+  options are specific to the Translucent Proxy overlay; they must appear after
+  the <b>overlay</b> directive that instantiates the <b>translucent</b> overlay.
+<dl class="Bl-tag">
+  <dt><b>translucent_strict</b></dt>
+  <dd>By default, attempts to delete attributes in either the local or remote
+      databases will be silently ignored. The <b>translucent_strict</b>
+      directive causes these modifications to fail with a Constraint
+    Violation.</dd>
+  <dt><b>translucent_no_glue</b></dt>
+  <dd>This configuration option disables the automatic creation of
+      &quot;glue&quot; records for an <b>add</b> or <b>modrdn</b> operation,
+      such that all parents of an entry added to the local database must be
+      created by hand. Glue records are always created for a <b>modify</b>
+      operation.</dd>
+  <dt><b>translucent_local &lt;attr[,attr...]&gt;</b></dt>
+  <dd>Specify a list of attributes that should be searched for in the local
+      database when used in a search filter. By default, search filters are only
+      handled by the remote database. With this directive, search filters will
+      be split into a local and remote portion, and local attributes will be
+      searched locally.</dd>
+  <dt><b>translucent_remote &lt;attr[,attr...]&gt;</b></dt>
+  <dd>Specify a list of attributes that should be searched for in the remote
+      database when used in a search filter. This directive complements the
+      <b>translucent_local</b> directive. Attributes may be specified as both
+      local and remote if desired.</dd>
+</dl>
+<p class="Pp">If neither <b>translucent_local</b> nor <b>translucent_remote</b>
+    are specified, the default behavior is to search the remote database with
+    the complete search filter. If only <b>translucent_local</b> is specified,
+    searches will only be run on the local database. Likewise, if only
+    <b>translucent_remote</b> is specified, searches will only be run on the
+    remote database. In any case, both the local and remote entries
+    corresponding to a search result will be merged before being returned to the
+    client.</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>translucent_bind_local</b></dt>
+  <dd>Enable looking for locally stored credentials for simple bind when binding
+      to the remote database fails. Disabled by default.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>translucent_pwmod_local</b></dt>
+  <dd>Enable RFC 3062 Password Modification extended operation on locally stored
+      credentials. The operation only applies to entries that exist in the
+      remote database. Disabled by default.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACCESS_CONTROL"><a class="permalink" href="#ACCESS_CONTROL">ACCESS
+  CONTROL</a></h1>
+Access control is delegated to either the remote DSA(s) or to the local database
+  backend for <b>auth</b> and <b>write</b> operations. It is delegated to the
+  remote DSA(s) and to the frontend for <b>read</b> operations. Local access
+  rules involving data returned by the remote DSA(s) should be designed with
+  care. In fact, entries are returned by the remote DSA(s) only based on the
+  remote fraction of the data, based on the identity the operation is performed
+  as. As a consequence, local rules might only be allowed to see a portion of
+  the remote data.
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
+The Translucent Proxy overlay will disable schema checking in the local
+  database, so that an entry consisting of overlay attributes need not adhere to
+  the complete schema.
+<p class="Pp">Because the translucent overlay does not perform any DN rewrites,
+    the local and remote database instances must have the same suffix. Other
+    configurations will probably fail with No Such Object and other errors.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt>/etc/openldap/slapd.conf</dt>
+  <dd>default slapd configuration file</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>slapd.conf</b>(5), <b>slapd-config</b>(5), <b>slapd-ldap</b>(5).
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2011/11/24</td>
+    <td class="foot-os">OpenLDAP 2.4.28</td>
+  </tr>
+</table>
+</body>
+</html>

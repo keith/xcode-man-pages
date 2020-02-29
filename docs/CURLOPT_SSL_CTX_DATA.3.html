@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   **************************************************************************
+   *                                  _   _ ____  _
+   *  Project                     ___| | | |  _ \| |
+   *                             / __| | | | |_) | |
+   *                            | (__| |_| |  _ <| |___
+   *                             \___|\___/|_| \_\_____|
+   *
+   * Copyright (C) 1998 - 2017, Daniel Stenberg, <daniel@haxx.se>, et al.
+   *
+   * This software is licensed as described in the file COPYING, which
+   * you should have received as part of this distribution. The terms
+   * are also available at https://curl.haxx.se/docs/copyright.html.
+   *
+   * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+   * copies of the Software, and permit persons to whom the Software is
+   * furnished to do so, under the terms of the COPYING file.
+   *
+   * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+   * KIND, either express or implied.
+   *
+   **************************************************************************
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>CURLOPT_SSL_CTX_DATA(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">CURLOPT_SSL_CTX_DATA(3)</td>
+    <td class="head-vol">curl_easy_setopt options</td>
+    <td class="head-rtitle">CURLOPT_SSL_CTX_DATA(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<p class="Pp"></p>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+CURLOPT_SSL_CTX_DATA - custom pointer passed to ssl_ctx callback
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+#include &lt;curl/curl.h&gt;
+<p class="Pp">CURLcode curl_easy_setopt(CURL *handle, CURLOPT_SSL_CTX_DATA, void
+    *pointer);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+Data <i>pointer</i> to pass to the ssl context callback set by the option
+  <i>CURLOPT_SSL_CTX_FUNCTION(3)</i>, this is the pointer you'll get as third
+  parameter.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DEFAULT"><a class="permalink" href="#DEFAULT">DEFAULT</a></h1>
+NULL
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PROTOCOLS"><a class="permalink" href="#PROTOCOLS">PROTOCOLS</a></h1>
+All TLS based protocols: HTTPS, FTPS, IMAPS, POP3S, SMTPS etc.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<pre>
+/* OpenSSL specific */
+#include &lt;openssl/ssl.h&gt;
+#include &lt;curl/curl.h&gt;
+#include &lt;stdio.h&gt;
+static CURLcode sslctx_function(CURL *curl, void *sslctx, void *parm)
+{
+  X509_STORE *store;
+  X509 *cert=NULL;
+  BIO *bio;
+  char *mypem = (char *)parm;
+  /* get a BIO */
+  bio=BIO_new_mem_buf(mypem, -1);
+  /* use it to read the PEM formatted certificate from memory into an
+   * X509 structure that SSL can use
+   */
+  PEM_read_bio_X509(bio, &amp;cert, 0, NULL);
+  if(cert == NULL)
+    printf(&quot;PEM_read_bio_X509 failed...\n&quot;);
+  /* get a pointer to the X509 certificate store (which may be empty) */
+  store=SSL_CTX_get_cert_store((SSL_CTX *)sslctx);
+  /* add our certificate to this store */
+  if(X509_STORE_add_cert(store, cert)==0)
+    printf(&quot;error adding certificate\n&quot;);
+  /* decrease reference counts */
+  X509_free(cert);
+  BIO_free(bio);
+  /* all set to go */
+  return CURLE_OK;
+}
+int main(void)
+{
+  CURL * ch;
+  CURLcode rv;
+  char *mypem = /* example CA cert PEM - shortened */
+    &quot;-----BEGIN CERTIFICATE-----\n&quot;
+    &quot;MIIHPTCCBSWgAwIBAgIBADANBgkqhkiG9w0BAQQFADB5MRAwDgYDVQQKEwdSb290\n&quot;
+    &quot;IENBMR4wHAYDVQQLExVodHRwOi8vd3d3LmNhY2VydC5vcmcxIjAgBgNVBAMTGUNB\n&quot;
+    &quot;IENlcnQgU2lnbmluZyBBdXRob3JpdHkxITAfBgkqhkiG9w0BCQEWEnN1cHBvcnRA\n&quot;
+    &quot;Y2FjZXJ0Lm9yZzAeFw0wMzAzMzAxMjI5NDlaFw0zMzAzMjkxMjI5NDlaMHkxEDAO\n&quot;
+    &quot;GCSNe9FINSkYQKyTYOGWhlC0elnYjyELn8+CkcY7v2vcB5G5l1YjqrZslMZIBjzk\n&quot;
+    &quot;zk6q5PYvCdxTby78dOs6Y5nCpqyJvKeyRKANihDjbPIky/qbn3BHLt4Ui9SyIAmW\n&quot;
+    &quot;omTxJBzcoTWcFbLUvFUufQb1nA5V9FrWk9p2rSVzTMVD\n&quot;
+    &quot;-----END CERTIFICATE-----\n&quot;;
+  rv=curl_global_init(CURL_GLOBAL_ALL);
+  ch=curl_easy_init();
+  rv=curl_easy_setopt(ch, CURLOPT_SSLCERTTYPE, &quot;PEM&quot;);
+  rv=curl_easy_setopt(ch, CURLOPT_SSL_VERIFYPEER, 1L);
+  rv=curl_easy_setopt(ch, CURLOPT_URL, &quot;https://www.example.com/&quot;);
+  /* Retrieve page using cacerts' certificate -&gt; will succeed
+   * load the certificate by installing a function doing the necessary
+   * &quot;modifications&quot; to the SSL CONTEXT just before link init
+   */
+  rv=curl_easy_setopt(ch, CURLOPT_SSL_CTX_FUNCTION, *sslctx_function);
+  rv=curl_easy_setopt(ch, CURLOPT_SSL_CTX_DATA, mypem);
+  rv=curl_easy_perform(ch);
+  if(rv==CURLE_OK)
+    printf(&quot;*** transfer succeeded ***\n&quot;);
+  else
+    printf(&quot;*** transfer failed ***\n&quot;);
+  curl_easy_cleanup(ch);
+  curl_global_cleanup();
+  return rv;
+}
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
+Added in 7.11.0 for OpenSSL. Added in 7.42.0 for wolfSSL/CyaSSL. Other SSL
+  backends not supported.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+CURLE_OK if supported; or an error such as:
+<p class="Pp">CURLE_NOT_BUILT_IN - Not supported by the SSL backend</p>
+<p class="Pp">CURLE_UNKNOWN_OPTION</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>CURLOPT_SSL_CTX_FUNCTION</b>(3), <b>CURLOPT_SSLVERSION</b>(3),
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">May 31, 2017</td>
+    <td class="foot-os">libcurl 7.64.1</td>
+  </tr>
+</table>
+</body>
+</html>

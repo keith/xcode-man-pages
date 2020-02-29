@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   **************************************************************************
+   *                                  _   _ ____  _
+   *  Project                     ___| | | |  _ \| |
+   *                             / __| | | | |_) | |
+   *                            | (__| |_| |  _ <| |___
+   *                             \___|\___/|_| \_\_____|
+   *
+   * Copyright (C) 1998 - 2017, Daniel Stenberg, <daniel@haxx.se>, et al.
+   *
+   * This software is licensed as described in the file COPYING, which
+   * you should have received as part of this distribution. The terms
+   * are also available at https://curl.haxx.se/docs/copyright.html.
+   *
+   * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+   * copies of the Software, and permit persons to whom the Software is
+   * furnished to do so, under the terms of the COPYING file.
+   *
+   * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+   * KIND, either express or implied.
+   *
+   **************************************************************************
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>CURLOPT_SSH_KEYFUNCTION(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">CURLOPT_SSH_KEYFUNCTION(3)</td>
+    <td class="head-vol">curl_easy_setopt options</td>
+    <td class="head-rtitle">CURLOPT_SSH_KEYFUNCTION(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<p class="Pp"></p>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+CURLOPT_SSH_KEYFUNCTION - callback for known host matching logic
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>
+#include &lt;curl/curl.h&gt;
+enum curl_khstat {
+  CURLKHSTAT_FINE_ADD_TO_FILE,
+  CURLKHSTAT_FINE,
+  CURLKHSTAT_REJECT, /* reject the connection, return an error */
+  CURLKHSTAT_DEFER,  /* do not accept it, but we can't answer right
+                        now so this causes a CURLE_DEFER error but
+                        otherwise the connection will be left intact
+                        etc */
+};
+enum curl_khmatch {
+  CURLKHMATCH_OK,       /* match */
+  CURLKHMATCH_MISMATCH, /* host found, key mismatch! */
+  CURLKHMATCH_MISSING,  /* no matching host/key found */
+};
+struct curl_khkey {
+  const char *key; /* points to a zero-terminated string encoded with
+                      base64 if len is zero, otherwise to the &quot;raw&quot;
+                      data */
+  size_t len;
+  enum curl_khtype keytype;
+};
+int ssh_keycallback(CURL *easy,
+                    const struct curl_khkey *knownkey,
+                    const struct curl_khkey *foundkey,
+                    enum curl_khmatch,
+                    void *clientp);
+CURLcode curl_easy_setopt(CURL *handle, CURLOPT_SSH_KEYFUNCTION,
+                          ssh_keycallback);
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+Pass a pointer to your callback function, which should match the prototype shown
+  above.
+<p class="Pp">It gets called when the known_host matching has been done, to
+    allow the application to act and decide for libcurl how to proceed. The
+    callback will only be called if <i>CURLOPT_SSH_KNOWNHOSTS(3)</i> is also
+    set.</p>
+<p class="Pp">This callback function gets passed the CURL handle, the key from
+    the known_hosts file <i>knownkey</i>, the key from the remote site
+    <i>foundkey</i>, info from libcurl on the matching status and a custom
+    pointer (set with <i>CURLOPT_SSH_KEYDATA(3)</i>). It MUST return one of the
+    following return codes to tell libcurl how to act:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt>CURLKHSTAT_FINE_ADD_TO_FILE</dt>
+  <dd>The host+key is accepted and libcurl will append it to the known_hosts
+      file before continuing with the connection. This will also add the
+      host+key combo to the known_host pool kept in memory if it wasn't already
+      present there. The adding of data to the file is done by completely
+      replacing the file with a new copy, so the permissions of the file must
+      allow this.</dd>
+  <dt>CURLKHSTAT_FINE</dt>
+  <dd>The host+key is accepted libcurl will continue with the connection. This
+      will also add the host+key combo to the known_host pool kept in memory if
+      it wasn't already present there.</dd>
+  <dt>CURLKHSTAT_REJECT</dt>
+  <dd>The host+key is rejected. libcurl will deny the connection to continue and
+      it will be closed.</dd>
+  <dt>CURLKHSTAT_DEFER</dt>
+  <dd>The host+key is rejected, but the SSH connection is asked to be kept
+      alive. This feature could be used when the app wants to somehow return
+      back and act on the host+key situation and then retry without needing the
+      overhead of setting it up from scratch again.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DEFAULT"><a class="permalink" href="#DEFAULT">DEFAULT</a></h1>
+NULL
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PROTOCOLS"><a class="permalink" href="#PROTOCOLS">PROTOCOLS</a></h1>
+SFTP and SCP
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<pre>
+static int keycb(CURL *easy,
+                 const struct curl_khkey *knownkey,
+                 const struct curl_khkey *foundkey,
+                 enum curl_khmatch,
+                 void *clientp)
+{
+  /* 'clientp' points to the callback_data struct */
+  /* investigate the situation and return the correct value */
+  return CURLKHSTAT_FINE_ADD_TO_FILE;
+}
+{
+  curl_easy_setopt(curl, CURLOPT_URL, &quot;sftp://example.com/thisfile.txt&quot;);
+  curl_easy_setopt(curl, CURLOPT_SSH_KEYFUNCTION, keycb);
+  curl_easy_setopt(curl, CURLOPT_SSH_KEYDATA, &amp;callback_data);
+  curl_easy_setopt(curl, CURLOPT_SSH_KNOWNHOSTS, &quot;/home/user/known_hosts&quot;);
+  curl_easy_perform(curl);
+}
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
+Added in 7.19.6
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>CURLOPT_SSH_KEYDATA</b>(3), <b>CURLOPT_SSH_KNOWNHOSTS</b>(3),
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">May 31, 2017</td>
+    <td class="foot-os">libcurl 7.64.1</td>
+  </tr>
+</table>
+</body>
+</html>

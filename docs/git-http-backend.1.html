@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   t
+       Title: git-http-backend
+      Author: [FIXME: author] [see http://docbook.sf.net/el/author]
+   Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+        Date: 02/24/2019
+      Manual: Git Manual
+      Source: Git 2.21.0
+    Language: English
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>GIT-HTTP-BACKEND(1)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">GIT-HTTP-BACKEND(1)</td>
+    <td class="head-vol">Git Manual</td>
+    <td class="head-rtitle">GIT-HTTP-BACKEND(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+git-http-backend - Server side implementation of Git over HTTP
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>
+<i>git http-backend</i>
+</pre>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+A simple CGI program to serve the contents of a Git repository to Git clients
+  accessing the repository over http:// and https:// protocols. The program
+  supports clients fetching using both the smart HTTP protocol and the
+  backwards-compatible dumb HTTP protocol, as well as clients pushing using the
+  smart HTTP protocol.
+<p class="Pp">It verifies that the directory has the magic file
+    &quot;git-daemon-export-ok&quot;, and it will refuse to export any Git
+    directory that hasn&#x2019;t explicitly been marked for export this way
+    (unless the <b>GIT_HTTP_EXPORT_ALL</b> environmental variable is set).</p>
+<p class="Pp">By default, only the <b>upload-pack</b> service is enabled, which
+    serves <i>git fetch-pack</i> and <i>git ls-remote</i> clients, which are
+    invoked from <i>git fetch</i>, <i>git pull</i>, and <i>git clone</i>. If the
+    client is authenticated, the <b>receive-pack</b> service is enabled, which
+    serves <i>git send-pack</i> clients, which is invoked from <i>git
+  push</i>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SERVICES"><a class="permalink" href="#SERVICES">SERVICES</a></h1>
+These services can be enabled/disabled using the per-repository configuration
+  file:
+<p class="Pp">http.getanyfile</p>
+<div class="Bd-indent">This serves Git clients older than version 1.6.6 that are
+  unable to use the upload pack service. When enabled, clients are able to read
+  any file within the repository, including objects that are no longer reachable
+  from a branch but are still present. It is enabled by default, but a
+  repository can disable it by setting this configuration item to
+  <b>false</b>.</div>
+<p class="Pp">http.uploadpack</p>
+<div class="Bd-indent">This serves <i>git fetch-pack</i> and <i>git
+  ls-remote</i> clients. It is enabled by default, but a repository can disable
+  it by setting this configuration item to <b>false</b>.</div>
+<p class="Pp">http.receivepack</p>
+<div class="Bd-indent">This serves <i>git send-pack</i> clients, allowing push.
+  It is disabled by default for anonymous users, and enabled by default for
+  users authenticated by the web server. It can be disabled by setting this item
+  to <b>false</b>, or enabled for all users, including anonymous users, by
+  setting it to <b>true</b>.</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="URL_TRANSLATION"><a class="permalink" href="#URL_TRANSLATION">URL
+  TRANSLATION</a></h1>
+To determine the location of the repository on disk, <i>git http-backend</i>
+  concatenates the environment variables PATH_INFO, which is set automatically
+  by the web server, and GIT_PROJECT_ROOT, which must be set manually in the web
+  server configuration. If GIT_PROJECT_ROOT is not set, <i>git http-backend</i>
+  reads PATH_TRANSLATED, which is also set automatically by the web server.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+All of the following examples map <b>http://$hostname/git/foo/bar.git</b> to
+  <b>/var/www/git/foo/bar.git</b>.
+<p class="Pp">Apache 2.x</p>
+<div class="Bd-indent">Ensure mod_cgi, mod_alias, and mod_env are enabled, set
+  GIT_PROJECT_ROOT (or DocumentRoot) appropriately, and create a ScriptAlias to
+  the CGI:
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+SetEnv GIT_PROJECT_ROOT /var/www/git
+SetEnv GIT_HTTP_EXPORT_ALL
+ScriptAlias /git/ /usr/libexec/git-core/git-http-backend/
+</pre>
+</div>
+<p class="Pp">To enable anonymous read access but authenticated write access,
+    require authorization for both the initial ref advertisement (which we
+    detect as a push via the service parameter in the query string), and the
+    receive-pack invocation itself:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+RewriteCond %{QUERY_STRING} service=git-receive-pack [OR]
+RewriteCond %{REQUEST_URI} /git-receive-pack$
+RewriteRule ^/git/ - [E=AUTHREQUIRED:yes]
+&lt;LocationMatch &quot;^/git/&quot;&gt;
+        Order Deny,Allow
+        Deny from env=AUTHREQUIRED
+        AuthType Basic
+        AuthName &quot;Git Access&quot;
+        Require group committers
+        Satisfy Any
+        ...
+&lt;/LocationMatch&gt;
+</pre>
+</div>
+<p class="Pp">If you do not have <b>mod_rewrite</b> available to match against
+    the query string, it is sufficient to just protect <b>git-receive-pack</b>
+    itself, like:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+&lt;LocationMatch &quot;^/git/.*/git-receive-pack$&quot;&gt;
+        AuthType Basic
+        AuthName &quot;Git Access&quot;
+        Require group committers
+        ...
+&lt;/LocationMatch&gt;
+</pre>
+</div>
+<p class="Pp">In this mode, the server will not request authentication until the
+    client actually starts the object negotiation phase of the push, rather than
+    during the initial contact. For this reason, you must also enable the
+    <b>http.receivepack</b> config option in any repositories that should accept
+    a push. The default behavior, if <b>http.receivepack</b> is not set, is to
+    reject any pushes by unauthenticated users; the initial request will
+    therefore report <b>403 Forbidden</b> to the client, without even giving an
+    opportunity for authentication.</p>
+<p class="Pp">To require authentication for both reads and writes, use a
+    Location directive around the repository, or one of its parent
+  directories:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+&lt;Location /git/private&gt;
+        AuthType Basic
+        AuthName &quot;Private Git Access&quot;
+        Require group committers
+        ...
+&lt;/Location&gt;
+</pre>
+</div>
+<p class="Pp">To serve gitweb at the same url, use a ScriptAliasMatch to only
+    those URLs that <i>git http-backend</i> can handle, and forward the rest to
+    gitweb:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+ScriptAliasMatch \
+        &quot;(?x)^/git/(.*/(HEAD | \
+                        info/refs | \
+                        objects/(info/[^/]+ | \
+                                 [0-9a-f]{2}/[0-9a-f]{38} | \
+                                 pack/pack-[0-9a-f]{40}\.(pack|idx)) | \
+                        git-(upload|receive)-pack))$&quot; \
+        /usr/libexec/git-core/git-http-backend/$1
+ScriptAlias /git/ /var/www/cgi-bin/gitweb.cgi/
+</pre>
+</div>
+<p class="Pp">To serve multiple repositories from different
+    <b>gitnamespaces</b>(7) in a single repository:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+SetEnvIf Request_URI &quot;^/git/([^/]*)&quot; GIT_NAMESPACE=$1
+ScriptAliasMatch ^/git/[^/]*(.*) /usr/libexec/git-core/git-http-backend/storage.git$1
+</pre>
+</div>
+<p class="Pp"></p>
+</div>
+<p class="Pp">Accelerated static Apache 2.x</p>
+<div class="Bd-indent">Similar to the above, but Apache can be used to return
+  static files that are stored on disk. On many systems this may be more
+  efficient as Apache can ask the kernel to copy the file contents from the file
+  system directly to the network:
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+SetEnv GIT_PROJECT_ROOT /var/www/git
+AliasMatch ^/git/(.*/objects/[0-9a-f]{2}/[0-9a-f]{38})$          /var/www/git/$1
+AliasMatch ^/git/(.*/objects/pack/pack-[0-9a-f]{40}.(pack|idx))$ /var/www/git/$1
+ScriptAlias /git/ /usr/libexec/git-core/git-http-backend/
+</pre>
+</div>
+<p class="Pp">This can be combined with the gitweb configuration:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+SetEnv GIT_PROJECT_ROOT /var/www/git
+AliasMatch ^/git/(.*/objects/[0-9a-f]{2}/[0-9a-f]{38})$          /var/www/git/$1
+AliasMatch ^/git/(.*/objects/pack/pack-[0-9a-f]{40}.(pack|idx))$ /var/www/git/$1
+ScriptAliasMatch \
+        &quot;(?x)^/git/(.*/(HEAD | \
+                        info/refs | \
+                        objects/info/[^/]+ | \
+                        git-(upload|receive)-pack))$&quot; \
+        /usr/libexec/git-core/git-http-backend/$1
+ScriptAlias /git/ /var/www/cgi-bin/gitweb.cgi/
+</pre>
+</div>
+<p class="Pp"></p>
+</div>
+<p class="Pp">Lighttpd</p>
+<div class="Bd-indent">Ensure that <b>mod_cgi</b>, <b>mod_alias</b>,
+  <b>mod_auth</b>, <b>mod_setenv</b> are loaded, then set
+  <b>GIT_PROJECT_ROOT</b> appropriately and redirect all requests to the CGI:
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+alias.url += ( &quot;/git&quot; =&gt; &quot;/usr/lib/git-core/git-http-backend&quot; )
+$HTTP[&quot;url&quot;] =~ &quot;^/git&quot; {
+        cgi.assign = (&quot;&quot; =&gt; &quot;&quot;)
+        setenv.add-environment = (
+                &quot;GIT_PROJECT_ROOT&quot; =&gt; &quot;/var/www/git&quot;,
+                &quot;GIT_HTTP_EXPORT_ALL&quot; =&gt; &quot;&quot;
+        )
+}
+</pre>
+</div>
+<p class="Pp">To enable anonymous read access but authenticated write
+  access:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$HTTP[&quot;querystring&quot;] =~ &quot;service=git-receive-pack&quot; {
+        include &quot;git-auth.conf&quot;
+}
+$HTTP[&quot;url&quot;] =~ &quot;^/git/.*/git-receive-pack$&quot; {
+        include &quot;git-auth.conf&quot;
+}
+</pre>
+</div>
+<p class="Pp">where <b>git-auth.conf</b> looks something like:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+auth.require = (
+        &quot;/&quot; =&gt; (
+                &quot;method&quot; =&gt; &quot;basic&quot;,
+                &quot;realm&quot; =&gt; &quot;Git Access&quot;,
+                &quot;require&quot; =&gt; &quot;valid-user&quot;
+               )
+)
+# ...and set up auth.backend here
+</pre>
+</div>
+<p class="Pp">To require authentication for both reads and writes:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$HTTP[&quot;url&quot;] =~ &quot;^/git/private&quot; {
+        include &quot;git-auth.conf&quot;
+}
+</pre>
+</div>
+<p class="Pp"></p>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
+<i>git http-backend</i> relies upon the <b>CGI</b> environment variables set by
+  the invoking web server, including:
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;PATH_INFO (if GIT_PROJECT_ROOT is set, otherwise
+  PATH_TRANSLATED)</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;REMOTE_USER</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;REMOTE_ADDR</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;CONTENT_TYPE</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;QUERY_STRING</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;REQUEST_METHOD</div>
+<p class="Pp">The <b>GIT_HTTP_EXPORT_ALL</b> environmental variable may be
+    passed to <i>git-http-backend</i> to bypass the check for the
+    &quot;git-daemon-export-ok&quot; file in each repository before allowing
+    export of that repository.</p>
+<p class="Pp">The <b>GIT_HTTP_MAX_REQUEST_BUFFER</b> environment variable (or
+    the <b>http.maxRequestBuffer</b> config variable) may be set to change the
+    largest ref negotiation request that git will handle during a fetch; any
+    fetch requiring a larger buffer will not succeed. This value should not
+    normally need to be changed, but may be helpful if you are fetching from a
+    repository with an extremely large number of refs. The value can be
+    specified with a unit (e.g., <b>100M</b> for 100 megabytes). The default is
+    10 megabytes.</p>
+<p class="Pp">The backend process sets GIT_COMMITTER_NAME to <i>$REMOTE_USER</i>
+    and GIT_COMMITTER_EMAIL to <i>${REMOTE_USER}@http.${REMOTE_ADDR}</i>,
+    ensuring that any reflogs created by <i>git-receive-pack</i> contain some
+    identifying information of the remote user who performed the push.</p>
+<p class="Pp">All <b>CGI</b> environment variables are available to each of the
+    hooks invoked by the <i>git-receive-pack</i>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="GIT"><a class="permalink" href="#GIT">GIT</a></h1>
+Part of the <b>git</b>(1) suite
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">02/24/2019</td>
+    <td class="foot-os">Git 2.21.0</td>
+  </tr>
+</table>
+</body>
+</html>

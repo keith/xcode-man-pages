@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+  " Copyright (c) 2017 Apple Inc. All Rights Reserved.
+  "
+  " IMPORTANT NOTE: This file is licensed only for use on Apple-branded
+  " computers and is subject to the terms and conditions of the Apple Software
+  " License Agreement accompanying the package this file is a part of.
+  " You may not port this file to another platform without Apple's written consent.
+  "
+ -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>wfsctl(8)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">wfsctl(8)</td>
+    <td class="head-vol">System Manager's Manual</td>
+    <td class="head-rtitle">wfsctl(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">wfsctl</code> &#x2014;
+<div class="Nd">WebDAV File Sharing control utility</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSYS"><a class="permalink" href="#SYNOPSYS">SYNOPSYS</a></h1>
+<code class="Nm">wfsctl</code> <var class="Ar">command</var>
+  [<var class="Ar">arg</var>]
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OVERVIEW"><a class="permalink" href="#OVERVIEW">OVERVIEW</a></h1>
+The <code class="Nm">wfsctl</code> utility allows administrators to start, stop,
+  and check the status of the WebDAV File Sharing service (WFS). It also allows
+  administrators to create and delete WebDAV share points. It operates by
+  configuring the Apache httpd server. The <code class="Nm">wfsctl</code>
+  command requires root privileges.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMMANDS"><a class="permalink" href="#COMMANDS">COMMANDS</a></h1>
+<code class="Nm">wfsctl</code> provides the following commands:
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#start"><code class="Ic" id="start">start</code></a></dt>
+  <dd>Enable the WFS configuration, and either start or restart the Apache web
+      server to pick it up. If necessary, this action will create an SSL
+      Identity matching the machine's host name as determined by the hostname(1)
+      command, and place it in the System keychain. It will also update, if
+      necessary, environment variable definitions for use by parameterized httpd
+      config files. (Note that starting the Apache web server is the equivalent
+      of &quot;apachectl start&quot; which loads a launch job for the httpd
+      process.)</dd>
+  <dt><a class="permalink" href="#stop"><code class="Ic" id="stop">stop</code></a></dt>
+  <dd>Disable the WFS configuration, and restart Apache if it's already
+    running.</dd>
+  <dt><a class="permalink" href="#status"><code class="Ic" id="status">status</code></a></dt>
+  <dd>Display the status of WFS, either &quot;enabled&quot; or
+      &quot;disabled&quot;, whether or not Apache is running.</dd>
+  <dt><a class="permalink" href="#shares"><code class="Ic" id="shares">shares</code></a></dt>
+  <dd>Display existing WebDAV share points.</dd>
+  <dt><a class="permalink" href="#share"><code class="Ic" id="share">share</code></a>
+    <var class="Ar">path</var></dt>
+  <dd>Create a WebDAV share point for the specified file system path.</dd>
+  <dt><a class="permalink" href="#unshare"><code class="Ic" id="unshare">unshare</code></a>
+    <var class="Ar">path</var> | <var class="Ar">name</var></dt>
+  <dd>Disable WebDAV for the share point at the specified file system path or
+      share point name, and delete the share point if no other file sharing
+      service (AFP or SMB) was enabled on that share point.</dd>
+  <dt><a class="permalink" href="#diagnose"><code class="Ic" id="diagnose">diagnose</code></a></dt>
+  <dd>Display detailed status of Apache and WebDAV-related processes.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DETAILS"><a class="permalink" href="#DETAILS">DETAILS</a></h1>
+WebDAV File Sharing operates by:
+<ol class="Bl-enum">
+  <li>Recognizing WebDAV clients when they send OPTIONS or PROPFIND
+    directives</li>
+  <li>Requiring such clients to provide OD credentials</li>
+  <li>Assigning those authenticated users an HTTP cookie to recognize them as
+      WebDAV clients</li>
+  <li>Launching an instance of the Apache httpd process on behalf of that user,
+      configured as a WebDAV server</li>
+  <li>Reverse-proxying HTTP traffic to that user-specific instance of httpd, so
+      that the WebDAV client (typically an iWork app on iOS) can access the home
+      directory and share points on the server machine with privileges of the
+      authenticated user</li>
+  <li>Recognizing share points that are marked as WebDAV share points.</li>
+</ol>
+<p class="Pp">Depending on how Apache is configured, this can coexist with other
+    Apache web service functions.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<ul class="Bl-bullet">
+  <li>WebDAV File Sharing requires SSL, and uses Basic authentication, with
+      credentials that would otherwise be sent in the clear over the network.
+      Also note that it uses Apache modules mod_ssl for SSL, and
+      mod_authnz_od_apple for Basic authentication with OpenDirectory
+      credentials.</li>
+  <li>The name &quot;webdav&quot; is reserved (it triggers special handling of
+      URLs), so share point paths named &quot;/webdav&quot; or containing
+      &quot;webdav&quot; as a subpath are not allowed. And folders named
+      &quot;webdav&quot; within share points won't be usable. There are no
+      restrictions on case variants such as &quot;WebDAV&quot;, or other
+      variants such as &quot;webdav.d&quot;.</li>
+  <li>DropBox folders cannot be accessed via WebDAV File Sharing.</li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURABLE_SETTINGS"><a class="permalink" href="#CONFIGURABLE_SETTINGS">CONFIGURABLE
+  SETTINGS</a></h1>
+Certain settings are kept in /etc/wfs/wfs.plist and are configurable by the
+  administrator, including:
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#ServerName"><code class="Ic" id="ServerName">ServerName</code></a></dt>
+  <dd>The host name the Apache web server should use, and also the Common Name
+      of the identity certificate. If this is not configured, or set to an empty
+      string, the hostname(1) of the machine is used.</dd>
+  <dt><a class="permalink" href="#ServerAddr"><code class="Ic" id="ServerAddr">ServerAddr</code></a></dt>
+  <dd>The IP address the Apache web server should use to listen for HTTPS
+      requests. Default is &quot;*&quot;, which means all addresses.</dd>
+  <dt><a class="permalink" href="#ServerPort"><code class="Ic" id="ServerPort">ServerPort</code></a></dt>
+  <dd>The TCP port the Apache web server should use to listen for HTTPS
+      requests. Default is the standard HTTPS port, 443.</dd>
+  <dt><a class="permalink" href="#AccessGroup"><code class="Ic" id="AccessGroup">AccessGroup</code></a></dt>
+  <dd>The Open Directory group allowed access to the WebDAV File Sharing
+      service. The default is &quot;everyone&quot;, which gives access to any
+      authenticated user. Administrators can change this setting to restrict
+      access further. Authenticated users will have, at most, the privileges
+      they are normally allowed by file system permissions. There is no
+      provision for guest access, so unauthenticated users have no access.</dd>
+  <dt><a class="permalink" href="#SynthesizeSharePointForUserHomeDir"><code class="Ic" id="SynthesizeSharePointForUserHomeDir">SynthesizeSharePointForUserHomeDir</code></a></dt>
+  <dd>Whether to allow remote WebDAV clients to see their home directory as a
+      share point. Default is True.</dd>
+</dl>
+<p class="Pp">The Apache config file for WebDAV File Sharing is parameterized,
+    and the httpd server is managed by the httpd-wrapper utility, which passes
+    parameters to httpd. This is normally transparent, but note that to check
+    the Apache config file syntax, do not use &quot;apachectl configtest&quot;
+    or &quot;httpd -t&quot;. Instead, use &quot;httpd-wrapper -t&quot;.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<code class="Nm">wfsctl</code> returns a status code of 0 for success. In the
+  event of failure it returns a non-zero status, and may also dump additional
+  diagnostic information.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="WEBDAV_CLIENTS"><a class="permalink" href="#WEBDAV_CLIENTS">WEBDAV
+  CLIENTS</a></h1>
+<ul class="Bl-bullet">
+  <li>WebDAV clients must be properly configured to access WebDAV Shares on a
+      remote host.</li>
+  <li>WebDAV clients include certain iOS apps, like Numbers, Keynote, and Pages,
+      and the macOS Finder's Connect-to-Server. (Note that the iOS Files app
+      does not find WebDAV File Sharing locations.)</li>
+  <li>WebDAV clients must usually be configured with a full URL of the host,
+      with a scheme of https (since an http-&gt;https redirect is not generally
+      compatible with WebDAV operations). It's not necessary to specify /webdav
+      in the path. So for example, the &quot;Server Name&quot; might be
+      specified as:
+    <pre>
+
+https://hostname.example.com
+    </pre>
+  </li>
+  <li>The configurable virtual host behavior provided by macOS Server is not
+      available, so WebDAV clients may not be able to use alternate host names
+      in their URLs.</li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt><span class="Pa">/etc/wfs/httpd_webdavsharing.conf</span></dt>
+  <dd>The parameterized Apache config file for the main instance of httpd</dd>
+  <dt><span class="Pa">/etc/wfs/httpd_webdavsharing_template.conf</span></dt>
+  <dd>The parameterized Apache config file for the user-specific instances of
+      httpd</dd>
+  <dt><span class="Pa">/etc/wfs/httpd_webdavsharing_sharepoints.conf</span></dt>
+  <dd>The Apache config file providing directives specific to each share point;
+      dynamically generated when share points are modified by wfsctl</dd>
+  <dt><span class="Pa">/etc/wfs/wfs.plist</span></dt>
+  <dd>The file where admin-configurable settings for WFS are stored.</dd>
+  <dt><span class="Pa">/Library/Server/Web/Config/apache2/WebConfigProperties.plist</span></dt>
+  <dd>If macOS Server is installed and promoted, WebDAVSharing settings in this
+      file take precedence over those in /etc/wfs/wfs.plist.</dd>
+  <dt><span class="Pa">/etc/apache2/env.plist</span></dt>
+  <dd>The file where environment variable definitions are managed automatically;
+      these variables are passed to httpd for use in parameterized config
+    files.</dd>
+  <dt><span class="Pa">/Library/Logs/WebDAVFileSharing.log</span></dt>
+  <dd>The main WebDAV File Sharing log file</dd>
+  <dt><span class="Pa">/etc/apache2/other/httpd_webdavsharing.conf</span></dt>
+  <dd>A symlink seen by Apache when WebDAV File Sharing is enabled. When WebDAV
+      File Sharing is disabled, this symlink is moved aside.</dd>
+  <dt><span class="Pa">/var/run/webdavsharing/&lt;username&gt;/</span></dt>
+  <dd>A directory created on the behalf of each authenticated user to store
+      user-specific WebDAV File Sharing logs.</dd>
+  <dt><span class="Pa">/usr/share/sandbox/wfs.sb</span></dt>
+  <dd>The parameterized sandbox profile for user-specific httpd instances.</dd>
+  <dt><span class="Pa">/etc/wfs/wfs.sb</span></dt>
+  <dd>The dynamically generated portion of the sandbox profile</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SERVER_APP"><a class="permalink" href="#SERVER_APP">SERVER
+  APP</a></h1>
+When macOS Server is installed and promoted, WebDAV File Sharing is reconfigured
+  to support the WebDAV behaviors presented by Server:
+<ol class="Bl-enum">
+  <li>macOS Server provides HTTP-based services (for Profile Manager) on
+      standard HTTP/S TCP ports 80 and 443. So to avoid port conflict, the
+      desktop Apache configuration (including the configuration for WebDAV File
+      Sharing) is switched to port 81, on localhost only, and WFS traffic is
+      reverse proxied to localhost:81.</li>
+  <li>macOS Server manages its own SSL certificates, and provides the SSL
+      endpoint. So the desktop Apache configuration for WebDAV File Sharing is
+      switched to non-SSL.
+    <p class="Pp">When macOS Server is installed and promoted, it is still
+        possible to use wfsctl to manage WebDAV share points, e. g.:</p>
+    <pre>
+
+    sudo wfsctl share /Volumes/Data/Share1
+    </pre>
+    <p class="Pp"></p>
+  </li>
+  <li>Any share points created in the UI on versions of macOS Server that
+      predate High Sierra remain across updates, and those that were marked as
+      WebDAV share points should continue to be available after the update to
+      High Sierra, whether or not macOS Server is installed.</li>
+</ol>
+<p class="Pp">When macOS Server is removed or demoted, the port changes and SSL
+    changes made at Server promotion time are reversed.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">httpd(8)</a> <a class="Xr">httpd-wrapper(8)</a>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">Sept. 20, 2017</td>
+    <td class="foot-os">macOS</td>
+  </tr>
+</table>
+</body>
+</html>

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   DATE
+ -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>db_archive(1)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">db_archive(1)</td>
+    <td class="head-vol">General Commands Manual</td>
+    <td class="head-rtitle">db_archive(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">db_archive</code>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">db_archive</code></td>
+    <td>[<code class="Fl">-adlsVv</code>] [<code class="Fl">-h</code>
+      <var class="Ar">home</var>] [<code class="Fl">-P</code>
+      <var class="Ar">password</var>]</td>
+  </tr>
+</table>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The <code class="Nm">db_archive</code> utility writes the pathnames of log files
+  that are no longer in use (for example, no longer involved in active
+  transactions), to the standard output, one pathname per line. These log files
+  should be written to backup media to provide for recovery in the case of
+  catastrophic failure (which also requires a snapshot of the database files),
+  but they may then be deleted from the system to reclaim disk space.
+<p class="Pp">The options are as follows:</p>
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#a"><code class="Fl" id="a">-a</code></a></dt>
+  <dd>Write all pathnames as absolute pathnames, instead of relative to the
+      database home directories.</dd>
+  <dt><a class="permalink" href="#d"><code class="Fl" id="d">-d</code></a></dt>
+  <dd>Remove log files that are no longer needed; no filenames are written.
+      Automatic log file removal is likely to make catastrophic recovery
+      impossible.</dd>
+  <dt><a class="permalink" href="#h"><code class="Fl" id="h">-h</code></a></dt>
+  <dd>Specify a home directory for the database environment; by default, the
+      current working directory is used.</dd>
+  <dt><a class="permalink" href="#l"><code class="Fl" id="l">-l</code></a></dt>
+  <dd>Write out the pathnames of all the database log files, whether or not they
+      are involved in active transactions.</dd>
+  <dt><a class="permalink" href="#P"><code class="Fl" id="P">-P</code></a></dt>
+  <dd>Specify an environment password. Although Berkeley DB utilities overwrite
+      password strings as soon as possible, be aware there may be a window of
+      vulnerability on systems where unprivileged users can see command-line
+      arguments or where utilities are not able to overwrite the memory
+      containing the command-line arguments.</dd>
+  <dt><a class="permalink" href="#s"><code class="Fl" id="s">-s</code></a></dt>
+  <dd>Write the pathnames of all the database files that need to be archived in
+      order to recover the database from catastrophic failure. If any of the
+      database files have not been accessed during the lifetime of the current
+      log files, db_archive will not include them in this output.
+    <p class="Pp">It is possible that some of the files to which the log refers
+        have since been deleted from the system. In this case, db_archive will
+        ignore them. When db_recover is run, any files to which the log refers
+        that are not present during recovery are assumed to have been deleted
+        and will not be recovered.</p>
+  </dd>
+  <dt><a class="permalink" href="#V"><code class="Fl" id="V">-V</code></a></dt>
+  <dd>Write the library version number to the standard output, and exit.</dd>
+  <dt><a class="permalink" href="#v"><code class="Fl" id="v">-v</code></a></dt>
+  <dd>Run in verbose mode, listing the checkpoints in the log files as they are
+      reviewed.</dd>
+</dl>
+<p class="Pp">Log cursor handles (returned by the DB_ENV-&gt;log_cursor method)
+    may have open file descriptors for log files in the database environment.
+    Also, the Berkeley DB interfaces to the database environment logging
+    subsystem (for example, DB_ENV-&gt;log_put and DB_TXN-&gt;abort) may
+    allocate log cursors and have open file descriptors for log files as well.
+    On operating systems where filesystem related system calls (for example,
+    rename and unlink on Windows/NT) can fail if a process has an open file
+    descriptor for the affected file, attempting to move or remove the log files
+    listed by db_archive may fail. All Berkeley DB internal use of log cursors
+    operates on active log files only and furthermore, is short-lived in nature.
+    So, an application seeing such a failure should be restructured to close any
+    open log cursors it may have, and otherwise to retry the operation until it
+    succeeds. (Although the latter is not likely to be necessary; it is hard to
+    imagine a reason to move or rename a log file in which transactions are
+    being logged or aborted.)</p>
+<p class="Pp">The db_archive utility uses a Berkeley DB environment (as
+    described for the -h option, the environment variable DB_HOME, or because
+    the utility was run in a directory containing a Berkeley DB environment). In
+    order to avoid environment corruption when using a Berkeley DB environment,
+    db_archive should always be given the chance to detach from the environment
+    and exit gracefully. To cause db_archive to release all environment
+    resources and exit cleanly, send it an interrupt signal (SIGINT).</p>
+<p class="Pp">The DB_ENV-&gt;log_archive method is the underlying method used by
+    the db_archive utility. See the db_archive utility source code for an
+    example of using DB_ENV-&gt;log_archive in a IEEE/ANSI Std 1003.1 (POSIX)
+    environment.</p>
+<p class="Pp">The <code class="Nm">db_archive</code> utility exits 0 on success,
+    and &gt;0 if an error occurs.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#DB_HOME"><code class="Ev" id="DB_HOME">DB_HOME</code></a></dt>
+  <dd>If the -h option is not specified and the environment variable DB_HOME is
+      set, it is used as the path of the database home, as described in
+      DB_ENV-&gt;open.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">db_checkpoint(1)</a>, <a class="Xr">db_deadlock(1)</a>,
+  <a class="Xr">db_dump(1)</a>, <a class="Xr">db_load(1)</a>,
+  <a class="Xr">db_printlog(1)</a>, <a class="Xr">db_recover(1)</a>,
+  <a class="Xr">db_stat(1)</a>, <a class="Xr">db_upgrade(1)</a>,
+  <a class="Xr">db_verify(1)</a>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">December 3, 2003</td>
+    <td class="foot-os">Darwin</td>
+  </tr>
+</table>
+</body>
+</html>

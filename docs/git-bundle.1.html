@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   t
+       Title: git-bundle
+      Author: [FIXME: author] [see http://docbook.sf.net/el/author]
+   Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+        Date: 02/24/2019
+      Manual: Git Manual
+      Source: Git 2.21.0
+    Language: English
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>GIT-BUNDLE(1)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">GIT-BUNDLE(1)</td>
+    <td class="head-vol">Git Manual</td>
+    <td class="head-rtitle">GIT-BUNDLE(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+git-bundle - Move objects and refs by archive
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>
+<i>git bundle</i> create &lt;file&gt; &lt;git-rev-list-args&gt;
+<i>git bundle</i> verify &lt;file&gt;
+<i>git bundle</i> list-heads &lt;file&gt; [&lt;refname&gt;...]
+<i>git bundle</i> unbundle &lt;file&gt; [&lt;refname&gt;...]
+</pre>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+Some workflows require that one or more branches of development on one machine
+  be replicated on another machine, but the two machines cannot be directly
+  connected, and therefore the interactive Git protocols (git, ssh, http) cannot
+  be used. This command provides support for <i>git fetch</i> and <i>git
+  pull</i> to operate by packaging objects and references in an archive at the
+  originating machine, then importing those into another repository using <i>git
+  fetch</i> and <i>git pull</i> after moving the archive by some means (e.g., by
+  sneakernet). As no direct connection between the repositories exists, the user
+  must specify a basis for the bundle that is held by the destination
+  repository: the bundle assumes that all objects in the basis are already in
+  the destination repository.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+create &lt;file&gt;
+<div class="Bd-indent">Used to create a bundle named <i>file</i>. This requires
+  the <i>git-rev-list-args</i> arguments to define the bundle contents.</div>
+<p class="Pp">verify &lt;file&gt;</p>
+<div class="Bd-indent">Used to check that a bundle file is valid and will apply
+  cleanly to the current repository. This includes checks on the bundle format
+  itself as well as checking that the prerequisite commits exist and are fully
+  linked in the current repository. <i>git bundle</i> prints a list of missing
+  commits, if any, and exits with a non-zero status.</div>
+<p class="Pp">list-heads &lt;file&gt;</p>
+<div class="Bd-indent">Lists the references defined in the bundle. If followed
+  by a list of references, only references matching those given are printed
+  out.</div>
+<p class="Pp">unbundle &lt;file&gt;</p>
+<div class="Bd-indent">Passes the objects in the bundle to <i>git index-pack</i>
+  for storage in the repository, then prints the names of all defined
+  references. If a list of references is given, only references matching those
+  in the list are printed. This command is really plumbing, intended to be
+  called only by <i>git fetch</i>.</div>
+<p class="Pp">&lt;git-rev-list-args&gt;</p>
+<div class="Bd-indent">A list of arguments, acceptable to <i>git rev-parse</i>
+  and <i>git rev-list</i> (and containing a named ref, see SPECIFYING REFERENCES
+  below), that specifies the specific objects and references to transport. For
+  example, <b>master~10..master</b> causes the current master reference to be
+  packaged along with all objects added since its 10th ancestor commit. There is
+  no explicit limit to the number of references and objects that may be
+  packaged.</div>
+<p class="Pp">[&lt;refname&gt;...]</p>
+<div class="Bd-indent">A list of references used to limit the references
+  reported as available. This is principally of use to <i>git fetch</i>, which
+  expects to receive only those references asked for and not necessarily
+  everything in the pack (in this case, <i>git bundle</i> acts like <i>git
+  fetch-pack</i>).</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SPECIFYING_REFERENCES"><a class="permalink" href="#SPECIFYING_REFERENCES">SPECIFYING
+  REFERENCES</a></h1>
+<i>git bundle</i> will only package references that are shown by <i>git
+  show-ref</i>: this includes heads, tags, and remote heads. References such as
+  <b>master~1</b> cannot be packaged, but are perfectly suitable for defining
+  the basis. More than one reference may be packaged, and more than one basis
+  can be specified. The objects packaged are those not contained in the union of
+  the given bases. Each basis can be specified explicitly (e.g.
+  <b>^master~10</b>), or implicitly (e.g. <b>master~10..master</b>,
+  <b>--since=10.days.ago master</b>).
+<p class="Pp">It is very important that the basis used be held by the
+    destination. It is okay to err on the side of caution, causing the bundle
+    file to contain objects already in the destination, as these are ignored
+    when unpacking at the destination.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+Assume you want to transfer the history from a repository R1 on machine A to
+  another repository R2 on machine B. For whatever reason, direct connection
+  between A and B is not allowed, but we can move data from A to B via some
+  mechanism (CD, email, etc.). We want to update R2 with development made on the
+  branch master in R1.
+<p class="Pp">To bootstrap the process, you can first create a bundle that does
+    not have any basis. You can use a tag to remember up to what commit you last
+    processed, in order to make it easy to later update the other repository
+    with an incremental bundle:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+machineA$ cd R1
+machineA$ git bundle create file.bundle master
+machineA$ git tag -f lastR2bundle master
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Then you transfer file.bundle to the target machine B. Because
+    this bundle does not require any existing object to be extracted, you can
+    create a new repository on machine B by cloning from it:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+machineB$ git clone -b master /home/me/tmp/file.bundle R2
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">This will define a remote called &quot;origin&quot; in the
+    resulting repository that lets you fetch and pull from the bundle. The
+    $GIT_DIR/config file in R2 will have an entry like this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+[remote &quot;origin&quot;]
+    url = /home/me/tmp/file.bundle
+    fetch = refs/heads/*:refs/remotes/origin/*
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">To update the resulting mine.git repository, you can fetch or pull
+    after replacing the bundle stored at /home/me/tmp/file.bundle with
+    incremental updates.</p>
+<p class="Pp">After working some more in the original repository, you can create
+    an incremental bundle to update the other repository:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+machineA$ cd R1
+machineA$ git bundle create file.bundle lastR2bundle..master
+machineA$ git tag -f lastR2bundle master
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">You then transfer the bundle to the other machine to replace
+    /home/me/tmp/file.bundle, and pull from it.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+machineB$ cd R2
+machineB$ git pull
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">If you know up to what commit the intended recipient repository
+    should have the necessary objects, you can use that knowledge to specify the
+    basis, giving a cut-off point to limit the revisions and objects that go in
+    the resulting bundle. The previous example used the lastR2bundle tag for
+    this purpose, but you can use any other options that you would give to the
+    <b>git-log</b>(1) command. Here are more examples:</p>
+<p class="Pp">You can use a tag that is present in both:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git bundle create mybundle v1.0.0..master
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">You can use a basis based on time:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git bundle create mybundle --since=10.days master
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">You can use the number of commits:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git bundle create mybundle -10 master
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">You can run <b>git-bundle verify</b> to see if you can extract
+    from a bundle that was created with a basis:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git bundle verify mybundle
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">This will list what commits you must have in order to extract from
+    the bundle and will error out if you do not have them.</p>
+<p class="Pp">A bundle from a recipient repository&#x2019;s point of view is
+    just like a regular repository which it fetches or pulls from. You can, for
+    example, map references when fetching:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git fetch mybundle master:localRef
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">You can also see what references it offers:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git ls-remote mybundle
+</pre>
+</div>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="GIT"><a class="permalink" href="#GIT">GIT</a></h1>
+Part of the <b>git</b>(1) suite
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">02/24/2019</td>
+    <td class="foot-os">Git 2.21.0</td>
+  </tr>
+</table>
+</body>
+</html>

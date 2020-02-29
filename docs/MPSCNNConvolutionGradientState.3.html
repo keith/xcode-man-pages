@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   -*- nroff -*-
+ -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>MPSCNNConvolutionGradientState(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">MPSCNNConvolutionGradientState(3)</td>
+    <td class="head-vol">MetalPerformanceShaders.framework</td>
+    <td class="head-rtitle">MPSCNNConvolutionGradientState(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+MPSCNNConvolutionGradientState
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">#import &lt;MPSCNNConvolution.h&gt;</p>
+<p class="Pp">Inherits <b>MPSNNGradientState</b>, and
+    &lt;MPSImageSizeEncodingState&gt;.</p>
+<section class="Ss">
+<h2 class="Ss" id="Properties"><a class="permalink" href="#Properties">Properties</a></h2>
+<br/>
+__nonnull id&lt; MTLBuffer &gt; <b>gradientForWeights</b>
+<br/>
+__nonnull id&lt; MTLBuffer &gt; <b>gradientForBiases</b>
+<br/>
+<b>MPSCNNConvolution</b> * <b>convolution</b>
+<br/>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Additional_Inherited_Members"><a class="permalink" href="#Additional_Inherited_Members">Additional
+  Inherited Members</a></h2>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Detailed_Description"><a class="permalink" href="#Detailed_Description">Detailed
+  Description</a></h1>
+The <b>MPSCNNConvolutionGradientState</b> is returned by
+  resultStateForSourceImage:sourceStates method on <b>MPSCNNConvolution</b>
+  object. Note that resultStateForSourceImage:sourceStates:destinationImage
+  creates the object on autoreleasepool. It will be consumed by
+  <b>MPSCNNConvolutionGradient</b>. This used by
+  <b>MPSCNNConvolutionTranspose</b> encode call that returns <b>MPSImage</b> on
+  left hand side to correctly size the destination. Note that state objects are
+  not usable across batches i.e. when batch is done you should nuke the state
+  object and create new one for next batch.
+<p class="Pp">This state exposes the gradient with respect to weights and
+    biases, as computed by the <b>MPSCNNConvolutionGradient</b> kernel, as a
+    metal buffer to be used during weights and biases update. The standard
+    weights and biases update formula is:</p>
+<p class="Pp"></p>
+<pre>
+      weights(t+1) = f(weights(t), gradientForWeights(t)) and
+      biases(t+1) = f(biases(t), gradientForBiases(t)),
+</pre>
+<p class="Pp">where the weights(t)/biases(t) are the wegihts and the biases at
+    step t that are provided by data source provider used to create
+    <b>MPSCNNConvolution</b> and MPSCNNConvoltuionGradient objects. There are
+    multiple ways user can update weights and biases as described below:</p>
+<p class="Pp">1) For check pointing, i.e. updating weights/biases and storing:
+    once the command buffer on which <b>MPSCNNConvolutionGradient</b> is
+    enqueued is done (e.g. in command buffer completion callback), the
+    application can simply use float* delta_w =
+    (float*)((char*)[gradientForWeights contents]); float* delta_b =
+    (float*)((char*)[gradientForBiases contents]); to update the weights and
+    biases in the data provider directly. The application can instead provide a
+    metal kernel that reads from gradientForWeights and gradientForBiases buffer
+    and the buffer created using data provided by the data source to do any kind
+    of update it will like to do, then read back the updated weights/biases and
+    store to the data source. Note that lifetime of the gradientForWeights and
+    gradientForBiases buffer is the same as the
+    <b>MPSCNNConvolutionGradientState</b>. So it's the applications's
+    responsibility to make sure the buffer is alive (retained) when the update
+    kernel is running if the command buffer doesn't retain the buffer. Also, in
+    order to gaurantee that the buffer is correctly synchronized for CPU side
+    access, it is the application's responsibility to call [gradientState
+    synchronizeOnCommandBuffer:] before accessing data from the buffer.</p>
+<p class="Pp">2) For a CPU side update, once the weights and biases in the data
+    source provider are updated as above, the original <b>MPSCNNConvolution</b>
+    and <b>MPSCNNConvolutionGradient</b> objects need to be updated with the new
+    weigths and biases by calling the -(void)
+    reloadWeightsAndBiasesFromDataSource method. Again application needs to call
+    [gradientState synchronizeOnCommandBuffer:] before touching data on CPU
+    side.</p>
+<p class="Pp">3) The above CPU side update requires command buffer to be done.
+    If the application doesn't want to update its data source provider object
+    and would prefer to directly enqueue an update of the internal
+    <b>MPSCNNConvolution</b> and <b>MPSCNNConvolutionGradient</b> weights/biases
+    buffers on the GPU without CPU side involvement, it needs to do following:
+    i) get gradientForWeights and gradientForBiases buffers from this gradient
+    state object and set it as source of update kernel ii) create a temporary
+    buffer, dest, of same size and set it as destination of update kernel iii)
+    enqueue update kernel on command buffer iv) call
+    reloadWeightsAndBiasesWithCommandBuffer:dest:weightsOffset:biasesOffset on
+    <b>MPSCNNConvolution</b> and <b>MPSCNNConvolutionGradient</b> objects. This
+    will reload the weights from application's update kernel in dest on GPU
+    without CPU side involvement.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Property_Documentation"><a class="permalink" href="#Property_Documentation">Property
+  Documentation</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="_-_convolution_fC__read__fP,__fC__nonatomic__fP,__fC__retain__fP"><a class="permalink" href="#_-_convolution_fC__read__fP,__fC__nonatomic__fP,__fC__retain__fP">-
+  convolution [read]<b>, [nonatomic]</b>, [retain]<b></b></a></h2>
+The convolution filter that produced the state.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_gradientForBiases_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_gradientForBiases_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  gradientForBiases [read]<b>, [nonatomic]</b>, [assign]<b></b></a></h2>
+<b>A</b> buffer that contains the loss function gradients with respect to
+  biases.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_gradientForWeights_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_gradientForWeights_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  gradientForWeights [read]<b>, [nonatomic]</b>, [assign]<b></b></a></h2>
+<b>A</b> buffer that contains the loss function gradients with respect to
+  weights. Each value in the buffer is a float. The layout of the gradients with
+  respect to the weights is the same as the weights layout provided by data
+  source i.e. it can be interpreted as 4D array
+<p class="Pp"></p>
+<pre>
+ gradientForWeights[outputFeatureChannels][kernelHeight][kernelWidth][inputFeatureChannels/groups]
+</pre>
+<p class="Pp"></p>
+<p class="Pp"></p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Author"><a class="permalink" href="#Author">Author</a></h1>
+Generated automatically by Doxygen for MetalPerformanceShaders.framework from
+  the source code.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">Mon Jul 9 2018</td>
+    <td class="foot-os">Version MetalPerformanceShaders-119.3</td>
+  </tr>
+</table>
+</body>
+</html>

@@ -1,0 +1,2030 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>HDIUTIL(1)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">HDIUTIL(1)</td>
+    <td class="head-vol">General Commands Manual</td>
+    <td class="head-rtitle">HDIUTIL(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">hdiutil</code> &#x2014;
+<div class="Nd">manipulate disk images (attach, verify, create, etc)</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">hdiutil</code></td>
+    <td><var class="Ar">verb</var> [options]</td>
+  </tr>
+</table>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<code class="Nm">hdiutil</code> uses the DiskImages framework to manipulate disk
+  images. Common verbs include <b class="Sy">attach</b>,
+  <b class="Sy">detach</b>, <b class="Sy">verify</b>, <b class="Sy">create</b>,
+  <b class="Sy">convert</b>, and <b class="Sy">compact</b>.
+<p class="Pp">The rest of the verbs are currently: <b class="Sy">help</b>,
+    <b class="Sy">info</b>, <b class="Sy">burn</b>, <b class="Sy">checksum</b>,
+    <b class="Sy">chpass</b>, <b class="Sy">erasekeys</b>,
+    <b class="Sy">unflatten</b>, <b class="Sy">flatten</b>,
+    <b class="Sy">imageinfo</b>, <b class="Sy">isencrypted</b>,
+    <b class="Sy">mountvol</b>, <b class="Sy">unmount,</b>
+    <b class="Sy">plugins</b>, <b class="Sy">udifrez</b>,
+    <b class="Sy">udifderez</b>, <b class="Sy">resize</b>,
+    <b class="Sy">segment</b>, <b class="Sy">makehybrid</b>, and
+    <b class="Sy">pmap</b>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BACKGROUND"><a class="permalink" href="#BACKGROUND">BACKGROUND</a></h1>
+Disk images are data containers that emulate disks. Like disks, they can be
+  partitioned and formatted. Many common uses of disk images blur the
+  distinction between the disk image container and its content, but this
+  distinction is critical to understanding how disk images work. The terms
+  &quot;attach&quot; and &quot;detach&quot; are used to distinguish the way disk
+  images are connected to and disconnected from a system. &quot;Mount&quot; and
+  &quot;unmount&quot; are the parallel filesystems options.
+<p class="Pp">For example, when you double-click a disk image in the macOS
+    Finder, two separate things happen. First, the image is &quot;attached&quot;
+    to the system just like an external drive. Then, the kernel and Disk
+    Arbitration probe the new device for recognized file structures. If any are
+    discovered that should be mounted, the associated volumes will mount and
+    appear on the desktop.</p>
+<p class="Pp">When using disk images, always consider whether an operation
+    applies to the blocks of the disk image container or to the (often
+    file-oriented) content of the image. For example,
+    <code class="Nm">hdiutil</code> <b class="Sy">verify</b> verifies that the
+    blocks stored in a read-only disk image have not changed since it was
+    created. It does not check whether the filesystem stored within the image is
+    self-consistent (as <b class="Sy">diskutil verifyVolume</b> would). On the
+    other hand, <code class="Nm">hdiutil</code> <b class="Sy">create</b>
+    <code class="Fl">-srcfolder</code> creates a disk image container, puts a
+    filesystem in it, and then copies the specified files to the new
+  filesystem.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMMON_OPTIONS"><a class="permalink" href="#COMMON_OPTIONS">COMMON
+  OPTIONS</a></h1>
+The following option descriptions apply to all verbs:
+<dl class="Bl-hang">
+  <dt><a class="permalink" href="#verbose"><code class="Fl" id="verbose">-verbose</code></a></dt>
+  <dd>be verbose: produce extra progress output and error diagnostics. This
+      option can help the user decipher why a particular operation failed. At a
+      minimum, the probing of any specified images will be detailed.</dd>
+  <dt><a class="permalink" href="#quiet"><code class="Fl" id="quiet">-quiet</code></a></dt>
+  <dd>close stdout and stderr, leaving only <code class="Nm">hdiutil</code>'s
+      exit status to indicate success or failure. No /dev entries or mount
+      points will be printed. <code class="Fl">-debug</code> and
+      <code class="Fl">-verbose</code> disable
+    <code class="Fl">-quiet</code>.</dd>
+  <dt><a class="permalink" href="#debug"><code class="Fl" id="debug">-debug</code></a></dt>
+  <dd>be very verbose. This option is good if a large amount of progress
+      information is needed. As of Mac OS X 10.6, <code class="Fl">-debug</code>
+      enables <code class="Fl">-verbose</code>.</dd>
+</dl>
+<p class="Pp">Many <code class="Nm">hdiutil</code> verbs understand the
+    following options:</p>
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#plist"><code class="Fl" id="plist">-plist</code></a></dt>
+  <dd>provide result output in plist format. Other programs invoking
+      <code class="Nm">hdiutil</code> are expected to use
+      <code class="Fl">-plist</code> rather than try to parse the human-readable
+      output. The usual output is consistent but generally unstructured.</dd>
+  <dt><a class="permalink" href="#puppetstrings"><code class="Fl" id="puppetstrings">-puppetstrings</code></a></dt>
+  <dd>provide progress output that is easy for another program to parse.
+      PERCENTAGE outputs can include the value -1 which means
+      <code class="Nm">hdiutil</code> is performing an operation that will take
+      an indeterminate amount of time to complete. Any program trying to
+      interpret <code class="Nm">hdiutil</code>'s progress should use
+      <code class="Fl">-puppetstrings</code>.</dd>
+  <dt><a class="permalink" href="#srcimagekey"><code class="Fl" id="srcimagekey">-srcimagekey</code></a>
+    <var class="Ar">key=value</var></dt>
+  <dd>specify a key/value pair for the disk image recognition system.
+      (<code class="Fl">-imagekey</code> is normally a synonym)</dd>
+  <dt><a class="permalink" href="#tgtimagekey"><code class="Fl" id="tgtimagekey">-tgtimagekey</code></a>
+    <var class="Ar">key=value</var></dt>
+  <dd>specify a key/value pair for any image created.
+      (<code class="Fl">-imagekey</code> is only a synonym if there is no input
+      image).</dd>
+  <dt><a class="permalink" href="#encryption"><code class="Fl" id="encryption">-encryption</code></a>
+    [<var class="Ar">AES-128|AES-256</var>]</dt>
+  <dd>specify a particular type of encryption or, if not specified, the default
+      encryption algorithm. As of OS X 10.7, the default algorithm is the AES
+      cipher running in CBC mode on 512-byte blocks with a 128-bit key.</dd>
+  <dt><a class="permalink" href="#stdinpass"><code class="Fl" id="stdinpass">-stdinpass</code></a></dt>
+  <dd>read a null-terminated passphrase from standard input. If the standard
+      input is a tty, the passphrase will be read with
+      <a class="Xr">readpassphrase(3)</a>. Otherwise, the password is read from
+      stdin. <code class="Fl">-stdinpass</code> replaces
+      <code class="Fl">-passphrase</code> which has been deprecated.
+      <code class="Fl">-passphrase</code> is insecure because its argument
+      appears in the output of <a class="Xr">ps(1)</a> where it is visible to
+      other users and processes on the system. See EXAMPLES.</dd>
+  <dt><a class="permalink" href="#agentpass"><code class="Fl" id="agentpass">-agentpass</code></a></dt>
+  <dd>force the default behavior of prompting for a passphrase. Useful with
+      <code class="Fl">-pubkey</code> to create an image protected by both a
+      passphrase and a public key.</dd>
+  <dt><a class="permalink" href="#recover"><code class="Fl" id="recover">-recover</code></a>
+    <var class="Ar">keychain_file</var></dt>
+  <dd>specify a keychain containing the secret corresponding to the certificate
+      specified with <code class="Fl">-certificate</code> when the image was
+      created.</dd>
+  <dt><a class="permalink" href="#certificate"><code class="Fl" id="certificate">-certificate</code></a>
+    <var class="Ar">cert_file</var></dt>
+  <dd>specify a secondary access certificate for an encrypted image.
+      <var class="Ar">cert_file</var> must be DER-encoded certificate data,
+      which can be created by Keychain Access or
+    <a class="Xr">openssl(1)</a>.</dd>
+  <dt><a class="permalink" href="#pubkey"><code class="Fl" id="pubkey">-pubkey</code></a>
+    <var class="Ar">PK1,PK2,...,PKn</var></dt>
+  <dd>specify a list of public keys, identified by their hexadecimal hashes, to
+      be used to protect the encrypted image being created.</dd>
+  <dt><a class="permalink" href="#cacert"><code class="Fl" id="cacert">-cacert</code></a>
+    <var class="Ar">cert</var></dt>
+  <dd>specify a certificate authority certificate. <var class="Ar">cert</var>
+      can be either a PEM file or a directory of certificates processed by
+      <a class="Xr">c_rehash(1)</a>. See also <code class="Fl">--capath</code>
+      and <code class="Fl">--cacert</code> in <a class="Xr">curl(1)</a>.</dd>
+  <dt><a class="permalink" href="#insecurehttp"><code class="Fl" id="insecurehttp">-insecurehttp</code></a></dt>
+  <dd>ignore SSL host validation failures. Useful for self-signed servers for
+      which the appropriate certificates are unavailable or if access to a
+      server is desired when the server name doesn't match what is in the
+      certificate.</dd>
+  <dt><a class="permalink" href="#shadow"><code class="Fl" id="shadow">-shadow</code></a>
+    [<var class="Ar">shadowfile</var>]</dt>
+  <dd>Use a shadow file in conjunction with the data in the primary image file.
+      This option prevents modification of the original image and allows
+      read-only images to be attached read/write. When blocks are being read
+      from the image, blocks present in the shadow file override blocks in the
+      base image. All data written to an attached device will be redirected to
+      the shadow file. If not specified, <var class="Ar">shadowfile</var>
+      defaults to <var class="Ar">image</var>.shadow. If the shadow file does
+      not exist, it is created. <code class="Nm">hdiutil</code> verbs taking
+      images as input accept <code class="Fl">-shadow</code>,
+      <code class="Fl">-cacert</code>, and
+      <code class="Fl">-insecurehttp</code>.</dd>
+</dl>
+<p class="Pp">Verbs that create images automatically append the correct
+    extension to any filenames if the extension is not already present. The
+    creation engine also examines the filename extension of the provided
+    filename and changes its behavior accordingly. For example, a sparse bundle
+    image can be created without specifying -type SPARSEBUNDLE simply by
+    appending the .sparsebundle extension to the provided filename.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="VERBS"><a class="permalink" href="#VERBS">VERBS</a></h1>
+Each verb is listed with its description and individual arguments. Arguments to
+  the verbs can be passed in any order. A sector is 512 bytes.
+<dl class="Bl-hang">
+  <dt><b class="Sy">help</b></dt>
+  <dd>display minimal usage information for each verb.
+      <code class="Nm">hdiutil</code> <var class="Ar">verb</var>
+      <code class="Fl">-help</code> will provide basic usage information for
+      that verb.</dd>
+  <dt><b class="Sy">attach</b> <var class="Ar">image</var>
+    [<var class="Ar">options</var>]</dt>
+  <dd>
+    <br/>
+    attach a disk image as a device. <b class="Sy">attach</b> will return
+      information about an already-attached image as if it had attached it. If
+      any associated volumes are unmounted (and mounting is not suppressed),
+      they will be remounted. <b class="Sy">mount</b> is a poorly-named synonym
+      for <b class="Sy">attach</b>. See BACKGROUND.
+    <p class="Pp">By default, the system applies additional mount options to
+        filesystems backed by untrusted devices like disk images: options like
+        nosuid and quarantine. PERMISSIONS VS. OWNERS explains the behavior of
+        such filesystems and EXAMPLES shows how to override some of the default
+        behavior.</p>
+    <p class="Pp">The output of <b class="Sy">attach</b> has been stable since
+        Mac OS X 10.0 (though it was called <a class="Xr">hdid(8)</a> then) and
+        is intended to be program-readable. It consists of the /dev node, a tab,
+        a content hint (if applicable), another tab, and a mount point (if any
+        filesystems were mounted). Because content hints are derived from the
+        partition data, GUID Partition Table types may leak through. Common
+        GUIDs such as &quot;48465300-0000-11AA-AA11-0030654&quot; are mapped to
+        their human-readable counterparts (here &quot;Apple_HFS&quot;).</p>
+    <p class="Pp">Common options: <code class="Fl">-encryption</code>,
+        <code class="Fl">-stdinpass</code>, <code class="Fl">-recover</code>,
+        <code class="Fl">-imagekey</code>, <code class="Fl">-shadow</code>,
+        <code class="Fl">-puppetstrings</code>, and
+        <code class="Fl">-plist</code>.</p>
+    <p class="Pp">Options:</p>
+    <dl class="Bl-hang Bl-compact">
+      <dt><a class="permalink" href="#readonly"><code class="Fl" id="readonly">-readonly</code></a></dt>
+      <dd>force the resulting device to be read-only</dd>
+      <dt><a class="permalink" href="#readwrite"><code class="Fl" id="readwrite">-readwrite</code></a></dt>
+      <dd>attempt to override the DiskImages framework's decision to attach a
+          particular image read-only. For example,
+          <code class="Fl">-readwrite</code> can be used to modify the HFS+
+          filesystem on a HFS+/ISO hybrid CD image.</dd>
+      <dt><a class="permalink" href="#nokernel"><code class="Fl" id="nokernel">-nokernel</code></a></dt>
+      <dd>attach with a helper process. This is (again) the default as of Mac OS
+          X 10.5.</dd>
+      <dt><a class="permalink" href="#kernel"><code class="Fl" id="kernel">-kernel</code></a></dt>
+      <dd>attempt to attach this image without a helper process; fail if
+          unsupported. Only UDRW, UDRO, UDZO, ULFO, and UDSP images are
+          supported in-kernel. Encryption and HTTP are supported by the kernel
+          driver.</dd>
+      <dt><a class="permalink" href="#notremovable"><code class="Fl" id="notremovable">-notremovable</code></a></dt>
+      <dd>prevent this image from being detached. Only root can use this option.
+          A reboot is necessary to cleanly detach an image attached with
+          <code class="Fl">-notremovable</code>.
+        <p class="Pp"></p>
+      </dd>
+      <dt><a class="permalink" href="#mount"><code class="Fl" id="mount">-mount</code></a>
+        <var class="Ar">required|optional|suppressed</var></dt>
+      <dd>
+        <br/>
+        indicate whether filesystems in the image should be mounted or not. The
+          default is <var class="Ar">required</var> (<b class="Sy">attach</b>
+          will fail if no filesystems mount).</dd>
+      <dt><a class="permalink" href="#nomount"><code class="Fl" id="nomount">-nomount</code></a></dt>
+      <dd>identical to <code class="Fl">-mount</code>
+          <var class="Ar">suppressed</var>.</dd>
+      <dt><a class="permalink" href="#mountroot"><code class="Fl" id="mountroot">-mountroot</code></a>
+        <var class="Ar">path</var></dt>
+      <dd>mount volumes on subdirectories of <var class="Ar">path</var> instead
+          of under <span class="Pa">/Volumes</span>. <var class="Ar">path</var>
+          must exist. Full mount point paths must be less than MNAMELEN
+          characters (increased from 90 to 1024 in Mac OS X 10.6).</dd>
+      <dt><a class="permalink" href="#mountrandom"><code class="Fl" id="mountrandom">-mountrandom</code></a>
+        <var class="Ar">path</var></dt>
+      <dd>like <code class="Fl">-mountroot</code>, but mount point directory
+          names are randomized with <a class="Xr">mkdtemp(3)</a>.</dd>
+      <dt><a class="permalink" href="#mountpoint"><code class="Fl" id="mountpoint">-mountpoint</code></a>
+        <var class="Ar">path</var></dt>
+      <dd>assuming only one volume, mount it at <var class="Ar">path</var>
+          instead of in <span class="Pa">/Volumes.</span> See
+          <a class="Xr">fstab(5)</a> for ways a system administrator can make
+          particular volumes automatically mount in particular filesystem
+          locations by editing the file /etc/fstab.</dd>
+      <dt><a class="permalink" href="#nobrowse"><code class="Fl" id="nobrowse">-nobrowse</code></a></dt>
+      <dd>render any volumes invisible in applications such as the macOS
+        Finder.</dd>
+      <dt><a class="permalink" href="#owners"><code class="Fl" id="owners">-owners</code></a>
+        <var class="Ar">on|off</var></dt>
+      <dd>specify that owners on any filesystems be honored or not.</dd>
+      <dt><a class="permalink" href="#drivekey"><code class="Fl" id="drivekey">-drivekey</code></a>
+        <var class="Ar">key=value</var></dt>
+      <dd>
+        <br/>
+        specify a key/value pair to be set on the device in the IOKit
+        registry.</dd>
+      <dt><a class="permalink" href="#section"><code class="Fl" id="section">-section</code></a>
+        <var class="Ar">subspec</var></dt>
+      <dd>
+        <br/>
+        Attach a subsection of a disk image. <var class="Ar">subspec</var> is
+          any of &lt;offset&gt;, &lt;first-last&gt;, or &lt;start,count&gt; in
+          0-based sectors. Ranges are inclusive.</dd>
+    </dl>
+    <p class="Pp">The following options have corresponding elements in the
+        <var class="Ar">com.apple.frameworks.diskimages</var> preferences domain
+        and thus can be rendered in both the positive and the negative to
+        override any existing preferences.</p>
+    <p class="Pp"></p>
+    <dl class="Bl-hang Bl-compact">
+      <dt><a class="permalink" href="#_no_verify"><code class="Fl" id="_no_verify">-[no]verify</code></a></dt>
+      <dd>do [not] verify the image. By default, <code class="Nm">hdiutil</code>
+          <b class="Sy">attach</b> attempts to intelligently verify images that
+          contain checksums before attaching them. If
+          <code class="Nm">hdiutil</code> can write to an image it has verified,
+          <b class="Sy">attach</b> will store an attribute with the image so
+          that it will not be verified again unless its timestamp changes. To
+          maintain backwards compatibility, <a class="Xr">hdid(8)</a> does not
+          attempt to verify images before attaching them.
+        <br/>
+        Preferences keys: skip-verify, skip-verify-remote, skip-verify-locked,
+          skip-previously-verified</dd>
+      <dt><a class="permalink" href="#_no_ignorebadchecksums"><code class="Fl" id="_no_ignorebadchecksums">-[no]ignorebadchecksums</code></a></dt>
+      <dd>
+        <br/>
+        specify whether bad checksums should be ignored. The default is to abort
+          when a bad checksum is detected.
+        <br/>
+        Preferences key: ignore-bad-checksums</dd>
+      <dt><a class="permalink" href="#_no_autoopen"><code class="Fl" id="_no_autoopen">-[no]autoopen</code></a></dt>
+      <dd>do [not] auto-open volumes (in the Finder) after attaching an image.
+          By default, double-clicking a read-only disk image causes the
+          resulting volume to be opened in the Finder.
+          <code class="Nm">hdiutil</code> defaults to
+          <code class="Fl">-noautoopen</code>.</dd>
+      <dt><a class="permalink" href="#_no_autoopenro"><code class="Fl" id="_no_autoopenro">-[no]autoopenro</code></a></dt>
+      <dd>do [not] auto-open read-only volumes.
+        <br/>
+        Preferences key: auto-open-ro-root</dd>
+      <dt><a class="permalink" href="#_no_autoopenrw"><code class="Fl" id="_no_autoopenrw">-[no]autoopenrw</code></a></dt>
+      <dd>do [not] auto-open read/write volumes.
+        <br/>
+        Preferences key: auto-open-rw-root</dd>
+      <dt><a class="permalink" href="#_no_autofsck"><code class="Fl" id="_no_autofsck">-[no]autofsck</code></a></dt>
+      <dd>do [not] force automatic file system checking before mounting a disk
+          image. By default, only quarantined images (e.g. downloaded from the
+          Internet) that have not previously passed fsck are checked.
+        <br/>
+        Preferences key: auto-fsck</dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">detach</b> <var class="Ar">dev_name</var>
+    [<code class="Fl">-force</code>]</dt>
+  <dd>
+    <br/>
+    detach a disk image and terminate any associated process.
+      <var class="Ar">dev_name</var> is a partial /dev node path (e.g.
+      &quot;disk1&quot;). As of Mac OS X 10.4, <var class="Ar">dev_name</var>
+      can also be a mountpoint. If Disk Arbitration is running,
+      <b class="Sy">detach</b> will use it to unmount any filesystems and detach
+      the image. If not, <b class="Sy">detach</b> will attempt to unmount any
+      filesystems and detach the image directly (using the
+      &#x2018;<code class="Li">eject</code>&#x2019; ioctl). If Disk Arbitration
+      is not running, it may be necessary to unmount the filesystems with
+      <a class="Xr">umount(8)</a> before detaching the image.
+      <b class="Sy">eject</b> is a synonym for <b class="Sy">detach</b>. In
+      common operation, <b class="Sy">detach</b> is very similar to
+      <a class="Xr">diskutil(8)</a>'s <b class="Sy">eject</b>.
+    <p class="Pp">Options:</p>
+    <dl class="Bl-hang Bl-compact">
+      <dt><a class="permalink" href="#force"><code class="Fl" id="force">-force</code></a></dt>
+      <dd>ignore open files on mounted volumes, etc.</dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">verify</b> <var class="Ar">image</var>
+    [<var class="Ar">options</var>]</dt>
+  <dd>
+    <br/>
+    compute the checksum of a &quot;read-only&quot; or &quot;compressed&quot;
+      image and verify it against the value stored in the image. Read/write
+      images don't contain checksums and thus can't be verified.
+      <b class="Sy">verify</b> accepts the common options
+      <code class="Fl">-encryption</code>, <code class="Fl">-stdinpass</code>,
+      <code class="Fl">-srcimagekey</code>,
+      <code class="Fl">-puppetstrings</code>, and
+      <code class="Fl">-plist</code>.</dd>
+  <dt><b class="Sy">create</b> <var class="Ar">size_spec image</var></dt>
+  <dd>
+    <br/>
+    create a new image of the given size or from the provided data. If
+      <var class="Ar">image</var> already exists, <code class="Fl">-ov</code>
+      must be specified or <b class="Sy">create</b> will fail. To make a
+      cross-platform CD or DVD, use <b class="Sy">makehybrid</b> instead. See
+      also EXAMPLES below.
+    <p class="Pp">The size specified is the size of the image to be created.
+        Filesystem and partition layout overhead (80 sectors for the default
+        GPTSPUD layout on Intel machines) may not be available for the
+        filesystem and user data in the image.
+      <br/>
+      Size specifiers:</p>
+    <dl class="Bl-hang Bl-compact">
+      <dt><a class="permalink" href="#size"><code class="Fl" id="size">-size</code></a>
+        <var class="Ar">??b|??k|??m|??g|??t|??p|??e</var></dt>
+      <dd>
+        <br/>
+        Specify the size of the image in the style of
+          <a class="Xr">mkfile(8)</a> with the addition of tera-, peta-, and
+          exa-bytes sizes (note that 'b' specifies a number of sectors, not
+          bytes). The larger sizes are useful for large sparse images.</dd>
+      <dt><a class="permalink" href="#sectors"><code class="Fl" id="sectors">-sectors</code></a>
+        <var class="Ar">sector_count</var></dt>
+      <dd>
+        <br/>
+        Specify the size of the image file in 512-byte sectors.</dd>
+      <dt><a class="permalink" href="#megabytes"><code class="Fl" id="megabytes">-megabytes</code></a>
+        <var class="Ar">size</var></dt>
+      <dd>
+        <br/>
+        Specify the size of the image file in megabytes (1024*1024 bytes).
+        <p class="Pp"></p>
+      </dd>
+      <dt><a class="permalink" href="#srcfolder"><code class="Fl" id="srcfolder">-srcfolder</code></a>
+        <var class="Ar">source</var></dt>
+      <dd>
+        <br/>
+        copies file-by-file the contents of <var class="Ar">source</var> into
+          <var class="Ar">image</var>, creating a fresh (theoretically
+          defragmented) filesystem on the destination. The resulting image is
+          thus recommended for use with <a class="Xr">asr(8)</a> since it will
+          have a minimal amount of unused space. Its size will be that of the
+          source data plus some padding for filesystem overhead. The filesystem
+          type of the image volume will match that of the source as closely as
+          possible unless overridden with <code class="Fl">-fs</code>. Other
+          size specifiers, such as <code class="Fl">-size</code>, will override
+          the default size calculation based on the source content, allowing for
+          more or less free space in the resulting filesystem.
+          <code class="Fl">-srcfolder</code> can be specified more than once, in
+          which case the image volume will be populated at the top level with a
+          copy of each specified filesystem object.
+          <code class="Fl">-srcdir</code> is a synonym.</dd>
+      <dt><a class="permalink" href="#srcdevice"><code class="Fl" id="srcdevice">-srcdevice</code></a>
+        <var class="Ar">device</var></dt>
+      <dd>
+        <br/>
+        specifies that the blocks of <var class="Ar">device</var> should be used
+          to create a new image. The image size will match the size of
+          <var class="Ar">device</var>. <b class="Sy">resize</b> can be used to
+          adjust the size of resizable filesystems and writable images. Both
+          <code class="Fl">-srcdevice</code> and
+          <code class="Fl">-srcfolder</code> can run into errors if there are
+          bad blocks on a disk. One way around this problem is to write over the
+          files in question in the hopes that the drive will remap the bad
+          blocks. Data will be lost, but the image creation operation will
+          subsequently succeed. Filesystem options (like
+          <code class="Fl">-fs</code>, <code class="Fl">-volname</code>,
+          <code class="Fl">-stretch</code>, or <code class="Fl">-size</code>)
+          are invalid and ignored when using <code class="Fl">-srcdevice</code>.
+        <p class="Pp">With APFS, imaging from a <var class="Ar">device</var>
+            that is an individual APFS volume is invalid. To create a valid APFS
+            disk image, <var class="Ar">device</var> needs to be an APFS
+            container or contain an APFS container partition.</p>
+      </dd>
+    </dl>
+    <p class="Pp">Common options: <code class="Fl">-encryption</code>,
+        <code class="Fl">-stdinpass</code>,
+        <code class="Fl">-certificate</code>, <code class="Fl">-pubkey</code>,
+        <code class="Fl">-imagekey</code>, <code class="Fl">-tgtimagekey</code>,
+        <code class="Fl">-puppetstrings</code>, and
+        <code class="Fl">-plist</code>.</p>
+    <p class="Pp"><code class="Fl">-imagekey</code>
+        <var class="Ar">di-sparse-puma-compatible=TRUE</var> and
+        <code class="Fl">-imagekey</code>
+        <var class="Ar">di-shadow-puma-compatible=TRUE</var> will create,
+        respectively, sparse and shadow images that can be attached on Mac OS X
+        10.1. <code class="Fl">-imagekey</code>
+        <var class="Ar">encrypted-encoding-version</var> can select between
+        version 1 and version 2 of the encrypted encoding. The framework
+        preferences have a corresponding key to change the default for all
+        images. Version 2 is not compatible with Mac OS X 10.2 but is more
+        robust for SPARSE (UDSP) images. Version 1 is the default for non-sparse
+        images. As of Mac OS X 10.4.7, sparse encrypted images always use
+        version 2 and as of Mac OS X 10.5, all encrypted images default to
+        version 2.</p>
+    <p class="Pp">General options:</p>
+    <dl class="Bl-hang Bl-compact">
+      <dt><a class="permalink" href="#align"><code class="Fl" id="align">-align</code></a>
+        <var class="Ar">alignment</var></dt>
+      <dd>
+        <br/>
+        specifies a size to which the final data partition will be aligned. The
+          default is 4K.
+        <p class="Pp"></p>
+      </dd>
+      <dt><a class="permalink" href="#type"><code class="Fl" id="type">-type</code></a>
+        <var class="Ar">UDIF|SPARSE|SPARSEBUNDLE</var></dt>
+      <dd>
+        <br/>
+        <code class="Fl">-type</code> is particular to <b class="Sy">create</b>
+          and is used to specify the format of empty read/write images. It is
+          independent of <code class="Fl">-format</code> which is used to
+          specify the final read-only image format when populating an image with
+          pre-existing content.
+        <p class="Pp">UDIF is the default type. If specified, a UDRW of the
+            specified size will be created. SPARSE creates a UDSP: a read/write
+            single-file image which expands as is is filled with data.
+            SPARSEBUNDLE creates a UDSB: a read/write image backed by a
+            directory bundle.</p>
+        <p class="Pp">By default, UDSP images grow one megabyte at a time.
+            Introduced in 10.5, UDSB images use 8 MB band files which grow as
+            they are written to. <code class="Fl">-imagekey</code>
+            <var class="Ar">sparse-band-size=size</var> can be used to specify
+            the number of 512-byte sectors that will be added each time the
+            image grows. Valid values for SPARSEBUNDLE range from 2048 to
+            16777216 sectors (1 MB to 8 GB).</p>
+        <p class="Pp">The maximum size of a SPARSE image is 128 petabytes; the
+            maximum for SPARSEBUNDLE is just under 8 exabytes (2^63 - 512
+            bytes). The amount of data that can be stored in either type of
+            sparse image is additionally bounded by the filesystem in the image
+            and by any partition map. <b class="Sy">compact</b> can reclaim
+            unused bands in sparse images backing APFS or HFS+ filesystems.
+            <b class="Sy">resize</b> will only change the virtual size of a
+            sparse image. See also USING PERSISTENT SPARSE IMAGES below.</p>
+        <p class="Pp"></p>
+      </dd>
+      <dt><a class="permalink" href="#fs"><code class="Fl" id="fs">-fs</code></a>
+        <var class="Ar">filesystem</var></dt>
+      <dd>
+        <br/>
+        where <var class="Ar">filesystem</var> is one of several options such as
+          HFS+, HFS+J (JHFS+), HFSX, JHFS+X, APFS, FAT32, ExFAT, or UDF. A full
+          list of supported filesystems can be found in <b class="Sy">create</b>
+          <code class="Fl">-help</code>. <code class="Fl">-fs</code> causes a
+          filesystem of the specified type to be written to the image.
+          <code class="Fl">-fs</code> may change the partition scheme and type
+          appropriately. <code class="Fl">-fs</code> will not make any size
+          adjustments: if the image is the wrong size for the specified
+          filesystem, <b class="Sy">create</b> will fail.
+          <code class="Fl">-fs</code> is invalid and ignored when using
+          <code class="Fl">-srcdevice</code>.</dd>
+      <dt><a class="permalink" href="#volname"><code class="Fl" id="volname">-volname</code></a>
+        <var class="Ar">volname</var></dt>
+      <dd>
+        <br/>
+        The newly-created filesystem will be named
+          <var class="Ar">volname</var>. The default depends the filesystem
+          being used; The default volume name in both HFS+ and APFS is
+          &#x2018;<code class="Li">untitled</code>&#x2019;.
+          <code class="Fl">-volname</code> is invalid and ignored when using
+          <code class="Fl">-srcdevice</code>.</dd>
+      <dt><a class="permalink" href="#uid"><code class="Fl" id="uid">-uid</code></a>
+        <var class="Ar">uid</var></dt>
+      <dd>the root of the newly-created volume will be owned by the given
+          numeric user id. 99 maps to the magic
+          &#x2018;<code class="Li">unknown</code>&#x2019; user (see PERMISSIONS
+          VS. OWNERS).</dd>
+      <dt><a class="permalink" href="#gid"><code class="Fl" id="gid">-gid</code></a>
+        <var class="Ar">gid</var></dt>
+      <dd>the root of the newly-created volume will be owned by the given
+          numeric group id. 99 maps to
+          &#x2018;<code class="Li">unknown</code>&#x2019;.</dd>
+      <dt><a class="permalink" href="#mode"><code class="Fl" id="mode">-mode</code></a>
+        <var class="Ar">mode</var></dt>
+      <dd>the root of the newly-created volume will have mode (in octal)
+          <var class="Ar">mode</var>. The default mode is determined by the
+          filesystem's newfs unless <code class="Fl">-srcfolder</code> is
+          specified, in which case the default mode is derived from the
+          specified filesystem object.</dd>
+      <dt><a class="permalink" href="#_no_autostretch"><code class="Fl" id="_no_autostretch">-[no]autostretch</code></a></dt>
+      <dd>
+        <br/>
+        do [not] suppress automatically making backwards-compatible stretchable
+          volumes when the volume size crosses the auto-stretch-size threshold
+          (default: 256 MB). See also <a class="Xr">asr(8)</a>.</dd>
+      <dt><a class="permalink" href="#stretch"><code class="Fl" id="stretch">-stretch</code></a>
+        <var class="Ar">max_stretch</var></dt>
+      <dd>
+        <br/>
+        <code class="Fl">-stretch</code> initializes HFS+ filesystem data such
+          that it can later be stretched on older systems (which could only
+          stretch within predefined limits) using
+          <code class="Nm">hdiutil</code> <b class="Sy">resize</b> or by
+          <a class="Xr">asr(8)</a>. <var class="Ar">max_stretch</var> is
+          specified like <code class="Fl">-size</code>.
+          <code class="Fl">-stretch</code> is invalid and ignored when using
+          <code class="Fl">-srcdevice</code>.</dd>
+      <dt><a class="permalink" href="#fsargs"><code class="Fl" id="fsargs">-fsargs</code></a>
+        <var class="Ar">newfs_args</var></dt>
+      <dd>
+        <br/>
+        additional arguments to pass to whichever newfs program is implied by
+          <code class="Fl">-fs</code>. As an example with HFS+,
+          <a class="Xr">newfs_hfs(8)</a> has a number of options that can
+          control the amount of space used by the filesystem's data
+        structures.</dd>
+      <dt><a class="permalink" href="#layout"><code class="Fl" id="layout">-layout</code></a>
+        <var class="Ar">layout</var></dt>
+      <dd>
+        <br/>
+        Specify the partition layout of the image. <var class="Ar">layout</var>
+          can be anything supported by MediaKit.framework. NONE creates an image
+          with no partition map. When such an image is attached, a single /dev
+          entry will be created (e.g. /dev/disk1).
+        <p class="Pp">&#x2018;<code class="Li">SPUD</code>&#x2019; causes a DDM
+            and an Apple Partition Scheme partition map with a single entry to
+            be written. &#x2018;<code class="Li">GPTSPUD</code>&#x2019; creates
+            a similar image but with a GUID Partition Scheme map instead. When
+            attached, multiple /dev entries will be created, with either slice 1
+            (GPT) or slice 2 (APM) as the data partition. (e.g. /dev/disk1,
+            /dev/disk1s1, /dev/disk1s2).</p>
+        <p class="Pp">Unless overridden by <code class="Fl">-fs</code>, the
+            default layout is &#x2018;<code class="Li">GPTSPUD</code>&#x2019;
+            (PPC systems used &#x2018;<code class="Li">SPUD</code>&#x2019; prior
+            to Mac OS X 10.6). Other layouts include
+            &#x2018;<code class="Li">MBRSPUD</code>&#x2019; and
+            &#x2018;<code class="Li">ISOCD</code>&#x2019;.
+            <b class="Sy">create</b> <code class="Fl">-help</code> lists all
+            supported layouts.</p>
+      </dd>
+      <dt><a class="permalink" href="#library"><code class="Fl" id="library">-library</code></a>
+        <var class="Ar">bundle</var></dt>
+      <dd>
+        <br/>
+        specify an alternate layout library. The default is MediaKit's
+          MKDrivers.bundle.</dd>
+      <dt><a class="permalink" href="#partitionType"><code class="Fl" id="partitionType">-partitionType</code></a>
+        <var class="Ar">partition_type</var></dt>
+      <dd>
+        <br/>
+        Change the type of partition in a single-partition disk image. The
+          default is Apple_HFS unless <code class="Fl">-fs</code> implies
+          otherwise.
+        <p class="Pp"></p>
+      </dd>
+      <dt><a class="permalink" href="#ov"><code class="Fl" id="ov">-ov</code></a></dt>
+      <dd>overwrite an existing file. The default is not to overwrite existing
+          files.</dd>
+      <dt><a class="permalink" href="#attach"><code class="Fl" id="attach">-attach</code></a></dt>
+      <dd>attach the image after creating it. If no filesystem is specified via
+          <code class="Fl">-fs</code>, the attach will fail per the default
+          <b class="Sy">attach</b> <code class="Fl">-mount</code>
+          <var class="Ar">required</var> behavior.</dd>
+    </dl>
+    <p class="Pp">Image from source options (for
+        <code class="Fl">-srcfolder</code> and
+        <code class="Fl">-srcdevice</code>):</p>
+    <dl class="Bl-hang Bl-compact">
+      <dt><a class="permalink" href="#format"><code class="Fl" id="format">-format</code></a>
+        <var class="Ar">format</var></dt>
+      <dd>Specify the final image format. The default when a source is specified
+          is UDZO. <var class="Ar">format</var> can be any of the format
+          parameters used by <b class="Sy">convert</b>.</dd>
+    </dl>
+    <p class="Pp">Options specific to <code class="Fl">-srcdevice</code>:</p>
+    <dl class="Bl-hang Bl-compact">
+      <dt><a class="permalink" href="#segmentSize"><code class="Fl" id="segmentSize">-segmentSize</code></a>
+        <var class="Ar">size_spec</var></dt>
+      <dd>
+        <br/>
+        Specify that the image should be written in segments no bigger than
+          <var class="Ar">size_spec</var> (which follows
+          <code class="Fl">-size</code> conventions).</dd>
+    </dl>
+    <p class="Pp">Options specific to <code class="Fl">-srcfolder</code>:</p>
+    <dl class="Bl-hang Bl-compact">
+      <dt><a class="permalink" href="#_no_crossdev"><code class="Fl" id="_no_crossdev">-[no]crossdev</code></a></dt>
+      <dd>do [not] cross device boundaries on the source filesystem.</dd>
+      <dt><a class="permalink" href="#_no_scrub"><code class="Fl" id="_no_scrub">-[no]scrub</code></a></dt>
+      <dd>do [not] skip temporary files when imaging a volume. Scrubbing is the
+          default when the source is the root of a mounted volume. Scrubbed
+          items include trashes, temporary directories, swap files, etc.</dd>
+      <dt><a class="permalink" href="#_no_anyowners"><code class="Fl" id="_no_anyowners">-[no]anyowners</code></a></dt>
+      <dd>do not fail if the user invoking <code class="Nm">hdiutil</code> can't
+          ensure correct file ownership for the files in the image.</dd>
+      <dt><a class="permalink" href="#skipunreadable"><code class="Fl" id="skipunreadable">-skipunreadable</code></a></dt>
+      <dd>skip files that can't be read by the copying user and don't
+          authenticate.</dd>
+      <dt><a class="permalink" href="#_no_atomic"><code class="Fl" id="_no_atomic">-[no]atomic</code></a></dt>
+      <dd>do [not] copy files to a temporary location and then rename them to
+          their destination. Atomic copies are the default. Non-atomic copying
+          may be slightly faster.</dd>
+      <dt><a class="permalink" href="#copyuid"><code class="Fl" id="copyuid">-copyuid</code></a>
+        <var class="Ar">user</var></dt>
+      <dd>perform the copy as the given user. Requires root privilege. If
+          <var class="Ar">user</var> can't read or create files with the needed
+          owners, <code class="Fl">-anyowners</code> or
+          <code class="Fl">-skipunreadable</code> must be used to prevent the
+          operation from failing.</dd>
+    </dl>
+    <p class="Pp">By default, <b class="Sy">create</b>
+        <code class="Fl">-srcfolder</code> attempts to maintain the permissions
+        present in the source directory. It prompts for authentication if it
+        detects an unreadable file, a file owned by someone other than the user
+        creating the image, or a SGID file in a group that the copying user is
+        not in.</p>
+  </dd>
+  <dt><b class="Sy">convert</b> <var class="Ar">image</var></dt>
+  <dd><a class="permalink" href="#format_2"><code class="Fl" id="format_2">-format</code></a>
+      <var class="Ar">format</var> <code class="Fl">-o</code>
+      <var class="Ar">outfile</var>
+    <br/>
+    convert <var class="Ar">image</var> to type <var class="Ar">format</var> and
+      write the result to <var class="Ar">outfile</var>.
+    <p class="Pp">As with <b class="Sy">create</b>, the correct filename
+        extension will be added only if it isn't part of the provided name.
+        <var class="Ar">Format</var> is one of:</p>
+    <p class="Pp"></p>
+    <ul class="Bl-item Bd-indent Bl-compact">
+      <li>UDRW - UDIF read/write image</li>
+      <li>UDRO - UDIF read-only image</li>
+      <li>UDCO - UDIF ADC-compressed image</li>
+      <li>UDZO - UDIF zlib-compressed image</li>
+      <li>ULFO - UDIF lzfse-compressed image (OS X 10.11+ only)</li>
+      <li>ULMO - UDIF lzma-compressed image (macOS 10.15+ only)</li>
+      <li>UDBZ - UDIF bzip2-compressed image (Mac OS X 10.4+ only)</li>
+      <li>UDTO - DVD/CD-R master for export</li>
+      <li>UDSP - SPARSE (grows with content)</li>
+      <li>UDSB - SPARSEBUNDLE (grows with content; bundle-backed)</li>
+      <li>UFBI - UDIF entire image with MD5 checksum</li>
+      <li>UDRo - UDIF read-only (obsolete format)</li>
+      <li>UDCo - UDIF compressed (obsolete format)</li>
+      <li>RdWr - NDIF read/write image (deprecated)</li>
+      <li>Rdxx - NDIF read-only image (Disk Copy 6.3.3 format; deprecated)</li>
+      <li>ROCo - NDIF compressed image (deprecated)</li>
+      <li>Rken - NDIF compressed (obsolete format)</li>
+      <li>DC42 - Disk Copy 4.2 image (obsolete format)</li>
+    </ul>
+    <p class="Pp">In addition to the compression offered by some formats, the
+        UDIF and NDIF read-only formats skip unused space in HFS, APFS, ExFAT,
+        and MS-DOS (FAT, FAT32) filesystems. For UDZO,
+        <code class="Fl">-imagekey</code> <var class="Ar">zlib-level=value</var>
+        allows the zlib compression level to be specified a la
+        <a class="Xr">gzip(1)</a>. The default compression level is 1
+      (fastest).</p>
+    <p class="Pp">Common options: <code class="Fl">-encryption</code>,
+        <code class="Fl">-stdinpass</code>,
+        <code class="Fl">-certificate</code>,
+        <code class="Fl">-srcimagekey</code>,
+        <code class="Fl">-tgtimagekey</code>, <code class="Fl">-shadow</code>
+        and related, <code class="Fl">-puppetstrings</code>, and
+        <code class="Fl">-plist</code>.</p>
+    <p class="Pp">Other options:</p>
+    <dl class="Bl-hang Bl-compact">
+      <dt><a class="permalink" href="#align_2"><code class="Fl" id="align_2">-align</code></a>
+        <var class="Ar">alignment</var></dt>
+      <dd>
+        <br/>
+        The default is 4 (2K).</dd>
+      <dt><a class="permalink" href="#pmap"><code class="Fl" id="pmap">-pmap</code></a></dt>
+      <dd>add partition map.
+        <br/>
+        When converting an NDIF to any variety of UDIF, or when converting an
+          unpartitioned UDIF, the default is true.</dd>
+      <dt><a class="permalink" href="#segmentSize_2"><code class="Fl" id="segmentSize_2">-segmentSize</code></a></dt>
+      <dd>[<var class="Ar">size_spec</var>]
+        <br/>
+        Specify segmentation into <var class="Ar">size_spec</var>-sized segments
+          as <var class="Ar">outfile</var> is being written. The default
+          <var class="Ar">size_spec</var> when
+          <code class="Fl">-segmentSize</code> is specified alone is 2*1024*1024
+          (1 GB worth of sectors) for UDTO images and 4*1024*1024 (2 GB
+          segments) for all other image types. <var class="Ar">size_spec</var>
+          can also be specified ??b|??k|??m|??g|??t|??p|??e like
+          <b class="Sy">create</b>'s <code class="Fl">-size</code> flag.</dd>
+      <dt><a class="permalink" href="#tasks"><code class="Fl" id="tasks">-tasks</code></a>
+        <var class="Ar">task_count</var></dt>
+      <dd>
+        <br/>
+        When converting an image into a compressed format, specify the number of
+          threads to use for the compression operation. The default is the
+          number of processors active in the current system.</dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">burn</b> <var class="Ar">image</var></dt>
+  <dd>
+    <br/>
+    Burn <var class="Ar">image</var> to optical media in an attached burning
+      device. In all cases, a prompt for media will be printed once an
+      appropriate drive has been found. Common options:
+      <code class="Fl">-shadow</code> and related,
+      <code class="Fl">-srcimagekey</code>, <code class="Fl">-encryption</code>,
+      <code class="Fl">-puppetstrings</code>, and
+      <code class="Fl">-stdinpass</code>.
+    <p class="Pp">Other options:</p>
+    <dl class="Bl-hang Bl-compact">
+      <dt><a class="permalink" href="#device"><code class="Fl" id="device">-device</code></a></dt>
+      <dd>specify a device to use for burning. See
+          <code class="Fl">-list</code>.</dd>
+      <dt><a class="permalink" href="#testburn"><code class="Fl" id="testburn">-testburn</code></a></dt>
+      <dd>don't turn on laser (laser defaults to on).</dd>
+      <dt><a class="permalink" href="#anydevice"><code class="Fl" id="anydevice">-anydevice</code></a></dt>
+      <dd>explicitly allow burning to devices not qualified by Apple (kept for
+          backwards compatibility as <b class="Sy">burn</b> will burn to any
+          device by default as of Mac OS X 10.4).
+        <p class="Pp"></p>
+      </dd>
+      <dt><a class="permalink" href="#_no_eject"><code class="Fl" id="_no_eject">-[no]eject</code></a></dt>
+      <dd>do [not] eject disc after burning. The default is to eject the
+        disc.</dd>
+      <dt><a class="permalink" href="#_no_verifyburn"><code class="Fl" id="_no_verifyburn">-[no]verifyburn</code></a></dt>
+      <dd>do [not] verify disc contents after burn. The default is to verify.
+        <p class="Pp"></p>
+      </dd>
+      <dt><a class="permalink" href="#_no_addpmap"><code class="Fl" id="_no_addpmap">-[no]addpmap</code></a></dt>
+      <dd>do [not] add partition map if necessary. Some filesystem types will
+          not be recognized when stored on optical media unless they are
+          enclosed in a partition map. This option will add a partition map to
+          any bare filesystem which needs a partition map in order to be
+          recognized when burned to optical media. The default is to add the
+          partition map if needed.
+        <p class="Pp"></p>
+      </dd>
+      <dt><a class="permalink" href="#_no_skipfinalfree"><code class="Fl" id="_no_skipfinalfree">-[no]skipfinalfree</code></a></dt>
+      <dd>do [not] skip final free partition. If there is a partition map on the
+          image specifying an Apple_Free partition as the last partition, that
+          Apple_Free partition will not be burned. The burned partition map will
+          still reference the empty space. The default is to skip burning a
+          final free partition.
+        <p class="Pp"></p>
+      </dd>
+      <dt><a class="permalink" href="#_no_optimizeimage"><code class="Fl" id="_no_optimizeimage">-[no]optimizeimage</code></a></dt>
+      <dd>do [not] optimize filesystem for burning. Optimization can reduce the
+          size of an HFS+ volume to the size of the data contained on the
+          volume. This option will change what is burned such that the disc will
+          have a different checksum than the image it came from. The default is
+          to burn all blocks of the disk image (minus any trailing Apple_Free).
+        <p class="Pp"></p>
+      </dd>
+      <dt><a class="permalink" href="#_no_forceclose"><code class="Fl" id="_no_forceclose">-[no]forceclose</code></a></dt>
+      <dd>do [not] force the disc to be closed after burning. Further burns to
+          the disc will be impossible. The default is not to close the disc.
+        <p class="Pp"></p>
+      </dd>
+      <dt><a class="permalink" href="#nounderrun"><code class="Fl" id="nounderrun">-nounderrun</code></a></dt>
+      <dd>Disable the default buffer underrun protection.
+        <p class="Pp"></p>
+      </dd>
+      <dt><a class="permalink" href="#_no_synthesize"><code class="Fl" id="_no_synthesize">-[no]synthesize</code></a></dt>
+      <dd>[Don't] Synthesize a hybrid filesystem for the disc. The default is to
+          create a new (HFS+/ISO) filesystem when burning the source image's
+          blocks would not result in a valid disc.
+        <p class="Pp"></p>
+      </dd>
+      <dt><a class="permalink" href="#speed"><code class="Fl" id="speed">-speed</code></a>
+        <var class="Ar">x_factor</var></dt>
+      <dd>1, 2, 4, 6, ... &#x2018;<code class="Li">max</code>&#x2019;
+        <br/>
+        The desired &#x201C;x-factor&#x201D;.e.g. 8 means the drive will be
+          instructed burn at &#x201C;8x
+          speed&#x201D;.&#x2018;<code class="Li">max</code>&#x2019; will cause
+          the burn to proceed at the maximum speed of the drive.
+          &#x2018;<code class="Li">max</code>&#x2019; is the default speed.
+          Slower speeds can produce more reliable burns. The speed factor is
+          relative to the media being burned (e.g.
+          <code class="Fl">-speed</code> <var class="Ar">2</var> has a different
+          data rate when used for a DVD burn vs. a CD burn). Note that some
+          drives have a minimum burn speed in which case any slower speed
+          specified will result in a burn at the drive's minimum speed.
+        <p class="Pp"></p>
+      </dd>
+      <dt><a class="permalink" href="#sizequery"><code class="Fl" id="sizequery">-sizequery</code></a></dt>
+      <dd>calculate the size of disc required without burning anything. The size
+          is returned in sectors.
+        <p class="Pp"></p>
+      </dd>
+      <dt><a class="permalink" href="#erase"><code class="Fl" id="erase">-erase</code></a></dt>
+      <dd>prompt for optical media (DVD-RW/CD-RW) and then, if the hardware
+          supports it, quickly erase the media. If an image is specified, it
+          will be burned to the media after the media has been erased.</dd>
+      <dt><a class="permalink" href="#fullerase"><code class="Fl" id="fullerase">-fullerase</code></a></dt>
+      <dd>erase all sectors of the disc. This usually takes quite a bit longer
+          than <code class="Fl">-erase</code>.</dd>
+      <dt><a class="permalink" href="#list"><code class="Fl" id="list">-list</code></a></dt>
+      <dd>list all burning devices, with OpenFirmware paths suitable for
+          <code class="Fl">-device</code>.</dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">makehybrid</b> <code class="Fl">-o</code>
+    <var class="Ar">image</var> <var class="Ar">source</var></dt>
+  <dd>
+    <br/>
+    Generate a potentially-hybrid filesystem in a read-only disk image using the
+      DiscRecording framework's content creation system. This disk image will
+      represent a data disc. <a class="Xr">drutil(1)</a> can be used to make
+      audio discs.
+    <p class="Pp"><var class="Ar">source</var> can either be a directory or a
+        disk image. The generated image can later be burned using
+        <b class="Sy">burn</b>, or converted to another read-only format with
+        <b class="Sy">convert</b>. By default, the filesystem will be readable
+        on most modern computing platforms. The generated filesystem is not
+        intended for conversion to read/write, but can safely have its files
+        copied to a read/write filesystem using <a class="Xr">ditto(8)</a>.</p>
+    <p class="Pp"><code class="Nm">hdiutil</code> supports generating El
+        Torito-style bootable ISO9660 filesystems, which are commonly used for
+        booting x86-based hardware. The specification includes several emulation
+        modes. By default, an El Torito boot image emulates either a 1.2MB,
+        1.44MB, or 2.88MB floppy drive, depending on the size of the image. Also
+        available are &#x201C;No Emulation&#x201D; and &#x201C;Hard Disk
+        Emulation&#x201D; modes, which allow the boot image to either be loaded
+        directly into memory, or be virtualized as a partitioned hard disk,
+        respectively. The El Torito options should not be used for data CDs.</p>
+    <p class="Pp">Filesystem options:</p>
+    <dl class="Bl-hang Bl-compact">
+      <dt><a class="permalink" href="#hfs"><code class="Fl" id="hfs">-hfs</code></a></dt>
+      <dd>Generate an HFS+ filesystem. This filesystem can be present on an
+          image simultaneously with an ISO9660 or Joliet or UDF filesystem. On
+          operating systems that understand HFS+ as well as ISO9660 and UDF,
+          like Mac OS 9 or OS X, HFS+ is usually the preferred filesystem for
+          hybrid images.</dd>
+      <dt><a class="permalink" href="#iso"><code class="Fl" id="iso">-iso</code></a></dt>
+      <dd>Generate an ISO9660 Level 2 filesystem with Rock Ridge extensions.
+          This filesystem can be present on an image simultaneously with an HFS+
+          or Joliet or UDF filesystem. ISO9660 is the standard cross-platform
+          interchange format for CDs and some DVDs, and is understood by
+          virtually all operating systems. If an ISO9660 or Joliet filesystem is
+          present on a disk image or CD, but not HFS+, OS X will use the ISO9660
+          (or Joliet) filesystem.</dd>
+      <dt><a class="permalink" href="#joliet"><code class="Fl" id="joliet">-joliet</code></a></dt>
+      <dd>Generate Joliet extensions to ISO9660. This view of the filesystem can
+          be present on an image simultaneously with HFS+, and requires the
+          presence of an ISO9660 filesystem. Joliet supports Unicode filenames,
+          but is only supported on some operating systems. If both an ISO9660
+          and Joliet filesystem are present on a disk image or CD, but not HFS+,
+          OS X will prefer the Joliet filesystem.</dd>
+      <dt><a class="permalink" href="#udf"><code class="Fl" id="udf">-udf</code></a></dt>
+      <dd>Generate a UDF filesystem. This filesystem can be present on an image
+          simultaneously with HFS+, ISO9660, and Joliet. UDF is the standard
+          interchange format for DVDs, although operating system support varies
+          based on OS version and UDF version.</dd>
+    </dl>
+    <p class="Pp">By default, if no filesystem is specified, the image will be
+        created with all four filesystems as a hybrid image. When multiple
+        filesystems are selected, the data area of the image is shared between
+        all filesystems, and only directory information and volume meta-data are
+        unique to each filesystem. This means that creating a cross-platform
+        ISO9660/HFS+ hybrid has a minimal overhead when compared to a single
+        filesystem image.</p>
+    <p class="Pp">Other options (most take a single argument):</p>
+    <dl class="Bl-hang Bl-compact">
+      <dt><a class="permalink" href="#hfs-blessed-directory"><code class="Fl" id="hfs-blessed-directory">-hfs-blessed-directory</code></a></dt>
+      <dd>Path to directory which should be &#x201C;blessed&#x201D; for OS X
+          booting on the generated filesystem. This assumes the directory has
+          been otherwise prepared, for example with bless
+          <code class="Fl">-bootinfo</code> to create a valid
+          <i class="Em">BootX</i> file. (HFS+ only).</dd>
+      <dt><a class="permalink" href="#hfs-openfolder"><code class="Fl" id="hfs-openfolder">-hfs-openfolder</code></a></dt>
+      <dd>Path to a directory that will be opened by the Finder automatically.
+          See also the <code class="Fl">-openfolder</code> option in
+          <a class="Xr">bless(8)</a> (HFS+ only).</dd>
+      <dt><a class="permalink" href="#hfs-startupfile-size"><code class="Fl" id="hfs-startupfile-size">-hfs-startupfile-size</code></a></dt>
+      <dd>Allocate an empty HFS+ Startup File of the specified size, in bytes
+          (HFS+ only).
+        <p class="Pp"></p>
+      </dd>
+      <dt><a class="permalink" href="#abstract-file"><code class="Fl" id="abstract-file">-abstract-file</code></a></dt>
+      <dd>Path to a file in the source directory (and thus the root of the
+          generated filesystem) for use as the ISO9660/Joliet Abstract file
+          (ISO9660/Joliet).</dd>
+      <dt><a class="permalink" href="#bibliography-file"><code class="Fl" id="bibliography-file">-bibliography-file</code></a></dt>
+      <dd>Path to a file in the source directory (and thus the root of the
+          generated filesystem) for use as the ISO9660/Joliet Bibliography file
+          (ISO9660/Joliet).</dd>
+      <dt><a class="permalink" href="#copyright-file"><code class="Fl" id="copyright-file">-copyright-file</code></a></dt>
+      <dd>Path to a file in the source directory (and thus the root of the
+          generated filesystem) for use as the ISO9660/Joliet Copyright file
+          (ISO9660/Joliet).</dd>
+      <dt><a class="permalink" href="#application"><code class="Fl" id="application">-application</code></a></dt>
+      <dd>Application string (ISO9660/Joliet).</dd>
+      <dt><a class="permalink" href="#preparer"><code class="Fl" id="preparer">-preparer</code></a></dt>
+      <dd>Preparer string (ISO9660/Joliet).</dd>
+      <dt><a class="permalink" href="#publisher"><code class="Fl" id="publisher">-publisher</code></a></dt>
+      <dd>Publisher string (ISO9660/Joliet).</dd>
+      <dt><a class="permalink" href="#system-id"><code class="Fl" id="system-id">-system-id</code></a></dt>
+      <dd>System Identification string (ISO9660/Joliet).</dd>
+      <dt><a class="permalink" href="#keep-mac-specific"><code class="Fl" id="keep-mac-specific">-keep-mac-specific</code></a></dt>
+      <dd>Expose Macintosh-specific files (such as .DS_Store) in non-HFS+
+          filesystems (ISO9660/Joliet).</dd>
+      <dt><a class="permalink" href="#eltorito-boot"><code class="Fl" id="eltorito-boot">-eltorito-boot</code></a></dt>
+      <dd>Path to an El Torito boot image within the source directory. By
+          default, floppy drive emulation is used, so the image must be one of
+          1200KB, 1440KB, or 2880KB. If the image has a different size, either
+          <code class="Fl">-no-emul-boot</code> or
+          <code class="Fl">-hard-disk-boot</code> must be used to enable
+          &#x201C;No Emulation&#x201D; or &#x201C;Hard Disk Emulation&#x201D;
+          mode, respectively (ISO9660/Joliet).</dd>
+      <dt><a class="permalink" href="#hard-disk-boot"><code class="Fl" id="hard-disk-boot">-hard-disk-boot</code></a></dt>
+      <dd>Use El Torito Hard Disk Emulation mode. The image must represent a
+          virtual device with an MBR partition map and a single partition</dd>
+      <dt><a class="permalink" href="#no-emul-boot"><code class="Fl" id="no-emul-boot">-no-emul-boot</code></a></dt>
+      <dd>Use El Torito No Emulation mode. The system firmware will load the
+          number of sectors specified by <code class="Fl">-boot-load-size</code>
+          and execute it, without emulating any devices (ISO9660/Joliet).</dd>
+      <dt><a class="permalink" href="#no-boot"><code class="Fl" id="no-boot">-no-boot</code></a></dt>
+      <dd>Mark the El Torito image as non-bootable. The system firmware may
+          still create a virtual device backed by this data. This option is not
+          recommended (ISO9660/Joliet).</dd>
+      <dt><a class="permalink" href="#boot-load-seg"><code class="Fl" id="boot-load-seg">-boot-load-seg</code></a></dt>
+      <dd>For a No Emulation boot image, load the data at the specified segment
+          address. This options is not recommended, so that the system firmware
+          can use its default address (ISO9660/Joliet)</dd>
+      <dt><a class="permalink" href="#boot-load-size"><code class="Fl" id="boot-load-size">-boot-load-size</code></a></dt>
+      <dd>For a No Emulation boot image, load the specified number of 512-byte
+          emulated sectors into memory and execute it. By default, 4 sectors
+          (2KB) will be loaded (ISO9660/Joliet).</dd>
+      <dt><a class="permalink" href="#eltorito-platform"><code class="Fl" id="eltorito-platform">-eltorito-platform</code></a></dt>
+      <dd>Use the specified numeric platform ID in the El Torito Boot Catalog
+          Validation Entry or Section Header. Defaults to 0 to identify x86
+          hardware (ISO/Joliet).</dd>
+      <dt><a class="permalink" href="#eltorito-specification"><code class="Fl" id="eltorito-specification">-eltorito-specification</code></a></dt>
+      <dd>For complex layouts involving multiple boot images, a plist-formatted
+          string can be provided, using either OpenStep-style syntax or XML
+          syntax, representing an array of dictionaries. Any of the El Torito
+          options can be set in the sub-dictionaries and will apply to that boot
+          image only. If <code class="Fl">-eltorito-specification</code> is
+          provided in addition to the normal El Torito command-line options, the
+          specification will be used to populate secondary non-default boot
+          entries.</dd>
+      <dt><a class="permalink" href="#udf-version"><code class="Fl" id="udf-version">-udf-version</code></a></dt>
+      <dd>Version of UDF filesystem to generate. This can be either
+          &quot;1.02&quot; or &quot;1.50&quot;. If not specified, it defaults to
+          &quot;1.50&quot; (UDF).
+        <p class="Pp"></p>
+      </dd>
+      <dt><a class="permalink" href="#default-volume-name"><code class="Fl" id="default-volume-name">-default-volume-name</code></a></dt>
+      <dd>Default volume name for all filesystems, unless overridden. If not
+          specified, defaults to the last path component of
+          <var class="Ar">source</var>.</dd>
+      <dt><a class="permalink" href="#hfs-volume-name"><code class="Fl" id="hfs-volume-name">-hfs-volume-name</code></a></dt>
+      <dd>Volume name for just the HFS+ filesystem if it should be different
+          (HFS+ only).</dd>
+      <dt><a class="permalink" href="#iso-volume-name"><code class="Fl" id="iso-volume-name">-iso-volume-name</code></a></dt>
+      <dd>Volume name for just the ISO9660 filesystem if it should be different
+          (ISO9660 only).</dd>
+      <dt><a class="permalink" href="#joliet-volume-name"><code class="Fl" id="joliet-volume-name">-joliet-volume-name</code></a></dt>
+      <dd>Volume name for just the Joliet filesystem if it should be different
+          (Joliet only).</dd>
+      <dt><a class="permalink" href="#udf-volume-name"><code class="Fl" id="udf-volume-name">-udf-volume-name</code></a></dt>
+      <dd>Volume name for just the UDF filesystem if it should be different (UDF
+          only).
+        <p class="Pp"></p>
+      </dd>
+      <dt><a class="permalink" href="#hide-all"><code class="Fl" id="hide-all">-hide-all</code></a></dt>
+      <dd>A glob expression of files and directories that should not be exposed
+          in the generated filesystems. The string may need to be quoted to
+          avoid shell expansion, and will be passed to <a class="Xr">glob(3)</a>
+          for evaluation. Although this option cannot be used multiple times, an
+          arbitrarily complex glob expression can be used.</dd>
+      <dt><a class="permalink" href="#hide-hfs"><code class="Fl" id="hide-hfs">-hide-hfs</code></a></dt>
+      <dd>A glob expression of files and directories that should not be exposed
+          via the HFS+ filesystem, although the data may still be present for
+          use by other filesystems (HFS+ only).</dd>
+      <dt><a class="permalink" href="#hide-iso"><code class="Fl" id="hide-iso">-hide-iso</code></a></dt>
+      <dd>A glob expression of files and directories that should not be exposed
+          via the ISO filesystem, although the data may still be present for use
+          by other filesystems (ISO9660 only). Per above, the Joliet hierarchy
+          will supersede the ISO hierarchy when the hybrid is mounted as an ISO
+          9660 filesystem on OS X. Therefore, if Joliet is being generated (the
+          default) <code class="Fl">-hide-joliet</code> will also be needed to
+          hide the file from <a class="Xr">mount_cd9660(8)</a>.</dd>
+      <dt><a class="permalink" href="#hide-joliet"><code class="Fl" id="hide-joliet">-hide-joliet</code></a></dt>
+      <dd>A glob expression of files and directories that should not be exposed
+          via the Joliet filesystem, although the data may still be present for
+          use by other filesystems (Joliet only). Because OS X's ISO 9660
+          filesystem uses the Joliet catalog if it is available,
+          <code class="Fl">-hide-joliet</code> effectively supersedes
+          <code class="Fl">-hide-iso</code> when the resulting filesystem is
+          mounted as ISO on OS X.</dd>
+      <dt><a class="permalink" href="#hide-udf"><code class="Fl" id="hide-udf">-hide-udf</code></a></dt>
+      <dd>A glob expression of files and directories that should not be exposed
+          via the UDF filesystem, although the data may still be present for use
+          by other filesystems (UDF only).</dd>
+      <dt><a class="permalink" href="#only-udf"><code class="Fl" id="only-udf">-only-udf</code></a></dt>
+      <dd>A glob expression of objects that should only be exposed in UDF.</dd>
+      <dt><a class="permalink" href="#only-iso"><code class="Fl" id="only-iso">-only-iso</code></a></dt>
+      <dd>A glob expression of objects that should only be exposed in ISO.</dd>
+      <dt><a class="permalink" href="#only-joliet"><code class="Fl" id="only-joliet">-only-joliet</code></a></dt>
+      <dd>A glob expression of objects that should only be exposed in Joliet.
+        <p class="Pp"></p>
+      </dd>
+      <dt><a class="permalink" href="#print-size"><code class="Fl" id="print-size">-print-size</code></a></dt>
+      <dd>Preflight the data and calculate an upper bound on the size of the
+          image. The actual size of the generated image is guaranteed to be less
+          than or equal to this estimate.</dd>
+      <dt><a class="permalink" href="#plistin"><code class="Fl" id="plistin">-plistin</code></a></dt>
+      <dd>Instead of using command-line parameters, use a standard plist from
+          standard input to specific the parameters of the hybrid image
+          generation. Each command-line option should be a key in the
+          dictionary, without the leading &#x201C;-&#x201D;, and the value
+          should be a string for path and string arguments, a number for number
+          arguments, and a boolean for toggle options. The
+          <var class="Ar">source</var> argument should use a key of
+          &#x201C;source&#x201D; and the <var class="Ar">image</var> should use
+          a key of &#x201C;output&#x201D;.</dd>
+    </dl>
+    <p class="Pp">If a disk image was specified for
+        <var class="Ar">source</var>, the image will be attached and paths will
+        be evaluated relative to the mountpoint of the image. No absolute paths
+        can be used in this case. If <var class="Ar">source</var> is a
+        directory, all argument paths should point to files or directories
+        either via an absolute path, or via a relative path to the current
+        working directory.</p>
+    <p class="Pp">The volume name options, just like files in the filesystems,
+        may need to be mapped onto the legal character set for a given
+        filesystem or otherwise changed to obey naming restrictions. Use
+        <a class="Xr">drutil(1)</a> as <code class="Nm">drutil</code>
+        <b class="Sy">filename</b> <var class="Ar">myname</var> to see how a
+        given string would be remapped.</p>
+    <p class="Pp">The <code class="Fl">-abstract-file</code>,
+        <code class="Fl">-bibliography-file</code>, <code class="Fl">-and</code>
+        <code class="Fl">-copyright-file</code> must exist directly in the
+        source directory, not a sub-directory, and must have an 8.3 name for
+        compatibility with ISO9660 Level 1.</p>
+  </dd>
+  <dt><b class="Sy">compact</b> <var class="Ar">image</var>
+    [<var class="Ar">options</var>]</dt>
+  <dd>
+    <br/>
+    scans the bands of a sparse (SPARSE or SPARSEBUNDLE) disk image containing
+      an APFS or HFS+ filesystem, removing those parts of the image which are no
+      longer being used by the filesystem. Depending on the location of files in
+      the hosted filesystem, <b class="Sy">compact</b> may or may not shrink the
+      image. For SPARSEBUNDLE images, completely unused band files are simply
+      removed.
+    <p class="Pp">Options:</p>
+    <dl class="Bl-hang Bl-compact">
+      <dt><a class="permalink" href="#batteryallowed"><code class="Fl" id="batteryallowed">-batteryallowed</code></a></dt>
+      <dd>allow compacting on battery power. SPARSE images could be damaged if
+          power is lost during a compact operation. The default is not allowed.
+        <p class="Pp"></p>
+      </dd>
+      <dt><a class="permalink" href="#sleepallowed"><code class="Fl" id="sleepallowed">-sleepallowed</code></a></dt>
+      <dd>allow machine to idle sleep while compacting, which cancels the
+          compact operation. The default is not allowed, which prevents idle
+          sleep until compact completes. User-initiated sleep, such as a lid
+          close, will always cancel compact.</dd>
+    </dl>
+    <p class="Pp">Common options: <code class="Fl">-encryption</code>,
+        <code class="Fl">-stdinpass</code>,
+        <code class="Fl">-srcimagekey</code>, <code class="Fl">-shadow</code>
+        and related, <code class="Fl">-puppetstrings</code>, and
+        <code class="Fl">-plist</code>.</p>
+  </dd>
+  <dt><b class="Sy">info</b></dt>
+  <dd>display information about DiskImages.framework, the disk image driver, and
+      any images that are currently attached. <code class="Nm">hdiutil</code>
+      <b class="Sy">info</b> accepts <code class="Fl">-plist</code>.</dd>
+  <dt><b class="Sy">checksum</b> <var class="Ar">image</var></dt>
+  <dd><a class="permalink" href="#type_2"><code class="Fl" id="type_2">-type</code></a>
+      <var class="Ar">type</var>
+    <br/>
+    Calculate the specified checksum on the image data, regardless of image
+      type.
+    <p class="Pp">Common options: <code class="Fl">-shadow</code> and related,
+        <code class="Fl">-encryption</code>, <code class="Fl">-stdinpass</code>,
+        <code class="Fl">-srcimagekey</code>,
+        <code class="Fl">-puppetstrings</code>, and
+        <code class="Fl">-plist</code>.</p>
+    <p class="Pp"><var class="Ar">type</var> is one of:
+      <br/>
+    </p>
+    <ul class="Bl-item Bd-indent Bl-compact">
+      <li>UDIF-CRC32 - CRC-32 image checksum
+        <br/>
+        UDIF-MD5 - MD5 image checksum
+        <br/>
+        DC42 - Disk Copy 4.2
+        <br/>
+        CRC28 - CRC-32 (NDIF)
+        <br/>
+        CRC32 - CRC-32
+        <br/>
+        MD5 - MD5
+        <br/>
+        SHA - SHA
+        <br/>
+        SHA1 - SHA-1
+        <br/>
+        SHA256 - SHA-256
+        <br/>
+        SHA384 - SHA-384
+        <br/>
+        SHA512 - SHA-512</li>
+    </ul>
+  </dd>
+  <dt><b class="Sy">chpass</b> <var class="Ar">image</var></dt>
+  <dd>
+    <br/>
+    change the passphrase for an encrypted image. The default is to change the
+      password interactively.
+    <p class="Pp">Common options: <code class="Fl">-recover</code> and
+        <code class="Fl">-srcimagekey</code>. The options
+        <code class="Fl">-oldstdinpass</code> and
+        <code class="Fl">-newstdinpass</code> allow, in the order specified, the
+        null-terminated old and new passwords to be read from the standard input
+        in the same manner as with <code class="Fl">-stdinpass</code>.</p>
+  </dd>
+  <dt><b class="Sy">erasekeys</b> <var class="Ar">image</var></dt>
+  <dd>
+    <br/>
+    delete keys used to access an encrypted image, quickly rendering the image
+      inaccessible. This does not prevent other copies of the keys from later
+      being broken and used to decrypt the data, such as from a copy or backup
+      of the image. In addition, modern storage systems such as solid state
+      disks do not securely overwrite data. As a result,
+      <b class="Sy">erasekeys</b> cannot protect against all attacks, but it may
+      prevent trivial access.
+    <p class="Pp">Common options: <code class="Fl">-plist</code> and
+        <code class="Fl">-quiet</code>.</p>
+  </dd>
+  <dt><b class="Sy">unflatten</b> <var class="Ar">image</var></dt>
+  <dd>
+    <br/>
+    <b class="Sy">unflatten</b> is deprecated.</dd>
+  <dt><b class="Sy">flatten</b> <var class="Ar">image</var></dt>
+  <dd>
+    <br/>
+    <b class="Sy">flatten</b> is deprecated.</dd>
+  <dt><b class="Sy">fsid</b> <var class="Ar">image</var></dt>
+  <dd>
+    <br/>
+    Print information about filesystems on a given disk image. Per DEVICE
+      SPECIAL FILES, <var class="Ar">image</var> can be a
+      <span class="Pa">/dev</span> entry corresponding to a disk. More detailed
+      information is presented for HFS+ filesystems.
+    <p class="Pp">Common options: <code class="Fl">-encryption</code>,
+        <code class="Fl">-stdinpass</code>,
+        <code class="Fl">-srcimagekey</code>, and
+        <code class="Fl">-shadow</code> and related.</p>
+  </dd>
+  <dt><b class="Sy">mountvol</b> <var class="Ar">dev_name</var></dt>
+  <dd>
+    <br/>
+    mount the filesystem in <var class="Ar">dev_name</var> using Disk
+      Arbitration (similar to <a class="Xr">diskutil(8)</a>'s
+      <b class="Sy">mount</b>). XML output is available from
+      <code class="Fl">-plist</code>. Note that <b class="Sy">mountvol</b>
+      (rather than <b class="Sy">mount</b>, though it often works in Mac OS X
+      10.5 and later) is the correct way to remount a volume after it has been
+      unmounted by <b class="Sy">unmount</b>.
+    <p class="Pp">Prior to Mac OS X 10.5,
+        <b class="Sy">mount</b>/<b class="Sy">attach</b> would treat a /dev
+        entry as a disk image to be attached (creating another /dev entry). That
+        behavior was undesirable.</p>
+  </dd>
+  <dt><b class="Sy">unmount</b> <var class="Ar">volume</var>
+    [<code class="Fl">-force</code>]</dt>
+  <dd>
+    <br/>
+    unmount a mounted volume without detaching any associated image.
+      <var class="Ar">Volume</var> is a /dev entry or mountpoint. NOTE:
+      <b class="Sy">unmount</b> does NOT detach any disk image associated with
+      the volume. Images are attached and detached; volumes are mounted and
+      unmounted. <code class="Nm">hdiutil</code> <b class="Sy">mountvol</b> (or
+      <b class="Sy">diskutil mount</b>) will remount a volume that has been
+      unmounted by <code class="Nm">hdiutil</code> <b class="Sy">unmount</b>.
+    <p class="Pp">Options:</p>
+    <dl class="Bl-hang Bl-compact">
+      <dt><a class="permalink" href="#force_2"><code class="Fl" id="force_2">-force</code></a></dt>
+      <dd>unmount filesystem regardless of open files on that filesystem.
+          Similar to umount -f.</dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">imageinfo</b> <var class="Ar">image</var>
+    [<var class="Ar">options</var>]</dt>
+  <dd>
+    <br/>
+    Print out information about a disk image.
+    <p class="Pp">Options are any of:</p>
+    <dl class="Bl-hang Bl-compact">
+      <dt><a class="permalink" href="#format_3"><code class="Fl" id="format_3">-format</code></a></dt>
+      <dd>only print out the image format</dd>
+      <dt><a class="permalink" href="#checksum"><code class="Fl" id="checksum">-checksum</code></a></dt>
+      <dd>only print out the image checksum</dd>
+    </dl>
+    <p class="Pp">Common options: <code class="Fl">-encryption</code>,
+        <code class="Fl">-stdinpass</code>,
+        <code class="Fl">-srcimagekey</code>, <code class="Fl">-shadow</code>
+        and related, and <code class="Fl">-plist</code>.</p>
+  </dd>
+  <dt><b class="Sy">isencrypted</b> <var class="Ar">image</var></dt>
+  <dd>
+    <br/>
+    print a line indicating whether <var class="Ar">image</var> is encrypted. If
+      it is, additional details are printed.
+    <p class="Pp">Common options: <code class="Fl">-plist</code>.</p>
+  </dd>
+  <dt><b class="Sy">plugins</b></dt>
+  <dd>print information about DiskImages framework plugins. The user, system,
+      local, and network domains are searched for plugins (i.e.
+      <span class="Pa">~/Library/Plug-ins/DiskImages</span>,
+      <span class="Pa">/System/Library/Plug-ins/DiskImages</span>,
+      <span class="Pa">/Library/Plug-ins/DiskImages</span>,
+      <span class="Pa">/Network/Library/Plug-ins/DiskImages</span>).
+    <p class="Pp">Common options: <code class="Fl">-plist</code>.</p>
+  </dd>
+  <dt><b class="Sy">resize</b> <var class="Ar">size_spec image</var></dt>
+  <dd>
+    <br/>
+    Resize a disk image or the containers within it. For an image containing a
+      trailing Apple_HFS partition, the default is to resize the image
+      container, the partition, and the filesystem within it by aligning the end
+      of the hosted structures with the end of the image.
+      <code class="Nm">hdiutil</code> <b class="Sy">resize</b> cannot resize
+      filesystems other than HFS+ and its variants.
+    <p class="Pp"><b class="Sy">resize</b> can shrink an image so that its HFS+
+        partition can be converted to CD-R/DVD-R format and still be burned.
+        <code class="Nm">hdiutil</code> <b class="Sy">resize</b> will not
+        reclaim gaps because it does not move data.
+        <a class="Xr">diskutil(8)</a>'s <b class="Sy">resize</b> can move
+        filesystem data which can help <code class="Nm">hdiutil</code>
+        <b class="Sy">resize</b> create a minimally-sized image.
+        <code class="Fl">-fsargs</code> can also be used to minimize filesystem
+        gaps inside an image.</p>
+    <p class="Pp"><b class="Sy">resize</b> is limited by the disk image
+        container format (e.g. UDSP vs. UDSB), any partition scheme, the hosted
+        filesystem, and the filesystem hosting the image. In the case of HFS+
+        inside of GPT inside of a UDRW on HFS+ with adequate free space, the
+        limit is approximately 2^63 bytes. Older images created with an APM
+        partition scheme are limited by it to 2TB. Before Mac OS X 10.4,
+        <b class="Sy">resize</b> was limited by how the filesystem was created
+        (see <code class="Nm">hdiutil</code> <b class="Sy">create</b>
+        <code class="Fl">-stretch</code>).</p>
+    <p class="Pp"><code class="Nm">hdiutil</code> <b class="Sy">burn</b> does
+        not burn Apple_Free partitions at the end of the devices, so an image
+        with a resized filesystem can be burned to create a CD-R/DVD-R master
+        that contains only the actual data in the hosted filesystem (assuming
+        minimal data fragmentation).</p>
+    <p class="Pp">Common options: <code class="Fl">-encryption</code>,
+        <code class="Fl">-stdinpass</code>,
+        <code class="Fl">-srcimagekey</code>, <code class="Fl">-shadow</code>
+        and related, and <code class="Fl">-plist</code>.</p>
+    <p class="Pp">Size specifiers:</p>
+    <dl class="Bl-hang Bl-compact">
+      <dt><a class="permalink" href="#size_2"><code class="Fl" id="size_2">-size</code></a>
+        <var class="Ar">??b|??k|??m|??g|??t|??p|??e</var></dt>
+      <dd></dd>
+      <dt><a class="permalink" href="#sectors_2"><code class="Fl" id="sectors_2">-sectors</code></a>
+        <var class="Ar">sector_count</var> | <var class="Ar">min</var></dt>
+      <dd>
+        <br/>
+        Specify the number of 512-byte sectors to which the partition should be
+          resized. If this falls outside the mininum valid value or space
+          remaining on the underlying file system, an error will be returned and
+          the partition will not be resized. <var class="Ar">min</var>
+          automatically determines the smallest possible size.</dd>
+    </dl>
+    <p class="Pp">Other options:</p>
+    <dl class="Bl-hang Bl-compact">
+      <dt><a class="permalink" href="#imageonly"><code class="Fl" id="imageonly">-imageonly</code></a></dt>
+      <dd>only resize the image file, not the partition(s) and filesystems
+          inside of it.</dd>
+      <dt><a class="permalink" href="#partitiononly"><code class="Fl" id="partitiononly">-partitiononly</code></a></dt>
+      <dd>only resize a partition / filesystem in the image, not the image.
+          <code class="Fl">-partitiononly</code> will fail if the new size won't
+          fit inside the image. On APM, shrinking a partition results in an
+          explicit Apple_Free entry taking up the remaining space in the
+        image.</dd>
+      <dt><a class="permalink" href="#partitionID"><code class="Fl" id="partitionID">-partitionID</code></a>
+        <var class="Ar">partitionID</var></dt>
+      <dd>
+        <br/>
+        specifies which partition to resize (UDIF only -- see HISTORY below).
+          <var class="Ar">partitionID</var> is 1-based.</dd>
+      <dt><a class="permalink" href="#nofinalgap"><code class="Fl" id="nofinalgap">-nofinalgap</code></a></dt>
+      <dd>allow resize to entirely eliminate the trailing free partition in an
+          APM map. Restoring such images to very old hardware may interfere with
+          booting.</dd>
+      <dt><a class="permalink" href="#limits"><code class="Fl" id="limits">-limits</code></a></dt>
+      <dd>Displays the minimum, current, and maximum sizes (in 512-byte sectors)
+          for the image. In addition to any hosted filesystem constraints, UDRW
+          images are constrained by available disk space in the filesystem
+          hosting the image. <code class="Fl">-limits</code> does not modify the
+          image.</dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">segment</b></dt>
+  <dd>
+    <br/>
+    <b class="Sy">segment</b> <code class="Fl">-o</code>
+      <var class="Ar">firstSegname</var> <code class="Fl">-segmentCount</code>
+      <var class="Ar">#segs image</var> [opts]
+    <br/>
+    <b class="Sy">segment</b> <code class="Fl">-o</code>
+      <var class="Ar">firstSegname</var> <code class="Fl">-segmentSize</code>
+      <var class="Ar">size image</var> [opts]
+    <br/>
+    segment an NDIF or UDIF disk image. Segmented images work around limitations
+      in file size which are sometimes imposed by filesystems, network
+      protocols, or media. Note: whether or not the segments are encrypted is
+      determined by the options passed to <b class="Sy">segment</b> and not by
+      the state of the source image.
+    <p class="Pp">Common options: <code class="Fl">-encryption</code>,
+        <code class="Fl">-stdinpass</code>,
+        <code class="Fl">-srcimagekey</code>,
+        <code class="Fl">-tgtimagekey</code>,
+        <code class="Fl">-puppetstrings</code>, and
+        <code class="Fl">-plist</code>.</p>
+    <p class="Pp">Options:</p>
+    <dl class="Bl-hang Bl-compact">
+      <dt><a class="permalink" href="#segmentCount"><code class="Fl" id="segmentCount">-segmentCount</code></a>
+        <var class="Ar">segment_count</var></dt>
+      <dd>
+        <br/>
+        Specify the number of segments. Only one of
+          <code class="Fl">-segmentCount</code> or
+          <code class="Fl">-segmentSize</code> will be honored.</dd>
+      <dt><a class="permalink" href="#segmentSize_3"><code class="Fl" id="segmentSize_3">-segmentSize</code></a>
+        <var class="Ar">segment_size</var></dt>
+      <dd>
+        <br/>
+        Specify the segment size in sectors or in the style of
+          <a class="Xr">mkfile(8)</a> (here unqualified numbers are still
+          sectors). If the original image size is not an exact multiple of the
+          segment size, the last segment will be shorter than the others. Only
+          one of <code class="Fl">-segmentCount</code> or
+          <code class="Fl">-segmentSize</code> will be honored. Segmenting
+          read/write (UDRW) images is not supported (as of Mac OS X 10.3).
+        <p class="Pp"></p>
+      </dd>
+      <dt><a class="permalink" href="#firstSegmentSize"><code class="Fl" id="firstSegmentSize">-firstSegmentSize</code></a>
+        <var class="Ar">segment_size</var></dt>
+      <dd>
+        <br/>
+        Specify the first segment size in sectors in the same form as for
+          <code class="Fl">-segmentSize</code>. Used for multi-CD restores.</dd>
+      <dt><a class="permalink" href="#restricted"><code class="Fl" id="restricted">-restricted</code></a></dt>
+      <dd>Make restricted segments for use in multi-CD restores.</dd>
+      <dt><a class="permalink" href="#ov_2"><code class="Fl" id="ov_2">-ov</code></a></dt>
+      <dd>overwrite any existing files.</dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">pmap</b> [options]</dt>
+  <dd><var class="Ar">image</var>
+    <br/>
+    display the partition map of an image or device. By default, this report
+      includes starting offsets and significant amounts of free space.
+      <var class="Ar">image</var> is either a disk image or /dev/disk entry (see
+      DEVICE SPECIAL FILES).
+    <p class="Pp">Common options: <code class="Fl">-encryption</code>,
+        <code class="Fl">-stdinpass</code>,
+        <code class="Fl">-srcimagekey</code>, and
+        <code class="Fl">-shadow</code> and related.</p>
+    <p class="Pp"></p>
+    <dl class="Bl-hang Bl-compact">
+      <dt><a class="permalink" href="#simple"><code class="Fl" id="simple">-simple</code></a></dt>
+      <dd>generate MediaKit's minimal report: basic partition types, names, and
+          sizes in human-readable units.</dd>
+      <dt><a class="permalink" href="#standard"><code class="Fl" id="standard">-standard</code></a></dt>
+      <dd>generate MediaKit's standard report, which adds partition offsets and
+          uses 512-byte sectors. This is the default.</dd>
+      <dt><a class="permalink" href="#complete"><code class="Fl" id="complete">-complete</code></a></dt>
+      <dd>generate MediaKit's comprehensive report, with end offsets,
+          significant free space, etc.</dd>
+      <dt><a class="permalink" href="#diagnostic"><code class="Fl" id="diagnostic">-diagnostic</code></a></dt>
+      <dd>generate MediaKit's diagnostic report, which shows all partition
+          schemes encountered. Useful for Boot Camp troubleshooting.
+        <p class="Pp"></p>
+      </dd>
+      <dt><a class="permalink" href="#endoffsets"><code class="Fl" id="endoffsets">-endoffsets</code></a></dt>
+      <dd>indicate last block of each partition.</dd>
+      <dt><a class="permalink" href="#nofreespace"><code class="Fl" id="nofreespace">-nofreespace</code></a></dt>
+      <dd>suppress all free space reporting. Not valid with
+          <code class="Fl">-shims</code>.</dd>
+      <dt><a class="permalink" href="#shims"><code class="Fl" id="shims">-shims</code></a></dt>
+      <dd>report free space &lt; 32 sectors.</dd>
+      <dt><a class="permalink" href="#uuids"><code class="Fl" id="uuids">-uuids</code></a></dt>
+      <dd>show per-instance UUIDs for each partition. APM does not store
+          instance UUIDs so these will be randomly generated for APM maps.</dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">udifrez</b> [options]</dt>
+  <dd><var class="Ar">image</var>
+    <br/>
+    embed resources (e.g. a software license agreement) in a disk image.
+    <p class="Pp">You must specify one of the following options:</p>
+    <dl class="Bl-hang Bl-compact">
+      <dt><a class="permalink" href="#xml"><code class="Fl" id="xml">-xml</code></a>
+        <var class="Ar">file</var></dt>
+      <dd>
+        <br/>
+        Copy resources from the XML in <var class="Ar">file</var>.</dd>
+      <dt><a class="permalink" href="#rsrcfork"><code class="Fl" id="rsrcfork">-rsrcfork</code></a>
+        <var class="Ar">file</var></dt>
+      <dd>
+        <br/>
+        Copy resources from <var class="Ar">file</var>'s resource fork.</dd>
+      <dt><a class="permalink" href="#replaceall"><code class="Fl" id="replaceall">-replaceall</code></a></dt>
+      <dd>
+        <br/>
+        Delete all pre-existing resources in <var class="Ar">image</var>.</dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">udifderez</b> [options]</dt>
+  <dd><var class="Ar">image</var>
+    <br/>
+    extract resources from <var class="Ar">image</var>.
+    <p class="Pp">Options:</p>
+    <dl class="Bl-hang Bl-compact">
+      <dt><a class="permalink" href="#xml_2"><code class="Fl" id="xml_2">-xml</code></a></dt>
+      <dd>emit XML output (default)</dd>
+      <dt><a class="permalink" href="#rez"><code class="Fl" id="rez">-rez</code></a></dt>
+      <dd>emit Rez format output</dd>
+    </dl>
+    <p class="Pp">Common options: <code class="Fl">-encryption</code>,
+        <code class="Fl">-stdinpass</code>, and
+        <code class="Fl">-srcimagekey</code>.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+Verifying:
+<div class="Bd Bd-indent"><code class="Li">hdiutil verify
+  myimage.img</code></div>
+<div class="Bd Bd-indent">verifies an image against its internal checksum.</div>
+<p class="Pp">Segmenting:</p>
+<div class="Bd Bd-indent"><code class="Li">hdiutil segment -segmentSize 10m -o
+  /tmp/aseg 30m.dmg</code></div>
+<div class="Bd Bd-indent">creates aseg.dmg, aseg.002.dmgpart, and
+  aseg.003.dmgpart</div>
+<p class="Pp">Converting:</p>
+<div class="Bd Bd-indent"><code class="Li">hdiutil convert master.dmg -format
+  UDTO -o master</code></div>
+<div class="Bd Bd-indent">converts master.dmg to a CD-R export image named
+  master.cdr</div>
+<div class="Bd Bd-indent"><code class="Li">hdiutil convert /dev/disk1 -format
+  UDRW -o devimage</code></div>
+<div class="Bd Bd-indent">converts the disk /dev/disk1 to a read/write device
+  image file. authopen(1) will be used if read access to /dev/rdisk1 is not
+  available. Note use of the block-special device.</div>
+<div class="Bd Bd-indent"><code class="Li">hdiutil convert image.dmg -o
+  image.sparsebundle</code></div>
+<div class="Bd Bd-indent">converts image.dmg to format UDSB by automatically
+  detecting the file extension .sparsebundle.</div>
+<div class="Bd Bd-indent">
+<pre>
+hdiutil convert files.sparsebundle -format UDZO \
+    -imagekey zlib-level=5 -o files
+</pre>
+</div>
+<div class="Bd Bd-indent">converts files.sparsebundle to files.dmg: a read-only,
+  compressed disk image using zlib level 5 instead of the default.</div>
+<div class="Bd Bd-indent"><code class="Li">hdiutil convert stuff.dmg -format
+  UDZO -encryption -o stuff-enc</code></div>
+<div class="Bd Bd-indent">create a copy of stuff.dmg named stuff-enc.dmg which
+  is encrypted with AES-128.</div>
+<p class="Pp">Burning:</p>
+<div class="Bd Bd-indent"><code class="Li">hdiutil burn myImage.dmg</code></div>
+<div class="Bd Bd-indent">burns the image to optical media and verifies the
+  burn.</div>
+<div class="Bd Bd-indent"><code class="Li">hdiutil burn myRawImage.cdr
+  -noverifyburn -noeject</code></div>
+<div class="Bd Bd-indent">burns the image without verifying the burn or ejecting
+  the disc. Volumes will be mounted after burning.</div>
+<p class="Pp">Creating a 50 MB read/write encrypted image:</p>
+<div class="Bd Bd-indent"><code class="Li">hdiutil create -encryption -size 50m
+  e.dmg -fs HFS+J</code></div>
+<p class="Pp">Creating a 50 MB read/write encrypted image protected with public
+    key only:</p>
+<div class="Bd Bd-indent">
+<pre>
+hdiutil create -encryption -size 50m e.dmg -fs HFS+J \
+    -pubkey F534A3B0C2AEE3B988308CC89AA04ABE7FDB5F30
+</pre>
+</div>
+<p class="Pp">Creating a 50 MB read/write encrypted image protected with public
+    key and password:</p>
+<div class="Bd Bd-indent">
+<pre>
+hdiutil create -encryption -size 50m e.dmg -fs HFS+J -agentpass \
+    -pubkey F534A3B0C2AEE3B988308CC89AA04ABE7FDB5F30
+</pre>
+</div>
+<p class="Pp">Note that these two -pubkey usage examples assume a certificate
+    corresponding to this public key is currently in the user's keychain or
+    smart card. For additional information on smart card authorization setup see
+    <a class="Xr">sc_auth(8)</a>.</p>
+<p class="Pp">Creating an encrypted single-partition image without user
+    interaction:</p>
+<div class="Bd Bd-indent"><code class="Li">printf pp|hdiutil create -encryption
+  -stdinpass -size 9m sp.dmg</code></div>
+<p class="Pp">Creating a &quot;1 GB&quot; SPARSE image (a 1 GB filesystem in a
+    growable file):</p>
+<div class="Bd Bd-indent"><code class="Li">hdiutil create -type SPARSE -size 1g
+  -fs HFS+J growableTo1g</code></div>
+<p class="Pp">Creating a &quot;1 GB&quot; SPARSEBUNDLE (a 1 GB filesystem in a
+    growable bundle):</p>
+<div class="Bd Bd-indent"><code class="Li">hdiutil create -type SPARSEBUNDLE
+  -size 1g -fs HFS+J growableTo1g</code></div>
+<p class="Pp">Creating a new mounted volume backed by an image:</p>
+<div class="Bd Bd-indent"><code class="Li">hdiutil create -volname Dick -size
+  1.3m -fs HFS+ -attach Moby.dmg</code></div>
+<p class="Pp">Attaching an image on a web server to the system, with any writes
+    going to a local file:</p>
+<div class="Bd Bd-indent">
+<pre>
+hdiutil attach https://my.webserver.com/master.dmg \
+    -shadow /tmp/mastershadowfile
+</pre>
+</div>
+<p class="Pp">Using a shadow file to attach a read-only image read/write to
+    modify it, then convert it back to a read-only image. This method eliminates
+    the time/space required to convert a image to read/write before modifying
+    it.</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+hdiutil attach -owners on Moby.dmg -shadow
+/dev/disk2   Apple_partition_scheme
+/dev/disk2s1 Apple_partition_map
+/dev/disk2s2 Apple_HFS               /Volumes/Dick
+
+ditto /Applications/Preview.app /Volumes/Dick
+hdiutil detach /dev/disk2
+hdiutil convert -format UDZO Moby.dmg -shadow
+</pre>
+</div>
+<p class="Pp">Creating a RAM-backed device and filesystem:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+NUMSECTORS=128000       # a sector is 512 bytes
+mydev=`hdiutil attach -nomount ram://$NUMSECTORS`
+newfs_hfs $mydev
+mkdir /tmp/mymount
+mount -t hfs $mydev /tmp/mymount
+</pre>
+</div>
+<p class="Pp">Using makehybrid to create cross-platform data with files
+    overlapping between filesystem views, containing these files:</p>
+<div class="Bd Bd-indent">
+<pre>
+albumlist.txt song2.wma     song4.m4a     song6.mp3     song8.mp3
+song1.wma     song3.m4a     song5.mp3     song7.mp3
+</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd Bd-indent">
+<pre>
+hdiutil makehybrid -o MusicBackup.iso Music -hfs -iso -joliet \
+    -hide-hfs 'Music/*.wma' -hide-joliet 'Music/{*.m4a,*.mp3}' \
+    -hide-iso 'Music/*.{wma,m4a}'
+</pre>
+</div>
+<p class="Pp">will create an image with three filesystems pointing to the same
+    blocks. The HFS+ filesystem, typically only visible on Macintosh systems,
+    will not include the .wma files, but will show the .m4a and .mp3 files. The
+    Joliet filesystem will not show the .m4a and .mp3 files, but will show the
+    .wma files. The ISO9660 filesystem, typically the default filesystem for
+    optical media on many platforms, will only show the .mp3 files. All three
+    filesystems will include the &quot;albumlist.txt&quot; files.</p>
+<p class="Pp">Image from directory:</p>
+<div class="Bd Bd-indent"><code class="Li">hdiutil create -srcfolder mydir
+  mydir.dmg</code></div>
+<div class="Bd Bd-indent">This method uses the least disk space during image
+  creation, but the resulting image may be slightly less space efficient.</div>
+<p class="Pp">Image from directory using an intermediate sparse bundle:</p>
+<div class="Bd Bd-indent"><code class="Li">hdiutil create -srcfolder mydir
+  -format UDSB mydir.sparsebundle</code></div>
+<div class="Bd Bd-indent"><code class="Li">hdiutil convert mydir.sparsebundle
+  -format UDZO -o mydir.dmg</code></div>
+<div class="Bd Bd-indent">This method produces space-optimal images, but
+  requires much more disk space during image creation. The intermediate sparse
+  bundle image can be removed after the process is complete.</div>
+<p class="Pp">Manually changing ownership settings of a read-only disk
+  image:</p>
+<div class="Bd Bd-indent">
+<pre>
+hdiutil attach myimage.dmg
+...
+/dev/disk1s2            Apple_HFS         /Volumes/myVolume
+diskutil unmount disk1s2
+mkdir /Volumes/myVolume
+sudo mount -r -t hfs -o owners /dev/disk1s2 /Volumes/myVolume
+# -o owners is the default for manual mounts
+</pre>
+</div>
+<p class="Pp">Forcing a known image to attach:</p>
+<div class="Bd Bd-indent"><code class="Li">hdiutil attach -imagekey
+  diskimage-class=CRawDiskImage myBlob.bar</code></div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
+The following environment variables affect <code class="Nm">hdiutil</code> and
+  DiskImages:
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#com_apple_hdid_verbose"><code class="Ev" id="com_apple_hdid_verbose">com_apple_hdid_verbose</code></a></dt>
+  <dd>enable <code class="Fl">-verbose</code> behavior for
+      <b class="Sy">attach</b>.</dd>
+  <dt><a class="permalink" href="#com_apple_hdid_debug"><code class="Ev" id="com_apple_hdid_debug">com_apple_hdid_debug</code></a></dt>
+  <dd>enable <code class="Fl">-debug</code> behavior for
+      <b class="Sy">attach</b>.</dd>
+  <dt><a class="permalink" href="#com_apple_hdid_nokernel"><code class="Ev" id="com_apple_hdid_nokernel">com_apple_hdid_nokernel</code></a></dt>
+  <dd>similar to <code class="Fl">-nokernel</code> but works even with, for
+      example, <b class="Sy">create</b> <code class="Fl">-attach</code>.</dd>
+  <dt><a class="permalink" href="#com_apple_hdid_kernel"><code class="Ev" id="com_apple_hdid_kernel">com_apple_hdid_kernel</code></a></dt>
+  <dd>Make <b class="Sy">attach</b> behave as if <code class="Fl">-kernel</code>
+      was passed. In Mac OS X 10.4.x, in-kernel was the default behavior for
+      UDRW and SPARSE images. In Mac OS X 10.5 and later, these and other
+      kernel-compatible images again default to attaching with a user process.
+      If an image is not &quot;kernel-compatible&quot; and in-kernel mounting is
+      specified, the attach will fail. WARNING: ram:// images use wired memory
+      when attached in-kernel.</dd>
+  <dt><a class="permalink" href="#com_apple_diskimages_insecureHTTP"><code class="Ev" id="com_apple_diskimages_insecureHTTP">com_apple_diskimages_insecureHTTP</code></a></dt>
+  <dd>disable SSL peer verification the same way
+      <code class="Fl">-insecurehttp</code> does. Useful for clients of
+      DiskImages such as <a class="Xr">asr(8)</a> which don't support a similar
+      command line option.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ERRORS"><a class="permalink" href="#ERRORS">ERRORS</a></h1>
+DiskImages uses many frameworks and can encounter many error codes. In general,
+  it tries to turn these error numbers into localized strings for the user. For
+  background, <a class="Xr">intro(2)</a> is a good explanation of our primary
+  error domain: the BSD errno values. For debugging,
+  <code class="Fl">-verbose</code> should generally provide enough information
+  to figure out what has gone wrong. The following is a list of interesting
+  errors that hdiutil may encounter:
+<dl class="Bl-tag">
+  <dt>No mountable filesystems</dt>
+  <dd>The &quot;No mountable filesystems&quot; error from
+      <code class="Nm">hdiutil</code> <b class="Sy">attach</b> means that no
+      filesystems could be recognized or mounted after the disk image was
+      attached. The default behavior in this case is to detach the disk image.
+      See <b class="Sy">attach</b> for options modifying this behavior. This
+      error can occur if the disk image or contained filesystem is corrupt. It
+      can also occur if an image was created from a block device containing a
+      mounted, journaled filesystem (in which case the image contains a dirty
+      journal that can't be replayed without making the image read/write, such
+      as with <b class="Sy">attach</b> <code class="Fl">-shadow</code>).</dd>
+  <dt>[<a class="permalink" href="#ENXIO"><code class="Er" id="ENXIO">ENXIO</code></a>]</dt>
+  <dd>Device not configured. This error is returned explicitly by DiskImages
+      when its kernel driver or framework helper cannot be contacted. It also
+      often shows up when a device has been removed while I/O is still active.
+      One common case of the helper not being found is when Foundation's
+      Distributed Objects RPC mechanism cannot be configured. D.O. doesn't work
+      under dead Mach bootstrap contexts such as can exist in a reattached
+      <a class="Xr">screen(1)</a> session. Root users can take advantage of
+      <a class="Xr">StartupItemContext(8)</a> (in
+      <span class="Pa">/usr/libexec</span>) to access the startup item Mach
+      bootstrap context.</dd>
+  <dt>[<a class="permalink" href="#EINVAL"><code class="Er" id="EINVAL">EINVAL</code></a>]</dt>
+  <dd>Invalid argument. This error is used in many contexts and is often a clue
+      that <code class="Nm">hdiutil</code>'s arguments are subtly non-sensical
+      (e.g. an invalid layout name passed to <b class="Sy">create</b>
+      <code class="Fl">-layout</code>).</dd>
+  <dt>[<a class="permalink" href="#EFBIG"><code class="Er" id="EFBIG">EFBIG</code></a>]</dt>
+  <dd>File too large. DiskImages reports this error when attempting to access a
+      disk image over HTTP that is too large for the server to support access
+      via Range requests. Segmented images can sometimes be used to work around
+      this limitation of older HTTP servers. This error can also occur if an
+      overflow occurs with an old-style UDIF resource fork.</dd>
+  <dt>[<a class="permalink" href="#EAUTH"><code class="Er" id="EAUTH">EAUTH</code></a>]</dt>
+  <dd>Authentication error. Used by DiskImages when <a class="Xr">libcurl(3)</a>
+      is unable to verify its SSL peer or when Security.framework indicates that
+      the user failed to enter the correct password. See
+      <code class="Fl">-insecurehttp</code> and <code class="Fl">-cacert</code>
+      for more information about verification of SSL peers.</dd>
+  <dt>[<a class="permalink" href="#EBUSY"><code class="Er" id="EBUSY">EBUSY</code></a>]</dt>
+  <dd>Resource busy. Used if necessary exclusive access cannot be obtained. This
+      error often appears when a volume can't be unmounted.
+      <a class="Xr">lsof(8)</a> may help determine which open files could be
+      causing the error.</dd>
+  <dt>[<a class="permalink" href="#EAGAIN"><code class="Er" id="EAGAIN">EAGAIN</code></a>]</dt>
+  <dd>Resource temporarily unavailable. As of Mac OS X 10.5, DiskImages uses
+      read/write locks on its image files to prevent images from being attached
+      on more than one machine at a time (e.g. over the network).
+      <a class="permalink" href="#EAGAIN_2"><code class="Er" id="EAGAIN_2">EAGAIN</code></a>
+      is returned if the appropriate read or write lock can't be obtained.</dd>
+  <dt><a class="permalink" href="#EACCES_vs."><code class="Er" id="EACCES_vs.">EACCES
+    vs.</code></a>
+    <a class="permalink" href="#EPERM"><code class="Er" id="EPERM">EPERM</code></a></dt>
+  <dd>EACCES and EPERM are subtly different. The latter &quot;operation not
+      permitted&quot; tends to refer to an operation that cannot be performed,
+      often due to an incorrect effective user ID. On the other hand,
+      &quot;permission denied&quot; tends to mean that a particular file access
+      mode prevented the operation.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="USING_PERSISTENT_SPARSE_IMAGES"><a class="permalink" href="#USING_PERSISTENT_SPARSE_IMAGES">USING
+  PERSISTENT SPARSE IMAGES</a></h1>
+As of Mac OS X 10.5, a more reliable, efficient, and scalable sparse format,
+  UDSB (SPARSEBUNDLE), is recommended for persistent sparse images as long as a
+  backing bundle (directory) is acceptable. Mac OS X 10.5 also introduced
+  F_FULLFSYNC over AFP (on client and server), allowing proper journal flushes
+  for HFS+J-bearing images. Critical data should never be stored in sparse disk
+  images on file servers that don't support F_FULLFSYNC.
+<p class="Pp">SPARSE (UDSP) images and shadow files were designed for
+    intermediate use when creating other images (e.g. UDZO) when final image
+    sizes are unknown. Generally speaking, SPARSE images are not recommended for
+    persistent storage, though they are relatively safe on Mac OS X 10.3.2 and
+    later. On versions earlier than 10.3.2, SPARSE should be avoided in favor of
+    UDRW images and <b class="Sy">resize</b>. On Mac OS X 10.5 and later, the
+    more robust and faster SPARSEBUNDLE type is preferred.</p>
+<p class="Pp">Note that both sparse formats, UDSP and UDSB, are growable only up
+    to a limit: the size parameter specified when they were created. They will
+    take up less space on the hosting filesystem if they contain less data than
+    their created size, and grow up to that size as data is added.</p>
+<p class="Pp">If more space is needed than is referenced by the hosted
+    filesystem, <code class="Nm">hdiutil</code> <b class="Sy">resize</b> or
+    <a class="Xr">diskutil(8)</a> <b class="Sy">resize</b> can help to grow or
+    shrink the filesystem in an image. <b class="Sy">compact</b> reclaims unused
+    space in sparse images. Though they request that hosted HFS+ filesystems use
+    a special &quot;front first&quot; allocation policy, beware that sparse
+    images can enhance the effects of any fragmentation in the hosted
+    filesystem.</p>
+<p class="Pp">To prevent errors when a filesystem inside of a sparse image has
+    more free space than the volume holding the sparse image, HFS+ volumes
+    inside sparse images will report an amount of free space slightly less than
+    the amount of free space on the volume on which image resides. The image
+    filesystem currently only behaves this way as a result of a direct
+    <b class="Sy">attach</b> action and will not behave this way if, for
+    example, the filesystem is unmounted and remounted. Moving the image file to
+    a different volume with sufficient free space will allow the image's
+    filesystem to grow to its full size.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DEVICE_SPECIAL_FILES"><a class="permalink" href="#DEVICE_SPECIAL_FILES">DEVICE
+  SPECIAL FILES</a></h1>
+Since any <span class="Pa">/dev</span> entry can be treated as a raw disk image,
+  it is worth noting which devices can be accessed when and how.
+  <span class="Pa">/dev/rdisk</span> nodes are character-special devices, but
+  are &quot;raw&quot; in the BSD sense and force block-aligned I/O. They are
+  closer to the physical disk than the buffer cache.
+  <span class="Pa">/dev/disk</span> nodes, on the other hand, are buffered
+  block-special devices and are used primarily by the kernel's filesystem code.
+<p class="Pp">It is not possible to read from a
+    <span class="Pa">/dev/disk</span> node while a filesystem is mounted from
+    it, but anyone with read access to the appropriate
+    <span class="Pa">/dev/rdisk</span> node can use
+    <code class="Nm">hdiutil</code> verbs such as <b class="Sy">fsid</b> or
+    <b class="Sy">pmap</b> with it. Beware that information read from a raw
+    device while a filesystem is mounted may not be consistent because the
+    consistent data is stored in memory or in the filesystem's journal.</p>
+<p class="Pp">The DiskImages framework will attempt to use
+    <a class="Xr">authopen(1)</a> to open any device which it can't open (due to
+    EACCES) for reading with <a class="Xr">open(2)</a>. Depending on session
+    characteristics, this behavior can cause apparent hangs while trying to
+    access <span class="Pa">/dev</span> entries while logged in remotely (an
+    authorization panel is waiting on console).</p>
+<p class="Pp">Generally, the <span class="Pa">/dev/disk</span> node is preferred
+    for imaging devices (e.g. <b class="Sy">convert</b> or
+    <b class="Sy">create</b> <code class="Fl">-srcdevice</code> operations),
+    while <span class="Pa">/dev/rdisk</span> is usable for the quick
+    <b class="Sy">pmap</b> or <b class="Sy">fsid</b>. In particular, converting
+    the blocks of a mounted journaled filesystem to a read-only image will
+    prevent the volume in the image from mounting (the journal will be
+    permanently dirty).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PERMISSIONS_VS._OWNERS"><a class="permalink" href="#PERMISSIONS_VS._OWNERS">PERMISSIONS
+  VS. OWNERS</a></h1>
+Some filesystems support permissions including users and groups. While important
+  for security on a managed filesystem, users and groups (&quot;owners&quot;)
+  pose challenges for unmanaged, shared filesystems such as those typically
+  present in disk images. macOS's solution to this problem is to make owners
+  optional, both while creating files and enforcing permissions.
+<p class="Pp">By default, unknown HFS+ filesystems on &quot;external&quot;
+    devices (including disk images) mount with their owners ignored (mount -o
+    noowners). Normally when owners are ignored, the system uses a special
+    _unknown user and group to dynamically substitute the current user's
+    identity for any owners recorded in the filesystem. These _unknown owners
+    are even written to the volume when creating new files. The new files will
+    continue to have &quot;floating&quot; ownership when mounted with owners
+    honored. The net result is that shared volumes behave as expected regardless
+    of how they are accessed.</p>
+<p class="Pp">The behavior is different when disk images are attached. With disk
+    images, the owner of all files in a filesystem mount for which owners are
+    ignored is the user attaching the disk image. The attaching owner is also
+    used when creating new files.</p>
+<p class="Pp">On modern macOS systems, root (UID 0) can &quot;see through&quot;
+    the &quot;owners ignored&quot; user mappings. Thus</p>
+<div class="Bd Bd-indent"><code class="Li">sudo ls -l
+  /Volumes/imageVol</code></div>
+will show whatever is really stored in the filesystem (possibly _unknown)
+  regardless of whether owners are currently being honored on that volume. In
+  contrast, non-root users will see themselves any time _unknown is in effect,
+  whether the default for the mount when owners are ignored or because _unknown
+  is stored on disk. For disk images, non-root users will see owners matching
+  the user that attached the disk image.
+<p class="Pp">Unlike owners, permissions are never optional. A non-writable file
+    will not be writable just because owners are ignored. However, a file that
+    is writable by its owner will be writable by everyone if _unknown is the
+    effective owner of the file for that file. Because anyone accessing an
+    owners-ignored file is treated as the owner, everyone is effectively the
+    owner. Because the default behavior for disk image filesystems is for all
+    files to be owned by the user attaching the disk image, other users will be
+    treated per the 'group' (if applicable) and 'other' permission modes.</p>
+<p class="Pp"><a class="Xr">diskutil(8)</a>'s <b class="Sy">enableOwnership</b>
+    or the Finder's Get Info window can be used to configure a system to respect
+    the on-disk owners for a filesystem in the future.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMPATIBILITY"><a class="permalink" href="#COMPATIBILITY">COMPATIBILITY</a></h1>
+The DiskImages framework supports a variety of flat-file and dual-fork image
+  formats, including read/write, read-only, and read-only compressed (which are
+  decompressed in small chunks as I/O requests are made). It automatically
+  decodes AppleSingle and MacBinary file formats and is capable of mounting most
+  images directly from http:// URLs. Because DiskImages can make many requests
+  over a single connection, responsiveness can be improved by modifying HTTP
+  server settings such as apache's MaxKeepAliveRequests and KeepAliveTimeout.
+<p class="Pp">Mac OS X 10.0 supported the disk images of Disk Copy 6 on Mac OS
+    9. OS X 10.1 added sparse, encrypted, and zlib-compressed images. These
+    images will not be recognized on Mac OS X 10.0 (or will attach read/write,
+    possibly allowing for their destruction). As the sparse, shadow, and
+    encrypted formats have evolved, switches have been added to facilitate the
+    creation of images that are compatible with older OS versions (at the
+    expense of the performance and reliability improvements offered by the
+    format enhancements). In particular, sparse images should not be expected to
+    attach on versions of OS X older than that which created them.</p>
+<p class="Pp">With Mac OS X 10.2, the most common image formats went
+    &quot;in-kernel&quot; (i.e. the DiskImages kernel extension served them
+    without a helper process), image meta-data began being stored both as XML
+    and in the embedded resource fork, and the default Disk Copy.app
+    &quot;compressed&quot; format became UDZO (breaking compatibility with
+    10.0). Mac OS X 10.4 introduced bzip2 compression in the UDBZ format which
+    provides smaller images (especially when combined with
+    <b class="Sy">makehybrid</b>) at the expense of backwards compatibility,
+    some performance, and kernel compatibility.</p>
+<p class="Pp">In Mac OS X 10.4.7, the resource forks previously embedded in UDIF
+    images were abandoned entirely to avoid metadata length limitations imposed
+    by resource fork structures. As a result, UDIF images created on 10.4.7 and
+    later will not, by default, be recognized by either Mac OS X 10.1 or Mac OS
+    X 10.0. <b class="Sy">flatten</b> can be used to customize the type of
+    metadata stored in the image.</p>
+<p class="Pp">Mac OS X 10.5 introduced sparse bundle images which
+    <b class="Sy">compact</b> quickly but are not recognized by previous OS
+    versions. Mac OS X 10.6 removed support for attaching SPARSEBUNDLE images
+    from network file servers that don't support F_FULLFSYNC, although this
+    requirement was relaxed in macOS 10.12. OS X 10.7 removed double-click
+    support for images using legacy metadata; these can be rehabilitated using
+    <b class="Sy">flatten</b> and <b class="Sy">unflatten</b>, or simply
+    <b class="Sy">convert</b>.</p>
+<p class="Pp">OS X 10.11 introduced lzfse compression in the ULFO format,
+    providing faster, more efficient compression and smaller images compared to
+    UDZO. These images are also supported in-kernel, but will not work on any
+    earlier versions of the OS.</p>
+<p class="Pp">macOS 10.12 included a pre-release version of the Apple File
+    System called APFS which was meant for evaluation and development purposes
+    only. Files stored in APFS-based images may not be accessible in future
+    releases of macOS, and won't work in past ones. All data to be stored in
+    APFS volumes should be backed up prior to using APFS and regularly backed up
+    while using APFS.</p>
+<p class="Pp">macOS 10.15:</p>
+<ul class="Bl-bullet Bd-indent">
+  <li>Introduced lzma compression in the ULMO format, providing smaller images
+      compared to ULFO. These images are not supported in-kernel, and will not
+      work on any earlier versions of the OS.</li>
+  <li>Deprecated OS 9-style dual-fork file support (hdiutil
+    flatten/unflatten).</li>
+  <li>Removed the deprecated &quot;hdiutil internet-enable&quot; command and the
+      IDME attach flags.</li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+Disk images were first invented to electronically store and transmit
+  representations of floppy disks for manufacturing replication. These images of
+  floppies are typically referred to as 'Disk Copy 4.2' images, in reference to
+  the application that created and restored them to floppy disks. Disk Copy 4.2
+  images were block-for-block representations of a floppy disk, with no notion
+  of compression. DART is a variant of the Disk Copy 4.2 format that supported
+  compression.
+<p class="Pp">NDIF (New Disk Image Format) images were developed to replace the
+    Disk Copy 4.2 and DART image formats and to support images larger than a
+    floppy disk. With NDIF and Disk Copy version 6, images could be
+    &quot;attached&quot; as mass storage devices under Mac OS 9. Apple Data
+    Compression (ADC) -- which carefully optimizes for fast decompression -- was
+    used to compress images that were typically created once and restored many
+    times during manufacturing.</p>
+<p class="Pp">UDIF (Universal Disk Image Format) device images picked up where
+    NDIF left off, allowing images to represent entire block devices and all the
+    data therein: DDM, partition map, disk-based drivers, etc. For example, it
+    can represent bootable CDs which can then be replicated from an image. To
+    ensure single-fork files (NDIF was dual-fork), it began embedding its
+    resource fork in the data fork. UDIF is the native image format for OS
+  X.</p>
+<p class="Pp">Raw disk images from other operating systems (e.g. .iso files)
+    will be recognized as disk images and can be attached and mounted if macOS
+    recognizes the filesystems. They can also be burned with
+    <code class="Nm">hdiutil</code> <b class="Sy">burn</b>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="WHAT'S_NEW"><a class="permalink" href="#WHAT'S_NEW">WHAT'S
+  NEW</a></h1>
+macOS 10.15 added ULMO format images compressed with lzma. These images are
+  smaller than comparable ULFO images compressed with lzfse. These images are
+  not supported in-kernel, and are not usable on earlier OSes.
+<p class="Pp">macOS 10.12 introduced the pre-release APFS for evaluation (see
+    COMPATIBILITY above). 10.12 also added an option to disable atomic copying
+    during image from folder operations, <code class="Fl">-noatomic</code>,
+    which may result in slightly faster image creation. <b class="Sy">pmap</b>
+    added a new switch, <code class="Fl">-diagnostic</code>, which captures
+    troubleshooting information for Boot Camp configurations.</p>
+<p class="Pp">OS X 10.11 added ULFO format images compressed with lzfse. These
+    images are more efficient and smaller than comparable UDZO images compressed
+    with zlib, and retain kernel compatibility, but are not usable on earlier
+    OSes.</p>
+<p class="Pp">OS X 10.10 quadrupled the default UDIF chunk size without
+    affecting backward compatibility. UDIF images created or converted on 10.10
+    will benefit from smaller metadata and more efficient compression for UDZO
+    and especially UDBZ formats.</p>
+<p class="Pp">OS X 10.7 added the ability to quickly render encrypted images
+    inaccessible using the new <b class="Sy">erasekeys</b> verb, which saves
+    time versus securely overwriting the entire image.</p>
+<p class="Pp">In Mac OS X 10.6, <b class="Sy">pmap</b> was rewritten to use
+    MediaKit's latest reporting routines so that it can properly support GPT
+    partition maps. Also <code class="Fl">-debug</code> now implies
+    <code class="Fl">-verbose</code> for all verbs.</p>
+<p class="Pp">Mac OS X 10.5 changed the behavior of <b class="Sy">attach</b>
+    when run on an existing image or /dev node: if the image was attached but no
+    volume was mounted, the volume would be mounted. Prior systems would return
+    the /dev without mounting the volume. This change effectively removes the
+    ability to create a second /dev node from an existing one.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">diskutil(8)</a>, <a class="Xr">asr(8)</a>,
+  <a class="Xr">ioreg(8)</a>, <a class="Xr">hfs.util(8)</a>,
+  <a class="Xr">apfs.util(8)</a>, <a class="Xr">msdos.util(8)</a>,
+  <a class="Xr">exfat.util(8)</a>, <a class="Xr">authopen(1)</a>,
+  <a class="Xr">ditto(8)</a>, <a class="Xr">drutil(1)</a>,
+  <a class="Xr">diskarbitrationd(8)</a>.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">01 Sep 2016</td>
+    <td class="foot-os">macOS</td>
+  </tr>
+</table>
+</body>
+</html>

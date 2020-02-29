@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   $FreeBSD: src/share/man/man4/divert.4,v 1.15.2.5 2001/08/17 13:08:37 ru Exp $
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>DIVERT(4)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">DIVERT(4)</td>
+    <td class="head-vol">Device Drivers Manual</td>
+    <td class="head-rtitle">DIVERT(4)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">divert</code> &#x2014;
+<div class="Nd">kernel packet diversion mechanism</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<code class="In">#include <a class="In">&lt;sys/types.h&gt;</a></code>
+<br/>
+<code class="In">#include <a class="In">&lt;sys/socket.h&gt;</a></code>
+<br/>
+<code class="In">#include <a class="In">&lt;netinet/in.h&gt;</a></code>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">socket</code>(<var class="Fa" style="white-space: nowrap;">PF_INET</var>,
+    <var class="Fa" style="white-space: nowrap;">SOCK_RAW</var>,
+    <var class="Fa" style="white-space: nowrap;">IPPROTO_DIVERT</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+Divert sockets are similar to raw IP sockets, except that they can be bound to a
+  specific <code class="Nm">divert</code> port via the <a class="Xr">bind(2)</a>
+  system call. The IP address in the bind is ignored; only the port number is
+  significant. A divert socket bound to a divert port will receive all packets
+  diverted to that port by some (here unspecified) kernel mechanism(s). Packets
+  may also be written to a divert port, in which case they re-enter kernel IP
+  packet processing.
+<p class="Pp">Divert sockets are normally used in conjunction with
+    <span class="Ux">FreeBSD</span>'s packet filtering implementation and the
+    <a class="Xr">ipfw(8)</a> program. By reading from and writing to a divert
+    socket, matching packets can be passed through an arbitrary ``filter'' as
+    they travel through the host machine, special routing tricks can be done,
+    etc.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="READING_PACKETS"><a class="permalink" href="#READING_PACKETS">READING
+  PACKETS</a></h1>
+Packets are diverted either as they are ``incoming'' or ``outgoing.'' Incoming
+  packets are diverted after reception on an IP interface, whereas outgoing
+  packets are diverted before next hop forwarding.
+<p class="Pp">Diverted packets may be read unaltered via
+    <a class="Xr">read(2)</a>, <a class="Xr">recv(2)</a>, or
+    <a class="Xr">recvfrom(2)</a>. In the latter case, the address returned will
+    have its port set to the some tag supplied by the packet diverter, (usually
+    the ipfw rule number) and the IP address set to the (first) address of the
+    interface on which the packet was received (if the packet was incoming) or
+    <code class="Dv">INADDR_ANY</code> (if the packet was outgoing). In the case
+    of an incoming packet the interface name will also be placed in the 8 bytes
+    following the address, (assuming it fits).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="WRITING_PACKETS"><a class="permalink" href="#WRITING_PACKETS">WRITING
+  PACKETS</a></h1>
+Writing to a divert socket is similar to writing to a raw IP socket; the packet
+  is injected ``as is'' into the normal kernel IP packet processing and minimal
+  error checking is done. Packets are written as either incoming or outgoing: if
+  <a class="Xr">write(2)</a> or <a class="Xr">send(2)</a> is used to deliver the
+  packet, or if <a class="Xr">sendto(2)</a> is used with a destination IP
+  address of <code class="Dv">INADDR_ANY</code>, then the packet is treated as
+  if it were outgoing, i.e., destined for a non-local address. Otherwise, the
+  packet is assumed to be incoming and full packet routing is done.
+<p class="Pp">In the latter case, the IP address specified must match the
+    address of some local interface, or an interface name must be found after
+    the IP address. If an interface name is found, that interface will be used
+    and the value of the IP address will be ignored (other than the fact that it
+    is not <code class="Dv">INADDR_ANY</code>). This is to indicate on which
+    interface the packet ``arrived.''</p>
+<p class="Pp">Normally, packets read as incoming should be written as incoming;
+    similarly for outgoing packets. When reading and then writing back packets,
+    passing the same socket address supplied by <a class="Xr">recvfrom(2)</a>
+    unmodified to <a class="Xr">sendto(2)</a> simplifies things (see below).</p>
+<p class="Pp">The port part of the socket address passed to the
+    <a class="Xr">sendto(2)</a> contains a tag that should be meaningful to the
+    diversion module. In the case of <a class="Xr">ipfw(8)</a> the tag is
+    interpreted as the rule number <i class="Em">after which</i> rule processing
+    should restart.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LOOP_AVOIDANCE"><a class="permalink" href="#LOOP_AVOIDANCE">LOOP
+  AVOIDANCE</a></h1>
+Packets written into a divert socket (using <a class="Xr">sendto(2)</a>)
+  re-enter the packet filter at the rule number following the tag given in the
+  port part of the socket address, which is usually already set at the rule
+  number that caused the diversion (not the next rule if there are several at
+  the same number). If the 'tag' is altered to indicate an alternative re-entry
+  point, care should be taken to avoid loops, where the same packet is diverted
+  more than once at the same rule.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DETAILS"><a class="permalink" href="#DETAILS">DETAILS</a></h1>
+To enable divert sockets, your kernel must be compiled with the option
+  <code class="Dv">IPDIVERT</code>.
+<p class="Pp">If a packet is diverted but no socket is bound to the port, or if
+    <code class="Dv">IPDIVERT</code> is not enabled in the kernel, the packet is
+    dropped.</p>
+<p class="Pp">Incoming packet fragments which get diverted are fully reassembled
+    before delivery; the diversion of any one fragment causes the entire packet
+    to get diverted. If different fragments divert to different ports, then
+    which port ultimately gets chosen is unpredictable.</p>
+<p class="Pp">Packets are received and sent unchanged, except that packets read
+    as outgoing have invalid IP header checksums, and packets written as
+    outgoing have their IP header checksums overwritten with the correct value.
+    Packets written as incoming and having incorrect checksums will be dropped.
+    Otherwise, all header fields are unchanged (and therefore in network
+  order).</p>
+<p class="Pp">Binding to port numbers less than 1024 requires super-user access,
+    as does creating a socket of type SOCK_RAW.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ERRORS"><a class="permalink" href="#ERRORS">ERRORS</a></h1>
+Writing to a divert socket can return these errors, along with the usual errors
+  possible when writing raw packets:
+<dl class="Bl-tag">
+  <dt>[<a class="permalink" href="#EINVAL"><code class="Er" id="EINVAL">EINVAL</code></a>]</dt>
+  <dd>The packet had an invalid header, or the IP options in the packet and the
+      socket options set were incompatible.</dd>
+  <dt>[<a class="permalink" href="#EADDRNOTAVAIL"><code class="Er" id="EADDRNOTAVAIL">EADDRNOTAVAIL</code></a>]</dt>
+  <dd>The destination address contained an IP address not equal to
+      <code class="Dv">INADDR_ANY</code> that was not associated with any
+      interface.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">bind(2)</a>, <a class="Xr">recvfrom(2)</a>,
+  <a class="Xr">sendto(2)</a>, <a class="Xr">socket(2)</a>,
+  <a class="Xr">ipfw(8)</a>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+This is an attempt to provide a clean way for user mode processes to implement
+  various IP tricks like address translation, but it could be cleaner, and it's
+  too dependent on <a class="Xr">ipfw(8)</a>.
+<p class="Pp">It's questionable whether incoming fragments should be reassembled
+    before being diverted. For example, if only some fragments of a packet
+    destined for another machine don't get routed through the local machine, the
+    packet is lost. This should probably be a settable socket option in any
+    case.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<span class="An">Archie Cobbs</span> &#x27E8;archie@FreeBSD.org&#x27E9;, Whistle
+  Communications Corp.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">June 18, 1996</td>
+    <td class="foot-os">Mac OS X 10.15</td>
+  </tr>
+</table>
+</body>
+</html>

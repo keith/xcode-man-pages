@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>SNMPUSM(1)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SNMPUSM(1)</td>
+    <td class="head-vol">Net-SNMP</td>
+    <td class="head-rtitle">SNMPUSM(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+snmpusm - creates and maintains SNMPv3 users on a network entity
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<b>snmpusm</b> [COMMON OPTIONS] [-Cw] AGENT <b>create</b> USER [CLONEFROM-USER]
+<br/>
+<b>snmpusm</b> [COMMON OPTIONS] AGENT <b>delete</b> USER
+<br/>
+<b>snmpusm</b> [COMMON OPTIONS] AGENT <b>cloneFrom</b> USER CLONEFROM-USER
+<br/>
+<b>snmpusm</b> [COMMON OPTIONS] [-Ca] [-Cx] AGENT <b>passwd</b> OLD-PASSPHRASE
+  NEW-PASSPHRASE [USER]
+<br/>
+<b>snmpusm</b> [COMMON OPTIONS] &lt;-Ca | -Cx&gt; -Ck AGENT <b>passwd</b>
+  OLD-KEY-OR-PASSPHRASE NEW-KEY-OR-PASSPHRASE [USER]
+<br/>
+<b>snmpusm</b> [COMMON OPTIONS] [-Ca] [-Cx] AGENT <b>changekey</b> [USER]
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<b>snmpusm</b> is an SNMP application that can be used to do simple maintenance
+  on the users known to an SNMP agent, by manipulating the agent's User-based
+  Security Module (USM) table. The user needs write access to the usmUserTable
+  MIB table. This tool can be used to create, delete, clone, and change the
+  passphrase of users configured on a running SNMP agent.
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+Common options for all <b>snmpusm</b> commands:
+<dl class="Bl-tag">
+  <dt><b>-CE</b><i> ENGINE-ID</i></dt>
+  <dd>Set usmUserEngineID to be used as part of the index of the usmUserTable.
+      Default is to use the contextEngineID (set via -E or probed) as the
+      usmUserEngineID.</dd>
+  <dt><b>-Cp</b><i> STRING</i></dt>
+  <dd>Set the usmUserPublic value of the (new) user to the specified
+    STRING.</dd>
+</dl>
+<p class="Pp">Options for the <b>passwd</b> and <b>changekey</b> commands:</p>
+<dl class="Bl-tag">
+  <dt><b>-Ca</b></dt>
+  <dd>Change the authentication key.</dd>
+  <dt><b>-Cx</b></dt>
+  <dd>Change the privacy key.</dd>
+  <dt><b>-Ck</b></dt>
+  <dd>Allows to use localized key (must start with 0x) instead of passphrase.
+      When this option is used, either the -Ca or -Cx option (but not both) must
+      also be used.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CREATING_USERS"><a class="permalink" href="#CREATING_USERS">CREATING
+  USERS</a></h1>
+An unauthenticated SNMPv3 user can be created using the command
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd><b>snmpusm</b> [OPTIONS] AGENT create USER</dd>
+</dl>
+<p class="Pp">This constructs an (inactive) entry in the usmUserTable, with no
+    authentication or privacy settings. In principle, this user should be
+    useable for 'noAuthNoPriv' requests, but in practise the Net-SNMP agent will
+    not allow such an entry to be made active. The user can be created via the
+    createAndWait operation instead by using the -Ca flag. This will prevent the
+    user from being marked as active in any agent until explicitly activated
+    later via the activate command.</p>
+<p class="Pp"></p>
+<p class="Pp">In order to activate this entry, it is necessary to
+    &quot;clone&quot; an existing user, using the command</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd><b>snmpusm</b> [OPTIONS] AGENT cloneFrom USER CLONEFROM-USER</dd>
+</dl>
+<p class="Pp">The USER entry then inherits the same authentication and privacy
+    settings (including pass phrases) as the CLONEFROM user.</p>
+<p class="Pp"></p>
+<p class="Pp">These two steps can be combined into one, by using the command</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd><b>snmpusm</b> [OPTIONS] AGENT create USER CLONEFROM-USER
+    <p class="Pp"></p>
+  </dd>
+</dl>
+<p class="Pp">The two forms of the <b>create</b> sub-command require that the
+    user being created does not already exist. The <b>cloneFrom</b> sub-command
+    requires that the user being cloned to <i>does</i> already exist.</p>
+<p class="Pp"></p>
+<p class="Pp">Cloning is the only way to specify which authentication and
+    privacy protocols to use for a given user, and it is only possible to do
+    this once. Subsequent attempts to reclone onto the same user will appear to
+    succeed, but will be silently ignored. This (somewhat unexpected) behaviour
+    is mandated by the SNMPv3 USM specifications (RFC 3414). To change the
+    authentication and privacy settings for a given user, it is necessary to
+    delete and recreate the user entry. This is <i>not</i> necessary for simply
+    changing the pass phrases (see below). This means that the agent must be
+    initialized with at least one user for each combination of authentication
+    and privacy protocols. See the <i>snmpd.conf(5)</i> manual page for details
+    of the <b>createUser</b> configuration directive.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DELETING_USERS"><a class="permalink" href="#DELETING_USERS">DELETING
+  USERS</a></h1>
+A user can be deleted from the usmUserTable using the command
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd><b>snmpusm</b> [OPTIONS] AGENT delete USER
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CHANGING_PASS_PHRASES"><a class="permalink" href="#CHANGING_PASS_PHRASES">CHANGING
+  PASS PHRASES</a></h1>
+User profiles contain private keys that are never transmitted over the wire in
+  clear text (regardless of whether the administration requests are encrypted or
+  not). To change the secret key for a user, it is necessary to specify the
+  user's old passphrase as well as the new one. This uses the command
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd><b>snmpusm</b> [OPTIONS] [-Ca] [-Cx] AGENT passwd OLD-PASSPHRASE
+      NEW-PASSPHRASE [USER]
+    <p class="Pp"></p>
+  </dd>
+</dl>
+<p class="Pp">After cloning a new user entry from the appropriate template, you
+    should immediately change the new user's passphrase.</p>
+<p class="Pp"></p>
+<p class="Pp">If USER is not specified, this command will change the passphrase
+    of the (SNMPv3) user issuing the command. If the -Ca or -Cx options are
+    specified, then only the authentication or privacy keys are changed. If
+    these options are not specified, then both the authentication and privacy
+    keys are changed.</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd><b>snmpusm</b> [OPTIONS] [-Ca] [-Cx] AGENT changekey [USER]
+    <p class="Pp"></p>
+  </dd>
+</dl>
+<p class="Pp">This command changes the key in a perfect-forward-secrecy
+    compliant way through a diffie-helman exchange. The remote agent must
+    support the SNMP-USM-DH-OBJECTS-MIB for this command to work. The resulting
+    keys are printed to the console and may be then set in future command
+    invocations using the --defAuthLocalizedKey and --defPrivLocalizedKey
+    options or in your snmp.conf file using the defAuthLocalizedKey and
+    defPrivLocalizedKey keywords.</p>
+<p class="Pp"></p>
+<p class="Pp">Note that since these keys are randomly generated based on a
+    diffie helman exchange, they are no longer derived from a more easily typed
+    password. They are, however, much more secure.</p>
+<p class="Pp"></p>
+<p class="Pp">To change from a localized key back to a password, the following
+    variant of the <b>passwd</b> sub-command is used:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd><b>snmpusm</b> [OPTIONS] &lt;-Ca | -Cx&gt; -Ck AGENT passwd
+      OLD-KEY-OR-PASSPHRASE NEW-KEY-OR-PASSPHRASE [USER]
+    <p class="Pp"></p>
+  </dd>
+</dl>
+<p class="Pp">Either the -Ca or the -Cx option must be specified. The
+    OLD-KEY-OR-PASSPHRASE and/or NEW-KEY-OR-PASSPHRASE arguments can either be a
+    passphrase or a localized key starting with &quot;0x&quot;, e.g. as printed
+    out by the <b>changekey</b> sub-command.</p>
+<p class="Pp"></p>
+<p class="Pp">Note that <b>snmpusm</b> REQUIRES an argument specifying the agent
+    to query as described in the .I snmpcmd(1) manual page.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+Let's assume for our examples that the following VACM and USM configurations
+  lines were in the snmpd.conf file for a Net-SNMP agent. These lines set up a
+  default user called &quot;initial&quot; with the authentication passphrase
+  &quot;setup_passphrase&quot; so that we can perform the initial setup of an
+  agent:
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+# VACM configuration entries
+rwuser initial
+# lets add the new user we'll create too:
+rwuser wes
+# USM configuration entries
+createUser initial MD5 setup_passphrase DES
+</pre>
+</div>
+<p class="Pp">Note: the &quot;initial&quot; user's setup should be removed after
+    creating a real user that you grant administrative privileges to (like the
+    user &quot;wes&quot; we'll be creating in this example.</p>
+<p class="Pp">Note: passphrases must be 8 characters <i>minimum</i> in
+  length.</p>
+<section class="Ss">
+<h2 class="Ss" id="Create_a_new_user"><a class="permalink" href="#Create_a_new_user">Create
+  a new user</a></h2>
+snmpusm -v3 -u initial -n &quot;&quot; -l authNoPriv -a MD5 -A setup_passphrase
+  localhost create wes initial
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Creates a new user, here named &quot;wes&quot; using the user
+      &quot;initial&quot; to do it. &quot;wes&quot; is cloned from
+      &quot;initial&quot; in the process, so he inherits that user's passphrase
+      (&quot;setup_passphrase&quot;).</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Change_the_user's_passphrase"><a class="permalink" href="#Change_the_user's_passphrase">Change
+  the user's passphrase</a></h2>
+snmpusm -v 3 -u wes -n &quot;&quot; -l authNoPriv -a MD5 -A setup_passphrase
+  localhost passwd setup_passphrase new_passphrase
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>After creating the user &quot;wes&quot; with the same passphrase as the
+      &quot;initial&quot; user, we need to change his passphrase for him. The
+      above command changes it from &quot;setup_passphrase&quot;, which was
+      inherited from the initial user, to &quot;new_passphrase&quot;.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Test_the_new_user"><a class="permalink" href="#Test_the_new_user">Test
+  the new user</a></h2>
+snmpget -v 3 -u wes -n &quot;&quot; -l authNoPriv -a MD5 -A new_passphrase
+  localhost sysUpTime.0
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>If the above commands were successful, this command should have properly
+      performed an authenticated SNMPv3 GET request to the agent.</dd>
+</dl>
+<p class="Pp">Now, go remove the vacm &quot;group&quot; snmpd.conf entry for the
+    &quot;initial&quot; user and you have a valid user 'wes' that you can use
+    for future transactions instead of initial.</p>
+<p class="Pp"></p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="WARNING"><a class="permalink" href="#WARNING">WARNING</a></h1>
+Manipulating the usmUserTable using this command can <i>only</i> be done using
+  SNMPv3. This command will not work with the community-based versions, even if
+  they have write access to the table.
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+snmpd.conf(5), snmp.conf(5), RFC 3414
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">11 Dec 2009</td>
+    <td class="foot-os">V5.6.2.1</td>
+  </tr>
+</table>
+</body>
+</html>

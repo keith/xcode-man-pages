@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   **************************************************************************
+   *                                  _   _ ____  _
+   *  Project                     ___| | | |  _ \| |
+   *                             / __| | | | |_) | |
+   *                            | (__| |_| |  _ <| |___
+   *                             \___|\___/|_| \_\_____|
+   *
+   * Copyright (C) 1998 - 2017, Daniel Stenberg, <daniel@haxx.se>, et al.
+   *
+   * This software is licensed as described in the file COPYING, which
+   * you should have received as part of this distribution. The terms
+   * are also available at https://curl.haxx.se/docs/copyright.html.
+   *
+   * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+   * copies of the Software, and permit persons to whom the Software is
+   * furnished to do so, under the terms of the COPYING file.
+   *
+   * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+   * KIND, either express or implied.
+   *
+   **************************************************************************
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>CURLOPT_IOCTLFUNCTION(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">CURLOPT_IOCTLFUNCTION(3)</td>
+    <td class="head-vol">curl_easy_setopt options</td>
+    <td class="head-rtitle">CURLOPT_IOCTLFUNCTION(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<p class="Pp"></p>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+CURLOPT_IOCTLFUNCTION - callback for I/O operations
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>
+#include &lt;curl/curl.h&gt;
+typedef enum {
+  CURLIOE_OK,            /* I/O operation successful */
+  CURLIOE_UNKNOWNCMD,    /* command was unknown to callback */
+  CURLIOE_FAILRESTART,   /* failed to restart the read */
+  CURLIOE_LAST           /* never use */
+} curlioerr;
+typedef enum  {
+  CURLIOCMD_NOP,         /* no operation */
+  CURLIOCMD_RESTARTREAD, /* restart the read stream from start */
+  CURLIOCMD_LAST         /* never use */
+} curliocmd;
+curlioerr ioctl_callback(CURL *handle, int cmd, void *clientp);
+CURLcode curl_easy_setopt(CURL *handle, CURLOPT_IOCTLFUNCTION, ioctl_callback);
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+Pass a pointer to your callback function, which should match the prototype shown
+  above.
+<p class="Pp">This callback function gets called by libcurl when something
+    special I/O-related needs to be done that the library can't do by itself.
+    For now, rewinding the read data stream is the only action it can request.
+    The rewinding of the read data stream may be necessary when doing an HTTP
+    PUT or POST with a multi-pass authentication method.</p>
+<p class="Pp">The callback MUST return <i>CURLIOE_UNKNOWNCMD</i> if the input
+    <i>cmd</i> is not <i>CURLIOCMD_RESTARTREAD</i>.</p>
+<p class="Pp">The <i>clientp</i> argument to the callback is set with the
+    <i>CURLOPT_IOCTLDATA(3)</i> option.</p>
+<p class="Pp">This option is deprecated! Do not use it. Use
+    <i>CURLOPT_SEEKFUNCTION(3)</i> instead to provide seeking! If
+    <i>CURLOPT_SEEKFUNCTION(3)</i> is set, this parameter will be ignored when
+    seeking.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DEFAULT"><a class="permalink" href="#DEFAULT">DEFAULT</a></h1>
+By default, this parameter is set to NULL. Not used.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PROTOCOLS"><a class="permalink" href="#PROTOCOLS">PROTOCOLS</a></h1>
+Used with HTTP
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<pre>
+static curlioerr ioctl_callback(CURL *handle, int cmd, void *clientp)
+{
+  struct data *io = (struct data *)clientp;
+  if(cmd == CURLIOCMD_RESTARTREAD) {
+    lseek(fd, 0, SEEK_SET);
+    current_offset = 0;
+    return CURLIOE_OK;
+  }
+  return CURLIOE_UNKNOWNCMD;
+}
+{
+  struct data ioctl_data;
+  curl_easy_setopt(curl, CURLOPT_IOCTLFUNCTION, ioctl_callback);
+  curl_easy_setopt(curl, CURLOPT_IOCTLDATA, &amp;ioctl_data);
+}
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
+Added in 7.12.3
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>CURLOPT_IOCTLDATA</b>(3), <b>CURLOPT_SEEKFUNCTION</b>(3),
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">April 17, 2018</td>
+    <td class="foot-os">libcurl 7.64.1</td>
+  </tr>
+</table>
+</body>
+</html>

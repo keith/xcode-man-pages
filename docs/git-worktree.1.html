@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   t
+       Title: git-worktree
+      Author: [FIXME: author] [see http://docbook.sf.net/el/author]
+   Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+        Date: 02/24/2019
+      Manual: Git Manual
+      Source: Git 2.21.0
+    Language: English
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>GIT-WORKTREE(1)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">GIT-WORKTREE(1)</td>
+    <td class="head-vol">Git Manual</td>
+    <td class="head-rtitle">GIT-WORKTREE(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+git-worktree - Manage multiple working trees
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>
+<i>git worktree add</i> [-f] [--detach] [--checkout] [--lock] [-b &lt;new-branch&gt;] &lt;path&gt; [&lt;commit-ish&gt;]
+<i>git worktree list</i> [--porcelain]
+<i>git worktree lock</i> [--reason &lt;string&gt;] &lt;worktree&gt;
+<i>git worktree move</i> &lt;worktree&gt; &lt;new-path&gt;
+<i>git worktree prune</i> [-n] [-v] [--expire &lt;expire&gt;]
+<i>git worktree remove</i> [-f] &lt;worktree&gt;
+<i>git worktree unlock</i> &lt;worktree&gt;
+</pre>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+Manage multiple working trees attached to the same repository.
+<p class="Pp">A git repository can support multiple working trees, allowing you
+    to check out more than one branch at a time. With <b>git worktree add</b> a
+    new working tree is associated with the repository. This new working tree is
+    called a &quot;linked working tree&quot; as opposed to the &quot;main
+    working tree&quot; prepared by &quot;git init&quot; or &quot;git
+    clone&quot;. A repository has one main working tree (if it&#x2019;s not a
+    bare repository) and zero or more linked working trees. When you are done
+    with a linked working tree, remove it with <b>git worktree remove</b>.</p>
+<p class="Pp">If a working tree is deleted without using <b>git worktree
+    remove</b>, then its associated administrative files, which reside in the
+    repository (see &quot;DETAILS&quot; below), will eventually be removed
+    automatically (see <b>gc.worktreePruneExpire</b> in <b>git-config</b>(1)),
+    or you can run <b>git worktree prune</b> in the main or any linked working
+    tree to clean up any stale administrative files.</p>
+<p class="Pp">If a linked working tree is stored on a portable device or network
+    share which is not always mounted, you can prevent its administrative files
+    from being pruned by issuing the <b>git worktree lock</b> command,
+    optionally specifying <b>--reason</b> to explain why the working tree is
+    locked.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMMANDS"><a class="permalink" href="#COMMANDS">COMMANDS</a></h1>
+add &lt;path&gt; [&lt;commit-ish&gt;]
+<div class="Bd-indent">Create <b>&lt;path&gt;</b> and checkout
+  <b>&lt;commit-ish&gt;</b> into it. The new working directory is linked to the
+  current repository, sharing everything except working directory specific files
+  such as HEAD, index, etc. <b>-</b> may also be specified as
+  <b>&lt;commit-ish&gt;</b>; it is synonymous with <b>@{-1}</b>.
+<p class="Pp">If &lt;commit-ish&gt; is a branch name (call it
+    <b>&lt;branch&gt;</b>) and is not found, and neither <b>-b</b> nor <b>-B</b>
+    nor <b>--detach</b> are used, but there does exist a tracking branch in
+    exactly one remote (call it <b>&lt;remote&gt;</b>) with a matching name,
+    treat as equivalent to:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git worktree add --track -b &lt;branch&gt; &lt;path&gt; &lt;remote&gt;/&lt;branch&gt;
+</pre>
+</div>
+<p class="Pp">If the branch exists in multiple remotes and one of them is named
+    by the <b>checkout.defaultRemote</b> configuration variable, we&#x2019;ll
+    use that one for the purposes of disambiguation, even if the
+    <b>&lt;branch&gt;</b> isn&#x2019;t unique across all remotes. Set it to e.g.
+    <b>checkout.defaultRemote=origin</b> to always checkout remote branches from
+    there if <b>&lt;branch&gt;</b> is ambiguous but exists on the <i>origin</i>
+    remote. See also <b>checkout.defaultRemote</b> in <b>git-config</b>(1).</p>
+<p class="Pp">If <b>&lt;commit-ish&gt;</b> is omitted and neither <b>-b</b> nor
+    <b>-B</b> nor <b>--detach</b> used, then, as a convenience, the new worktree
+    is associated with a branch (call it <b>&lt;branch&gt;</b>) named after
+    <b>$(basename &lt;path&gt;)</b>. If <b>&lt;branch&gt;</b> doesn&#x2019;t
+    exist, a new branch based on HEAD is automatically created as if <b>-b
+    &lt;branch&gt;</b> was given. If <b>&lt;branch&gt;</b> does exist, it will
+    be checked out in the new worktree, if it&#x2019;s not checked out anywhere
+    else, otherwise the command will refuse to create the worktree (unless
+    <b>--force</b> is used).</p>
+</div>
+<p class="Pp">list</p>
+<div class="Bd-indent">List details of each worktree. The main worktree is
+  listed first, followed by each of the linked worktrees. The output details
+  include if the worktree is bare, the revision currently checked out, and the
+  branch currently checked out (or <i>detached HEAD</i> if none).</div>
+<p class="Pp">lock</p>
+<div class="Bd-indent">If a working tree is on a portable device or network
+  share which is not always mounted, lock it to prevent its administrative files
+  from being pruned automatically. This also prevents it from being moved or
+  deleted. Optionally, specify a reason for the lock with <b>--reason</b>.</div>
+<p class="Pp">move</p>
+<div class="Bd-indent">Move a working tree to a new location. Note that the main
+  working tree or linked working trees containing submodules cannot be
+  moved.</div>
+<p class="Pp">prune</p>
+<div class="Bd-indent">Prune working tree information in
+  $GIT_DIR/worktrees.</div>
+<p class="Pp">remove</p>
+<div class="Bd-indent">Remove a working tree. Only clean working trees (no
+  untracked files and no modification in tracked files) can be removed. Unclean
+  working trees or ones with submodules can be removed with <b>--force</b>. The
+  main working tree cannot be removed.</div>
+<p class="Pp">unlock</p>
+<div class="Bd-indent">Unlock a working tree, allowing it to be pruned, moved or
+  deleted.</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+-f, --force
+<div class="Bd-indent">By default, <b>add</b> refuses to create a new working
+  tree when <b>&lt;commit-ish&gt;</b> is a branch name and is already checked
+  out by another working tree, or if <b>&lt;path&gt;</b> is already assigned to
+  some working tree but is missing (for instance, if <b>&lt;path&gt;</b> was
+  deleted manually). This option overrides these safeguards. To add a missing
+  but locked working tree path, specify <b>--force</b> twice.
+<p class="Pp"><b>move</b> refuses to move a locked working tree unless
+    <b>--force</b> is specified twice.</p>
+<p class="Pp"><b>remove</b> refuses to remove an unclean working tree unless
+    <b>--force</b> is used. To remove a locked working tree, specify
+    <b>--force</b> twice.</p>
+</div>
+<p class="Pp">-b &lt;new-branch&gt;, -B &lt;new-branch&gt;</p>
+<div class="Bd-indent">With <b>add</b>, create a new branch named
+  <b>&lt;new-branch&gt;</b> starting at <b>&lt;commit-ish&gt;</b>, and check out
+  <b>&lt;new-branch&gt;</b> into the new working tree. If
+  <b>&lt;commit-ish&gt;</b> is omitted, it defaults to HEAD. By default,
+  <b>-b</b> refuses to create a new branch if it already exists. <b>-B</b>
+  overrides this safeguard, resetting <b>&lt;new-branch&gt;</b> to
+  <b>&lt;commit-ish&gt;</b>.</div>
+<p class="Pp">--detach</p>
+<div class="Bd-indent">With <b>add</b>, detach HEAD in the new working tree. See
+  &quot;DETACHED HEAD&quot; in <b>git-checkout</b>(1).</div>
+<p class="Pp">--[no-]checkout</p>
+<div class="Bd-indent">By default, <b>add</b> checks out
+  <b>&lt;commit-ish&gt;</b>, however, <b>--no-checkout</b> can be used to
+  suppress checkout in order to make customizations, such as configuring
+  sparse-checkout. See &quot;Sparse checkout&quot; in
+  <b>git-read-tree</b>(1).</div>
+<p class="Pp">--[no-]guess-remote</p>
+<div class="Bd-indent">With <b>worktree add &lt;path&gt;</b>, without
+  <b>&lt;commit-ish&gt;</b>, instead of creating a new branch from HEAD, if
+  there exists a tracking branch in exactly one remote matching the basename of
+  <b>&lt;path&gt;</b>, base the new branch on the remote-tracking branch, and
+  mark the remote-tracking branch as &quot;upstream&quot; from the new branch.
+<p class="Pp">This can also be set up as the default behaviour by using the
+    <b>worktree.guessRemote</b> config option.</p>
+</div>
+<p class="Pp">--[no-]track</p>
+<div class="Bd-indent">When creating a new branch, if <b>&lt;commit-ish&gt;</b>
+  is a branch, mark it as &quot;upstream&quot; from the new branch. This is the
+  default if <b>&lt;commit-ish&gt;</b> is a remote-tracking branch. See
+  &quot;--track&quot; in <b>git-branch</b>(1) for details.</div>
+<p class="Pp">--lock</p>
+<div class="Bd-indent">Keep the working tree locked after creation. This is the
+  equivalent of <b>git worktree lock</b> after <b>git worktree add</b>, but
+  without race condition.</div>
+<p class="Pp">-n, --dry-run</p>
+<div class="Bd-indent">With <b>prune</b>, do not remove anything; just report
+  what it would remove.</div>
+<p class="Pp">--porcelain</p>
+<div class="Bd-indent">With <b>list</b>, output in an easy-to-parse format for
+  scripts. This format will remain stable across Git versions and regardless of
+  user configuration. See below for details.</div>
+<p class="Pp">-q, --quiet</p>
+<div class="Bd-indent">With <i>add</i>, suppress feedback messages.</div>
+<p class="Pp">-v, --verbose</p>
+<div class="Bd-indent">With <b>prune</b>, report all removals.</div>
+<p class="Pp">--expire &lt;time&gt;</p>
+<div class="Bd-indent">With <b>prune</b>, only expire unused working trees older
+  than &lt;time&gt;.</div>
+<p class="Pp">--reason &lt;string&gt;</p>
+<div class="Bd-indent">With <b>lock</b>, an explanation why the working tree is
+  locked.</div>
+<p class="Pp">&lt;worktree&gt;</p>
+<div class="Bd-indent">Working trees can be identified by path, either relative
+  or absolute.
+<p class="Pp">If the last path components in the working tree&#x2019;s path is
+    unique among working trees, it can be used to identify worktrees. For
+    example if you only have two working trees, at &quot;/abc/def/ghi&quot; and
+    &quot;/abc/def/ggg&quot;, then &quot;ghi&quot; or &quot;def/ghi&quot; is
+    enough to point to the former working tree.</p>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REFS"><a class="permalink" href="#REFS">REFS</a></h1>
+In multiple working trees, some refs may be shared between all working trees,
+  some refs are local. One example is HEAD is different for all working trees.
+  This section is about the sharing rules and how to access refs of one working
+  tree from another.
+<p class="Pp">In general, all pseudo refs are per working tree and all refs
+    starting with &quot;refs/&quot; are shared. Pseudo refs are ones like HEAD
+    which are directly under GIT_DIR instead of inside GIT_DIR/refs. There are
+    one exception to this: refs inside refs/bisect and refs/worktree is not
+    shared.</p>
+<p class="Pp">Refs that are per working tree can still be accessed from another
+    working tree via two special paths, main-worktree and worktrees. The former
+    gives access to per-worktree refs of the main working tree, while the latter
+    to all linked working trees.</p>
+<p class="Pp">For example, main-worktree/HEAD or main-worktree/refs/bisect/good
+    resolve to the same value as the main working tree&#x2019;s HEAD and
+    refs/bisect/good respectively. Similarly, worktrees/foo/HEAD or
+    worktrees/bar/refs/bisect/bad are the same as
+    GIT_COMMON_DIR/worktrees/foo/HEAD and
+    GIT_COMMON_DIR/worktrees/bar/refs/bisect/bad.</p>
+<p class="Pp">To access refs, it&#x2019;s best not to look inside GIT_DIR
+    directly. Instead use commands such as <b>git-rev-parse</b>(1) or
+    <b>git-update-ref</b>(1) which will handle refs correctly.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION_FILE"><a class="permalink" href="#CONFIGURATION_FILE">CONFIGURATION
+  FILE</a></h1>
+By default, the repository &quot;config&quot; file is shared across all working
+  trees. If the config variables <b>core.bare</b> or <b>core.worktree</b> are
+  already present in the config file, they will be applied to the main working
+  trees only.
+<p class="Pp">In order to have configuration specific to working trees, you can
+    turn on &quot;worktreeConfig&quot; extension, e.g.:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git config extensions.worktreeConfig true
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">In this mode, specific configuration stays in the path pointed by
+    <b>git rev-parse --git-path config.worktree</b>. You can add or update
+    configuration in this file with <b>git config --worktree</b>. Older Git
+    versions will refuse to access repositories with this extension.</p>
+<p class="Pp">Note that in this file, the exception for <b>core.bare</b> and
+    <b>core.worktree</b> is gone. If you have them in $GIT_DIR/config before,
+    you must move them to the <b>config.worktree</b> of the main working tree.
+    You may also take this opportunity to review and move other configuration
+    that you do not want to share to all working trees:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>core.worktree</b> and <b>core.bare</b> should
+  never be shared</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>core.sparseCheckout</b> is recommended per
+  working tree, unless you are sure you always use sparse checkout for all
+  working trees.</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DETAILS"><a class="permalink" href="#DETAILS">DETAILS</a></h1>
+Each linked working tree has a private sub-directory in the repository&#x2019;s
+  $GIT_DIR/worktrees directory. The private sub-directory&#x2019;s name is
+  usually the base name of the linked working tree&#x2019;s path, possibly
+  appended with a number to make it unique. For example, when
+  <b>$GIT_DIR=/path/main/.git</b> the command <b>git worktree add
+  /path/other/test-next next</b> creates the linked working tree in
+  <b>/path/other/test-next</b> and also creates a
+  <b>$GIT_DIR/worktrees/test-next</b> directory (or
+  <b>$GIT_DIR/worktrees/test-next1</b> if <b>test-next</b> is already taken).
+<p class="Pp">Within a linked working tree, $GIT_DIR is set to point to this
+    private directory (e.g. <b>/path/main/.git/worktrees/test-next</b> in the
+    example) and $GIT_COMMON_DIR is set to point back to the main working
+    tree&#x2019;s $GIT_DIR (e.g. <b>/path/main/.git</b>). These settings are
+    made in a <b>.git</b> file located at the top directory of the linked
+    working tree.</p>
+<p class="Pp">Path resolution via <b>git rev-parse --git-path</b> uses either
+    $GIT_DIR or $GIT_COMMON_DIR depending on the path. For example, in the
+    linked working tree <b>git rev-parse --git-path HEAD</b> returns
+    <b>/path/main/.git/worktrees/test-next/HEAD</b> (not
+    <b>/path/other/test-next/.git/HEAD</b> or <b>/path/main/.git/HEAD</b>) while
+    <b>git rev-parse --git-path refs/heads/master</b> uses $GIT_COMMON_DIR and
+    returns <b>/path/main/.git/refs/heads/master</b>, since refs are shared
+    across all working trees, except refs/bisect and refs/worktree.</p>
+<p class="Pp">See <b>gitrepository-layout</b>(5) for more information. The rule
+    of thumb is do not make any assumption about whether a path belongs to
+    $GIT_DIR or $GIT_COMMON_DIR when you need to directly access something
+    inside $GIT_DIR. Use <b>git rev-parse --git-path</b> to get the final
+  path.</p>
+<p class="Pp">If you manually move a linked working tree, you need to update the
+    <i>gitdir</i> file in the entry&#x2019;s directory. For example, if a linked
+    working tree is moved to <b>/newpath/test-next</b> and its <b>.git</b> file
+    points to <b>/path/main/.git/worktrees/test-next</b>, then update
+    <b>/path/main/.git/worktrees/test-next/gitdir</b> to reference
+    <b>/newpath/test-next</b> instead.</p>
+<p class="Pp">To prevent a $GIT_DIR/worktrees entry from being pruned (which can
+    be useful in some situations, such as when the entry&#x2019;s working tree
+    is stored on a portable device), use the <b>git worktree lock</b> command,
+    which adds a file named <i>locked</i> to the entry&#x2019;s directory. The
+    file contains the reason in plain text. For example, if a linked working
+    tree&#x2019;s <b>.git</b> file points to
+    <b>/path/main/.git/worktrees/test-next</b> then a file named
+    <b>/path/main/.git/worktrees/test-next/locked</b> will prevent the
+    <b>test-next</b> entry from being pruned. See <b>gitrepository-layout</b>(5)
+    for details.</p>
+<p class="Pp">When extensions.worktreeConfig is enabled, the config file
+    <b>.git/worktrees/&lt;id&gt;/config.worktree</b> is read after
+    <b>.git/config</b> is.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIST_OUTPUT_FORMAT"><a class="permalink" href="#LIST_OUTPUT_FORMAT">LIST
+  OUTPUT FORMAT</a></h1>
+The worktree list command has two output formats. The default format shows the
+  details on a single line with columns. For example:
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git worktree list
+/path/to/bare-source            (bare)
+/path/to/linked-worktree        abcd1234 [master]
+/path/to/other-linked-worktree  1234abc  (detached HEAD)
+</pre>
+</div>
+<p class="Pp"></p>
+<section class="Ss">
+<h2 class="Ss" id="Porcelain_Format"><a class="permalink" href="#Porcelain_Format">Porcelain
+  Format</a></h2>
+The porcelain format has a line per attribute. Attributes are listed with a
+  label and value separated by a single space. Boolean attributes (like
+  <i>bare</i> and <i>detached</i>) are listed as a label only, and are only
+  present if and only if the value is true. The first attribute of a worktree is
+  always <b>worktree</b>, an empty line indicates the end of the record. For
+  example:
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git worktree list --porcelain
+worktree /path/to/bare-source
+bare
+worktree /path/to/linked-worktree
+HEAD abcd1234abcd1234abcd1234abcd1234abcd1234
+branch refs/heads/master
+worktree /path/to/other-linked-worktree
+HEAD 1234abc1234abc1234abc1234abc1234abc1234a
+detached
+</pre>
+</div>
+<p class="Pp"></p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+You are in the middle of a refactoring session and your boss comes in and
+  demands that you fix something immediately. You might typically use
+  <b>git-stash</b>(1) to store your changes away temporarily, however, your
+  working tree is in such a state of disarray (with new, moved, and removed
+  files, and other bits and pieces strewn around) that you don&#x2019;t want to
+  risk disturbing any of it. Instead, you create a temporary linked working tree
+  to make the emergency fix, remove it when done, and then resume your earlier
+  refactoring session.
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git worktree add -b emergency-fix ../temp master
+$ pushd ../temp
+# ... hack hack hack ...
+$ git commit -a -m 'emergency fix for boss'
+$ popd
+$ git worktree remove ../temp
+</pre>
+</div>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+Multiple checkout in general is still experimental, and the support for
+  submodules is incomplete. It is NOT recommended to make multiple checkouts of
+  a superproject.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="GIT"><a class="permalink" href="#GIT">GIT</a></h1>
+Part of the <b>git</b>(1) suite
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">02/24/2019</td>
+    <td class="foot-os">Git 2.21.0</td>
+  </tr>
+</table>
+</body>
+</html>

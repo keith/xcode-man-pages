@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>XPRINTF(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">XPRINTF(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">XPRINTF(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">xprintf</code> &#x2014;
+<div class="Nd">extensible printf</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<code class="In">#include &lt;<a class="In">printf.h</a>&gt;</code>
+<p class="Pp"><var class="Ft">typedef int</var>
+  <br/>
+  <code class="Fn">printf_arginfo_function</code>(<var class="Fa" style="white-space: nowrap;">const
+    struct printf_info *info</var>,
+    <var class="Fa" style="white-space: nowrap;">size_t n</var>,
+    <var class="Fa" style="white-space: nowrap;">int *argtypes</var>);</p>
+<p class="Pp"><var class="Ft">typedef int</var>
+  <br/>
+  <code class="Fn">printf_function</code>(<var class="Fa" style="white-space: nowrap;">FILE
+    *stream</var>, <var class="Fa" style="white-space: nowrap;">const struct
+    printf_info *info</var>, <var class="Fa" style="white-space: nowrap;">const
+    void *const *args</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The standard <a class="Xr">printf(3)</a> family of routines provides a
+  convenient way to convert one or more arguments to various forms for output,
+  under the control of a format string. The format string may contain any number
+  of conversion specifications, which start with the
+  &#x2018;<code class="Li">%</code>&#x2019; character and end with a conversion
+  specifier character (like &#x2018;<code class="Li">d</code>&#x2019; or
+  &#x2018;<code class="Li">f</code>&#x2019;), with conversion flag characters
+  in-between.
+<p class="Pp">Extensible printf is an enhancement that allows adding new
+    (user-defined) conversion specifiers, or modifying/removing existing ones.
+    The implementation of extensible printf in Mac OS X is derived from the
+    FreeBSD version, which is based on the one in GNU libc (GLIBC).
+    Documentation for the GLIBC version is available at:</p>
+<p class="Pp"><code class="Li">http://www.gnu.org/software/libc/manual/html_node/Customizing-Printf.html</code></p>
+<p class="Pp">The main problem with the usual forms of extensible printf is that
+    changes to <a class="Xr">printf(3)</a> are program-wide. But this is unsafe,
+    since frameworks, libraries or some other thread could change printf
+    behavior in ways unexpected by the main program, or the latter could
+    unexpectedly affect the former.</p>
+<p class="Pp">So instead, the implementation used in Mac OS X makes changes to
+    conversion specifiers within printf domains, which are independent
+    structures containing the specifier definitions. These domains are created
+    as described in <a class="Xr">xprintf_domain(3)</a>, and once set up, it can
+    be passed to a <a class="Xr">xprintf(3)</a> variant along with the format
+    string and arguments to generate output. The standard
+    <a class="Xr">printf(3)</a> behavior is never affected.</p>
+<p class="Pp">To define a new conversion specifier, two function typedefs are
+    defined, and the user must provide two functions based on these typedefs.
+    These functions will get called from extensible printf while processing the
+    corresponding conversion specification.</p>
+<p class="Pp">During the first of three phases of extensible printf processing,
+    the format string is parsed, and for each conversion specification, a
+    <var class="Vt">struct printf_info</var> is created, containing the option
+    flags specified in the conversion specification as well as other settings.
+    Important fields in <var class="Vt">struct printf_info</var> are:</p>
+<dl class="Bl-tag">
+  <dt><var class="Va">alt</var></dt>
+  <dd>Boolean value whether the &#x2018;<code class="Li">#</code>&#x2019; flag
+      was specified.</dd>
+  <dt><var class="Va">context</var></dt>
+  <dd>A <var class="Vt">void *</var> pointer to arbitrary data specified in the
+      original call to
+    <a class="Xr">register_printf_domain_function(3)</a>.</dd>
+  <dt><var class="Va">group</var></dt>
+  <dd>Boolean value whether the &#x2018;<code class="Li">'</code>&#x2019; flag
+      was specified.</dd>
+  <dt><var class="Va">is_char</var></dt>
+  <dd>Boolean value whether the &#x2018;<code class="Li">hh</code>&#x2019; flag
+      was specified.</dd>
+  <dt><var class="Va">is_intmax</var></dt>
+  <dd>Boolean value whether the &#x2018;<code class="Li">j</code>&#x2019; flag
+      was specified.</dd>
+  <dt><var class="Va">is_long</var></dt>
+  <dd>Boolean value whether the &#x2018;<code class="Li">l</code>&#x2019; flag
+      was specified.</dd>
+  <dt><var class="Va">is_long_double</var></dt>
+  <dd>Boolean value whether the &#x2018;<code class="Li">L</code>&#x2019; or
+      &#x2018;<code class="Li">ll</code>&#x2019; flags were specified.</dd>
+  <dt><var class="Va">is_ptrdiff</var></dt>
+  <dd>Boolean value whether the &#x2018;<code class="Li">t</code>&#x2019; flag
+      was specified.</dd>
+  <dt><var class="Va">is_quad</var></dt>
+  <dd>Boolean value whether the &#x2018;<code class="Li">q</code>&#x2019; flag
+      was specified.</dd>
+  <dt><var class="Va">is_short</var></dt>
+  <dd>Boolean value whether the &#x2018;<code class="Li">h</code>&#x2019; flag
+      was specified.</dd>
+  <dt><var class="Va">is_size</var></dt>
+  <dd>Boolean value whether the &#x2018;<code class="Li">z</code>&#x2019; flag
+      was specified.</dd>
+  <dt><var class="Va">is_vec</var></dt>
+  <dd>Boolean value whether the &#x2018;<code class="Li">v</code>&#x2019; flag
+      was specified.</dd>
+  <dt><var class="Va">left</var></dt>
+  <dd>Boolean value whether the &#x2018;<code class="Li">-</code>&#x2019; flag
+      was specified.</dd>
+  <dt><var class="Va">loc</var></dt>
+  <dd>The extended locale (see <a class="Xr">xlocale(3)</a>) specified by the
+      extensible printf caller (never <code class="Dv">NULL</code>).</dd>
+  <dt><var class="Va">pad</var></dt>
+  <dd>The padding character; either &#x2018;<code class="Li">0</code>&#x2019; or
+      space.</dd>
+  <dt><var class="Va">prec</var></dt>
+  <dd>The value of the optional precision. -1 means the precision was
+      unspecified.</dd>
+  <dt><var class="Va">showsign</var></dt>
+  <dd>Boolean value whether the &#x2018;<code class="Li">+</code>&#x2019; flag
+      was specified.</dd>
+  <dt><var class="Va">signchar</var></dt>
+  <dd>The sign character, either &#x2018;<code class="Li">+</code>&#x2019;,
+      space or zero if none.</dd>
+  <dt><var class="Va">space</var></dt>
+  <dd>Boolean value whether the space flag was specified.</dd>
+  <dt><var class="Va">spec</var></dt>
+  <dd>The specifier character itself.</dd>
+  <dt><var class="Va">vsep</var></dt>
+  <dd>The separator character between vector items (using the
+      &#x2018;<code class="Li">v</code>&#x2019; flag). Can be any one of the
+      four characters &#x201C;<code class="Li">,:;_</code>&#x201D; or
+      &#x2018;<code class="Li">X</code>&#x2019; if no separator character was
+      specified (meaning that a space is used as the separator, unless the
+      specifier is &#x2018;<code class="Li">c</code>&#x2019;, in which case no
+      separator is used).</dd>
+  <dt><var class="Va">width</var></dt>
+  <dd>The value of the minimum field width (defaults to zero).</dd>
+</dl>
+<p class="Pp">All other structure fields are either unused or private (and
+    shouldn't be used).</p>
+<p class="Pp">This <var class="Vt">struct printf_info</var> structure is then
+    passed to the corresponding <code class="Nm">printf_arginfo_function</code>
+    callback function. The callback function should return the number of
+    consecutive arguments the specifier handles, including zero (the maximum
+    number of consecutive arguments a single specifier can handle is
+    <code class="Dv">__PRINTFMAXARG</code>, which is currently set to 2, but
+    could be increased in the future if there is need).</p>
+<p class="Pp">The callback function is also passed an integer array and the
+    length of that array; the length will typically be
+    <code class="Dv">__PRINTFMAXARG</code>. The function should fill out the
+    array up to the number of arguments it expects, using the following
+  values:</p>
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#PA_CHAR"><code class="Dv" id="PA_CHAR">PA_CHAR</code></a></dt>
+  <dd>The argument type is an <var class="Vt">int</var> cast to a
+      <var class="Vt">char</var>.</dd>
+  <dt><a class="permalink" href="#PA_DOUBLE"><code class="Dv" id="PA_DOUBLE">PA_DOUBLE</code></a></dt>
+  <dd>The argument type is a <var class="Vt">double</var>. OR-ing
+      <code class="Dv">PA_DOUBLE</code> with
+      <code class="Dv">PA_FLAG_LONG_DOUBLE</code> specifies a
+      <var class="Vt">long double</var> type.</dd>
+  <dt><a class="permalink" href="#PA_FLOAT"><code class="Dv" id="PA_FLOAT">PA_FLOAT</code></a></dt>
+  <dd>(Defined but unused; best to avoid, since <var class="Vt">float</var> is
+      automatically promoted to <var class="Vt">double</var> anyways.)</dd>
+  <dt><a class="permalink" href="#PA_INT"><code class="Dv" id="PA_INT">PA_INT</code></a></dt>
+  <dd>The argument type is <var class="Vt">int</var> (either signed or
+      unsigned). The size can be adjusted by OR-ing the following values to
+      <code class="Dv">PA_INT</code>:
+    <dl class="Bl-tag">
+      <dt><a class="permalink" href="#PA_FLAG_INTMAX"><code class="Dv" id="PA_FLAG_INTMAX">PA_FLAG_INTMAX</code></a></dt>
+      <dd>The integer is the size of a <var class="Vt">intmax_t</var>.</dd>
+      <dt><a class="permalink" href="#PA_FLAG_LONG"><code class="Dv" id="PA_FLAG_LONG">PA_FLAG_LONG</code></a></dt>
+      <dd>The integer is the size of a <var class="Vt">long</var>.</dd>
+      <dt><a class="permalink" href="#PA_FLAG_LONG_LONG"><code class="Dv" id="PA_FLAG_LONG_LONG">PA_FLAG_LONG_LONG</code></a></dt>
+      <dd>The integer is the size of a <var class="Vt">long long</var>.</dd>
+      <dt><a class="permalink" href="#PA_FLAG_PTRDIFF"><code class="Dv" id="PA_FLAG_PTRDIFF">PA_FLAG_PTRDIFF</code></a></dt>
+      <dd>The integer is the size of a <var class="Vt">ptrdiff_t</var>.</dd>
+      <dt><a class="permalink" href="#PA_FLAG_QUAD"><code class="Dv" id="PA_FLAG_QUAD">PA_FLAG_QUAD</code></a></dt>
+      <dd>The integer is the size of a <var class="Vt">quad_t</var>
+          (deprecated).</dd>
+      <dt><a class="permalink" href="#PA_FLAG_SHORT"><code class="Dv" id="PA_FLAG_SHORT">PA_FLAG_SHORT</code></a></dt>
+      <dd>The integer is the size of a <var class="Vt">short</var>.</dd>
+      <dt><a class="permalink" href="#PA_FLAG_SIZE"><code class="Dv" id="PA_FLAG_SIZE">PA_FLAG_SIZE</code></a></dt>
+      <dd>The integer is the size of a <var class="Vt">size_t</var>.</dd>
+    </dl>
+  </dd>
+  <dt><a class="permalink" href="#PA_POINTER"><code class="Dv" id="PA_POINTER">PA_POINTER</code></a></dt>
+  <dd>The argument type is a pointer type, cast to a <var class="Vt">void
+      *</var>.</dd>
+  <dt><a class="permalink" href="#PA_STRING"><code class="Dv" id="PA_STRING">PA_STRING</code></a></dt>
+  <dd>The argument type is a null-terminated character string
+      (<var class="Vt">char *</var>).</dd>
+  <dt><a class="permalink" href="#PA_VECTOR"><code class="Dv" id="PA_VECTOR">PA_VECTOR</code></a></dt>
+  <dd>The argument type is an AltiVec or SSE vector (16 bytes).</dd>
+  <dt><a class="permalink" href="#PA_WCHAR"><code class="Dv" id="PA_WCHAR">PA_WCHAR</code></a></dt>
+  <dd>The argument type is a <var class="Vt">wchar_t</var>.</dd>
+  <dt><a class="permalink" href="#PA_WSTRING"><code class="Dv" id="PA_WSTRING">PA_WSTRING</code></a></dt>
+  <dd>The argument type is a null-terminated wide character string
+      (<var class="Vt">wchar_t *</var>).</dd>
+</dl>
+<p class="Pp">After the <code class="Nm">printf_arginfo_function</code> returns,
+    phase 2 of extensible printf processing involves converting the argument
+    according to the types specified by the returned type array. Note that
+    positional arguments are dealt with here as well.</p>
+<p class="Pp">Then in phase 3, output is generated, either from the text
+    in-between the conversion specifications, or by calling the so-called
+    rendering functions associated with each conversion specifier (with typedef
+    <code class="Nm">printf_function</code>). The rendering function is passed
+    the same <var class="Vt">struct printf_info</var> structure, as well as an
+    array of pointers to each of the arguments converted in phase 2 that it is
+    responsible for. The callback should write its output to the provided output
+    stdio stream, and then return the number of characters written.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+Here is an example that demonstrates many of the features of extensible printf:
+<div class="Bd Pp">
+<pre>
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;printf.h&gt;
+#include &lt;locale.h&gt;
+#include &lt;xlocale.h&gt;
+#include &lt;err.h&gt;
+
+/* The Coordinate type */
+typedef struct {
+    double x;
+    double y;
+} Coordinate;
+
+#define L	(1 &lt;&lt; 0)
+#define P	(1 &lt;&lt; 1)
+
+/* The renderer callback for Coordinate */
+static int
+print_coordinate (FILE *stream, const struct printf_info *info,
+    const void *const *args)
+{
+    const Coordinate *c;
+    int width, ret, which = 0;
+    char fmt[32];
+    char *bp, *cp, *ep;
+    /* The optional coordinate labels */
+    const char **labels = (const char **)info-&gt;context;
+
+    /* Get the argument pointer to a Coordinate */
+    c = *((const Coordinate **) (args[0]));
+
+    /* Set up the format string */
+    cp = fmt;
+    if(info-&gt;alt) *cp++ = '(';
+    bp = cp;
+    if(labels) {
+	which |= L;
+	*cp++ = '%';
+	*cp++ = 's';
+    }
+    *cp++ = '%';
+    if(info-&gt;group) *cp++ = '\'';
+    *cp++ = '*';
+    if(info-&gt;prec &gt;= 0) {
+	which |= P;
+	*cp++ = '.';
+	*cp++ = '*';
+    }
+    *cp++ = 'l';
+    *cp++ = 'f';
+    ep = cp;
+    if(info-&gt;alt) *cp++ = ',';
+    *cp++ = ' ';
+    while(bp &lt; ep) *cp++ = *bp++;
+    if(info-&gt;alt) *cp++ = ')';
+    *cp = 0;
+
+    width = info-&gt;left ? -info-&gt;width : info-&gt;width;
+
+    /* Output to the given stream */
+    switch(which) {
+    case 0:
+	ret = fprintf_l(stream, info-&gt;loc, fmt, width, c-&gt;x, width, c-&gt;y);
+	break;
+    case L:
+	ret = fprintf_l(stream, info-&gt;loc, fmt, labels[0], width, c-&gt;x,
+			labels[1], width, c-&gt;y);
+	break;
+    case P:
+	ret = fprintf_l(stream, info-&gt;loc, fmt, width, info-&gt;prec, c-&gt;x,
+			width, info-&gt;prec, c-&gt;y);
+	break;
+    case (L | P):
+	ret = fprintf_l(stream, info-&gt;loc, fmt, labels[0], width,
+			info-&gt;prec, c-&gt;x, labels[1], width, info-&gt;prec,
+			c-&gt;y);
+	break;
+    }
+
+    return ret;
+}
+
+/* The arginfo callback for Coordinate */
+static int
+coordinate_arginfo (const struct printf_info *info, size_t n,
+		    int *argtypes)
+{
+  /* We always take exactly one argument and this is a pointer to the
+     structure.. */
+  if (n &gt; 0)
+    argtypes[0] = PA_POINTER;
+  return 1;
+}
+
+int
+main (void)
+{
+    Coordinate mycoordinate = {12345.6789, 3.141593};
+    printf_domain_t domain;
+    locale_t loc;
+    const char *labels[] = {&quot;x=&quot;, &quot;y=&quot;};
+
+    /* Set up a domain to add support for Coordinate conversion */
+    domain = new_printf_domain();
+    if(!domain)
+	err(1, &quot;new_printf_domain&quot;);
+    /* Set up an extended locale to test locale support */
+    loc = newlocale(LC_ALL_MASK, &quot;uk_UA.UTF-8&quot;, NULL);
+    if(!loc)
+	err(1, &quot;newlocale&quot;);
+
+    /* Register the callbacks for Coordinates in the domain */
+    register_printf_domain_function (domain, 'C', print_coordinate,
+				     coordinate_arginfo, NULL);
+
+    /* Print the coordinate using the current locale (C). */
+    xprintf(domain, NULL, &quot;|%'C|\n&quot;, &amp;mycoordinate);
+    xprintf(domain, NULL, &quot;|%'14C|\n&quot;, &amp;mycoordinate);
+    xprintf(domain, NULL, &quot;|%'-14.2C|\n&quot;, &amp;mycoordinate);
+    xprintf(domain, NULL, &quot;|%'#C|\n&quot;, &amp;mycoordinate);
+    xprintf(domain, NULL, &quot;|%'#14C|\n&quot;, &amp;mycoordinate);
+    xprintf(domain, NULL, &quot;|%'#-14.2C|\n&quot;, &amp;mycoordinate);
+
+    printf(&quot;-------------\n&quot;);
+    /* Reregister the callbacks, specifying coordinate labels
+     * and setting the global locale (notice thousands separator) */
+    register_printf_domain_function (domain, 'C', print_coordinate,
+				     coordinate_arginfo, labels);
+    if(setlocale(LC_ALL, &quot;en_US.UTF-8&quot;) == NULL)
+	errx(1, &quot;setlocale&quot;);
+
+    /* Reprint with labels */
+    xprintf(domain, NULL, &quot;|%'C|\n&quot;, &amp;mycoordinate);
+    xprintf(domain, NULL, &quot;|%'14C|\n&quot;, &amp;mycoordinate);
+    xprintf(domain, NULL, &quot;|%'-14.2C|\n&quot;, &amp;mycoordinate);
+    xprintf(domain, NULL, &quot;|%'#C|\n&quot;, &amp;mycoordinate);
+    xprintf(domain, NULL, &quot;|%'#14C|\n&quot;, &amp;mycoordinate);
+    xprintf(domain, NULL, &quot;|%'#-14.2C|\n&quot;, &amp;mycoordinate);
+
+    printf(&quot;-------------\n&quot;);
+    /* Now print with the test locale (notice decimal point and
+     * thousands separator) */
+    xprintf(domain, loc, &quot;|%'C|\n&quot;, &amp;mycoordinate);
+    xprintf(domain, loc, &quot;|%'14C|\n&quot;, &amp;mycoordinate);
+    xprintf(domain, loc, &quot;|%'-14.2C|\n&quot;, &amp;mycoordinate);
+    xprintf(domain, loc, &quot;|%'#C|\n&quot;, &amp;mycoordinate);
+    xprintf(domain, loc, &quot;|%'#14C|\n&quot;, &amp;mycoordinate);
+    xprintf(domain, loc, &quot;|%'#-14.2C|\n&quot;, &amp;mycoordinate);
+
+    return 0;
+}
+</pre>
+</div>
+<p class="Pp">This example defines a Coordinate type, that consists of a pair of
+    doubles. We create a conversion specifier that displays a Coordinate type,
+    either just as two floating point numbers, or with the
+    &#x2018;<code class="Li">#</code>&#x2019; (alternate form) flag, as
+    parenthesized numbers separated by a comma. Note the use of
+    <code class="Nm">printf_l</code> to do the actual output; this is using
+    regular printf from within an extensible printf renderer callback. The use
+    of <code class="Nm">printf_l</code> also insures correct handling of
+    extended locales.</p>
+<p class="Pp">The output of the programs looks like:</p>
+<div class="Bd Pp">
+<pre>
+|12345.678900 3.141593|
+|  12345.678900       3.141593|
+|12345.68       3.14          |
+|(12345.678900, 3.141593)|
+|(  12345.678900,       3.141593)|
+|(12345.68      , 3.14          )|
+-------------
+|x=12,345.678900 y=3.141593|
+|x= 12,345.678900 y=      3.141593|
+|x=12,345.68      y=3.14          |
+|(x=12,345.678900, y=3.141593)|
+|(x= 12,345.678900, y=      3.141593)|
+|(x=12,345.68     , y=3.14          )|
+-------------
+|x=12 345,678900 y=3,141593|
+|x= 12 345,678900 y=      3,141593|
+|x=12 345,68      y=3,14          |
+|(x=12 345,678900, y=3,141593)|
+|(x= 12 345,678900, y=      3,141593)|
+|(x=12 345,68     , y=3,14          )|
+</pre>
+</div>
+<p class="Pp">Notice:</p>
+<ul class="Bl-bullet">
+  <li>Field width, precision and left adjustment are applied to each of the
+      numbers.</li>
+  <li>The alternate form, using parenthesized numbers separated by a comma.</li>
+  <li>In the second group of six, the thousands separator corresponds to the
+      global locale setting (<code class="Li">en_US.UTF-8</code>).</li>
+  <li>The second and third group have a label for each number, provide through
+      the user-defined context argument.</li>
+  <li>The third group has the decimal point and thousands separator of the
+      extended locale argument (<code class="Li">uk_UA.UTF-8</code>).</li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PERFORMANCE"><a class="permalink" href="#PERFORMANCE">PERFORMANCE</a></h1>
+Because of the three phase processing of extensible printf, as well as the use
+  of two callbacks for each conversion specifier, performance is considerably
+  slower than the one pass, highly optimized regular
+  <a class="Xr">printf(3)</a>. Recursive use of <a class="Xr">printf(3)</a> from
+  within an extensible printf renderer callback (as in the
+  <a class="Sx" href="#EXAMPLE">EXAMPLE</a> above) adds additional overhead.
+<p class="Pp">To ameliorate some of this slowness, the concept of separate
+    compilation and execution phases has be added to extensible printf. The
+    functions in <a class="Xr">xprintf_comp(3)</a> allow the creation of
+    pre-compiled extensible printf structures (performing phase one of
+    extensible printf processing). These pre-compiled structures can then be
+    passed to the printf variants in <a class="Xr">xprintf_exec(3)</a> to
+    produce the actual output (performing phases 2 and 3). The compilation phase
+    need only be done once, while execution can be performed any number of
+    times.</p>
+<p class="Pp">A simple example of use is:</p>
+<div class="Bd Pp">
+<pre>
+    printf_comp_t pc = new_printf_comp(domain, loc, &quot;%d: %C\n&quot;);
+    for(i = 0; i = sizeof(coords) / sizeof(*coords); i++) {
+	xprintf_exec(pc, i, &amp;coords[i]);
+    }
+    free_printf_comp(pc);
+</pre>
+</div>
+<p class="Pp">Here, <var class="Va">coords</var> is a array containing
+    <var class="Vt">Coordinate</var> structures that are to be printed and the
+    <var class="Va">domain</var> and <var class="Va">loc</var> variables are as
+    from <a class="Sx" href="#EXAMPLE">EXAMPLE</a> above. (Error checking on the
+    return value from <code class="Fn">new_printf_comp</code>() is not
+  shown).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">printf(3)</a>, <a class="Xr">xlocale(3)</a>,
+  <a class="Xr">xprintf(3)</a>, <a class="Xr">xprintf_comp(3)</a>,
+  <a class="Xr">xprintf_domain(3)</a>, <a class="Xr">xprintf_exec(3)</a>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">August 19, 2012</td>
+    <td class="foot-os">Darwin</td>
+  </tr>
+</table>
+</body>
+</html>

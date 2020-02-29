@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>SLAPO-DYNLIST(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SLAPO-DYNLIST(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">SLAPO-DYNLIST(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+slapo-dynlist - Dynamic List overlay to slapd
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+/etc/openldap/slapd.conf
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The <b>dynlist</b> overlay to <b>slapd</b>(8) allows expansion of dynamic groups
+  and more. Any time an entry with a specific objectClass is being returned, the
+  LDAP URI-valued occurrences of a specific attribute are expanded into the
+  corresponding entries, and the values of the attributes listed in the URI are
+  added to the original entry. No recursion is allowed, to avoid potential
+  infinite loops. The resulting entry must comply with the LDAP data model, so
+  constraints are enforced. For example, if a <i>SINGLE-VALUE</i> attribute is
+  listed, only the first value results in the final entry. The above described
+  behavior is disabled when the <i>manageDSAit</i> control (RFC 3296) is used.
+  In that case, the contents of the dynamic group entry is returned; namely, the
+  URLs are returned instead of being expanded.
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION"><a class="permalink" href="#CONFIGURATION">CONFIGURATION</a></h1>
+The config directives that are specific to the <b>dynlist</b> overlay must be
+  prefixed by <b>dynlist-</b>, to avoid potential conflicts with directives
+  specific to the underlying database or to other stacked overlays.
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>overlay dynlist</b></dt>
+  <dd>This directive adds the dynlist overlay to the current database, or to the
+      frontend, if used before any database instantiation; see
+      <b>slapd.conf</b>(5) for details.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+<p class="Pp">This <b>slapd.conf</b> configuration option is defined for the
+    dynlist overlay. It may have multiple occurrences, and it must appear after
+    the <b>overlay</b> directive.</p>
+<dl class="Bl-tag">
+  <dt><b>dynlist-attrset &lt;group-oc&gt; [&lt;URI&gt;] &lt;URL-ad&gt;
+    [[&lt;mapped-ad&gt;:]&lt;member-ad&gt; ...]</b></dt>
+  <dd>The value <b>group-oc</b> is the name of the objectClass that triggers the
+      dynamic expansion of the data.
+    <p class="Pp">The optional <b>URI</b> restricts expansion only to entries
+        matching the <i>DN</i>, the <i>scope</i> and the <i>filter</i> portions
+        of the URI.</p>
+    <p class="Pp">The value <b>URL-ad</b> is the name of the
+        attributeDescription that contains the URI that is expanded by the
+        overlay; if none is present, no expansion occurs. If the intersection of
+        the attributes requested by the search operation (or the asserted
+        attribute for compares) and the attributes listed in the URI is empty,
+        no expansion occurs for that specific URI. It must be a subtype of
+        <i>labeledURI</i>.</p>
+    <p class="Pp">The value <b>member-ad</b> is optional; if present, the
+        overlay behaves as a dynamic group: this attribute will list the DN of
+        the entries resulting from the internal search. In this case, the
+        <i>attrs</i> portion of the URIs in the <b>URL-ad</b> attribute must be
+        absent, and the <i>DN</i>s of all the entries resulting from the
+        expansion of the URIs are listed as values of this attribute. Compares
+        that assert the value of the <b>member-ad</b> attribute of entries with
+        <b>group-oc</b> objectClass apply as if the DN of the entries resulting
+        from the expansion of the URI were present in the <b>group-oc</b> entry
+        as values of the <b>member-ad</b> attribute.</p>
+    <p class="Pp">Alternatively, <b>mapped-ad</b> can be used to remap
+        attributes obtained through expansion. <b>member-ad</b> attributes are
+        not filled by expanded DN, but are remapped as <b>mapped-ad</b>
+        attributes. Multiple mapping statements can be used.</p>
+    <p class="Pp"></p>
+  </dd>
+</dl>
+<p class="Pp">The dynlist overlay may be used with any backend, but it is mainly
+    intended for use with local storage backends. In case the URI expansion is
+    very resource-intensive and occurs frequently with well-defined patterns,
+    one should consider adding a proxycache later on in the overlay stack.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORIZATION"><a class="permalink" href="#AUTHORIZATION">AUTHORIZATION</a></h1>
+By default the expansions are performed using the identity of the current LDAP
+  user. This identity may be overridden by setting the <b>dgIdentity</b>
+  attribute in the group's entry to the DN of another LDAP user. In that case
+  the dgIdentity will be used when expanding the URIs in the object. Setting the
+  dgIdentity to a zero-length string will cause the expansions to be performed
+  anonymously. Note that the dgIdentity attribute is defined in the
+  <b>dyngroup</b> schema, and this schema must be loaded before the dgIdentity
+  authorization feature may be used. If the <b>dgAuthz</b> attribute is also
+  present in the group's entry, its values are used to determine what identities
+  are authorized to use the <b>dgIdentity</b> to expand the group. Values of the
+  <b>dgAuthz</b> attribute must conform to the (experimental) <i>OpenLDAP
+  authz</i> syntax.
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+This example collects all the email addresses of a database into a single entry;
+  first of all, make sure that slapd.conf contains the directives:
+<p class="Pp"></p>
+<p class="Pp"></p>
+<pre>
+    include /path/to/dyngroup.schema
+    # ...
+    database &lt;database&gt;
+    # ...
+    overlay dynlist
+    dynlist-attrset groupOfURLs memberURL
+</pre>
+<p class="Pp">and that slapd loads dynlist.la, if compiled as a run-time module;
+    then add to the database an entry like</p>
+<p class="Pp"></p>
+<pre>
+    dn: cn=Dynamic List,ou=Groups,dc=example,dc=com
+    objectClass: groupOfURLs
+    cn: Dynamic List
+    memberURL: ldap:///ou=People,dc=example,dc=com?mail?sub?(objectClass=person)
+</pre>
+<p class="Pp">If no &lt;attrs&gt; are provided in the URI, all (non-operational)
+    attributes are collected.</p>
+<p class="Pp">This example implements the dynamic group feature on the
+    <b>member</b> attribute:</p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<pre>
+    include /path/to/dyngroup.schema
+    # ...
+    database &lt;database&gt;
+    # ...
+    overlay dynlist
+    dynlist-attrset groupOfURLs memberURL member
+</pre>
+<p class="Pp">A dynamic group with dgIdentity authorization could be created
+    with an entry like</p>
+<p class="Pp"></p>
+<pre>
+    dn: cn=Dynamic Group,ou=Groups,dc=example,dc=com
+    objectClass: groupOfURLs
+    objectClass: dgIdentityAux
+    cn: Dynamic Group
+    memberURL: ldap:///ou=People,dc=example,dc=com??sub?(objectClass=person)
+    dgIdentity: cn=Group Proxy,ou=Services,dc=example,dc=com
+</pre>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt>/etc/openldap/slapd.conf</dt>
+  <dd>default slapd configuration file</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>slapd.conf</b>(5), <b>slapd-config</b>(5), <b>slapd</b>(8). The
+  <b>slapo-dynlist</b>(5) overlay supports dynamic configuration via
+  <b>back-config</b>.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACKNOWLEDGEMENTS"><a class="permalink" href="#ACKNOWLEDGEMENTS">ACKNOWLEDGEMENTS</a></h1>
+This module was written in 2004 by Pierangelo Masarati for SysNet s.n.c.
+<p class="Pp">Attribute remapping was contributed in 2008 by Emmanuel
+  Dreyfus.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2011/11/24</td>
+    <td class="foot-os">OpenLDAP 2.4.28</td>
+  </tr>
+</table>
+</body>
+</html>

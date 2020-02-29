@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   **************************************************************************
+   *                                  _   _ ____  _
+   *  Project                     ___| | | |  _ \| |
+   *                             / __| | | | |_) | |
+   *                            | (__| |_| |  _ <| |___
+   *                             \___|\___/|_| \_\_____|
+   *
+   * Copyright (C) 1998 - 2015, Daniel Stenberg, <daniel@haxx.se>, et al.
+   *
+   * This software is licensed as described in the file COPYING, which
+   * you should have received as part of this distribution. The terms
+   * are also available at https://curl.haxx.se/docs/copyright.html.
+   *
+   * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+   * copies of the Software, and permit persons to whom the Software is
+   * furnished to do so, under the terms of the COPYING file.
+   *
+   * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+   * KIND, either express or implied.
+   *
+   **************************************************************************
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>CURLMOPT_PUSHFUNCTION(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">CURLMOPT_PUSHFUNCTION(3)</td>
+    <td class="head-vol">curl_multi_setopt options</td>
+    <td class="head-rtitle">CURLMOPT_PUSHFUNCTION(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<p class="Pp"></p>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+CURLMOPT_PUSHFUNCTION - callback that approves or denies server pushes
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>
+#include &lt;curl/curl.h&gt;
+char *curl_pushheader_bynum(struct curl_pushheaders *h, size_t num);
+char *curl_pushheader_byname(struct curl_pushheaders *h, const char *name);
+int curl_push_callback(CURL *parent,
+                       CURL *easy,
+                       size_t num_headers,
+                       struct curl_pushheaders *headers,
+                       void *userp);
+CURLMcode curl_multi_setopt(CURLM *handle, CURLMOPT_PUSHFUNCTION,
+                            curl_push_callback func);
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+This callback gets called when a new HTTP/2 stream is being pushed by the server
+  (using the PUSH_PROMISE frame). If no push callback is set, all offered pushes
+  will be denied automatically.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CALLBACK_DESCRIPTION"><a class="permalink" href="#CALLBACK_DESCRIPTION">CALLBACK
+  DESCRIPTION</a></h1>
+The callback gets its arguments like this:
+<p class="Pp"><i>parent</i> is the handle of the stream on which this push
+    arrives. The new handle has been duphandle()d from the parent, meaning that
+    it has gotten all its options inherited. It is then up to the application to
+    alter any options if desired.</p>
+<p class="Pp"><i>easy</i> is a newly created handle that represents this
+    upcoming transfer.</p>
+<p class="Pp"><i>num_headers</i> is the number of name+value pairs that was
+    received and can be accessed</p>
+<p class="Pp"><i>headers</i> is a handle used to access push headers using the
+    accessor functions described below. This only accesses and provides the
+    PUSH_PROMISE headers, the normal response headers will be provided in the
+    header callback as usual.</p>
+<p class="Pp"><i>userp</i> is the pointer set with
+  <i>CURLMOPT_PUSHDATA(3)</i></p>
+<p class="Pp">If the callback returns CURL_PUSH_OK, the 'easy' handle will be
+    added to the multi handle, the callback must not do that by itself.</p>
+<p class="Pp">The callback can access PUSH_PROMISE headers with two accessor
+    functions. These functions can only be used from within this callback and
+    they can only access the PUSH_PROMISE headers. The normal response headers
+    will be passed to the header callback for pushed streams just as for normal
+    streams.</p>
+<dl class="Bl-tag">
+  <dt>curl_pushheader_bynum</dt>
+  <dd>Returns the header at index 'num' (or NULL). The returned pointer points
+      to a &quot;name:value&quot; string that will be freed when this callback
+      returns.</dd>
+  <dt>curl_pushheader_byname</dt>
+  <dd>Returns the value for the given header name (or NULL). This is a shortcut
+      so that the application doesn't have to loop through all headers to find
+      the one it is interested in. The data pointed will be freed when this
+      callback returns. If more than one header field use the same name, this
+      returns only the first one.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CALLBACK_RETURN_VALUE"><a class="permalink" href="#CALLBACK_RETURN_VALUE">CALLBACK
+  RETURN VALUE</a></h1>
+<dl class="Bl-tag">
+  <dt>CURL_PUSH_OK (0)</dt>
+  <dd>The application has accepted the stream and it can now start receiving
+      data, the ownership of the CURL handle has been taken over by the
+      application.</dd>
+  <dt>CURL_PUSH_DENY (1)</dt>
+  <dd>The callback denies the stream and no data for this will reach the
+      application, the easy handle will be destroyed by libcurl.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>*</dt>
+  <dd>All other return codes are reserved for future use.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DEFAULT"><a class="permalink" href="#DEFAULT">DEFAULT</a></h1>
+NULL, no callback
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PROTOCOLS"><a class="permalink" href="#PROTOCOLS">PROTOCOLS</a></h1>
+HTTP(S) (HTTP/2 only)
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<pre>
+/* only allow pushes for file names starting with &quot;push-&quot; */
+int push_callback(CURL *parent,
+                  CURL *easy,
+                  size_t num_headers,
+                  struct curl_pushheaders *headers,
+                  void *userp)
+{
+  char *headp;
+  int *transfers = (int *)userp;
+  FILE *out;
+  headp = curl_pushheader_byname(headers, &quot;:path&quot;);
+  if(headp &amp;&amp; !strncmp(headp, &quot;/push-&quot;, 6)) {
+    fprintf(stderr, &quot;The PATH is %s\n&quot;, headp);
+    /* save the push here */
+    out = fopen(&quot;pushed-stream&quot;, &quot;wb&quot;);
+    /* write to this file */
+    curl_easy_setopt(easy, CURLOPT_WRITEDATA, out);
+    (*transfers)++; /* one more */
+    return CURL_PUSH_OK;
+  }
+  return CURL_PUSH_DENY;
+}
+curl_multi_setopt(multi, CURLMOPT_PUSHFUNCTION, push_callback);
+curl_multi_setopt(multi, CURLMOPT_PUSHDATA, &amp;counter);
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
+Added in 7.44.0
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+Returns CURLM_OK if the option is supported, and CURLM_UNKNOWN_OPTION if not.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>CURLMOPT_PUSHDATA</b>(3), <b>CURLMOPT_PIPELINING</b>(3),
+  <b>CURLOPT_PIPEWAIT</b>(3), <b>RFC</b>7540
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">February 3, 2016</td>
+    <td class="foot-os">libcurl 7.64.1</td>
+  </tr>
+</table>
+</body>
+</html>

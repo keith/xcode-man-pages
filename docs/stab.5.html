@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+  	$NetBSD: stab.5,v 1.3 1994/11/30 19:31:33 jtc Exp $
+  
+   Copyright (c) 1980, 1991, 1993
+  	The Regents of the University of California.  All rights reserved.
+  
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions
+   are met:
+   1. Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+   2. Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+   3. All advertising materials mentioning features or use of this software
+      must display the following acknowledgement:
+  	This product includes software developed by the University of
+  	California, Berkeley and its contributors.
+   4. Neither the name of the University nor the names of its contributors
+      may be used to endorse or promote products derived from this software
+      without specific prior written permission.
+  
+   THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+   ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+   ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+   FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+   OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+   OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+   SUCH DAMAGE.
+  
+       @(#)stab.5	8.1 (Berkeley) 6/5/93
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>STAB(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">STAB(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">STAB(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">stab</code> &#x2014;
+<div class="Nd">symbol table types</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<code class="In">#include <a class="In">&lt;mach-o/stab.h&gt;</a></code>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The file &#x27E8;<span class="Pa">stab.h</span>&#x27E9; defines some of the
+  symbol table <var class="Fa">n_type</var> field values for Mach-O a.out files.
+  These are the types for permanent symbols (i.e. not local labels, etc.) used
+  by the old debugger <i class="Em">sdb</i> and the Berkeley Pascal compiler
+  <a class="Xr">pc(1)</a>. Symbol table entries can be produced by the
+  <span class="Pa">.stabs</span> assembler directive. This allows one to specify
+  a double-quote delimited name, a symbol type, one char and one short of
+  information about the symbol, and an unsigned long (usually an address). To
+  avoid having to produce an explicit label for the address field, the
+  <span class="Pa">.stabd</span> directive can be used to implicitly address the
+  current location. If no name is needed, symbol table entries can be generated
+  using the <span class="Pa">.stabn</span> directive. The loader promises to
+  preserve the order of symbol table entries produced by
+  <span class="Pa">.stab</span> directives. As described in comments in
+  &lt;mach-o/nlist.h&gt; an element of the symbol table consists of the
+  following structure:
+<div class="Bd Pp">
+<pre>
+/*
+* Format of a symbol table entry.
+*/
+
+struct nlist {
+	union {
+		char	*n_name;	/* for use when in-core */
+		long	n_strx;		/* index into file string table */
+	} n_un;
+	unsigned char	n_type;		/* type flag */
+	char		n_sect;		/* section number or NO_SECT */
+	short		n_desc;		/* see struct desc, below */
+	unsigned	n_value;	/* address or offset or line */
+};
+</pre>
+</div>
+<p class="Pp">The low bits of the <var class="Fa">n_type</var> field are used
+    for the symbol type, according to the following masks, defined in
+    &#x27E8;<span class="Pa">nlist.h</span>&#x27E9;. A symbol can be of none
+    these types by having none of these bits set.</p>
+<div class="Bd Pp">
+<pre>
+/*
+* Simple values for n_type.
+*/
+
+#define	N_UNDF	0x0	/* undefined */
+#define	N_ABS	0x2	/* absolute */
+#define	N_SECT	0xe	/* defined in section number n_sect */
+
+#define	N_EXT	01	/* external bit, or'ed in */
+</pre>
+</div>
+<p class="Pp">The <var class="Fa">n_value</var> field of a symbol is relocated
+    by the linker, <a class="Xr">ld(1)</a> as an address within the appropriate
+    section for N_SECT types based on the. <var class="Fa">N_value</var> fields
+    of symbols not in any segment are unchanged by the linker. In addition, the
+    linker will discard certain symbols, according to rules of its own, unless
+    the <var class="Fa">n_type</var> field has one of the following bits
+  set:</p>
+<div class="Bd Pp">
+<pre>
+/*
+* Other permanent symbol table entries have some of the N_STAB bits set.
+* These are given in &lt;stab.h&gt;
+*/
+
+#define	N_STAB	0xe0	/* if any of these bits set, don't discard */
+</pre>
+</div>
+<p class="Pp">This allows up to 112 (7 &#x2217; 16) symbol types, split between
+    the various symbol types. Some of these have already been claimed. The old
+    symbolic debugger, <i class="Em">sdb</i>, uses the following n_type
+  values:</p>
+<div class="Bd Pp">
+<pre>
+#define	N_GSYM	0x20	/* global symbol: name,,NO_SECT,type,0 */
+#define	N_FNAME	0x22	/* procedure name (f77 kludge): name,,NO_SECT */
+#define	N_FUN	0x24	/* procedure: name,,n_sect,linenumber,address */
+#define	N_STSYM	0x26	/* static symbol: name,,n_sect,type,address */
+#define	N_LCSYM	0x28	/* .lcomm symbol: name,,n_sect,type,address */
+#define	N_BNSYM	0x2e	/* begin nsect sym: 0,,n_sect,0,address */
+#define	N_RSYM	0x40	/* register sym: name,,NO_SECT,type,register */
+#define	N_SLINE	0x44	/* src line: 0,,n_sect,linenumber,address */
+#define	N_ENSYM	0x4e	/* end nsect sym: 0,,n_sect,0,address */
+#define	N_SSYM	0x60	/* structure elt: name,,NO_SECT,type,struct_offset */
+#define	N_SO	0x64	/* source file name: name,,n_sect,0,address */
+#define	N_LSYM	0x80	/* local sym: name,,NO_SECT,type,offset */
+#define	N_BINCL	0x82	/* include file beginning: name,,NO_SECT,0,sum */
+#define	N_SOL	0x84	/* #included file name: name,,n_sect,0,address */
+#define	N_PSYM	0xa0	/* parameter: name,,NO_SECT,type,offset */
+#define	N_EINCL	0xa2	/* include file end: name,,NO_SECT,0,0 */
+#define	N_ENTRY	0xa4	/* alternate entry: name,,n_sect,linenumber,address */
+#define	N_LBRAC	0xc0	/* left bracket: 0,,NO_SECT,nesting level,address */
+#define	N_EXCL	0xc2	/* deleted include file: name,,NO_SECT,0,sum */
+#define	N_RBRAC	0xe0	/* right bracket: 0,,NO_SECT,nesting level,address */
+#define	N_BCOMM	0xe2	/* begin common: name,,NO_SECT,0,0 */
+#define	N_ECOMM	0xe4	/* end common: name,,n_sect,0,0 */
+#define	N_ECOML	0xe8	/* end common (local name): 0,,n_sect_,0,address */
+#define	N_LENG	0xfe	/* second stab entry with length information */
+</pre>
+</div>
+<p class="Pp">where the comments give <i class="Em">sdb</i> conventional use for
+    <span class="Pa">.stab</span> <var class="Fa">s</var> and the
+    <var class="Fa">n_name</var>, <var class="Fa">n_sect</var>,
+    <var class="Fa">n_desc</var>, and <var class="Fa">n_value</var> fields of
+    the given <var class="Fa">n_type</var>. <i class="Em">Sdb</i> uses the
+    <var class="Fa">n_desc</var> field to hold a type specifier in the form used
+    by the Portable C Compiler, <a class="Xr">cc(1)</a>; see the header file
+    <span class="Pa">pcc.h</span> for details on the format of these type
+    values.</p>
+<p class="Pp">The Berkeley Pascal compiler, <a class="Xr">pc(1)</a>, uses the
+    following <var class="Fa">n_type</var> value:</p>
+<div class="Bd Pp">
+<pre>
+#define	N_PC	0x30	/* global pascal symbol: name,,NO_SECT,subtype,line */
+</pre>
+</div>
+<p class="Pp">and uses the following subtypes to do type checking across
+    separately compiled files:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+1	source file name
+2	included file name
+3	global label
+4	global constant
+5	global type
+6	global variable
+7	global function
+8	global procedure
+9	external function
+10	external procedure
+11	library variable
+12	library routine
+</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">as(1)</a>, <a class="Xr">ld(1)</a>, <a class="Xr">dbx(1)</a>,
+  <a class="Xr">Mach-O(5)</a>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+More basic types are needed.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+The <code class="Nm">stab</code> file appeared in
+  <span class="Ux">4.0BSD</span>.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">November 16, 2001</td>
+    <td class="foot-os">Darwin</td>
+  </tr>
+</table>
+</body>
+</html>

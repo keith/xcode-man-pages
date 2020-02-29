@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   **************************************************************************
+   *                                  _   _ ____  _
+   *  Project                     ___| | | |  _ \| |
+   *                             / __| | | | |_) | |
+   *                            | (__| |_| |  _ <| |___
+   *                             \___|\___/|_| \_\_____|
+   *
+   * Copyright (C) 1998 - 2017, Daniel Stenberg, <daniel@haxx.se>, et al.
+   *
+   * This software is licensed as described in the file COPYING, which
+   * you should have received as part of this distribution. The terms
+   * are also available at https://curl.haxx.se/docs/copyright.html.
+   *
+   * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+   * copies of the Software, and permit persons to whom the Software is
+   * furnished to do so, under the terms of the COPYING file.
+   *
+   * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+   * KIND, either express or implied.
+   *
+   **************************************************************************
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>CURLOPT_SEEKFUNCTION(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">CURLOPT_SEEKFUNCTION(3)</td>
+    <td class="head-vol">curl_easy_setopt options</td>
+    <td class="head-rtitle">CURLOPT_SEEKFUNCTION(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<p class="Pp"></p>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+CURLOPT_SEEKFUNCTION - user callback for seeking in input stream
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>
+#include &lt;curl/curl.h&gt;
+/* These are the return codes for the seek callbacks */
+#define CURL_SEEKFUNC_OK       0
+#define CURL_SEEKFUNC_FAIL     1 /* fail the entire transfer */
+#define CURL_SEEKFUNC_CANTSEEK 2 /* tell libcurl seeking can't be done, so
+                                    libcurl might try other means instead */
+int seek_callback(void *userp, curl_off_t offset, int origin);
+CURLcode curl_easy_setopt(CURL *handle, CURLOPT_SEEKFUNCTION, seek_callback);
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+Pass a pointer to your callback function, which should match the prototype shown
+  above.
+<p class="Pp">This function gets called by libcurl to seek to a certain position
+    in the input stream and can be used to fast forward a file in a resumed
+    upload (instead of reading all uploaded bytes with the normal read
+    function/callback). It is also called to rewind a stream when data has
+    already been sent to the server and needs to be sent again. This may happen
+    when doing an HTTP PUT or POST with a multi-pass authentication method, or
+    when an existing HTTP connection is reused too late and the server closes
+    the connection. The function shall work like fseek(3) or lseek(3) and it
+    gets SEEK_SET, SEEK_CUR or SEEK_END as argument for <i>origin</i>, although
+    libcurl currently only passes SEEK_SET.</p>
+<p class="Pp"><i>userp</i> is the pointer you set with
+    <i>CURLOPT_SEEKDATA(3)</i>.</p>
+<p class="Pp">The callback function must return <i>CURL_SEEKFUNC_OK</i> on
+    success, <i>CURL_SEEKFUNC_FAIL</i> to cause the upload operation to fail or
+    <i>CURL_SEEKFUNC_CANTSEEK</i> to indicate that while the seek failed,
+    libcurl is free to work around the problem if possible. The latter can
+    sometimes be done by instead reading from the input or similar.</p>
+<p class="Pp">If you forward the input arguments directly to fseek(3) or
+    lseek(3), note that the data type for <i>offset</i> is not the same as
+    defined for curl_off_t on many systems!</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DEFAULT"><a class="permalink" href="#DEFAULT">DEFAULT</a></h1>
+By default, this is NULL and unused.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PROTOCOLS"><a class="permalink" href="#PROTOCOLS">PROTOCOLS</a></h1>
+HTTP, FTP, SFTP
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<pre>
+static int seek_cb(void *userp, curl_off_t offset, int origin)
+{
+  struct data *d = (struct data *)userp;
+  lseek(our_fd, offset, origin);
+  return CURL_SEEKFUNC_OK;
+}
+{
+  struct data seek_data;
+  curl_easy_setopt(CURL *handle, CURLOPT_SEEKFUNCTION, seek_cb);
+  curl_easy_setopt(CURL *handle, CURLOPT_SEEKDATA, &amp;seek_data);
+}
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
+Added in 7.18.0
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>CURLOPT_SEEKDATA</b>(3), <b>CURLOPT_IOCTLFUNCTION</b>(3),
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">April 17, 2018</td>
+    <td class="foot-os">libcurl 7.64.1</td>
+  </tr>
+</table>
+</body>
+</html>

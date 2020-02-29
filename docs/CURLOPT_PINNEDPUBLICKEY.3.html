@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   **************************************************************************
+   *                                  _   _ ____  _
+   *  Project                     ___| | | |  _ \| |
+   *                             / __| | | | |_) | |
+   *                            | (__| |_| |  _ <| |___
+   *                             \___|\___/|_| \_\_____|
+   *
+   * Copyright (C) 1998 - 2019, Daniel Stenberg, <daniel@haxx.se>, et al.
+   *
+   * This software is licensed as described in the file COPYING, which
+   * you should have received as part of this distribution. The terms
+   * are also available at https://curl.haxx.se/docs/copyright.html.
+   *
+   * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+   * copies of the Software, and permit persons to whom the Software is
+   * furnished to do so, under the terms of the COPYING file.
+   *
+   * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+   * KIND, either express or implied.
+   *
+   **************************************************************************
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>CURLOPT_PINNEDPUBLICKEY(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">CURLOPT_PINNEDPUBLICKEY(3)</td>
+    <td class="head-vol">curl_easy_setopt options</td>
+    <td class="head-rtitle">CURLOPT_PINNEDPUBLICKEY(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<p class="Pp"></p>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+CURLOPT_PINNEDPUBLICKEY - set pinned public key
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+#include &lt;curl/curl.h&gt;
+<p class="Pp">CURLcode curl_easy_setopt(CURL *handle, CURLOPT_PINNEDPUBLICKEY,
+    char *pinnedpubkey);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+Pass a pointer to a zero terminated string as parameter. The string can be the
+  file name of your pinned public key. The file format expected is
+  &quot;PEM&quot; or &quot;DER&quot;. The string can also be any number of
+  base64 encoded sha256 hashes preceded by &quot;sha256//&quot; and separated by
+  &quot;;&quot;
+<p class="Pp">When negotiating a TLS or SSL connection, the server sends a
+    certificate indicating its identity. A public key is extracted from this
+    certificate and if it does not exactly match the public key provided to this
+    option, curl will abort the connection before sending or receiving any
+  data.</p>
+<p class="Pp">On mismatch, <i>CURLE_SSL_PINNEDPUBKEYNOTMATCH</i> is
+  returned.</p>
+<p class="Pp">The application does not have to keep the string around after
+    setting this option.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DEFAULT"><a class="permalink" href="#DEFAULT">DEFAULT</a></h1>
+NULL
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PROTOCOLS"><a class="permalink" href="#PROTOCOLS">PROTOCOLS</a></h1>
+All TLS based protocols: HTTPS, FTPS, IMAPS, POP3S, SMTPS etc.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<pre>
+CURL *curl = curl_easy_init();
+if(curl) {
+  curl_easy_setopt(curl, CURLOPT_URL, &quot;https://example.com&quot;);
+  curl_easy_setopt(curl, CURLOPT_PINNEDPUBLICKEY, &quot;/etc/publickey.der&quot;);
+  /* OR
+  curl_easy_setopt(curl, CURLOPT_PINNEDPUBLICKEY, &quot;sha256//YhKJKSzoTt2b5FP18fvpHo7fJYqQCjAa3HWY3tvRMwE=;sha256//t62CeU2tQiqkexU74Gxa2eg7fRbEgoChTociMee9wno=&quot;);
+  */
+  /* Perform the request */
+  curl_easy_perform(curl);
+}
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PUBLIC_KEY_EXTRACTION"><a class="permalink" href="#PUBLIC_KEY_EXTRACTION">PUBLIC
+  KEY EXTRACTION</a></h1>
+If you do not have the server's public key file you can extract it from the
+  server's certificate.
+<pre>
+# retrieve the server's certificate if you don't already have it
+#
+# be sure to examine the certificate to see if it is what you expected
+#
+# Windows-specific:
+# - Use NUL instead of /dev/null.
+# - OpenSSL may wait for input instead of disconnecting. Hit enter.
+# - If you don't have sed, then just copy the certificate into a file:
+#   Lines from -----BEGIN CERTIFICATE----- to -----END CERTIFICATE-----.
+#
+openssl s_client -servername www.example.com -connect www.example.com:443 &lt; /dev/null | sed -n &quot;/-----BEGIN/,/-----END/p&quot; &gt; www.example.com.pem
+# extract public key in pem format from certificate
+openssl x509 -in www.example.com.pem -pubkey -noout &gt; www.example.com.pubkey.pem
+# convert public key from pem to der
+openssl asn1parse -noout -inform pem -in www.example.com.pubkey.pem -out www.example.com.pubkey.der
+# sha256 hash and base64 encode der to string for use
+openssl dgst -sha256 -binary www.example.com.pubkey.der | openssl base64
+</pre>
+The public key in PEM format contains a header, base64 data and a footer:
+<pre>
+-----BEGIN PUBLIC KEY-----
+[BASE 64 DATA]
+-----END PUBLIC KEY-----
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
+PEM/DER support:
+<p class="Pp">
+   7.39.0: OpenSSL, GnuTLS</p>
+<p class="Pp">
+   7.39.0-7.48.0,7.58.1+: GSKit</p>
+<p class="Pp">
+   7.43.0: NSS and wolfSSL/CyaSSL</p>
+<p class="Pp">
+   7.47.0: mbedtls</p>
+<p class="Pp">
+   7.49.0: PolarSSL</p>
+<p class="Pp">
+   7.54.1: SecureTransport/DarwinSSL on macOS 10.7+/iOS 10+</p>
+<p class="Pp">
+   7.58.1: SChannel</p>
+<p class="Pp">sha256 support:</p>
+<p class="Pp">
+   7.44.0: OpenSSL, GnuTLS, NSS and wolfSSL/CyaSSL</p>
+<p class="Pp">
+   7.47.0: mbedtls</p>
+<p class="Pp">
+   7.49.0: PolarSSL</p>
+<p class="Pp">
+   7.54.1: SecureTransport/DarwinSSL on macOS 10.7+/iOS 10+</p>
+<p class="Pp">
+   7.58.1: SChannel Windows XP SP3+</p>
+<p class="Pp">Other SSL backends not supported.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+Returns CURLE_OK if TLS enabled, CURLE_UNKNOWN_OPTION if not, or
+  CURLE_OUT_OF_MEMORY if there was insufficient heap space.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>CURLOPT_SSL_VERIFYPEER</b>(3), <b>CURLOPT_SSL_VERIFYHOST</b>(3),
+  <b>CURLOPT_CAINFO</b>(3), <b>CURLOPT_CAPATH</b>(3),
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">January 29, 2019</td>
+    <td class="foot-os">libcurl 7.64.1</td>
+  </tr>
+</table>
+</body>
+</html>

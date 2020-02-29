@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   t
+       Title: gitdiffcore
+      Author: [FIXME: author] [see http://docbook.sf.net/el/author]
+   Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+        Date: 02/24/2019
+      Manual: Git Manual
+      Source: Git 2.21.0
+    Language: English
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>GITDIFFCORE(7)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">GITDIFFCORE(7)</td>
+    <td class="head-vol">Git Manual</td>
+    <td class="head-rtitle">GITDIFFCORE(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+gitdiffcore - Tweaking diff output
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>
+<i>git diff</i> *
+</pre>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The diff commands <i>git diff-index</i>, <i>git diff-files</i>, and <i>git
+  diff-tree</i> can be told to manipulate differences they find in
+  unconventional ways before showing <i>diff</i> output. The manipulation is
+  collectively called &quot;diffcore transformation&quot;. This short note
+  describes what they are and how to use them to produce <i>diff</i> output that
+  is easier to understand than the conventional kind.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="THE_CHAIN_OF_OPERATION"><a class="permalink" href="#THE_CHAIN_OF_OPERATION">THE
+  CHAIN OF OPERATION</a></h1>
+The <i>git diff-*</i> family works by first comparing two sets of files:
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<i>git diff-index</i> compares contents of a
+  &quot;tree&quot; object and the working directory (when <b>--cached</b> flag
+  is not used) or a &quot;tree&quot; object and the index file (when
+  <b>--cached</b> flag is used);</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<i>git diff-files</i> compares contents of the
+  index file and the working directory;</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<i>git diff-tree</i> compares contents of two
+  &quot;tree&quot; objects;</div>
+<p class="Pp">In all of these cases, the commands themselves first optionally
+    limit the two sets of files by any pathspecs given on their command-lines,
+    and compare corresponding paths in the two resulting sets of files.</p>
+<p class="Pp">The pathspecs are used to limit the world diff operates in. They
+    remove the filepairs outside the specified sets of pathnames. E.g. If the
+    input set of filepairs included:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+:100644 100644 bcd1234... 0123456... M junkfile
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">but the command invocation was <b>git diff-files myfile</b>, then
+    the junkfile entry would be removed from the list because only
+    &quot;myfile&quot; is under consideration.</p>
+<p class="Pp">The result of comparison is passed from these commands to what is
+    internally called &quot;diffcore&quot;, in a format similar to what is
+    output when the -p option is not used. E.g.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+in-place edit  :100644 100644 bcd1234... 0123456... M file0
+create         :000000 100644 0000000... 1234567... A file4
+delete         :100644 000000 1234567... 0000000... D file5
+unmerged       :000000 000000 0000000... 0000000... U file6
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">The diffcore mechanism is fed a list of such comparison results
+    (each of which is called &quot;filepair&quot;, although at this point each
+    of them talks about a single file), and transforms such a list into another
+    list. There are currently 5 such transformations:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;diffcore-break</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;diffcore-rename</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;diffcore-merge-broken</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;diffcore-pickaxe</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;diffcore-order</div>
+<p class="Pp">These are applied in sequence. The set of filepairs <i>git
+    diff-*</i> commands find are used as the input to diffcore-break, and the
+    output from diffcore-break is used as the input to the next transformation.
+    The final result is then passed to the output routine and generates either
+    diff-raw format (see Output format sections of the manual for <i>git
+    diff-*</i> commands) or diff-patch format.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DIFFCORE_-BREAK:_FOR_SPLITTING_UP_COMPLETE_REWRITES"><a class="permalink" href="#DIFFCORE_-BREAK:_FOR_SPLITTING_UP_COMPLETE_REWRITES">DIFFCORE-BREAK:
+  FOR SPLITTING UP COMPLETE REWRITES</a></h1>
+The second transformation in the chain is diffcore-break, and is controlled by
+  the -B option to the <i>git diff-*</i> commands. This is used to detect a
+  filepair that represents &quot;complete rewrite&quot; and break such filepair
+  into two filepairs that represent delete and create. E.g. If the input
+  contained this filepair:
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+:100644 100644 bcd1234... 0123456... M file0
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">and if it detects that the file &quot;file0&quot; is completely
+    rewritten, it changes it to:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+:100644 000000 bcd1234... 0000000... D file0
+:000000 100644 0000000... 0123456... A file0
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">For the purpose of breaking a filepair, diffcore-break examines
+    the extent of changes between the contents of the files before and after
+    modification (i.e. the contents that have &quot;bcd1234...&quot; and
+    &quot;0123456...&quot; as their SHA-1 content ID, in the above example). The
+    amount of deletion of original contents and insertion of new material are
+    added together, and if it exceeds the &quot;break score&quot;, the filepair
+    is broken into two. The break score defaults to 50% of the size of the
+    smaller of the original and the result (i.e. if the edit shrinks the file,
+    the size of the result is used; if the edit lengthens the file, the size of
+    the original is used), and can be customized by giving a number after
+    &quot;-B&quot; option (e.g. &quot;-B75&quot; to tell it to use 75%).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DIFFCORE_-RENAME:_FOR_DETECTING_RENAMES_AND_COPIES"><a class="permalink" href="#DIFFCORE_-RENAME:_FOR_DETECTING_RENAMES_AND_COPIES">DIFFCORE-RENAME:
+  FOR DETECTING RENAMES AND COPIES</a></h1>
+This transformation is used to detect renames and copies, and is controlled by
+  the -M option (to detect renames) and the -C option (to detect copies as well)
+  to the <i>git diff-*</i> commands. If the input contained these filepairs:
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+:100644 000000 0123456... 0000000... D fileX
+:000000 100644 0000000... 0123456... A file0
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">and the contents of the deleted file fileX is similar enough to
+    the contents of the created file file0, then rename detection merges these
+    filepairs and creates:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+:100644 100644 0123456... 0123456... R100 fileX file0
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">When the &quot;-C&quot; option is used, the original contents of
+    modified files, and deleted files (and also unmodified files, if the
+    &quot;--find-copies-harder&quot; option is used) are considered as
+    candidates of the source files in rename/copy operation. If the input were
+    like these filepairs, that talk about a modified file fileY and a newly
+    created file file0:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+:100644 100644 0123456... 1234567... M fileY
+:000000 100644 0000000... bcd3456... A file0
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">the original contents of fileY and the resulting contents of file0
+    are compared, and if they are similar enough, they are changed to:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+:100644 100644 0123456... 1234567... M fileY
+:100644 100644 0123456... bcd3456... C100 fileY file0
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">In both rename and copy detection, the same &quot;extent of
+    changes&quot; algorithm used in diffcore-break is used to determine if two
+    files are &quot;similar enough&quot;, and can be customized to use a
+    similarity score different from the default of 50% by giving a number after
+    the &quot;-M&quot; or &quot;-C&quot; option (e.g. &quot;-M8&quot; to tell it
+    to use 8/10 = 80%).</p>
+<p class="Pp">Note. When the &quot;-C&quot; option is used with
+    <b>--find-copies-harder</b> option, <i>git diff-*</i> commands feed
+    unmodified filepairs to diffcore mechanism as well as modified ones. This
+    lets the copy detector consider unmodified files as copy source candidates
+    at the expense of making it slower. Without <b>--find-copies-harder</b>,
+    <i>git diff-*</i> commands can detect copies only if the file that was
+    copied happened to have been modified in the same changeset.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DIFFCORE_-MERGE_-BROKEN:_FOR_PUTTING_COMPLETE_REWRITES_BACK_TOGETHER"><a class="permalink" href="#DIFFCORE_-MERGE_-BROKEN:_FOR_PUTTING_COMPLETE_REWRITES_BACK_TOGETHER">DIFFCORE-MERGE-BROKEN:
+  FOR PUTTING COMPLETE REWRITES BACK TOGETHER</a></h1>
+This transformation is used to merge filepairs broken by diffcore-break, and not
+  transformed into rename/copy by diffcore-rename, back into a single
+  modification. This always runs when diffcore-break is used.
+<p class="Pp">For the purpose of merging broken filepairs back, it uses a
+    different &quot;extent of changes&quot; computation from the ones used by
+    diffcore-break and diffcore-rename. It counts only the deletion from the
+    original, and does not count insertion. If you removed only 10 lines from a
+    100-line document, even if you added 910 new lines to make a new 1000-line
+    document, you did not do a complete rewrite. diffcore-break breaks such a
+    case in order to help diffcore-rename to consider such filepairs as
+    candidate of rename/copy detection, but if filepairs broken that way were
+    not matched with other filepairs to create rename/copy, then this
+    transformation merges them back into the original
+  &quot;modification&quot;.</p>
+<p class="Pp">The &quot;extent of changes&quot; parameter can be tweaked from
+    the default 80% (that is, unless more than 80% of the original material is
+    deleted, the broken pairs are merged back into a single modification) by
+    giving a second number to -B option, like these:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;-B50/60 (give 50% &quot;break score&quot; to
+  diffcore-break, use 60% for diffcore-merge-broken).</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;-B/60 (the same as above, since diffcore-break
+  defaults to 50%).</div>
+<p class="Pp">Note that earlier implementation left a broken pair as a separate
+    creation and deletion patches. This was an unnecessary hack and the latest
+    implementation always merges all the broken pairs back into modifications,
+    but the resulting patch output is formatted differently for easier review in
+    case of such a complete rewrite by showing the entire contents of old
+    version prefixed with <i>-</i>, followed by the entire contents of new
+    version prefixed with <i>+</i>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DIFFCORE_-PICKAXE:_FOR_DETECTING_ADDITION/DELETION_OF_SPECIFIED_STRING"><a class="permalink" href="#DIFFCORE_-PICKAXE:_FOR_DETECTING_ADDITION/DELETION_OF_SPECIFIED_STRING">DIFFCORE-PICKAXE:
+  FOR DETECTING ADDITION/DELETION OF SPECIFIED STRING</a></h1>
+This transformation limits the set of filepairs to those that change specified
+  strings between the preimage and the postimage in a certain way. -S&lt;block
+  of text&gt; and -G&lt;regular expression&gt; options are used to specify
+  different ways these strings are sought.
+<p class="Pp">&quot;-S&lt;block of text&gt;&quot; detects filepairs whose
+    preimage and postimage have different number of occurrences of the specified
+    block of text. By definition, it will not detect in-file moves. Also, when a
+    changeset moves a file wholesale without affecting the interesting string,
+    diffcore-rename kicks in as usual, and <b>-S</b> omits the filepair (since
+    the number of occurrences of that string didn&#x2019;t change in that
+    rename-detected filepair). When used with <b>--pickaxe-regex</b>, treat the
+    &lt;block of text&gt; as an extended POSIX regular expression to match,
+    instead of a literal string.</p>
+<p class="Pp">&quot;-G&lt;regular expression&gt;&quot; (mnemonic: grep) detects
+    filepairs whose textual diff has an added or a deleted line that matches the
+    given regular expression. This means that it will detect in-file (or what
+    rename-detection considers the same file) moves, which is noise. The
+    implementation runs diff twice and greps, and this can be quite expensive.
+    To speed things up binary files without textconv filters will be
+  ignored.</p>
+<p class="Pp">When <b>-S</b> or <b>-G</b> are used without <b>--pickaxe-all</b>,
+    only filepairs that match their respective criterion are kept in the output.
+    When <b>--pickaxe-all</b> is used, if even one filepair matches their
+    respective criterion in a changeset, the entire changeset is kept. This
+    behavior is designed to make reviewing changes in the context of the whole
+    changeset easier.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DIFFCORE_-ORDER:_FOR_SORTING_THE_OUTPUT_BASED_ON_FILENAMES"><a class="permalink" href="#DIFFCORE_-ORDER:_FOR_SORTING_THE_OUTPUT_BASED_ON_FILENAMES">DIFFCORE-ORDER:
+  FOR SORTING THE OUTPUT BASED ON FILENAMES</a></h1>
+This is used to reorder the filepairs according to the user&#x2019;s (or
+  project&#x2019;s) taste, and is controlled by the -O option to the <i>git
+  diff-*</i> commands.
+<p class="Pp">This takes a text file each of whose lines is a shell glob
+    pattern. Filepairs that match a glob pattern on an earlier line in the file
+    are output before ones that match a later line, and filepairs that do not
+    match any glob pattern are output last.</p>
+<p class="Pp">As an example, a typical orderfile for the core Git probably would
+    look like this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+README
+Makefile
+Documentation
+*.h
+*.c
+t
+</pre>
+</div>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>git-diff</b>(1), <b>git-diff-files</b>(1), <b>git-diff-index</b>(1),
+  <b>git-diff-tree</b>(1), <b>git-format-patch</b>(1), <b>git-log</b>(1),
+  <b>gitglossary</b>(7), <b>The Git User&#x2019;s Manual</b>[1]
+</section>
+<section class="Sh">
+<h1 class="Sh" id="GIT"><a class="permalink" href="#GIT">GIT</a></h1>
+Part of the <b>git</b>(1) suite
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<dl class="Bl-tag">
+  <dt> 1.</dt>
+  <dd>The Git User&#x2019;s Manual</dd>
+</dl>
+<div class="Bd-indent">git-htmldocs/user-manual.html</div>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">02/24/2019</td>
+    <td class="foot-os">Git 2.21.0</td>
+  </tr>
+</table>
+</body>
+</html>

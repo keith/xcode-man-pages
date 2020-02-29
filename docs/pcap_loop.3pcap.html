@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   Copyright (c) 1994, 1996, 1997
+  	The Regents of the University of California.  All rights reserved.
+  
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that: (1) source code distributions
+   retain the above copyright notice and this paragraph in its entirety, (2)
+   distributions including binary code include the above copyright notice and
+   this paragraph in its entirety in the documentation or other materials
+   provided with the distribution, and (3) all advertising materials mentioning
+   features or use of this software display the following acknowledgement:
+   ``This product includes software developed by the University of California,
+   Lawrence Berkeley Laboratory and its contributors.'' Neither the name of
+   the University nor the names of its contributors may be used to endorse
+   or promote products derived from this software without specific prior
+   written permission.
+   THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR IMPLIED
+   WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
+   MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>PCAP_LOOP(3PCAP)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">PCAP_LOOP(3PCAP)</td>
+    <td class="head-vol"></td>
+    <td class="head-rtitle">PCAP_LOOP(3PCAP)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+pcap_loop, pcap_dispatch - process packets from a live capture or savefile
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>
+<b></b><b>#include &lt;pcap/pcap.h&gt;</b>
+<b></b>
+</pre>
+<pre>
+<b></b><b>typedef void (*pcap_handler)(u_char *user, const struct pcap_pkthdr *h,</b>
+			     const u_char *bytes);
+<b></b>
+</pre>
+<pre>
+<b></b><b>int pcap_loop(pcap_t *p, int cnt,</b>
+pcap_handler callback, u_char *user);
+int pcap_dispatch(pcap_t *p, int cnt,
+pcap_handler callback, u_char *user);
+<b></b>
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<b>pcap_loop()</b> processes packets from a live capture or ``savefile'' until
+  <i>cnt</i> packets are processed, the end of the ``savefile'' is reached when
+  reading from a ``savefile'', <b>pcap_breakloop()</b> is called, or an error
+  occurs. It does <b>not</b> return when live read timeouts occur. A value of -1
+  or 0 for <i>cnt</i> is equivalent to infinity, so that packets are processed
+  until another ending condition occurs.
+<p class="Pp"><b>pcap_dispatch()</b> processes packets from a live capture or
+    ``savefile'' until <i>cnt</i> packets are processed, the end of the current
+    bufferful of packets is reached when doing a live capture, the end of the
+    ``savefile'' is reached when reading from a ``savefile'',
+    <b>pcap_breakloop()</b> is called, or an error occurs. Thus, when doing a
+    live capture, <i>cnt</i> is the maximum number of packets to process before
+    returning, but is not a minimum number; when reading a live capture, only
+    one bufferful of packets is read at a time, so fewer than <i>cnt</i> packets
+    may be processed. A value of -1 or 0 for <i>cnt</i> causes all the packets
+    received in one buffer to be processed when reading a live capture, and
+    causes all the packets in the file to be processed when reading a
+    ``savefile''.</p>
+<p class="Pp">Note that, when doing a live capture on some platforms, if the
+    read timeout expires when there are no packets available,
+    <b>pcap_dispatch()</b> will return 0, even when not in non-blocking mode, as
+    there are no packets to process. Applications should be prepared for this to
+    happen, but must not rely on it happening.</p>
+<p class="Pp"><b></b><b>(In older versions of libpcap, the behavior when</b>
+    <b></b> <i>cnt</i><b></b> <b>was 0 was undefined; different platforms and
+    devices behaved</b> <b>differently, so code that must work with older
+    versions of libpcap</b> <b>should use -1, not 0, as the value of</b>
+    <b></b><i>cnt</i><b>.)</b></p>
+<p class="Pp"><i>callback</i> specifies a <i>pcap_handler</i> routine to be
+    called with three arguments: a <i>u_char</i> pointer which is passed in the
+    <i>user</i> argument to <b>pcap_loop()</b> or <b>pcap_dispatch()</b>, a
+    <i>const struct pcap_pkthdr</i> pointer pointing to the packet time stamp
+    and lengths, and a <i>const u_char</i> pointer to the first <b>caplen</b>
+    (as given in the <i>struct pcap_pkthdr</i> a pointer to which is passed to
+    the callback routine) bytes of data from the packet. The <i>struct
+    pcap_pkthdr</i> and the packet data are not to be freed by the callback
+    routine, and are not guaranteed to be valid after the callback routine
+    returns; if the code needs them to be valid after the callback, it must make
+    a copy of them.</p>
+<p class="Pp">The bytes of data from the packet begin with a link-layer header.
+    The format of the link-layer header is indicated by the return value of the
+    <b>pcap_datalink()</b> routine when handed the <b>pcap_t</b> value also
+    passed to <b>pcap_loop()</b> or <b>pcap_dispatch()</b>.
+    <i>http://www.tcpdump.org/linktypes.html</i> lists the values
+    <b>pcap_datalink()</b> can return and describes the packet formats that
+    correspond to those values. The value it returns will be valid for all
+    packets received unless and until <b>pcap_set_datalink()</b> is called;
+    after a successful call to <b>pcap_set_datalink()</b>, all subsequent
+    packets will have a link-layer header of the type specified by the
+    link-layer header type value passed to <b>pcap_set_datalink()</b>.</p>
+<p class="Pp">Do <b>NOT</b> assume that the packets for a given capture or
+    ``savefile`` will have any given link-layer header type, such as
+    <b>DLT_EN10MB</b> for Ethernet. For example, the &quot;any&quot; device on
+    Linux will have a link-layer header type of <b>DLT_LINUX_SLL</b> even if all
+    devices on the system at the time the &quot;any&quot; device is opened have
+    some other data link type, such as <b>DLT_EN10MB</b> for Ethernet.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+<b>pcap_loop()</b> returns 0 if <i>cnt</i> is exhausted or if, when reading from
+  a ``savefile'', no more packets are available. It returns -1 if an error
+  occurs or -2 if the loop terminated due to a call to <b>pcap_breakloop()</b>
+  before any packets were processed. It does <b>not</b> return when live read
+  timeouts occur; instead, it attempts to read more packets.
+<p class="Pp"><b>pcap_dispatch()</b> returns the number of packets processed on
+    success; this can be 0 if no packets were read from a live capture (if, for
+    example, they were discarded because they didn't pass the packet filter, or
+    if, on platforms that support a read timeout that starts before any packets
+    arrive, the timeout expires before any packets arrive, or if the file
+    descriptor for the capture device is in non-blocking mode and no packets
+    were available to be read) or if no more packets are available in a
+    ``savefile.'' It returns -1 if an error occurs or -2 if the loop terminated
+    due to a call to <b>pcap_breakloop()</b> before any packets were processed.
+    <b></b><b>If your application uses pcap_breakloop(),</b> <b>make sure that
+    you explicitly check for -1 and -2, rather than just</b> <b>checking for a
+    return value &lt; 0.</b></p>
+<p class="Pp">If -1 is returned, <b>pcap_geterr()</b> or <b>pcap_perror()</b>
+    may be called with <i>p</i> as an argument to fetch or display the error
+    text.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+pcap(3PCAP), pcap_geterr(3PCAP), pcap_breakloop(3PCAP), pcap_datalink(3PCAP)
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">18 October 2014</td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+</body>
+</html>

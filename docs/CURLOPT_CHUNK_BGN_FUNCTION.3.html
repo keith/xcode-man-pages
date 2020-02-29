@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   **************************************************************************
+   *                                  _   _ ____  _
+   *  Project                     ___| | | |  _ \| |
+   *                             / __| | | | |_) | |
+   *                            | (__| |_| |  _ <| |___
+   *                             \___|\___/|_| \_\_____|
+   *
+   * Copyright (C) 1998 - 2017, Daniel Stenberg, <daniel@haxx.se>, et al.
+   *
+   * This software is licensed as described in the file COPYING, which
+   * you should have received as part of this distribution. The terms
+   * are also available at https://curl.haxx.se/docs/copyright.html.
+   *
+   * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+   * copies of the Software, and permit persons to whom the Software is
+   * furnished to do so, under the terms of the COPYING file.
+   *
+   * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+   * KIND, either express or implied.
+   *
+   **************************************************************************
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>CURLOPT_CHUNK_BGN_FUNCTION(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">CURLOPT_CHUNK_BGN_FUNCTION(3)</td>
+    <td class="head-vol">curl_easy_setopt options</td>
+    <td class="head-rtitle">CURLOPT_CHUNK_BGN_FUNCTION(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<p class="Pp"></p>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+CURLOPT_CHUNK_BGN_FUNCTION - callback before a transfer with FTP wildcardmatch
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>
+#include &lt;curl/curl.h&gt;
+long chunk_bgn_callback(const void *transfer_info, void *ptr,
+                        int remains);
+CURLcode curl_easy_setopt(CURL *handle, CURLOPT_CHUNK_BGN_FUNCTION,
+                          chunk_bgn_callback);
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+Pass a pointer to your callback function, which should match the prototype shown
+  above.
+<p class="Pp">This callback function gets called by libcurl before a part of the
+    stream is going to be transferred (if the transfer supports chunks).</p>
+<p class="Pp">The <i>transfer_info</i> pointer will point to a struct
+    curl_fileinfo with details about the file that is about to get
+  transferred.</p>
+<p class="Pp">This callback makes sense only when using the
+    <i>CURLOPT_WILDCARDMATCH(3)</i> option for now.</p>
+<p class="Pp">The target of transfer_info parameter is a &quot;feature
+    depended&quot; structure. For the FTP wildcard download, the target is
+    curl_fileinfo structure (see <i>curl/curl.h</i>). The parameter <i>ptr</i>
+    is a pointer given by <i>CURLOPT_CHUNK_DATA(3)</i>. The parameter remains
+    contains number of chunks remaining per the transfer. If the feature is not
+    available, the parameter has zero value.</p>
+<p class="Pp">Return <i>CURL_CHUNK_BGN_FUNC_OK</i> if everything is fine,
+    <i>CURL_CHUNK_BGN_FUNC_SKIP</i> if you want to skip the concrete chunk or
+    <i>CURL_CHUNK_BGN_FUNC_FAIL</i> to tell libcurl to stop if some error
+    occurred.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DEFAULT"><a class="permalink" href="#DEFAULT">DEFAULT</a></h1>
+NULL
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PROTOCOLS"><a class="permalink" href="#PROTOCOLS">PROTOCOLS</a></h1>
+FTP
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<pre>
+static long file_is_coming(struct curl_fileinfo *finfo,
+                           struct callback_data *data,
+                           int remains)
+{
+  printf(&quot;%3d %40s %10luB &quot;, remains, finfo-&gt;filename,
+         (unsigned long)finfo-&gt;size);
+  switch(finfo-&gt;filetype) {
+  case CURLFILETYPE_DIRECTORY:
+    printf(&quot; DIR\n&quot;);
+    break;
+  case CURLFILETYPE_FILE:
+    printf(&quot;FILE &quot;);
+    break;
+  default:
+    printf(&quot;OTHER\n&quot;);
+    break;
+  }
+  if(finfo-&gt;filetype == CURLFILETYPE_FILE) {
+    /* do not transfer files &gt;= 50B */
+    if(finfo-&gt;size &gt; 50) {
+      printf(&quot;SKIPPED\n&quot;);
+      return CURL_CHUNK_BGN_FUNC_SKIP;
+    }
+    data-&gt;output = fopen(finfo-&gt;filename, &quot;wb&quot;);
+    if(!data-&gt;output) {
+      return CURL_CHUNK_BGN_FUNC_FAIL;
+    }
+  }
+  return CURL_CHUNK_BGN_FUNC_OK;
+}
+int main()
+{
+  /* data for callback */
+  struct callback_data callback_info;
+  /* callback is called before download of concrete file started */
+  curl_easy_setopt(curl, CURLOPT_CHUNK_BGN_FUNCTION, file_is_coming);
+  curl_easy_setopt(curl, CURLOPT_CHUNK_DATA, &amp;callback_info);
+}
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
+This was added in 7.21.0
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>CURLOPT_CHUNK_END_FUNCTION</b>(3), <b>CURLOPT_WILDCARDMATCH</b>(3),
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">November 7, 2018</td>
+    <td class="foot-os">libcurl 7.64.1</td>
+  </tr>
+</table>
+</body>
+</html>

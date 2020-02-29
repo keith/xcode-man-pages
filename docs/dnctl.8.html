@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>DNCTL(8)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">DNCTL(8)</td>
+    <td class="head-vol">System Manager's Manual</td>
+    <td class="head-rtitle">DNCTL(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">dnctl</code> &#x2014;
+<div class="Nd">Traffic shaper control program</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">dnctl</code></td>
+    <td>[<code class="Fl">-anqs</code>] {<code class="Cm">list</code> |
+      <code class="Cm">show</code>}</td>
+  </tr>
+</table>
+<br/>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">dnctl</code></td>
+    <td>[<code class="Fl">-f</code> | <code class="Fl">-q</code>]
+      <code class="Cm">flush</code></td>
+  </tr>
+</table>
+<br/>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">dnctl</code></td>
+    <td>[<code class="Fl">-q</code>] {<code class="Cm">delete</code>}
+      [<var class="Ar">number ...</var>]</td>
+  </tr>
+</table>
+<br/>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">dnctl</code></td>
+    <td>{<code class="Cm">pipe</code> | <code class="Cm">queue</code>}
+      <var class="Ar">number</var> <code class="Cm">config</code>
+      <var class="Ar">config-options</var></td>
+  </tr>
+</table>
+<br/>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">dnctl</code></td>
+    <td>[<code class="Fl">-s</code> [<var class="Ar">field</var>]]
+      {<code class="Cm">pipe</code> | <code class="Cm">queue</code>}
+      {<code class="Cm">delete</code> | <code class="Cm">list</code> |
+      <code class="Cm">show</code>} [<var class="Ar">number ...</var>]</td>
+  </tr>
+</table>
+<br/>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">dnctl</code></td>
+    <td>[<code class="Fl">-nq</code>] [<code class="Fl">-p</code>
+      <var class="Ar">preproc</var> [<var class="Ar">preproc-flags</var>]]
+      <var class="Ar">pathname</var></td>
+  </tr>
+</table>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The <code class="Nm">dnctl</code> utility is the user interface for controlling
+  the <a class="Xr">dummynet(4)</a> traffic shaper.
+<p class="Pp"><code class="Nm">dummynet</code> operates by first using a packet
+    filter to classify packets and divide them into <i class="Em">flows</i>,
+    using any match pattern that can be used in <code class="Nm">dnctl</code>
+    rules. Depending on local policies, a flow can contain packets for a single
+    TCP connection, or from/to a given host, or entire subnet, or a protocol
+    type, etc.</p>
+<p class="Pp">Packets belonging to the same flow are then passed to either of
+    two different objects, which implement the traffic regulation:</p>
+<dl class="Bl-hang Bd-indent">
+  <dt><i class="Em">pipe</i></dt>
+  <dd>A pipe emulates a link with given bandwidth, propagation delay, queue size
+      and packet loss rate. Packets are queued in front of the pipe as they come
+      out from the classifier, and then transferred to the pipe according to the
+      pipe's parameters.</dd>
+  <dt><i class="Em">queue</i></dt>
+  <dd>A queue is an abstraction used to implement the WF2Q+ (Worst-case Fair
+      Weighted Fair Queueing) policy, which is an efficient variant of the WFQ
+      policy.
+    <br/>
+    The queue associates a <i class="Em">weight</i> and a reference pipe to each
+      flow, and then all backlogged (i.e., with packets queued) flows linked to
+      the same pipe share the pipe's bandwidth proportionally to their weights.
+      Note that weights are not priorities; a flow with a lower weight is still
+      guaranteed to get its fraction of the bandwidth even if a flow with a
+      higher weight is permanently backlogged.</dd>
+</dl>
+<p class="Pp">In practice, <i class="Em">pipes</i> can be used to set hard
+    limits to the bandwidth that a flow can use, whereas
+    <i class="Em">queues</i> can be used to determine how different flow share
+    the available bandwidth.</p>
+<p class="Pp">The <i class="Em">pipe</i> and <i class="Em">queue</i>
+    configuration commands are the following:</p>
+<div class="Bd Pp Bd-indent"><code class="Cm">pipe</code>
+  <var class="Ar">number</var> <code class="Cm">config</code>
+  <var class="Ar">pipe-configuration</var>
+<p class="Pp"><code class="Cm">queue</code> <var class="Ar">number</var>
+    <code class="Cm">config</code> <var class="Ar">queue-configuration</var></p>
+</div>
+<p class="Pp">The following parameters can be configured for a pipe:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag Bl-compact">
+  <dt><a class="permalink" href="#bw"><code class="Cm" id="bw">bw</code></a>
+    <var class="Ar">bandwidth</var> | <var class="Ar">device</var></dt>
+  <dd>Bandwidth, measured in
+      [<code class="Cm">K</code>|<code class="Cm">M</code>]{<code class="Cm">bit/s</code>|<code class="Cm">Byte/s</code>}.
+    <p class="Pp">A value of 0 (default) means unlimited bandwidth. The unit
+        must immediately follow the number, as in</p>
+    <p class="Pp"></p>
+    <div class="Bd Bd-indent"><code class="Li">dnctl pipe 1 config bw
+      300Kbit/s</code></div>
+    <p class="Pp">If a device name is specified instead of a numeric value, as
+        in</p>
+    <p class="Pp"></p>
+    <div class="Bd Bd-indent"><code class="Li">dnctl pipe 1 config bw
+      tun0</code></div>
+    <p class="Pp">then the transmit clock is supplied by the specified device.
+        At the moment no device supports this functionality.</p>
+    <p class="Pp"></p>
+  </dd>
+  <dt><a class="permalink" href="#delay"><code class="Cm" id="delay">delay</code></a>
+    <var class="Ar">ms-delay</var></dt>
+  <dd>Propagation delay, measured in milliseconds. The value is rounded to the
+      next multiple of the clock tick (typically 10ms, but it is a good practice
+      to run kernels with &#x201C;options HZ=1000&#x201D; to reduce the
+      granularity to 1ms or less). Default value is 0, meaning no delay.</dd>
+</dl>
+<p class="Pp">The following parameters can be configured for a queue:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag Bl-compact">
+  <dt><a class="permalink" href="#pipe"><code class="Cm" id="pipe">pipe</code></a>
+    <var class="Ar">pipe_nr</var></dt>
+  <dd>Connects a queue to the specified pipe. Multiple queues (with the same or
+      different weights) can be connected to the same pipe, which specifies the
+      aggregate rate for the set of queues.
+    <p class="Pp"></p>
+  </dd>
+  <dt><a class="permalink" href="#weight"><code class="Cm" id="weight">weight</code></a>
+    <var class="Ar">weight</var></dt>
+  <dd>Specifies the weight to be used for flows matching this queue. The weight
+      must be in the range 1..100, and defaults to 1.</dd>
+</dl>
+<p class="Pp">Finally, the following parameters can be configured for both pipes
+    and queues:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag Bl-compact">
+  <dt><a class="permalink" href="#buckets"><code class="Cm" id="buckets">buckets</code></a>
+    <var class="Ar">hash-table-size</var></dt>
+  <dd>Specifies the size of the hash table used for storing the various queues.
+      Default value is 64 controlled by the <a class="Xr">sysctl(8)</a> variable
+      <i class="Em">net.inet.ip.dummynet.hash_size</i>, allowed range is 16 to
+      65536.
+    <p class="Pp"></p>
+  </dd>
+  <dt><a class="permalink" href="#mask"><code class="Cm" id="mask">mask</code></a>
+    <var class="Ar">mask-specifier</var></dt>
+  <dd>Packets sent to a given pipe or queue by an <code class="Nm">dnctl</code>
+      rule can be further classified into multiple flows, each of which is then
+      sent to a different <i class="Em">dynamic</i> pipe or queue. A flow
+      identifier is constructed by masking the IP addresses, ports and protocol
+      types as specified with the <code class="Cm">mask</code> options in the
+      configuration of the pipe or queue. For each different flow identifier, a
+      new pipe or queue is created with the same parameters as the original
+      object, and matching packets are sent to it.
+    <p class="Pp">Thus, when <i class="Em">dynamic pipes</i> are used, each flow
+        will get the same bandwidth as defined by the pipe, whereas when
+        <i class="Em">dynamic queues</i> are used, each flow will share the
+        parent's pipe bandwidth evenly with other flows generated by the same
+        queue (note that other queues with different weights might be connected
+        to the same pipe).
+      <br/>
+      Available mask specifiers are a combination of one or more of the
+        following:</p>
+    <p class="Pp"><code class="Cm">dst-ip</code> <var class="Ar">mask</var>,
+        <code class="Cm">dst-ip6</code> <var class="Ar">mask</var>,
+        <code class="Cm">src-ip</code> <var class="Ar">mask</var>,
+        <code class="Cm">src-ip6</code> <var class="Ar">mask</var>,
+        <code class="Cm">dst-port</code> <var class="Ar">mask</var>,
+        <code class="Cm">src-port</code> <var class="Ar">mask</var>,
+        <code class="Cm">proto</code> <var class="Ar">mask</var> or
+        <code class="Cm">all</code>,</p>
+    <p class="Pp">where the latter means all bits in all fields are
+      significant.</p>
+    <p class="Pp"></p>
+  </dd>
+  <dt><a class="permalink" href="#noerror"><code class="Cm" id="noerror">noerror</code></a></dt>
+  <dd>When a packet is dropped by a dummynet queue or pipe, the error is
+      normally reported to the caller routine in the kernel, in the same way as
+      it happens when a device queue fills up. Setting this option reports the
+      packet as successfully delivered, which can be needed for some
+      experimental setups where you want to simulate loss or congestion at a
+      remote router.
+    <p class="Pp"></p>
+  </dd>
+  <dt><a class="permalink" href="#plr"><code class="Cm" id="plr">plr</code></a>
+    <var class="Ar">packet-loss-rate</var></dt>
+  <dd>Packet loss rate. Argument <var class="Ar">packet-loss-rate</var> is a
+      floating-point number between 0 and 1, with 0 meaning no loss, 1 meaning
+      100% loss. The loss rate is internally represented on 31 bits.
+    <p class="Pp"></p>
+  </dd>
+  <dt><a class="permalink" href="#queue"><code class="Cm" id="queue">queue</code></a>
+    {<var class="Ar">slots</var> |
+    <var class="Ar">size</var><code class="Cm">Kbytes</code>}</dt>
+  <dd>Queue size, in <var class="Ar">slots</var> or
+      <code class="Cm">KBytes</code>. Default value is 50 slots, which is the
+      typical queue size for Ethernet devices. Note that for slow speed links
+      you should keep the queue size short or your traffic might be affected by
+      a significant queueing delay. E.g., 50 max-sized ethernet packets (1500
+      bytes) mean 600Kbit or 20s of queue on a 30Kbit/s pipe. Even worse effect
+      can result if you get packets from an interface with a much larger MTU,
+      e.g. the loopback interface with its 16KB packets.
+    <p class="Pp"></p>
+  </dd>
+  <dt><a class="permalink" href="#red"><code class="Cm" id="red">red</code></a>
+    |
+    <a class="permalink" href="#gred"><code class="Cm" id="gred">gred</code></a>
+    <var class="Ar">w_q</var>/<var class="Ar">min_th</var>/<var class="Ar">max_th</var>/<var class="Ar">max_p</var></dt>
+  <dd>Make use of the RED (Random Early Detection) queue management algorithm.
+      <var class="Ar">w_q</var> and <var class="Ar">max_p</var> are floating
+      point numbers between 0 and 1 (0 not included), while
+      <var class="Ar">min_th</var> and <var class="Ar">max_th</var> are integer
+      numbers specifying thresholds for queue management (thresholds are
+      computed in bytes if the queue has been defined in bytes, in slots
+      otherwise). The <a class="Xr">dummynet(4)</a> also supports the gentle RED
+      variant (gred).
+    <p class="Pp">Three <a class="Xr">sysctl(8)</a> variables can be used to
+        control the RED behaviour:</p>
+    <dl class="Bl-tag">
+      <dt><i class="Em">net.inet.ip.dummynet.red_lookup_depth</i></dt>
+      <dd>specifies the accuracy in computing the average queue when the link is
+          idle (defaults to 256, must be greater than zero)</dd>
+      <dt><i class="Em">net.inet.ip.dummynet.red_avg_pkt_size</i></dt>
+      <dd>specifies the expected average packet size (defaults to 512, must be
+          greater than zero)</dd>
+      <dt><i class="Em">net.inet.ip.dummynet.red_max_pkt_size</i></dt>
+      <dd>specifies the expected maximum packet size, only used when queue
+          thresholds are in bytes (defaults to 1500, must be greater than
+        zero).</dd>
+    </dl>
+  </dd>
+</dl>
+<p class="Pp">The following options are available:</p>
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#a"><code class="Fl" id="a">-a</code></a></dt>
+  <dd>While listing, show counter values. The <code class="Cm">show</code>
+      command just implies this option.</dd>
+  <dt><a class="permalink" href="#f"><code class="Fl" id="f">-f</code></a></dt>
+  <dd>Don't ask for confirmation for commands that can cause problems if
+      misused, <span class="No">i.e.</span> <code class="Cm">flush</code>. If
+      there is no tty associated with the process, this is implied.</dd>
+  <dt><a class="permalink" href="#h"><code class="Fl" id="h">-h</code></a></dt>
+  <dd>Displays a short help.</dd>
+  <dt><a class="permalink" href="#n"><code class="Fl" id="n">-n</code></a></dt>
+  <dd>Only check syntax of the command strings, without actually passing them to
+      the kernel.</dd>
+  <dt><a class="permalink" href="#q"><code class="Fl" id="q">-q</code></a></dt>
+  <dd>While <code class="Cm">add</code>ing, <code class="Cm">zero</code>ing,
+      <code class="Cm">resetlog</code>ging or <code class="Cm">flush</code>ing,
+      be quiet about actions (implies <code class="Fl">-f</code>). This is
+      useful for adjusting rules by executing multiple
+      <code class="Nm">dnctl</code> commands in a script or by processing a file
+      of many <code class="Nm">dnctl</code> rules across a remote login session.
+      If a <code class="Cm">flush</code> is performed in normal (verbose) mode
+      (with the default kernel configuration), it prints a message. Because all
+      rules are flushed, the message might not be delivered to the login
+      session, causing the remote login session to be closed and the remainder
+      of the ruleset to not be processed. Access to the console would then be
+      required to recover.</dd>
+  <dt><a class="permalink" href="#s"><code class="Fl" id="s">-s</code></a>
+    [<var class="Ar">field</var>]</dt>
+  <dd>While listing pipes, sort according to one of the four counters (total or
+      current packets or bytes).</dd>
+  <dt><a class="permalink" href="#v"><code class="Fl" id="v">-v</code></a></dt>
+  <dd>Be verbose.</dd>
+</dl>
+<p class="Pp">To ease configuration, rules can be put into a file which is
+    processed using <code class="Nm">dnctl</code> as shown in the last synopsis
+    line. An absolute <var class="Ar">pathname</var> must be used. The file will
+    be read line by line and applied as arguments to the
+    <code class="Nm">dnctl</code> utility.</p>
+<p class="Pp">Optionally, a preprocessor can be specified using
+    <code class="Fl">-p</code> <var class="Ar">preproc</var> where
+    <var class="Ar">pathname</var> is to be piped through. Useful preprocessors
+    include <a class="Xr">cpp(1)</a> and <a class="Xr">m4(1)</a>. If
+    <var class="Ar">preproc</var> doesn't start with a slash
+    (&#x2018;<code class="Li">/</code>&#x2019;) as its first character, the
+    usual <code class="Ev">PATH</code> name search is performed. Care should be
+    taken with this in environments where not all file systems are mounted (yet)
+    by the time <code class="Nm">dnctl</code> is being run (e.g. when they are
+    mounted over NFS). Once <code class="Fl">-p</code> has been specified, any
+    additional arguments as passed on to the preprocessor for interpretation.
+    This allows for flexible configuration files (like conditionalizing them on
+    the local hostname) and the use of macros to centralize frequently required
+    arguments like IP addresses.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CHECKLIST"><a class="permalink" href="#CHECKLIST">CHECKLIST</a></h1>
+Here are some important points to consider when designing your rules:
+<ul class="Bl-bullet">
+  <li>Remember that you filter both packets going <code class="Cm">in</code> and
+      <code class="Cm">out</code>. Most connections need packets going in both
+      directions.</li>
+  <li>Remember to test very carefully. It is a good idea to be near the console
+      when doing this.</li>
+  <li>Don't forget the loopback interface.</li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYSCTL_VARIABLES"><a class="permalink" href="#SYSCTL_VARIABLES">SYSCTL
+  VARIABLES</a></h1>
+A set of <a class="Xr">sysctl(8)</a> variables controls the behaviour of the
+  <code class="Nm">dummynet</code> module. These are shown below together with
+  their default value (but always check with the <a class="Xr">sysctl(8)</a>
+  command what value is actually in use) and meaning:
+<dl class="Bl-tag">
+  <dt><i class="Em">net.inet.ip.dummynet.expire</i>:
+    <span class="No">1</span></dt>
+  <dd>Lazily delete dynamic pipes/queue once they have no pending traffic. You
+      can disable this by setting the variable to 0, in which case the
+      pipes/queues will only be deleted when the threshold is reached.</dd>
+  <dt><i class="Em">net.inet.ip.dummynet.hash_size</i>:
+    <span class="No">64</span></dt>
+  <dd>Default size of the hash table used for dynamic pipes/queues. This value
+      is used when no <code class="Cm">buckets</code> option is specified when
+      configuring a pipe/queue.</dd>
+  <dt><i class="Em">net.inet.ip.dummynet.max_chain_len</i>:
+    <span class="No">16</span></dt>
+  <dd>Target value for the maximum number of pipes/queues in a hash bucket. The
+      product <code class="Cm">max_chain_len*hash_size</code> is used to
+      determine the threshold over which empty pipes/queues will be expired even
+      when <code class="Cm">net.inet.ip.dummynet.expire=0</code>.</dd>
+  <dt><i class="Em">net.inet.ip.dummynet.red_lookup_depth</i>:
+    <span class="No">256</span></dt>
+  <dd style="width: auto;">&#x00A0;</dd>
+  <dt><i class="Em">net.inet.ip.dummynet.red_avg_pkt_size</i>:
+    <span class="No">512</span></dt>
+  <dd style="width: auto;">&#x00A0;</dd>
+  <dt><i class="Em">net.inet.ip.dummynet.red_max_pkt_size</i>:
+    <span class="No">1500</span></dt>
+  <dd>Parameters used in the computations of the drop probability for the RED
+      algorithm.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+The following rules show some of the applications of for simulations and the
+  like by using <i class="Em">dummynet</i> rules in <a class="Xr">pf.conf(8)</a>
+  configuration files.
+<p class="Pp">To drop random incoming IPv4 and IPv6 ICMP packets with a
+    probability of 5%, create a pipe:</p>
+<div class="Bd Bd-indent"><code class="Li">dnctl pipe 10 config plr
+  0.05</code></div>
+<p class="Pp">and add these rules in your pf.conf file:</p>
+<div class="Bd Bd-indent"><code class="Li">dummynet in inet proto icmp all pipe
+  10</code></div>
+<div class="Bd Bd-indent"><code class="Li">dummynet in inet6 proto ipv6-icmp all
+  pipe 10</code></div>
+<p class="Pp">Should we want to simulate a bidirectional link with bandwidth
+    limitations, the correct way is to create a pipe for each direction:</p>
+<div class="Bd Bd-indent"><code class="Li">dnctl pipe 1 config bw 14Kbit/s queue
+  10Kbytes</code></div>
+<div class="Bd Bd-indent"><code class="Li">dnctl pipe 2 config bw 1Kbit/s queue
+  10Kbytes</code></div>
+<p class="Pp">and add these rules in your pf.conf file:</p>
+<div class="Bd Bd-indent"><code class="Li">dummynet in all pipe 1</code></div>
+<div class="Bd Bd-indent"><code class="Li">dummynet out all pipe 2</code></div>
+<p class="Pp">The above can be very useful, e.g. if you want to see how your
+    fancy Web page will look for a residential user who is connected only
+    through a slow link. You should not use only one pipe for both directions,
+    unless you want to simulate a half-duplex medium (e.g. AppleTalk, Ethernet,
+    IRDA).</p>
+<p class="Pp">Note that with the above rules the pipes receive traffic for both
+    the IPv4 and IPv6 protocols.</p>
+<p class="Pp">Should we want to verify network performance with the RED queue
+    management algorithm, create this pipe:</p>
+<div class="Bd Bd-indent"><code class="Li">dnctl pipe 1 config bw 500Kbit/s
+  queue 100 red 0.002/30/80/0.1</code></div>
+<p class="Pp">and then add these rules to you pf.conf file:</p>
+<div class="Bd Bd-indent"><code class="Li">dummynet all pipe 1</code></div>
+<p class="Pp">Another typical application of the traffic shaper is to introduce
+    some delay in the communication. This can significantly affect applications
+    which do a lot of Remote Procedure Calls, and where the round-trip-time of
+    the connection often becomes a limiting factor much more than bandwidth:</p>
+<div class="Bd Bd-indent"><code class="Li">dnctl pipe 1 config delay 250ms bw
+  1Mbit/s</code></div>
+<div class="Bd Bd-indent"><code class="Li">dnctl pipe 2 config delay 250ms bw
+  1Mbit/s</code></div>
+<p class="Pp">and add these rules in your pf.conf file:</p>
+<div class="Bd Bd-indent"><code class="Li">dummynet in all pipe 1</code></div>
+<div class="Bd Bd-indent"><code class="Li">dummynet out all pipe 2</code></div>
+<p class="Pp">Per-flow queueing can be useful for a variety of purposes. A very
+    simple one is counting traffic:</p>
+<div class="Bd Bd-indent"><code class="Li">dnctl pipe 1 config mask
+  all</code></div>
+<p class="Pp">and add these statements in your pf.conf file:</p>
+<div class="Bd Bd-indent"><code class="Li">dummynet in quick proto tcp all pipe
+  1</code></div>
+<div class="Bd Bd-indent"><code class="Li">dummynet out quick proto tcp all pipe
+  1</code></div>
+<div class="Bd Bd-indent"><code class="Li">dummynet in quick proto udp all pipe
+  1</code></div>
+<div class="Bd Bd-indent"><code class="Li">dummynet out quick proto udp all pipe
+  1</code></div>
+<div class="Bd Bd-indent"><code class="Li">dummynet in quick all pipe
+  1</code></div>
+<div class="Bd Bd-indent"><code class="Li">dummynet out quick all pipe
+  1</code></div>
+<p class="Pp">The above set of rules will create queues (and collect statistics)
+    for all traffic. Because the pipes have no limitations, the only effect is
+    collecting statistics. Note that we need six rules, not just the last two
+    one, because when <code class="Nm">dnctl</code> tries to match IP packets it
+    will not consider ports, so we would not see connections on separate ports
+    as different ones.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">cpp(1)</a>, <a class="Xr">dummynet(4)</a>,
+  <a class="Xr">m4(1)</a>, <a class="Xr">ip(4)</a>, <a class="Xr">pfctl(8)</a>,
+  <a class="Xr">pf.conf(5)</a>, <a class="Xr">protocols(5)</a>,
+  <a class="Xr">services(5)</a>, <a class="Xr">sysctl(8)</a>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<span class="An">Ugen J. S. Antsilevich</span>,
+<br/>
+<span class="An">Poul-Henning Kamp</span>,
+<br/>
+<span class="An">Alex Nash</span>,
+<br/>
+<span class="An">Archie Cobbs</span>,
+<br/>
+<span class="An">Luigi Rizzo</span>.
+<p class="Pp">API based upon code written by <span class="An">Daniel
+    Boulet</span> for BSDI.</p>
+<p class="Pp">Work on <a class="Xr">dummynet(4)</a> traffic shaper supported by
+    Akamba Corp.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+The <code class="Nm">dnctl</code> utility first appeared in
+  <span class="Ux">FreeBSD 2.0</span>. <a class="Xr">dummynet(4)</a> was
+  introduced in <span class="Ux">FreeBSD 2.2.8</span>. Stateful extensions were
+  introduced in <span class="Ux">FreeBSD 4.0</span>.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">August 13, 2002</td>
+    <td class="foot-os">Darwin</td>
+  </tr>
+</table>
+</body>
+</html>

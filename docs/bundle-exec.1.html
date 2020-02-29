@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   generated with Ronn/v0.7.3
+   http://github.com/rtomayko/ronn/tree/0.7.3
+ -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>BUNDLE-EXEC(1)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">BUNDLE-EXEC(1)</td>
+    <td class="head-vol"></td>
+    <td class="head-rtitle">BUNDLE-EXEC(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<b>bundle-exec</b> - Execute a command in the context of the bundle
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<b>bundle exec</b> [--keep-file-descriptors] <i>command</i>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+This command executes the command, making all gems specified in the
+  [<b>Gemfile(5)</b>][Gemfile(5)] available to <b>require</b> in Ruby programs.
+<p class="Pp">Essentially, if you would normally have run something like
+    <b>rspec spec/my_spec.rb</b>, and you want to use the gems specified in the
+    [<b>Gemfile(5)</b>][Gemfile(5)] and installed via bundle install(1)
+    <i>bundle-install.1.html</i>, you should run <b>bundle exec rspec
+    spec/my_spec.rb</b>.</p>
+<p class="Pp">Note that <b>bundle exec</b> does not require that an executable
+    is available on your shell&#x00B4;s <b>$PATH</b>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<dl class="Bl-tag">
+  <dt><b>--keep-file-descriptors</b></dt>
+  <dd>Exec in Ruby 2.0 began discarding non-standard file descriptors. When this
+      flag is passed, exec will revert to the 1.9 behaviour of passing all file
+      descriptors to the new process.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUNDLE_INSTALL__-_-BINSTUBS"><a class="permalink" href="#BUNDLE_INSTALL__-_-BINSTUBS">BUNDLE
+  INSTALL --BINSTUBS</a></h1>
+If you use the <b>--binstubs</b> flag in bundle install(1)
+  <i>bundle-install.1.html</i>, Bundler will automatically create a directory
+  (which defaults to <b>app_root/bin</b>) containing all of the executables
+  available from gems in the bundle.
+<p class="Pp">After using <b>--binstubs</b>, <b>bin/rspec spec/my_spec.rb</b> is
+    identical to <b>bundle exec rspec spec/my_spec.rb</b>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT_MODIFICATIONS"><a class="permalink" href="#ENVIRONMENT_MODIFICATIONS">ENVIRONMENT
+  MODIFICATIONS</a></h1>
+<b>bundle exec</b> makes a number of changes to the shell environment, then
+  executes the command you specify in full.
+<ul class="Bl-bullet">
+  <li>make sure that it&#x00B4;s still possible to shell out to <b>bundle</b>
+      from inside a command invoked by <b>bundle exec</b> (using
+      <b>$BUNDLE_BIN_PATH</b>)</li>
+  <li>put the directory containing executables (like <b>rails</b>, <b>rspec</b>,
+      <b>rackup</b>) for your bundle on <b>$PATH</b></li>
+  <li>make sure that if bundler is invoked in the subshell, it uses the same
+      <b>Gemfile</b> (by setting <b>BUNDLE_GEMFILE</b>)</li>
+  <li>add <b>-rbundler/setup</b> to <b>$RUBYOPT</b>, which makes sure that Ruby
+      programs invoked in the subshell can see the gems in the bundle</li>
+</ul>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">It also modifies Rubygems:</p>
+<ul class="Bl-bullet">
+  <li>disallow loading additional gems not in the bundle</li>
+  <li>modify the <b>gem</b> method to be a no-op if a gem matching the
+      requirements is in the bundle, and to raise a <b>Gem::LoadError</b> if
+      it&#x00B4;s not</li>
+  <li>Define <b>Gem.refresh</b> to be a no-op, since the source index is always
+      frozen when using bundler, and to prevent gems from the system leaking
+      into the environment</li>
+  <li>Override <b>Gem.bin_path</b> to use the gems in the bundle, making system
+      executables work</li>
+  <li>Add all gems in the bundle into Gem.loaded_specs</li>
+</ul>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">Finally, <b>bundle exec</b> also implicitly modifies
+    <b>Gemfile.lock</b> if the lockfile and the Gemfile do not match. Bundler
+    needs the Gemfile to determine things such as a gem&#x00B4;s groups,
+    <b>autorequire</b>, and platforms, etc., and that information isn&#x00B4;t
+    stored in the lockfile. The Gemfile and lockfile must be synced in order to
+    <b>bundle exec</b> successfully, so <b>bundle exec</b> updates the lockfile
+    beforehand.</p>
+<section class="Ss">
+<h2 class="Ss" id="Loading"><a class="permalink" href="#Loading">Loading</a></h2>
+By default, when attempting to <b>bundle exec</b> to a file with a ruby shebang,
+  Bundler will <b>Kernel.load</b> that file instead of using <b>Kernel.exec</b>.
+  For the vast majority of cases, this is a performance improvement. In a rare
+  few cases, this could cause some subtle side-effects (such as dependence on
+  the exact contents of <b>$0</b> or <b>__FILE__</b>) and the optimization can
+  be disabled by enabling the <b>disable_exec_load</b> setting.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Shelling_out"><a class="permalink" href="#Shelling_out">Shelling
+  out</a></h2>
+Any Ruby code that opens a subshell (like <b>system</b>, backticks, or
+  <b>%x{}</b>) will automatically use the current Bundler environment. If you
+  need to shell out to a Ruby command that is not part of your current bundle,
+  use the <b>with_clean_env</b> method with a block. Any subshells created
+  inside the block will be given the environment present before Bundler was
+  activated. For example, Homebrew commands run Ruby, but don&#x00B4;t work
+  inside a bundle:
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+Bundler.with_clean_env do
+  `brew install wget`
+end
+    </pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">Using <b>with_clean_env</b> is also necessary if you are shelling
+    out to a different bundle. Any Bundler commands run in a subshell will
+    inherit the current Gemfile, so commands that need to run in the context of
+    a different bundle also need to use <b>with_clean_env</b>.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+Bundler.with_clean_env do
+  Dir.chdir &quot;/other/bundler/project&quot; do
+    `bundle exec ./script`
+  end
+end
+    </pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">Bundler provides convenience helpers that wrap <b>system</b> and
+    <b>exec</b>, and they can be used like this:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+Bundler.clean_system(&#x00B4;brew install wget&#x00B4;)
+Bundler.clean_exec(&#x00B4;brew install wget&#x00B4;)
+    </pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RUBYGEMS_PLUGINS"><a class="permalink" href="#RUBYGEMS_PLUGINS">RUBYGEMS
+  PLUGINS</a></h1>
+At present, the Rubygems plugin system requires all files named
+  <b>rubygems_plugin.rb</b> on the load path of <i>any</i> installed gem when
+  any Ruby code requires <b>rubygems.rb</b>. This includes executables installed
+  into the system, like <b>rails</b>, <b>rackup</b>, and <b>rspec</b>.
+<p class="Pp">Since Rubygems plugins can contain arbitrary Ruby code, they
+    commonly end up activating themselves or their dependencies.</p>
+<p class="Pp">For instance, the <b>gemcutter 0.5</b> gem depended on
+    <b>json_pure</b>. If you had that version of gemcutter installed (even if
+    you <i>also</i> had a newer version without this problem), Rubygems would
+    activate <b>gemcutter 0.5</b> and <b>json_pure &lt;latest&gt;</b>.</p>
+<p class="Pp">If your Gemfile(5) also contained <b>json_pure</b> (or a gem with
+    a dependency on <b>json_pure</b>), the latest version on your system might
+    conflict with the version in your Gemfile(5), or the snapshot version in
+    your <b>Gemfile.lock</b>.</p>
+<p class="Pp">If this happens, bundler will say:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+You have already activated json_pure 1.4.6 but your Gemfile
+requires json_pure 1.4.3. Consider using bundle exec.
+    </pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">In this situation, you almost certainly want to remove the
+    underlying gem with the problematic gem plugin. In general, the authors of
+    these plugins (in this case, the <b>gemcutter</b> gem) have released newer
+    versions that are more careful in their plugins.</p>
+<p class="Pp">You can find a list of all the gems containing gem plugins by
+    running</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+ruby -rubygems -e &quot;puts Gem.find_files(&#x00B4;rubygems_plugin.rb&#x00B4;)&quot;
+    </pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">At the very least, you should remove all but the newest version of
+    each gem plugin, and also remove all gem plugins that you aren&#x00B4;t
+    using (<b>gem uninstall gem_name</b>).</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">November 2018</td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+</body>
+</html>

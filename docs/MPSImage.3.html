@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   -*- nroff -*-
+ -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>MPSImage(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">MPSImage(3)</td>
+    <td class="head-vol">MetalPerformanceShaders.framework</td>
+    <td class="head-rtitle">MPSImage(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+MPSImage
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">#import &lt;MPSImage.h&gt;</p>
+<p class="Pp">Inherits NSObject.</p>
+<p class="Pp">Inherited by <b>MPSTemporaryImage</b>.</p>
+<section class="Ss">
+<h2 class="Ss" id="Instance_Methods"><a class="permalink" href="#Instance_Methods">Instance
+  Methods</a></h2>
+<br/>
+(nonnull instancetype) - <b>initWithDevice:imageDescriptor:</b>
+<br/>
+(nonnull instancetype) - <b>initWithParentImage:sliceRange:featureChannels:</b>
+<br/>
+(nonnull instancetype) - <b>initWithTexture:featureChannels:</b>
+<br/>
+(nonnull instancetype) - <b>init</b>
+<br/>
+(<b>MPSImageBatch</b> *__nonnull) - <b>batchRepresentationWithSubRange:</b>
+<br/>
+(<b>MPSImageBatch</b> *__nonnull) - <b>batchRepresentation</b>
+<br/>
+(<b>MPSImage</b> *__nonnull) - <b>subImageWithFeatureChannelRange:</b>
+<br/>
+(NSUInteger) - <b>resourceSize</b>
+<br/>
+(<b>MPSPurgeableState</b>) - <b>setPurgeableState:</b>
+<br/>
+(void) -
+  <b>readBytes:dataLayout:bytesPerRow:region:featureChannelInfo:imageIndex:</b>
+<br/>
+(void) -
+  <b>writeBytes:dataLayout:bytesPerRow:region:featureChannelInfo:imageIndex:</b>
+<br/>
+(void) -
+  <b>readBytes:dataLayout:bytesPerRow:bytesPerImage:region:featureChannelInfo:imageIndex:</b>
+<br/>
+(void) -
+  <b>writeBytes:dataLayout:bytesPerRow:bytesPerImage:region:featureChannelInfo:imageIndex:</b>
+<br/>
+(void) - <b>readBytes:dataLayout:imageIndex:</b>
+<br/>
+(void) - <b>writeBytes:dataLayout:imageIndex:</b>
+<br/>
+(void) - <b>synchronizeOnCommandBuffer:</b>
+<br/>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Class_Methods"><a class="permalink" href="#Class_Methods">Class
+  Methods</a></h2>
+<br/>
+(nonnull id&lt; MPSImageAllocator &gt;) + <b>defaultAllocator</b>
+<br/>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Properties"><a class="permalink" href="#Properties">Properties</a></h2>
+<br/>
+id&lt; MTLDevice &gt; <b>device</b>
+<br/>
+NSUInteger <b>width</b>
+<br/>
+NSUInteger <b>height</b>
+<br/>
+NSUInteger <b>featureChannels</b>
+<br/>
+NSUInteger <b>numberOfImages</b>
+<br/>
+MTLTextureType <b>textureType</b>
+<br/>
+MTLPixelFormat <b>pixelFormat</b>
+<br/>
+NSUInteger <b>precision</b>
+<br/>
+MTLTextureUsage <b>usage</b>
+<br/>
+size_t <b>pixelSize</b>
+<br/>
+id&lt; MTLTexture &gt; <b>texture</b>
+<br/>
+NSString * <b>label</b>
+<br/>
+<b>MPSImage</b> * <b>parent</b>
+<br/>
+<br/>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Detailed_Description"><a class="permalink" href="#Detailed_Description">Detailed
+  Description</a></h1>
+This depends on Metal.framework <b>A</b> <b>MPSImage</b> object describes a
+  MTLTexture that may have more than 4 channels. Some image types, such as those
+  found in convolutional neural networks (CNN) differ from a standard texture in
+  that they may have more than 4 channels per image. While the channels could
+  hold RGBA data, they will more commonly hold a number of structural
+  permutations upon a multi-channel image as the neural network progresses. It
+  is not uncommon for each pixel to have 32 or 64 channels in it.
+<p class="Pp"><b>A</b> standard MTLTexture may have no more than 4 channels. The
+    additional channels are stored in slices of 2d texture array (i.e. texture
+    type is MTLTextureType2DArray) such that 4 consecutive channels are stored
+    in each slice of this array. If the number of feature channels is N, number
+    of array slices needed is (N+3)/4. E.g. a CNN image with width 3 and height
+    2 with 9 channels will be stored as</p>
+<p class="Pp"></p>
+<pre>
+slice 0   RGBA   RGBA  RGBA
+          RGBA   RGBA  RGBA
+slice 1      RGBA   RGBA   RGBA
+             RGBA   RGBA   RGBA         (ASCII art /diagonal offset/ intended to show a Z dimension)
+slice 2         R???   R???   R???
+                R???   R???   R???
+</pre>
+<p class="Pp">
+   The width and height of underlying 2d texture array is the same as the width
+    and height of the <b>MPSImage</b>. The array length is equal to
+    (featureChannels + 3) / 4. Channels marked with ? are just for padding and
+    should not contain NaNs or Infs.</p>
+<p class="Pp"><b>A</b> <b>MPSImage</b> can be container of multiple CNN images
+    for batch processing. In order to create a <b>MPSImage</b> that contains N
+    images, create <b>MPSImageDescriptor</b> with numberOfImages set to N.</p>
+<p class="Pp">Although a <b>MPSImage</b> can contain numberOfImages &gt; 1, the
+    actual number of images among these processed by <b>MPSCNNKernel</b> is
+    controlled by z-dimension of the clipRect. <b>A</b> <b>MPSCNNKernel</b>
+    processes n=clipRect.size.depth images from this collection. The starting
+    source image index to process is given by offset.z. The starting index of
+    the destination image is given by clipRect.origin.z. The <b>MPSCNNKernel</b>
+    takes n=clipRect.size.depth images from tje source at indices [offset.z,
+    offset.z+n], processes each independently and stores the result in the
+    destination at indices [clipRect.origin.z, clipRect.origin.z+n]
+    respectively. Offset.z+n should be &lt;= [src numberOfImage] and
+    clipRect.origin.z+n should be &lt;= [dest numberOfImages] and offset.z must
+    be &gt;= 0.</p>
+<p class="Pp">Example: Suppose <b>MPSCNNConvolution</b> takes an input image
+    with 8 channels and outputs an image with 16 channels. The number of slices
+    needed in the source 2d texture array is 2 and the number of slices needed
+    in the destination 2d array is 4. Suppose the source batch size is 5 and
+    destination batch size is 4. (Multiple N-channel images can be processed
+    concurrently in a batch.) The number of source slices will be 2*5=10 and
+    number of destination slices will be 4*4=16. If you want to process just
+    images 2 and 3 of the source and store the result at index 1 and 2 in the
+    destination, you may achieve this by setting offset.z=2, clipRect.origin.z=1
+    and clipRect.size.depth=2. <b>MPSCNNConvolution</b> will take, in this case,
+    slice 4 and 5 of source and produce slices 4 to 7 of destination. Similarly,
+    slices 6 and 7 will be used to produce slices 8 to 11 of destination.</p>
+<p class="Pp">All MPSCNNKernels process images within each batch independently.
+    That is, calling a <b>MPSCNNKernel</b> on an batch is formally the same as
+    calling it on each image in the batch one at a time. However, quite a lot of
+    CPU and GPU overhead will be avoided if batch processing is used. This is
+    especially important for better performance on small images.</p>
+<p class="Pp">If the number of feature channels is &lt;= 4 and numberOfImages =
+    1 i.e. only one slice is needed to represent a <b>MPSImage</b>, the
+    underlying metal texture type will be MTLTextureType2D rather than
+    MTLTextureType2DArray.</p>
+<p class="Pp">There are also MPSTemporaryImages, intended for use for very
+    short-lived image data that are produced and consumed immediately in the
+    same MTLCommandBuffer. They are a useful way to minimize CPU-side texture
+    allocation costs and greatly reduce the amount of memory used by your image
+    pipeline.</p>
+<p class="Pp">Creation of the underlying texture may in some cases occur lazily.
+    You should in general avoid calling <b>MPSImage.texture</b> except when
+    unavoidable to avoid materializing memory for longer than necessary. When
+    possible, use the other <b>MPSImage</b> properties to get information about
+    the <b>MPSImage</b> instead.</p>
+<p class="Pp">Most MPSImages of 4 or fewer feature channels can generate
+    quicklooks output in Xcode for easy visualization of image data in the
+    object. MPSTemporaryImages can not.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Method_Documentation"><a class="permalink" href="#Method_Documentation">Method
+  Documentation</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="_-_(_fBMPSImageBatch_fP_*___nonnull)_batchRepresentation"><a class="permalink" href="#_-_(_fBMPSImageBatch_fP_*___nonnull)_batchRepresentation">-
+  (<b>MPSImageBatch</b> * __nonnull) batchRepresentation </a></h2>
+Make a MPSImageBatch that points to the individual images in the <b>MPSImage</b>
+  If the original is a temporary image, the result will be a temporary image. It
+  will hold 1 readCount on the original. When the readCount drops to 0, it will
+  decrement the appropriate counter on the parent.
+<p class="Pp"><b>Returns:</b></p>
+<div class="Bd-indent"><b>A</b> MPSImageBatch aliasing the texel storage in the
+  original batch image</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(_fBMPSImageBatch_fP_*___nonnull)_batchRepresentationWithSubRange:_(NSRange)_subRange"><a class="permalink" href="#_-_(_fBMPSImageBatch_fP_*___nonnull)_batchRepresentationWithSubRange:_(NSRange)_subRange">-
+  (<b>MPSImageBatch</b> * __nonnull) batchRepresentationWithSubRange: (NSRange)
+  subRange</a></h2>
+Make a representation of a <b>MPSImage</b> (batch) as a MPSImageBatch Before the
+  MPSImageBatch was introduced, several images could be concatenated into a
+  <b>MPSImage</b> as multiple image slices in a MTLTexture2DArray to make a
+  image batch. If the image contained more than 4 feature channels, then each
+  image would have round_up( feature channels / 4) slices and the total number
+  of slices in the <b>MPSImage</b> would be slices * number of images.
+<p class="Pp">Because many devices can operate on texture arrays of no more than
+    2048 slices, storage in this format is limited. For example in InceptionV3,
+    2048 feature channels at its widest point, the largest batch size that can
+    be processed in this way is 4, well under commonly accepted practice for
+    training. Consequently, the older batching style is deprecated and the
+    MPSImageBatch is introduced. It is also easier to manage sub-batches and to
+    concatenate sub-batches for memory management with the MPSImageBatch, so
+    this format is favored going forward.</p>
+<p class="Pp">To facilitate forward migration, this method will prepare an array
+    of MPSImages that each point to the appropriate set of slices in storage for
+    the original image. Since they share storage, writes to the parent will
+    alter the content of the children, and vice versa.</p>
+<p class="Pp">If the original is a temporary image, the result will be a
+    temporary image. It will hold 1 readCount on the original. When the
+    readCount drops to 0, it will decrement the appropriate counter on the
+    parent.</p>
+<p class="Pp">This is a much cheaper form of the slice operator, and should be
+    used instead when the slice operator does not need to operate out of
+  place.</p>
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>subRange</i> The range of images in the original image
+  from which the batch will be derived.</div>
+<p class="Pp"><b>Returns:</b></p>
+<div class="Bd-indent"><b>A</b> MPSImageBatch referencing a subregion of the
+  original batch image.</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="+_(nonnull_id__MPSImageAllocator_)_defaultAllocator"><a class="permalink" href="#+_(nonnull_id__MPSImageAllocator_)_defaultAllocator">+
+  (nonnull id &lt;MPSImageAllocator&gt;) defaultAllocator </a></h2>
+Get a well known MPSImageAllocator that makes MPSImages
+<p class="Pp">Reimplemented in <b>MPSTemporaryImage</b>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(nonnull_instancetype)_init"><a class="permalink" href="#_-_(nonnull_instancetype)_init">-
+  (nonnull instancetype) init </a></h2>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(nonnull_instancetype)_initWithDevice:_(nonnull_id__MTLDevice__)_device(const__fBMPSImageDescriptor_fP_*__nonnull)_imageDescriptor"><a class="permalink" href="#_-_(nonnull_instancetype)_initWithDevice:_(nonnull_id__MTLDevice__)_device(const__fBMPSImageDescriptor_fP_*__nonnull)_imageDescriptor">-
+  (nonnull instancetype) initWithDevice: (nonnull id&lt; MTLDevice &gt;)
+  device(const <b>MPSImageDescriptor</b> *__nonnull) imageDescriptor</a></h2>
+Initialize an empty image object
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>device</i> The device that the image will be used. May
+  not be NULL.
+<br/>
+<i>imageDescriptor</i> The <b>MPSImageDescriptor</b>. May not be NULL.</div>
+<p class="Pp"><b>Returns:</b></p>
+<div class="Bd-indent"><b>A</b> valid <b>MPSImage</b> object or nil, if failure.
+  Storage to store data needed is allocated lazily on first use of
+  <b>MPSImage</b> or when application calls <b>MPSImage.texture</b></div>
+<p class="Pp">Reimplemented in <b>MPSTemporaryImage</b>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(nonnull_instancetype)_initWithParentImage:_(_fBMPSImage_fP_*__nonnull)_parent(NSRange)_sliceRange(NSUInteger)_featureChannels"><a class="permalink" href="#_-_(nonnull_instancetype)_initWithParentImage:_(_fBMPSImage_fP_*__nonnull)_parent(NSRange)_sliceRange(NSUInteger)_featureChannels">-
+  (nonnull instancetype) initWithParentImage: (<b>MPSImage</b> *__nonnull)
+  parent(NSRange) sliceRange(NSUInteger) featureChannels</a></h2>
+Use -batchRepresentation or -subImageWithFeatureChannelRange instead Generally,
+  you should call -batchRepresentation or -subImageWithFeatureChannelRange
+  instead because they are safer. This is provided so that these interfaces will
+  work with your <b>MPSImage</b> subclass.
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>parent</i> The parent image that owns the texture. It
+  may be a sub-image.
+<br/>
+<i>sliceRange</i> The range of MTLTexture2dArray slices to be included in the
+  sub-image
+<br/>
+<i>featureChannels</i> The number of feature channels in the new image. The
+  number of images is inferred.</div>
+<p class="Pp"><b>Returns:</b></p>
+<div class="Bd-indent"><b>A</b> <b>MPSImage</b> that references a subregion of
+  the texel storage in parent instead of using its own storage.</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(nonnull_instancetype)_initWithTexture:_(nonnull_id__MTLTexture__)_texture(NSUInteger)_featureChannels"><a class="permalink" href="#_-_(nonnull_instancetype)_initWithTexture:_(nonnull_id__MTLTexture__)_texture(NSUInteger)_featureChannels">-
+  (nonnull instancetype) initWithTexture: (nonnull id&lt; MTLTexture &gt;)
+  texture(NSUInteger) featureChannels</a></h2>
+Initialize an <b>MPSImage</b> object using Metal texture. Metal texture has been
+  created by user for specific number of feature channels and number of images.
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>texture</i> The MTLTexture allocated by the user to be
+  used as backing for <b>MPSImage</b>.
+<br/>
+<i>featureChannels</i> Number of feature channels this texture contains.</div>
+<p class="Pp"><b>Returns:</b></p>
+<div class="Bd-indent"><b>A</b> valid <b>MPSImage</b> object or nil, if failure.
+  Application can let MPS framework allocate texture with properties specified
+  in imageDescriptor using initWithDevice:<b>MPSImageDescriptor</b> API above.
+  However in memory intensive application, you can save memory (and
+  allocation/deallocation time) by using <b>MPSTemporaryImage</b> where MPS
+  framework aggressively reuse memory underlying textures on same command
+  buffer. See <b>MPSTemporaryImage</b> class for details below. However, in
+  certain cases, application developer may want more control on allocation,
+  placement, reusing/recycling of memory backing textures used in application
+  using Metal Heaps API. In this case, application can create <b>MPSImage</b>
+  from pre-allocated texture using initWithTexture:featureChannels.</div>
+<p class="Pp">MTLTextureType of texture can be MTLTextureType2D ONLY if
+    featureChannels &lt;= 4 in which case <b>MPSImage.numberOfImages</b> is set
+    to 1. Else it should be MTLTextureType2DArray with arrayLength ==
+    numberOfImage * ((featureChannels + 3)/4). <b>MPSImage.numberOfImages</b> is
+    set to texture.arrayLength / ((featureChannels + 3)/4).</p>
+<p class="Pp">For MTLTextures containing typical image data which application
+    may obtain from MetalKit or other libraries such as that drawn from a JPEG
+    or PNG, featureChannels should be set to number of valid color channel e.g.
+    for RGB data, even thought MTLPixelFormat will be MTLPixelFormatRGBA,
+    featureChannels should be set to 3.</p>
+<p class="Pp">Reimplemented in <b>MPSTemporaryImage</b>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(void)_readBytes:_(void_*__nonnull)_dataBytes(_fBMPSDataLayout_fP)_dataLayout(NSUInteger)_bytesPerRow(NSUInteger)_bytesPerImage(MTLRegion)_region(_fBMPSImageReadWriteParams_fP)_featureChannelInfo(NSUInteger)_imageIndex"><a class="permalink" href="#_-_(void)_readBytes:_(void_*__nonnull)_dataBytes(_fBMPSDataLayout_fP)_dataLayout(NSUInteger)_bytesPerRow(NSUInteger)_bytesPerImage(MTLRegion)_region(_fBMPSImageReadWriteParams_fP)_featureChannelInfo(NSUInteger)_imageIndex">-
+  (void) readBytes: (void *__nonnull) dataBytes(<b>MPSDataLayout</b>)
+  dataLayout(NSUInteger) bytesPerRow(NSUInteger) bytesPerImage(MTLRegion)
+  region(<b>MPSImageReadWriteParams</b>) featureChannelInfo(NSUInteger)
+  imageIndex</a></h2>
+readBytes Get the values inside <b>MPSImage</b> and put them in the Buffer
+  passed in.
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>dataBytes</i> The array allocated by the user to be
+  used to put data from <b>MPSImage</b>, the length should be imageWidth *
+  imageHeight * numberOfFeatureChannels and dataType should be inferred from
+  pixelFormat defined in the Image Descriptor.
+<br/>
+<i>dataLayout</i> The enum tells how to layout MPS data in the buffer.
+<br/>
+<i>bytesPerRow</i> Bytes to stride to point to next row(pixel just below current
+  one) in the user buffer.
+<br/>
+<i>bytesPerImage</i> Bytes to stride to point to next slice in the user buffer.
+<br/>
+<i>featureChannelInfo</i> information user fills in to write to a set of feature
+  channels in the image
+<br/>
+<i>imageIndex</i> Image index in <b>MPSImage</b> to write to.
+<br/>
+<i>region</i> region of the <b>MPSImage</b> to read from. <b>A</b> region is a
+  structure with the origin in the Image from which to start reading values and
+  a size which represents the width and height of the rectangular region to read
+  from. The z direction denotes the number of images, thus for 1 image, origin.z
+  = 0 and size.depth = 1 Use the enum to set data is coming in with what order.
+  The data type will be determined by the pixelFormat defined in the Image
+  Descriptor.</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(void)_readBytes:_(void_*__nonnull)_dataBytes(_fBMPSDataLayout_fP)_dataLayout(NSUInteger)_bytesPerRow(MTLRegion)_region(_fBMPSImageReadWriteParams_fP)_featureChannelInfo(NSUInteger)_imageIndex"><a class="permalink" href="#_-_(void)_readBytes:_(void_*__nonnull)_dataBytes(_fBMPSDataLayout_fP)_dataLayout(NSUInteger)_bytesPerRow(MTLRegion)_region(_fBMPSImageReadWriteParams_fP)_featureChannelInfo(NSUInteger)_imageIndex">-
+  (void) readBytes: (void *__nonnull) dataBytes(<b>MPSDataLayout</b>)
+  dataLayout(NSUInteger) bytesPerRow(MTLRegion)
+  region(<b>MPSImageReadWriteParams</b>) featureChannelInfo(NSUInteger)
+  imageIndex</a></h2>
+readBytes Get the values inside <b>MPSImage</b> and put them in the Buffer
+  passed in.
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>dataBytes</i> The array allocated by the user to be
+  used to put data from <b>MPSImage</b>, the length should be imageWidth *
+  imageHeight * numberOfFeatureChannels and dataType should be inferred from
+  pixelFormat defined in the Image Descriptor.
+<br/>
+<i>dataLayout</i> The enum tells how to layout MPS data in the buffer.
+<br/>
+<i>bytesPerRow</i> Bytes to stride to point to next row(pixel just below current
+  one) in the user buffer.
+<br/>
+<i>featureChannelInfo</i> information user fills in to write to a set of feature
+  channels in the image
+<br/>
+<i>imageIndex</i> Image index in <b>MPSImage</b> to write to.
+<br/>
+<i>region</i> region of the <b>MPSImage</b> to read from. <b>A</b> region is a
+  structure with the origin in the Image from which to start reading values and
+  a size which represents the width and height of the rectangular region to read
+  from. The z direction denotes the number of images, thus for 1 image, origin.z
+  = 0 and size.depth = 1 Use the enum to set data is coming in with what order.
+  The data type will be determined by the pixelFormat defined in the Image
+  Descriptor.</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(void)_readBytes:_(void_*__nonnull)_dataBytes(_fBMPSDataLayout_fP)_dataLayout(NSUInteger)_imageIndex"><a class="permalink" href="#_-_(void)_readBytes:_(void_*__nonnull)_dataBytes(_fBMPSDataLayout_fP)_dataLayout(NSUInteger)_imageIndex">-
+  (void) readBytes: (void *__nonnull) dataBytes(<b>MPSDataLayout</b>)
+  dataLayout(NSUInteger) imageIndex</a></h2>
+readBytes Get the values inside <b>MPSImage</b> and put them in the Buffer
+  passed in.
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>dataBytes</i> The array allocated by the user to be
+  used to put data from <b>MPSImage</b>, the length should be imageWidth *
+  imageHeight * numberOfFeatureChannels and dataType should be inferred from
+  pixelFormat defined in the Image Descriptor.
+<br/>
+<i>dataLayout</i> The enum tells how to layout MPS data in the buffer.
+<br/>
+<i>imageIndex</i> Image index in <b>MPSImage</b> to read from. Use the enum to
+  set data is coming in with what order. The data type will be determined by the
+  pixelFormat defined in the Image Descriptor. Region is full image, buffer
+  width and height is same as <b>MPSImage</b> width and height.</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(NSUInteger)_resourceSize"><a class="permalink" href="#_-_(NSUInteger)_resourceSize">-
+  (NSUInteger) resourceSize </a></h2>
+Get the number of bytes used to allocate underyling MTLResources This is the
+  size of the backing store of underlying MTLResources. It does not include all
+  storage used by the object, for example the storage used to hold the
+  <b>MPSImage</b> instantiation and MTLTexture is not included. It only measures
+  the size of the allocation used to hold the texels in the image. This value is
+  subject to change between different devices and operating systems.
+<p class="Pp">Except when -initWithTexture:featureChannels: is used, most
+    MPSImages (including MPSTemporaryImages) are allocated without a backing
+    store. The backing store is allocated lazily when it is needed, typically
+    when the .texture property is called. Consequently, in most cases, it should
+    be inexpensive to make a <b>MPSImage</b> to see how much memory it will
+    need, and release it if it is too large.</p>
+<p class="Pp">This method may fail in certain circumstances, such as when the
+    <b>MPSImage</b> is created with -initWithTexture:featureChannels:, in which
+    case 0 will be returned. 0 will also be returned if it is a sub-image or
+    sub-batch (.parent is not nil).</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(_fBMPSPurgeableState_fP)_setPurgeableState:_(_fBMPSPurgeableState_fP)_state"><a class="permalink" href="#_-_(_fBMPSPurgeableState_fP)_setPurgeableState:_(_fBMPSPurgeableState_fP)_state">-
+  (<b>MPSPurgeableState</b>) setPurgeableState: (<b>MPSPurgeableState</b>)
+  state</a></h2>
+Set (or query) the purgeability state of a <b>MPSImage</b> Usage is per
+  [MTLResource setPurgeableState:], except that the MTLTexture might be
+  MPSPurgeableStateAllocationDeferred, which means there is no texture to mark
+  volatile / nonvolatile. Attempts to set purgeability on MTLTextures that have
+  not been allocated will be ignored.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(_fBMPSImage_fP_*___nonnull)_subImageWithFeatureChannelRange:_(NSRange)_range"><a class="permalink" href="#_-_(_fBMPSImage_fP_*___nonnull)_subImageWithFeatureChannelRange:_(NSRange)_range">-
+  (<b>MPSImage</b> * __nonnull) subImageWithFeatureChannelRange: (NSRange)
+  range</a></h2>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(void)_synchronizeOnCommandBuffer:_(__nonnull_id__MTLCommandBuffer__)_commandBuffer"><a class="permalink" href="#_-_(void)_synchronizeOnCommandBuffer:_(__nonnull_id__MTLCommandBuffer__)_commandBuffer">-
+  (void) synchronizeOnCommandBuffer: (__nonnull id&lt; MTLCommandBuffer &gt;)
+  commandBuffer</a></h2>
+Flush the underlying MTLTexture from the device's caches, and invalidate any CPU
+  caches if needed. This will call [id &lt;MTLBlitEncoder&gt;
+  synchronizeResource: ] on the image's MTLTexture, if any. This is necessary
+  for all MTLStorageModeManaged resources. For other resources, including
+  temporary resources (these are all MTLStorageModePrivate), and textures that
+  have not yet been allocated, nothing is done. It is more efficient to use this
+  method than to attempt to do this yourself with the texture property.
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>commandBuffer</i> The commandbuffer on which to
+  synchronize</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(void)_writeBytes:_(const_void_*__nonnull)_dataBytes(_fBMPSDataLayout_fP)_dataLayout(NSUInteger)_bytesPerRow(NSUInteger)_bytesPerImage(MTLRegion)_region(_fBMPSImageReadWriteParams_fP)_featureChannelInfo(NSUInteger)_imageIndex"><a class="permalink" href="#_-_(void)_writeBytes:_(const_void_*__nonnull)_dataBytes(_fBMPSDataLayout_fP)_dataLayout(NSUInteger)_bytesPerRow(NSUInteger)_bytesPerImage(MTLRegion)_region(_fBMPSImageReadWriteParams_fP)_featureChannelInfo(NSUInteger)_imageIndex">-
+  (void) writeBytes: (const void *__nonnull) dataBytes(<b>MPSDataLayout</b>)
+  dataLayout(NSUInteger) bytesPerRow(NSUInteger) bytesPerImage(MTLRegion)
+  region(<b>MPSImageReadWriteParams</b>) featureChannelInfo(NSUInteger)
+  imageIndex</a></h2>
+writeBytes Set the values inside <b>MPSImage</b> with the Buffer passed in.
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>dataBytes</i> The array allocated by the user to be
+  used to put data from <b>MPSImage</b>, the length should be imageWidth *
+  imageHeight * numberOfFeatureChannels and dataType should be inferred from
+  pixelFormat defined in the Image Descriptor.
+<br/>
+<i>dataLayout</i> The enum tells how to layout MPS data in the buffer.
+<br/>
+<i>bytesPerRow</i> Bytes to stride to point to next row(pixel just below current
+  one) in the user buffer.
+<br/>
+<i>bytesPerImage</i> Bytes to stride to point to next slice in the user buffer.
+<br/>
+<i>region</i> region of the <b>MPSImage</b> to write to. <b>A</b> region is a
+  structure with the origin in the Image from which to start writing values and
+  a size which represents the width and height of the rectangular region to
+  write in. The z direction denotes the number of images, thus for 1 image,
+  origin.z = 0 and size.depth = 1
+<br/>
+<i>featureChannelInfo</i> information user fills in to read from a set of
+  feature channels in the image
+<br/>
+<i>imageIndex</i> Image index in <b>MPSImage</b> to write to. Use the enum to
+  set data is coming in with what order. The data type will be determined by the
+  pixelFormat defined in the Image Descriptor.</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(void)_writeBytes:_(const_void_*__nonnull)_dataBytes(_fBMPSDataLayout_fP)_dataLayout(NSUInteger)_bytesPerRow(MTLRegion)_region(_fBMPSImageReadWriteParams_fP)_featureChannelInfo(NSUInteger)_imageIndex"><a class="permalink" href="#_-_(void)_writeBytes:_(const_void_*__nonnull)_dataBytes(_fBMPSDataLayout_fP)_dataLayout(NSUInteger)_bytesPerRow(MTLRegion)_region(_fBMPSImageReadWriteParams_fP)_featureChannelInfo(NSUInteger)_imageIndex">-
+  (void) writeBytes: (const void *__nonnull) dataBytes(<b>MPSDataLayout</b>)
+  dataLayout(NSUInteger) bytesPerRow(MTLRegion)
+  region(<b>MPSImageReadWriteParams</b>) featureChannelInfo(NSUInteger)
+  imageIndex</a></h2>
+writeBytes Set the values inside <b>MPSImage</b> with the Buffer passed in.
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>dataBytes</i> The array allocated by the user to be
+  used to put data from <b>MPSImage</b>, the length should be imageWidth *
+  imageHeight * numberOfFeatureChannels and dataType should be inferred from
+  pixelFormat defined in the Image Descriptor.
+<br/>
+<i>dataLayout</i> The enum tells how to layout MPS data in the buffer.
+<br/>
+<i>bytesPerRow</i> Bytes to stride to point to next row(pixel just below current
+  one) in the user buffer.
+<br/>
+<i>region</i> region of the <b>MPSImage</b> to write to. <b>A</b> region is a
+  structure with the origin in the Image from which to start writing values and
+  a size which represents the width and height of the rectangular region to
+  write in. The z direction denotes the number of images, thus for 1 image,
+  origin.z = 0 and size.depth = 1
+<br/>
+<i>featureChannelInfo</i> information user fills in to read from a set of
+  feature channels in the image
+<br/>
+<i>imageIndex</i> Image index in <b>MPSImage</b> to write to. Use the enum to
+  set data is coming in with what order. The data type will be determined by the
+  pixelFormat defined in the Image Descriptor.</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(void)_writeBytes:_(const_void_*__nonnull)_dataBytes(_fBMPSDataLayout_fP)_dataLayout(NSUInteger)_imageIndex"><a class="permalink" href="#_-_(void)_writeBytes:_(const_void_*__nonnull)_dataBytes(_fBMPSDataLayout_fP)_dataLayout(NSUInteger)_imageIndex">-
+  (void) writeBytes: (const void *__nonnull) dataBytes(<b>MPSDataLayout</b>)
+  dataLayout(NSUInteger) imageIndex</a></h2>
+writeBytes Set the values inside <b>MPSImage</b> with the Buffer passed in.
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>dataBytes</i> The array allocated by the user to be
+  used to put data from <b>MPSImage</b>, the length should be imageWidth *
+  imageHeight * numberOfFeatureChannels and dataType should be inferred from
+  pixelFormat defined in the Image Descriptor.
+<br/>
+<i>dataLayout</i> The enum tells how to layout MPS data in the buffer.
+<br/>
+<i>imageIndex</i> Image index in <b>MPSImage</b> to write to. Use the enum to
+  set data is coming in with what order. The data type will be determined by the
+  pixelFormat defined in the Image Descriptor. Region is full image, buffer
+  width and height is same as <b>MPSImage</b> width and height.</div>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Property_Documentation"><a class="permalink" href="#Property_Documentation">Property
+  Documentation</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="_-_device_fC__read__fP,__fC__nonatomic__fP,__fC__retain__fP"><a class="permalink" href="#_-_device_fC__read__fP,__fC__nonatomic__fP,__fC__retain__fP">-
+  device [read]<b>, [nonatomic]</b>, [retain]<b></b></a></h2>
+The device on which the <b>MPSImage</b> will be used
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_featureChannels_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_featureChannels_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  featureChannels [read]<b>, [nonatomic]</b>, [assign]<b></b></a></h2>
+The number of feature channels per pixel.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_height_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_height_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  height [read]<b>, [nonatomic]</b>, [assign]<b></b></a></h2>
+The formal height of the image in pixels.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_label_fC__read__fP,__fC__write__fP,__fC__atomic__fP,__fC__copy__fP"><a class="permalink" href="#_-_label_fC__read__fP,__fC__write__fP,__fC__atomic__fP,__fC__copy__fP">-
+  label [read]<b>, [write]</b>, [atomic]<b>, [copy]</b></a></h2>
+<b>A</b> string to help identify this object.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_numberOfImages_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_numberOfImages_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  numberOfImages [read]<b>, [nonatomic]</b>, [assign]<b></b></a></h2>
+numberOfImages for batch processing
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(_fBMPSImage_fP*)_parent_fC__read__fP,__fC__nonatomic__fP,__fC__retain__fP"><a class="permalink" href="#_-_(_fBMPSImage_fP*)_parent_fC__read__fP,__fC__nonatomic__fP,__fC__retain__fP">-
+  (<b>MPSImage</b>*) parent [read]<b>, [nonatomic]</b>, [retain]<b></b></a></h2>
+The <b>MPSImage</b> from which this <b>MPSImage</b> was derived. Otherwise nil.
+  This will point to the original image if this image was created using
+  -batchRepresentation, -batchRepresentationWithRange: or -subImageWithRange:.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_pixelFormat_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_pixelFormat_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  pixelFormat [read]<b>, [nonatomic]</b>, [assign]<b></b></a></h2>
+The MTLPixelFormat of the underlying texture
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_pixelSize_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_pixelSize_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  pixelSize [read]<b>, [nonatomic]</b>, [assign]<b></b></a></h2>
+Number of bytes from the first byte of one pixel to the first byte of the next
+  pixel in storage order. (Includes padding.)
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_precision_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_precision_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  precision [read]<b>, [nonatomic]</b>, [assign]<b></b></a></h2>
+The number of bits of numeric precision available for each feature channel. This
+  is precision, not size. That is, float is 24 bits, not 32. half precision
+  floating-point is 11 bits, not 16. SNorm formats have one less bit of
+  precision for the sign bit, etc. For formats like MTLPixelFormatB5G6R5Unorm it
+  is the precision of the most precise channel, in this case 6. When this
+  information is unavailable, typically compressed formats, 0 will be returned.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_texture_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_texture_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  texture [read]<b>, [nonatomic]</b>, [assign]<b></b></a></h2>
+The associated MTLTexture object. This is a 2D texture if numberOfImages is 1
+  and number of feature channels &lt;= 4. It is a 2D texture array otherwise. To
+  avoid the high cost of premature allocation of the underlying texture, avoid
+  calling this property except when strictly necessary. [<b>MPSCNNKernel</b>
+  encode...] calls typically cause their arguments to become allocated.
+  Likewise, MPSImages initialized with -initWithTexture: featureChannels: have
+  already been allocated.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_textureType_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_textureType_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  textureType [read]<b>, [nonatomic]</b>, [assign]<b></b></a></h2>
+The type of the underlying texture, typically MTLTextureType2D or
+  MTLTextureType2DArray
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_usage_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_usage_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  usage [read]<b>, [nonatomic]</b>, [assign]<b></b></a></h2>
+Description of texture usage.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_width_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_width_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  width [read]<b>, [nonatomic]</b>, [assign]<b></b></a></h2>
+The formal width of the image in pixels.
+<p class="Pp"></p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Author"><a class="permalink" href="#Author">Author</a></h1>
+Generated automatically by Doxygen for MetalPerformanceShaders.framework from
+  the source code.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">Mon Jul 9 2018</td>
+    <td class="foot-os">Version MetalPerformanceShaders-119.3</td>
+  </tr>
+</table>
+</body>
+</html>

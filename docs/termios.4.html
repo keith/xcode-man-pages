@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+  	$NetBSD: termios.4,v 1.5 1994/11/30 16:22:36 jtc Exp $
+  
+   Copyright (c) 1991, 1992, 1993
+  	The Regents of the University of California.  All rights reserved.
+  
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions
+   are met:
+   1. Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+   2. Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+   3. All advertising materials mentioning features or use of this software
+      must display the following acknowledgement:
+  	This product includes software developed by the University of
+  	California, Berkeley and its contributors.
+   4. Neither the name of the University nor the names of its contributors
+      may be used to endorse or promote products derived from this software
+      without specific prior written permission.
+  
+   THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+   ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+   ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+   FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+   OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+   OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+   SUCH DAMAGE.
+  
+  	@(#)termios.4	8.4 (Berkeley) 4/19/94
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>TERMIOS(4)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">TERMIOS(4)</td>
+    <td class="head-vol">Device Drivers Manual</td>
+    <td class="head-rtitle">TERMIOS(4)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">termios</code> &#x2014;
+<div class="Nd">general terminal line discipline</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<code class="In">#include <a class="In">&lt;termios.h&gt;</a></code>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+This describes a general terminal line discipline that is supported on tty
+  asynchronous communication ports.
+<section class="Ss">
+<h2 class="Ss" id="Opening_a_Terminal_Device_File"><a class="permalink" href="#Opening_a_Terminal_Device_File">Opening
+  a Terminal Device File</a></h2>
+When a terminal file is opened, it normally causes the process to wait until a
+  connection is established. For most hardware, the presence of a connection is
+  indicated by the assertion of the hardware <code class="Dv">CARRIER
+  line.</code> If the termios structure associated with the terminal file has
+  the <code class="Dv">CLOCAL</code> flag set in the cflag, or if the
+  <code class="Dv">O_NONBLOCK</code> flag is set in the
+  <a class="Xr">open(2)</a> call, then the open will succeed even without a
+  connection being present. In practice, applications seldom open these files;
+  they are opened by special programs, such as <a class="Xr">getty(2)</a> or
+  <a class="Xr">rlogind(2)</a>, and become an application's standard input,
+  output, and error files.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Job_Control_in_a_Nutshell"><a class="permalink" href="#Job_Control_in_a_Nutshell">Job
+  Control in a Nutshell</a></h2>
+Every process is associated with a particular process group and session. The
+  grouping is hierarchical: every member of a particular process group is a
+  member of the same session. This structuring is used in managing groups of
+  related processes for purposes of <i class="Em">job control</i>; that is, the
+  ability from the keyboard (or from program control) to simultaneously stop or
+  restart a complex command (a command composed of one or more related
+  processes). The grouping into process groups allows delivering of signals that
+  stop or start the group as a whole, along with arbitrating which process group
+  has access to the single controlling terminal. The grouping at a higher layer
+  into sessions is to restrict the job control related signals and system calls
+  to within processes resulting from a particular instance of a
+  &quot;login&quot;. Typically, a session is created when a user logs in, and
+  the login terminal is setup to be the controlling terminal; all processes
+  spawned from that login shell are in the same session, and inherit the
+  controlling terminal. A job control shell operating interactively (that is,
+  reading commands from a terminal) normally groups related processes together
+  by placing them into the same process group. A set of processes in the same
+  process group is collectively referred to as a &quot;job&quot;. When the
+  foreground process group of the terminal is the same as the process group of a
+  particular job, that job is said to be in the &quot;foreground&quot;. When the
+  process group of the terminal is different than the process group of a job
+  (but is still the controlling terminal), that job is said to be in the
+  &quot;background&quot;. Normally the shell reads a command and starts the job
+  that implements that command. If the command is to be started in the
+  foreground (typical), it sets the process group of the terminal to the process
+  group of the started job, waits for the job to complete, and then sets the
+  process group of the terminal back to its own process group (it puts itself
+  into the foreground). If the job is to be started in the background (as
+  denoted by the shell operator &quot;&amp;&quot;), it never changes the process
+  group of the terminal and doesn't wait for the job to complete (that is, it
+  immediately attempts to read the next command). If the job is started in the
+  foreground, the user may type a key (usually
+  &#x2018;<code class="Li">^Z</code>&#x2019;) which generates the terminal stop
+  signal (<code class="Dv">SIGTSTP</code>) and has the affect of stopping the
+  entire job. The shell will notice that the job stopped, and will resume
+  running after placing itself in the foreground. The shell also has commands
+  for placing stopped jobs in the background, and for placing stopped or
+  background jobs into the foreground.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Orphaned_Process_Groups"><a class="permalink" href="#Orphaned_Process_Groups">Orphaned
+  Process Groups</a></h2>
+An orphaned process group is a process group that has no process whose parent is
+  in a different process group, yet is in the same session. Conceptually it
+  means a process group that doesn't have a parent that could do anything if it
+  were to be stopped. For example, the initial login shell is typically in an
+  orphaned process group. Orphaned process groups are immune to keyboard
+  generated stop signals and job control signals resulting from reads or writes
+  to the controlling terminal.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="The_Controlling_Terminal"><a class="permalink" href="#The_Controlling_Terminal">The
+  Controlling Terminal</a></h2>
+A terminal may belong to a process as its controlling terminal. Each process of
+  a session that has a controlling terminal has the same controlling terminal. A
+  terminal may be the controlling terminal for at most one session. The
+  controlling terminal for a session is allocated by the session leader by
+  issuing the <code class="Dv">TIOCSCTTY</code> ioctl. A controlling terminal is
+  never acquired by merely opening a terminal device file. When a controlling
+  terminal becomes associated with a session, its foreground process group is
+  set to the process group of the session leader.
+<p class="Pp">The controlling terminal is inherited by a child process during a
+    <a class="Xr">fork(2)</a> function call. A process relinquishes its
+    controlling terminal when it creates a new session with the
+    <a class="Xr">setsid(2)</a> function; other processes remaining in the old
+    session that had this terminal as their controlling terminal continue to
+    have it. A process does not relinquish its controlling terminal simply by
+    closing all of its file descriptors associated with the controlling terminal
+    if other processes continue to have it open.</p>
+<p class="Pp">When a controlling process terminates, the controlling terminal is
+    disassociated from the current session, allowing it to be acquired by a new
+    session leader. Subsequent access to the terminal by other processes in the
+    earlier session will be denied, with attempts to access the terminal treated
+    as if modem disconnect had been sensed.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Terminal_Access_Control"><a class="permalink" href="#Terminal_Access_Control">Terminal
+  Access Control</a></h2>
+If a process is in the foreground process group of its controlling terminal,
+  read operations are allowed. Any attempts by a process in a background process
+  group to read from its controlling terminal causes a
+  <code class="Dv">SIGTTIN</code> signal to be sent to the process's group
+  unless one of the following special cases apply: If the reading process is
+  ignoring or blocking the <code class="Dv">SIGTTIN signal, or if the process
+  group of the reading</code> process is orphaned, the <a class="Xr">read(2)</a>
+  returns -1 with <var class="Va">errno set to</var> <code class="Er">EIO</code>
+  and no signal is sent. The default action of the
+  <code class="Dv">SIGTTIN</code> signal is to stop the process to which it is
+  sent.
+<p class="Pp">If a process is in the foreground process group of its controlling
+    terminal, write operations are allowed. Attempts by a process in a
+    background process group to write to its controlling terminal will cause the
+    process group to be sent a <code class="Dv">SIGTTOU</code> signal unless one
+    of the following special cases apply: If <code class="Dv">TOSTOP</code> is
+    not set, or if <code class="Dv">TOSTOP</code> is set and the process is
+    ignoring or blocking the <code class="Dv">SIGTTOU</code> signal, the process
+    is allowed to write to the terminal and the <code class="Dv">SIGTTOU</code>
+    signal is not sent. If <code class="Dv">TOSTOP</code> is set, and the
+    process group of the writing process is orphaned, and the writing process is
+    not ignoring or blocking <code class="Dv">SIGTTOU</code>, the
+    <a class="Xr">write</a> returns -1 with errno set to
+    <code class="Er">EIO</code> and no signal is sent.</p>
+<p class="Pp">Certain calls that set terminal parameters are treated in the same
+    fashion as write, except that <code class="Dv">TOSTOP</code> is ignored;
+    that is, the effect is identical to that of terminal writes when
+    <code class="Dv">TOSTOP</code> is set.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Input_Processing_and_Reading_Data"><a class="permalink" href="#Input_Processing_and_Reading_Data">Input
+  Processing and Reading Data</a></h2>
+A terminal device associated with a terminal device file may operate in
+  full-duplex mode, so that data may arrive even while output is occurring. Each
+  terminal device file has associated with it an input queue, into which
+  incoming data is stored by the system before being read by a process. The
+  system imposes a limit, {<code class="Dv">MAX_INPUT</code>}, on the number of
+  bytes that may be stored in the input queue. The behavior of the system when
+  this limit is exceeded depends on the setting of the
+  <code class="Dv">IMAXBEL</code> flag in the termios
+  <var class="Fa">c_iflag</var>. If this flag is set, the terminal is sent an
+  ASCII <code class="Dv">BEL</code> character each time a character is received
+  while the input queue is full. Otherwise, the input queue is flushed upon
+  receiving the character.
+<p class="Pp">Two general kinds of input processing are available, determined by
+    whether the terminal device file is in canonical mode or noncanonical mode.
+    Additionally, input characters are processed according to the
+    <var class="Fa">c_iflag</var> and <var class="Fa">c_lflag</var> fields. Such
+    processing can include echoing, which in general means transmitting input
+    characters immediately back to the terminal when they are received from the
+    terminal. This is useful for terminals that can operate in full-duplex
+  mode.</p>
+<p class="Pp">The manner in which data is provided to a process reading from a
+    terminal device file is dependent on whether the terminal device file is in
+    canonical or noncanonical mode.</p>
+<p class="Pp">Another dependency is whether the
+    <code class="Dv">O_NONBLOCK</code> flag is set by <a class="Xr">open()</a>
+    or <a class="Xr">fcntl()</a>. If the <code class="Dv">O_NONBLOCK</code> flag
+    is clear, then the read request is blocked until data is available or a
+    signal has been received. If the <code class="Dv">O_NONBLOCK</code> flag is
+    set, then the read request is completed, without blocking, in one of three
+    ways:</p>
+<ol class="Bl-enum Bd-indent">
+  <li>If there is enough data available to satisfy the entire request, and the
+      read completes successfully the number of bytes read is returned.</li>
+  <li>If there is not enough data available to satisfy the entire request, and
+      the read completes successfully, having read as much data as possible, the
+      number of bytes read is returned.</li>
+  <li>If there is no data available, the read returns -1, with errno set to
+      <code class="Er">EAGAIN</code>.</li>
+</ol>
+<p class="Pp">When data is available depends on whether the input processing
+    mode is canonical or noncanonical.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Canonical_Mode_Input_Processing"><a class="permalink" href="#Canonical_Mode_Input_Processing">Canonical
+  Mode Input Processing</a></h2>
+In canonical mode input processing, terminal input is processed in units of
+  lines. A line is delimited by a newline
+  &#x2018;<code class="Li">\n</code>&#x2019; character, an end-of-file
+  (<code class="Dv">EOF</code>) character, or an end-of-line
+  (<code class="Dv">EOL</code>) character. See the
+  <a class="Sx" href="#Special_Characters">Special Characters</a> section for
+  more information on <code class="Dv">EOF</code> and
+  <code class="Dv">EOL</code>. This means that a read request will not return
+  until an entire line has been typed, or a signal has been received. Also, no
+  matter how many bytes are requested in the read call, at most one line is
+  returned. It is not, however, necessary to read a whole line at once; any
+  number of bytes, even one, may be requested in a read without losing
+  information.
+<p class="Pp">{<code class="Dv">MAX_CANON</code>} is a limit on the number of
+    bytes in a line. The behavior of the system when this limit is exceeded is
+    the same as when the input queue limit {<code class="Dv">MAX_INPUT</code>},
+    is exceeded.</p>
+<p class="Pp">Erase and kill processing occur when either of two special
+    characters, the <code class="Dv">ERASE</code> and
+    <code class="Dv">KILL</code> characters (see the
+    <a class="Sx" href="#Special_Characters_section">Special Characters
+    section</a>), is received. This processing affects data in the input queue
+    that has not yet been delimited by a newline <code class="Dv">NL,</code>
+    <code class="Dv">EOF</code>, or <code class="Dv">EOL</code> character. This
+    un-delimited data makes up the current line. The
+    <code class="Dv">ERASE</code> character deletes the last character in the
+    current line, if there is any. The <code class="Dv">KILL</code> character
+    deletes all data in the current line, if there is any. The
+    <code class="Dv">ERASE</code> and <code class="Dv">KILL</code> characters
+    have no effect if there is no data in the current line. The
+    <code class="Dv">ERASE</code> and <code class="Dv">KILL</code> characters
+    themselves are not placed in the input queue.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Noncanonical_Mode_Input_Processing"><a class="permalink" href="#Noncanonical_Mode_Input_Processing">Noncanonical
+  Mode Input Processing</a></h2>
+In noncanonical mode input processing, input bytes are not assembled into lines,
+  and erase and kill processing does not occur. The values of the
+  <code class="Dv">MIN</code> and <code class="Dv">TIME</code> members of the
+  <var class="Fa">c_cc</var> array are used to determine how to process the
+  bytes received.
+<p class="Pp"><code class="Dv">MIN</code> represents the minimum number of bytes
+    that should be received when the <a class="Xr">read</a> function
+    successfully returns. <code class="Dv">TIME</code> is a timer of 0.1 second
+    granularity that is used to time out bursty and short term data
+    transmissions. If <code class="Dv">MIN</code> is greater than
+    <code class="Dv">{</code> <code class="Dv">MAX_INPUT</code>}, the response
+    to the request is undefined. The four possible values for
+    <code class="Dv">MIN</code> and <code class="Dv">TIME</code> and their
+    interactions are described below.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Case_A:_MIN___0,_TIME___0"><a class="permalink" href="#Case_A:_MIN___0,_TIME___0">Case
+  A: MIN &gt; 0, TIME &gt; 0</a></h2>
+In this case <code class="Dv">TIME</code> serves as an inter-byte timer and is
+  activated after the first byte is received. Since it is an inter-byte timer,
+  it is reset after a byte is received. The interaction between
+  <code class="Dv">MIN</code> and <code class="Dv">TIME</code> is as follows: as
+  soon as one byte is received, the inter-byte timer is started. If
+  <code class="Dv">MIN</code> bytes are received before the inter-byte timer
+  expires (remember that the timer is reset upon receipt of each byte), the read
+  is satisfied. If the timer expires before <code class="Dv">MIN</code> bytes
+  are received, the characters received to that point are returned to the user.
+  Note that if <code class="Dv">TIME</code> expires at least one byte is
+  returned because the timer would not have been enabled unless a byte was
+  received. In this case (<code class="Dv">MIN</code> &gt; 0,
+  <code class="Dv">TIME</code> &gt; 0) the read blocks until the
+  <code class="Dv">MIN</code> and <code class="Dv">TIME</code> mechanisms are
+  activated by the receipt of the first byte, or a signal is received. If data
+  is in the buffer at the time of the read(), the result is as if data had been
+  received immediately after the read().
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Case_B:_MIN___0,_TIME_=_0"><a class="permalink" href="#Case_B:_MIN___0,_TIME_=_0">Case
+  B: MIN &gt; 0, TIME = 0</a></h2>
+In this case, since the value of <code class="Dv">TIME</code> is zero, the timer
+  plays no role and only <code class="Dv">MIN</code> is significant. A pending
+  read is not satisfied until <code class="Dv">MIN</code> bytes are received
+  (i.e., the pending read blocks until <code class="Dv">MIN</code> bytes are
+  received), or a signal is received. A program that uses this case to read
+  record-based terminal <code class="Dv">I/O</code> may block indefinitely in
+  the read operation.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Case_C:_MIN_=_0,_TIME___0"><a class="permalink" href="#Case_C:_MIN_=_0,_TIME___0">Case
+  C: MIN = 0, TIME &gt; 0</a></h2>
+In this case, since <code class="Dv">MIN</code> = 0,
+  <code class="Dv">TIME</code> no longer represents an inter-byte timer. It now
+  serves as a read timer that is activated as soon as the read function is
+  processed. A read is satisfied as soon as a single byte is received or the
+  read timer expires. Note that in this case if the timer expires, no bytes are
+  returned. If the timer does not expire, the only way the read can be satisfied
+  is if a byte is received. In this case the read will not block indefinitely
+  waiting for a byte; if no byte is received within
+  <code class="Dv">TIME</code>*0.1 seconds after the read is initiated, the read
+  returns a value of zero, having read no data. If data is in the buffer at the
+  time of the read, the timer is started as if data had been received
+  immediately after the read.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Case_D:_MIN_=_0,_TIME_=_0"><a class="permalink" href="#Case_D:_MIN_=_0,_TIME_=_0">Case
+  D: MIN = 0, TIME = 0</a></h2>
+The minimum of either the number of bytes requested or the number of bytes
+  currently available is returned without waiting for more bytes to be input. If
+  no characters are available, read returns a value of zero, having read no
+  data.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Writing_Data_and_Output_Processing"><a class="permalink" href="#Writing_Data_and_Output_Processing">Writing
+  Data and Output Processing</a></h2>
+When a process writes one or more bytes to a terminal device file, they are
+  processed according to the <var class="Fa">c_oflag</var> field (see the
+  <a class="Sx" href="#Output_Modes">Output Modes</a> section). The
+  implementation may provide a buffering mechanism; as such, when a call to
+  write() completes, all of the bytes written have been scheduled for
+  transmission to the device, but the transmission will not necessarily have
+  been completed.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Special_Characters"><a class="permalink" href="#Special_Characters">Special
+  Characters</a></h2>
+Certain characters have special functions on input or output or both. These
+  functions are summarized as follows:
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#INTR"><code class="Dv" id="INTR">INTR</code></a></dt>
+  <dd>Special character on input and is recognized if the
+      <code class="Dv">ISIG</code> flag (see the
+      <a class="Sx" href="#Local_Modes">Local Modes</a> section) is enabled.
+      Generates a <code class="Dv">SIGINT</code> signal which is sent to all
+      processes in the foreground process group for which the terminal is the
+      controlling terminal. If <code class="Dv">ISIG</code> is set, the
+      <code class="Dv">INTR</code> character is discarded when processed.</dd>
+  <dt><a class="permalink" href="#QUIT"><code class="Dv" id="QUIT">QUIT</code></a></dt>
+  <dd>Special character on input and is recognized if the
+      <code class="Dv">ISIG</code> flag is enabled. Generates a
+      <code class="Dv">SIGQUIT</code> signal which is sent to all processes in
+      the foreground process group for which the terminal is the controlling
+      terminal. If <code class="Dv">ISIG</code> is set, the
+      <code class="Dv">QUIT</code> character is discarded when processed.</dd>
+  <dt><a class="permalink" href="#ERASE"><code class="Dv" id="ERASE">ERASE</code></a></dt>
+  <dd>Special character on input and is recognized if the
+      <code class="Dv">ICANON</code> flag is set. Erases the last character in
+      the current line; see
+      <a class="Sx" href="#Canonical_Mode_Input_Processing">Canonical Mode Input
+      Processing</a>. It does not erase beyond the start of a line, as delimited
+      by an <code class="Dv">NL</code>, <code class="Dv">EOF</code>, or
+      <code class="Dv">EOL</code> character. If <code class="Dv">ICANON</code>
+      is set, the <code class="Dv">ERASE</code> character is discarded when
+      processed.</dd>
+  <dt><a class="permalink" href="#KILL"><code class="Dv" id="KILL">KILL</code></a></dt>
+  <dd>Special character on input and is recognized if the
+      <code class="Dv">ICANON</code> flag is set. Deletes the entire line, as
+      delimited by a <code class="Dv">NL</code>, <code class="Dv">EOF</code>, or
+      <code class="Dv">EOL</code> character. If <code class="Dv">ICANON</code>
+      is set, the <code class="Dv">KILL</code> character is discarded when
+      processed.</dd>
+  <dt><a class="permalink" href="#EOF"><code class="Dv" id="EOF">EOF</code></a></dt>
+  <dd>Special character on input and is recognized if the
+      <code class="Dv">ICANON</code> flag is set. When received, all the bytes
+      waiting to be read are immediately passed to the process, without waiting
+      for a newline, and the <code class="Dv">EOF</code> is discarded. Thus, if
+      there are no bytes waiting (that is, the <code class="Dv">EOF</code>
+      occurred at the beginning of a line), a byte count of zero is returned
+      from the read(), representing an end-of-file indication. If
+      <code class="Dv">ICANON</code> is set, the <code class="Dv">EOF</code>
+      character is discarded when processed. <code class="Dv">NL</code> Special
+      character on input and is recognized if the <code class="Dv">ICANON</code>
+      flag is set. It is the line delimiter
+      &#x2018;<code class="Li">\n</code>&#x2019;.</dd>
+  <dt><a class="permalink" href="#EOL"><code class="Dv" id="EOL">EOL</code></a></dt>
+  <dd>Special character on input and is recognized if the
+      <code class="Dv">ICANON</code> flag is set. Is an additional line
+      delimiter, like <code class="Dv">NL</code>.</dd>
+  <dt><a class="permalink" href="#SUSP"><code class="Dv" id="SUSP">SUSP</code></a></dt>
+  <dd>If the <code class="Dv">ISIG</code> flag is enabled, receipt of the
+      <code class="Dv">SUSP</code> character causes a
+      <code class="Dv">SIGTSTP</code> signal to be sent to all processes in the
+      foreground process group for which the terminal is the controlling
+      terminal, and the <code class="Dv">SUSP</code> character is discarded when
+      processed.</dd>
+  <dt><a class="permalink" href="#STOP"><code class="Dv" id="STOP">STOP</code></a></dt>
+  <dd>Special character on both input and output and is recognized if the
+      <code class="Dv">IXON</code> (output control) or
+      <code class="Dv">IXOFF</code> (input control) flag is set. Can be used to
+      temporarily suspend output. It is useful with fast terminals to prevent
+      output from disappearing before it can be read. If
+      <code class="Dv">IXON</code> is set, the <code class="Dv">STOP</code>
+      character is discarded when processed.</dd>
+  <dt><a class="permalink" href="#START"><code class="Dv" id="START">START</code></a></dt>
+  <dd>Special character on both input and output and is recognized if the
+      <code class="Dv">IXON</code> (output control) or
+      <code class="Dv">IXOFF</code> (input control) flag is set. Can be used to
+      resume output that has been suspended by a <code class="Dv">STOP</code>
+      character. If <code class="Dv">IXON</code> is set, the
+      <code class="Dv">START</code> character is discarded when processed.
+      <code class="Dv">CR</code> Special character on input and is recognized if
+      the <code class="Dv">ICANON</code> flag is set; it is the
+      &#x2018;<code class="Li">\r</code>&#x2019;, as denoted in the C Standard
+      {2}. When <code class="Dv">ICANON</code> and <code class="Dv">ICRNL</code>
+      are set and <code class="Dv">IGNCR</code> is not set, this character is
+      translated into a <code class="Dv">NL</code>, and has the same effect as a
+      <code class="Dv">NL</code> character.</dd>
+</dl>
+<p class="Pp">The following special characters are extensions defined by this
+    system and are not a part of 1003.1 termios.</p>
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#EOL2"><code class="Dv" id="EOL2">EOL2</code></a></dt>
+  <dd>Secondary <code class="Dv">EOL</code> character. Same function as
+      <code class="Dv">EOL.</code></dd>
+  <dt><a class="permalink" href="#WERASE"><code class="Dv" id="WERASE">WERASE</code></a></dt>
+  <dd>Special character on input and is recognized if the
+      <code class="Dv">ICANON</code> flag is set. Erases the last word in the
+      current line according to one of two algorithms. If the
+      <code class="Dv">ALTWERASE</code> flag is not set, first any preceding
+      whitespace is erased, and then the maximal sequence of non-whitespace
+      characters. If <code class="Dv">ALTWERASE</code> is set, first any
+      preceding whitespace is erased, and then the maximal sequence of
+      alphabetic/underscores or non alphabetic/underscores. As a special case in
+      this second algorithm, the first previous non-whitespace character is
+      skipped in determining whether the preceding word is a sequence of
+      alphabetic/undercores. This sounds confusing but turns out to be quite
+      practical.</dd>
+  <dt><a class="permalink" href="#REPRINT"><code class="Dv" id="REPRINT">REPRINT</code></a></dt>
+  <dd>Special character on input and is recognized if the
+      <code class="Dv">ICANON</code> flag is set. Causes the current input edit
+      line to be retyped.</dd>
+  <dt><a class="permalink" href="#DSUSP"><code class="Dv" id="DSUSP">DSUSP</code></a></dt>
+  <dd>Has similar actions to the <code class="Dv">SUSP</code> character, except
+      that the <code class="Dv">SIGTSTP</code> signal is delivered when one of
+      the processes in the foreground process group issues a read() to the
+      controlling terminal.</dd>
+  <dt><a class="permalink" href="#LNEXT"><code class="Dv" id="LNEXT">LNEXT</code></a></dt>
+  <dd>Special character on input and is recognized if the
+      <code class="Dv">IEXTEN</code> flag is set. Receipt of this character
+      causes the next character to be taken literally.</dd>
+  <dt><a class="permalink" href="#DISCARD"><code class="Dv" id="DISCARD">DISCARD</code></a></dt>
+  <dd>Special character on input and is recognized if the
+      <code class="Dv">IEXTEN</code> flag is set. Receipt of this character
+      toggles the flushing of terminal output.</dd>
+  <dt><a class="permalink" href="#STATUS"><code class="Dv" id="STATUS">STATUS</code></a></dt>
+  <dd>Special character on input and is recognized if the
+      <code class="Dv">ICANON</code> flag is set. Receipt of this character
+      causes a <code class="Dv">SIGINFO</code> signal to be sent to the
+      foreground process group of the terminal. Also, if the
+      <code class="Dv">NOKERNINFO</code> flag is not set, it causes the kernel
+      to write a status message to the terminal that displays the current load
+      average, the name of the command in the foreground, its process ID, the
+      symbolic wait channel, the number of user and system seconds used, the
+      percentage of cpu the process is getting, and the resident set size of the
+      process.</dd>
+</dl>
+<p class="Pp">The <code class="Dv">NL</code> and <code class="Dv">CR</code>
+    characters cannot be changed. The values for all the remaining characters
+    can be set and are described later in the document under Special Control
+    Characters.</p>
+<p class="Pp">Special character functions associated with changeable special
+    control characters can be disabled individually by setting their value to
+    <code class="Dv">{_POSIX_VDISABLE};</code> see
+    <a class="Sx" href="#Special_Control_Characters">Special Control
+    Characters</a>.</p>
+<p class="Pp">If two or more special characters have the same value, the
+    function performed when that character is received is undefined.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Modem_Disconnect"><a class="permalink" href="#Modem_Disconnect">Modem
+  Disconnect</a></h2>
+If a modem disconnect is detected by the terminal interface for a controlling
+  terminal, and if <code class="Dv">CLOCAL</code> is not set in the
+  <var class="Fa">c_cflag</var> field for the terminal, the
+  <code class="Dv">SIGHUP</code> signal is sent to the controlling process
+  associated with the terminal. Unless other arrangements have been made, this
+  causes the controlling process to terminate. Any subsequent call to the read()
+  function returns the value zero, indicating end of file. Thus, processes that
+  read a terminal file and test for end-of-file can terminate appropriately
+  after a disconnect. Any subsequent write() to the terminal device returns -1,
+  with <var class="Va">errno</var> set to <code class="Er">EIO</code>, until the
+  device is closed.
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="General_Terminal_Interface"><a class="permalink" href="#General_Terminal_Interface">General
+  Terminal Interface</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Closing_a_Terminal_Device_File"><a class="permalink" href="#Closing_a_Terminal_Device_File">Closing
+  a Terminal Device File</a></h2>
+The last process to close a terminal device file causes any output to be sent to
+  the device and any input to be discarded. Then, if
+  <code class="Dv">HUPCL</code> is set in the control modes, and the
+  communications port supports a disconnect function, the terminal device
+  performs a disconnect.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Parameters_That_Can_Be_Set"><a class="permalink" href="#Parameters_That_Can_Be_Set">Parameters
+  That Can Be Set</a></h2>
+Routines that need to control certain terminal I/O characteristics do so by
+  using the termios structure as defined in the header
+  &#x27E8;<span class="Pa">termios.h</span>&#x27E9;. This structure contains
+  minimally four scalar elements of bit flags and one array of special
+  characters. The scalar flag elements are named: <var class="Fa">c_iflag</var>,
+  <var class="Fa">c_oflag</var>, <var class="Fa">c_cflag</var>, and
+  <var class="Fa">c_lflag</var>. The character array is named
+  <var class="Fa">c_cc</var>, and its maximum index is
+  <code class="Dv">NCCS</code>.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Input_Modes"><a class="permalink" href="#Input_Modes">Input
+  Modes</a></h2>
+Values of the <var class="Fa">c_iflag</var> field describe the basic terminal
+  input control, and are composed of following masks:
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag Bl-compact">
+  <dt><a class="permalink" href="#IGNBRK"><code class="Dv" id="IGNBRK">IGNBRK</code></a></dt>
+  <dd>/* ignore BREAK condition */</dd>
+  <dt><a class="permalink" href="#BRKINT"><code class="Dv" id="BRKINT">BRKINT</code></a></dt>
+  <dd>/* map BREAK to SIGINTR */</dd>
+  <dt><a class="permalink" href="#IGNPAR"><code class="Dv" id="IGNPAR">IGNPAR</code></a></dt>
+  <dd>/* ignore (discard) parity errors */</dd>
+  <dt><a class="permalink" href="#PARMRK"><code class="Dv" id="PARMRK">PARMRK</code></a></dt>
+  <dd>/* mark parity and framing errors */</dd>
+  <dt><a class="permalink" href="#INPCK"><code class="Dv" id="INPCK">INPCK</code></a></dt>
+  <dd>/* enable checking of parity errors */</dd>
+  <dt><a class="permalink" href="#ISTRIP"><code class="Dv" id="ISTRIP">ISTRIP</code></a></dt>
+  <dd>/* strip 8th bit off chars */</dd>
+  <dt><a class="permalink" href="#INLCR"><code class="Dv" id="INLCR">INLCR</code></a></dt>
+  <dd>/* map NL into CR */</dd>
+  <dt><a class="permalink" href="#IGNCR"><code class="Dv" id="IGNCR">IGNCR</code></a></dt>
+  <dd>/* ignore CR */</dd>
+  <dt><a class="permalink" href="#ICRNL"><code class="Dv" id="ICRNL">ICRNL</code></a></dt>
+  <dd>/* map CR to NL (ala CRMOD) */</dd>
+  <dt><a class="permalink" href="#IXON"><code class="Dv" id="IXON">IXON</code></a></dt>
+  <dd>/* enable output flow control */</dd>
+  <dt><a class="permalink" href="#IXOFF"><code class="Dv" id="IXOFF">IXOFF</code></a></dt>
+  <dd>/* enable input flow control */</dd>
+  <dt><a class="permalink" href="#IXANY"><code class="Dv" id="IXANY">IXANY</code></a></dt>
+  <dd>/* any char will restart after stop */</dd>
+  <dt><a class="permalink" href="#IMAXBEL"><code class="Dv" id="IMAXBEL">IMAXBEL</code></a></dt>
+  <dd>/* ring bell on input queue full */</dd>
+  <dt><a class="permalink" href="#IUCLC"><code class="Dv" id="IUCLC">IUCLC</code></a></dt>
+  <dd>/* translate upper case to lower case */</dd>
+</dl>
+</div>
+<p class="Pp">In the context of asynchronous serial data transmission, a break
+    condition is defined as a sequence of zero-valued bits that continues for
+    more than the time to send one byte. The entire sequence of zero-valued bits
+    is interpreted as a single break condition, even if it continues for a time
+    equivalent to more than one byte. In contexts other than asynchronous serial
+    data transmission the definition of a break condition is implementation
+    defined.</p>
+<p class="Pp">If <code class="Dv">IGNBRK</code> is set, a break condition
+    detected on input is ignored, that is, not put on the input queue and
+    therefore not read by any process. If <code class="Dv">IGNBRK</code> is not
+    set and <code class="Dv">BRKINT</code> is set, the break condition flushes
+    the input and output queues and if the terminal is the controlling terminal
+    of a foreground process group, the break condition generates a single
+    <code class="Dv">SIGINT</code> signal to that foreground process group. If
+    neither <code class="Dv">IGNBRK</code> nor <code class="Dv">BRKINT</code> is
+    set, a break condition is read as a single
+    &#x2018;<code class="Li">\0</code>&#x2019;, or if
+    <code class="Dv">PARMRK</code> is set, as
+    &#x2018;<code class="Li">\377</code>&#x2019;,
+    &#x2018;<code class="Li">\0</code>&#x2019;,
+    &#x2018;<code class="Li">\0</code>&#x2019;.</p>
+<p class="Pp">If <code class="Dv">IGNPAR</code> is set, a byte with a framing or
+    parity error (other than break) is ignored.</p>
+<p class="Pp">If <code class="Dv">PARMRK</code> is set, and
+    <code class="Dv">IGNPAR</code> is not set, a byte with a framing or parity
+    error (other than break) is given to the application as the three-character
+    sequence &#x2018;<code class="Li">\377</code>&#x2019;,
+    &#x2018;<code class="Li">\0</code>&#x2019;, X, where
+    &#x2018;<code class="Li">\377</code>&#x2019;,
+    &#x2018;<code class="Li">\0</code>&#x2019; is a two-character flag preceding
+    each sequence and X is the data of the character received in error. To avoid
+    ambiguity in this case, if <code class="Dv">ISTRIP</code> is not set, a
+    valid character of &#x2018;<code class="Li">\377</code>&#x2019; is given to
+    the application as &#x2018;<code class="Li">\377</code>&#x2019;,
+    &#x2018;<code class="Li">\377</code>&#x2019;. If neither
+    <code class="Dv">PARMRK</code> nor <code class="Dv">IGNPAR</code> is set, a
+    framing or parity error (other than break) is given to the application as a
+    single character &#x2018;<code class="Li">\0</code>&#x2019;.</p>
+<p class="Pp">If <code class="Dv">INPCK</code> is set, input parity checking is
+    enabled. If <code class="Dv">INPCK</code> is not set, input parity checking
+    is disabled, allowing output parity generation without input parity errors.
+    Note that whether input parity checking is enabled or disabled is
+    independent of whether parity detection is enabled or disabled (see
+    <a class="Sx" href="#Control_Modes">Control Modes</a>). If parity detection
+    is enabled but input parity checking is disabled, the hardware to which the
+    terminal is connected recognizes the parity bit, but the terminal special
+    file does not check whether this bit is set correctly or not.</p>
+<p class="Pp">If <code class="Dv">ISTRIP</code> is set, valid input bytes are
+    first stripped to seven bits, otherwise all eight bits are processed.</p>
+<p class="Pp">If <code class="Dv">INLCR</code> is set, a received
+    <code class="Dv">NL</code> character is translated into a
+    <code class="Dv">CR</code> character. If <code class="Dv">IGNCR</code> is
+    set, a received <code class="Dv">CR</code> character is ignored (not read).
+    If <code class="Dv">IGNCR</code> is not set and
+    <code class="Dv">ICRNL</code> is set, a received <code class="Dv">CR</code>
+    character is translated into a <code class="Dv">NL</code> character.</p>
+<p class="Pp">If <code class="Dv">IXON</code> is set, start/stop output control
+    is enabled. A received <code class="Dv">STOP</code> character suspends
+    output and a received <code class="Dv">START</code> character restarts
+    output. If <code class="Dv">IXANY</code> is also set, then any character may
+    restart output. When <code class="Dv">IXON</code> is set,
+    <code class="Dv">START</code> and <code class="Dv">STOP</code> characters
+    are not read, but merely perform flow control functions. When
+    <code class="Dv">IXON</code> is not set, the <code class="Dv">START</code>
+    and <code class="Dv">STOP</code> characters are read.</p>
+<p class="Pp">If <code class="Dv">IXOFF</code> is set, start/stop input control
+    is enabled. The system shall transmit one or more
+    <code class="Dv">STOP</code> characters, which are intended to cause the
+    terminal device to stop transmitting data, as needed to prevent the input
+    queue from overflowing and causing the undefined behavior described in
+    <a class="Sx" href="#Input_Processing_and_Reading_Data">Input Processing and
+    Reading Data</a>, and shall transmit one or more
+    <code class="Dv">START</code> characters, which are intended to cause the
+    terminal device to resume transmitting data, as soon as the device can
+    continue transmitting data without risk of overflowing the input queue. The
+    precise conditions under which <code class="Dv">STOP</code> and START
+    characters are transmitted are implementation defined.</p>
+<p class="Pp">If <code class="Dv">IMAXBEL</code> is set and the input queue is
+    full, subsequent input shall cause an ASCII <code class="Dv">BEL</code>
+    character to be transmitted to the output queue.</p>
+<p class="Pp">If <code class="Dv">IUCLC</code> is set, characters will be
+    translated from upper to lower case on input.</p>
+<p class="Pp">The initial input control value after open() is implementation
+    defined.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Output_Modes"><a class="permalink" href="#Output_Modes">Output
+  Modes</a></h2>
+Values of the <var class="Fa">c_oflag</var> field describe the basic terminal
+  output control, and are composed of the following masks:
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag Bl-compact">
+  <dt><a class="permalink" href="#OPOST"><code class="Dv" id="OPOST">OPOST</code></a></dt>
+  <dd>/* enable following output processing */</dd>
+  <dt><a class="permalink" href="#ONLCR"><code class="Dv" id="ONLCR">ONLCR</code></a></dt>
+  <dd>/* map NL to CR-NL (ala <code class="Dv">CRMOD)</code> */</dd>
+  <dt><a class="permalink" href="#OXTABS"><code class="Dv" id="OXTABS">OXTABS</code></a></dt>
+  <dd>/* expand tabs to spaces */</dd>
+  <dt><a class="permalink" href="#ONOEOT"><code class="Dv" id="ONOEOT">ONOEOT</code></a></dt>
+  <dd>/* discard <code class="Dv">EOT</code>'s
+      &#x2018;<code class="Li">^D</code>&#x2019; on output) */</dd>
+  <dt><a class="permalink" href="#OCRNL"><code class="Dv" id="OCRNL">OCRNL</code></a></dt>
+  <dd>/* map CR to NL */</dd>
+  <dt><a class="permalink" href="#OLCUC"><code class="Dv" id="OLCUC">OLCUC</code></a></dt>
+  <dd>/* translate lower case to upper case */</dd>
+  <dt><a class="permalink" href="#ONOCR"><code class="Dv" id="ONOCR">ONOCR</code></a></dt>
+  <dd>/* No CR output at column 0 */</dd>
+  <dt><a class="permalink" href="#ONLRET"><code class="Dv" id="ONLRET">ONLRET</code></a></dt>
+  <dd>/* NL performs CR function */</dd>
+</dl>
+</div>
+<p class="Pp">If <code class="Dv">OPOST</code> is set, the remaining flag masks
+    are interpreted as follows; otherwise characters are transmitted without
+    change.</p>
+<p class="Pp">If <code class="Dv">ONLCR</code> is set, newlines are translated
+    to carriage return, linefeeds.</p>
+<p class="Pp">If <code class="Dv">OXTABS</code> is set, tabs are expanded to the
+    appropriate number of spaces (assuming 8 column tab stops).</p>
+<p class="Pp">If <code class="Dv">ONOEOT</code> is set, ASCII
+    <code class="Dv">EOT NS 's</code> are discarded on output.</p>
+<p class="Pp">If <code class="Dv">OCRNL</code> is set, carriage returns are
+    translated to newlines.</p>
+<p class="Pp">If <code class="Dv">OLCUC</code> is set, lower case is translated
+    to upper case on output.</p>
+<p class="Pp">If <code class="Dv">ONOCR</code> is set, no CR character is output
+    when at column 0.</p>
+<p class="Pp">If <code class="Dv">ONLRET</code> is set, NL also performs CR on
+    output, and reset current column to 0.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Control_Modes"><a class="permalink" href="#Control_Modes">Control
+  Modes</a></h2>
+Values of the <var class="Fa">c_cflag</var> field describe the basic terminal
+  hardware control, and are composed of the following masks. Not all values
+  specified are supported by all hardware.
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag Bl-compact">
+  <dt><a class="permalink" href="#CSIZE"><code class="Dv" id="CSIZE">CSIZE</code></a></dt>
+  <dd>/* character size mask */</dd>
+  <dt><a class="permalink" href="#CS5"><code class="Dv" id="CS5">CS5</code></a></dt>
+  <dd>/* 5 bits (pseudo) */</dd>
+  <dt><a class="permalink" href="#CS6"><code class="Dv" id="CS6">CS6</code></a></dt>
+  <dd>/* 6 bits */</dd>
+  <dt><a class="permalink" href="#CS7"><code class="Dv" id="CS7">CS7</code></a></dt>
+  <dd>/* 7 bits */</dd>
+  <dt><a class="permalink" href="#CS8"><code class="Dv" id="CS8">CS8</code></a></dt>
+  <dd>/* 8 bits */</dd>
+  <dt><a class="permalink" href="#CSTOPB"><code class="Dv" id="CSTOPB">CSTOPB</code></a></dt>
+  <dd>/* send 2 stop bits */</dd>
+  <dt><a class="permalink" href="#CREAD"><code class="Dv" id="CREAD">CREAD</code></a></dt>
+  <dd>/* enable receiver */</dd>
+  <dt><a class="permalink" href="#PARENB"><code class="Dv" id="PARENB">PARENB</code></a></dt>
+  <dd>/* parity enable */</dd>
+  <dt><a class="permalink" href="#PARODD"><code class="Dv" id="PARODD">PARODD</code></a></dt>
+  <dd>/* odd parity, else even */</dd>
+  <dt><a class="permalink" href="#HUPCL"><code class="Dv" id="HUPCL">HUPCL</code></a></dt>
+  <dd>/* hang up on last close */</dd>
+  <dt><a class="permalink" href="#CLOCAL"><code class="Dv" id="CLOCAL">CLOCAL</code></a></dt>
+  <dd>/* ignore modem status lines */</dd>
+  <dt><a class="permalink" href="#CCTS_OFLOW"><code class="Dv" id="CCTS_OFLOW">CCTS_OFLOW</code></a></dt>
+  <dd>/* <code class="Dv">CTS</code> flow control of output */</dd>
+  <dt><a class="permalink" href="#CRTSCTS"><code class="Dv" id="CRTSCTS">CRTSCTS</code></a></dt>
+  <dd>/* same as <code class="Dv">CCTS_OFLOW</code> */</dd>
+  <dt><a class="permalink" href="#CRTS_IFLOW"><code class="Dv" id="CRTS_IFLOW">CRTS_IFLOW</code></a></dt>
+  <dd>/* RTS flow control of input */</dd>
+  <dt><a class="permalink" href="#MDMBUF"><code class="Dv" id="MDMBUF">MDMBUF</code></a></dt>
+  <dd>/* flow control output via Carrier */</dd>
+</dl>
+</div>
+<p class="Pp">The <code class="Dv">CSIZE</code> bits specify the byte size in
+    bits for both transmission and reception. The <var class="Fa">c_cflag</var>
+    is masked with <code class="Dv">CSIZE</code> and compared with the values
+    <code class="Dv">CS5</code>, <code class="Dv">CS6</code>,
+    <code class="Dv">CS7</code>, or <code class="Dv">CS8</code>. This size does
+    not include the parity bit, if any. If <code class="Dv">CSTOPB</code> is
+    set, two stop bits are used, otherwise one stop bit. For example, at 110
+    baud, two stop bits are normally used.</p>
+<p class="Pp">If <code class="Dv">CREAD</code> is set, the receiver is enabled.
+    Otherwise, no character is received. Not all hardware supports this bit. In
+    fact, this flag is pretty silly and if it were not part of the
+    <code class="Nm">termios</code> specification it would be omitted.</p>
+<p class="Pp">If <code class="Dv">PARENB</code> is set, parity generation and
+    detection are enabled and a parity bit is added to each character. If parity
+    is enabled, <code class="Dv">PARODD</code> specifies odd parity if set,
+    otherwise even parity is used.</p>
+<p class="Pp">If <code class="Dv">HUPCL</code> is set, the modem control lines
+    for the port are lowered when the last process with the port open closes the
+    port or the process terminates. The modem connection is broken.</p>
+<p class="Pp">If <code class="Dv">CLOCAL</code> is set, a connection does not
+    depend on the state of the modem status lines. If
+    <code class="Dv">CLOCAL</code> is clear, the modem status lines are
+    monitored.</p>
+<p class="Pp">Under normal circumstances, a call to the open() function waits
+    for the modem connection to complete. However, if the
+    <code class="Dv">O_NONBLOCK</code> flag is set or if
+    <code class="Dv">CLOCAL</code> has been set, the open() function returns
+    immediately without waiting for the connection.</p>
+<p class="Pp">The <code class="Dv">CCTS_OFLOW</code>
+    (<code class="Dv">CRTSCTS</code>) flag is currently unused.</p>
+<p class="Pp">If <code class="Dv">MDMBUF</code> is set then output flow control
+    is controlled by the state of Carrier Detect.</p>
+<p class="Pp">If the object for which the control modes are set is not an
+    asynchronous serial connection, some of the modes may be ignored; for
+    example, if an attempt is made to set the baud rate on a network connection
+    to a terminal on another host, the baud rate may or may not be set on the
+    connection between that terminal and the machine it is directly connected
+    to.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Local_Modes"><a class="permalink" href="#Local_Modes">Local
+  Modes</a></h2>
+Values of the <var class="Fa">c_lflag</var> field describe the control of
+  various functions, and are composed of the following masks.
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag Bl-compact">
+  <dt><a class="permalink" href="#ECHOKE"><code class="Dv" id="ECHOKE">ECHOKE</code></a></dt>
+  <dd>/* visual erase for line kill */</dd>
+  <dt><a class="permalink" href="#ECHOE"><code class="Dv" id="ECHOE">ECHOE</code></a></dt>
+  <dd>/* visually erase chars */</dd>
+  <dt><a class="permalink" href="#ECHO"><code class="Dv" id="ECHO">ECHO</code></a></dt>
+  <dd>/* enable echoing */</dd>
+  <dt><a class="permalink" href="#ECHONL"><code class="Dv" id="ECHONL">ECHONL</code></a></dt>
+  <dd>/* echo <code class="Dv">NL</code> even if <code class="Dv">ECHO</code> is
+      off */</dd>
+  <dt><a class="permalink" href="#ECHOPRT"><code class="Dv" id="ECHOPRT">ECHOPRT</code></a></dt>
+  <dd>/* visual erase mode for hardcopy */</dd>
+  <dt><a class="permalink" href="#ECHOCTL"><code class="Dv" id="ECHOCTL">ECHOCTL</code></a></dt>
+  <dd>/* echo control chars as ^(Char) */</dd>
+  <dt><a class="permalink" href="#ISIG"><code class="Dv" id="ISIG">ISIG</code></a></dt>
+  <dd>/* enable signals <code class="Dv">INTR</code>,
+      <code class="Dv">QUIT</code>, <code class="Dv">[D]SUSP</code> */</dd>
+  <dt><a class="permalink" href="#ICANON"><code class="Dv" id="ICANON">ICANON</code></a></dt>
+  <dd>/* canonicalize input lines */</dd>
+  <dt><a class="permalink" href="#ALTWERASE"><code class="Dv" id="ALTWERASE">ALTWERASE</code></a></dt>
+  <dd>/* use alternate <code class="Dv">WERASE</code> algorithm */</dd>
+  <dt><a class="permalink" href="#IEXTEN"><code class="Dv" id="IEXTEN">IEXTEN</code></a></dt>
+  <dd>/* enable <code class="Dv">DISCARD</code> and
+      <code class="Dv">LNEXT</code> */</dd>
+  <dt><a class="permalink" href="#EXTPROC"><code class="Dv" id="EXTPROC">EXTPROC</code></a></dt>
+  <dd>/* external processing */</dd>
+  <dt><a class="permalink" href="#TOSTOP"><code class="Dv" id="TOSTOP">TOSTOP</code></a></dt>
+  <dd>/* stop background jobs from output */</dd>
+  <dt><a class="permalink" href="#FLUSHO"><code class="Dv" id="FLUSHO">FLUSHO</code></a></dt>
+  <dd>/* output being flushed (state) */</dd>
+  <dt><a class="permalink" href="#NOKERNINFO"><code class="Dv" id="NOKERNINFO">NOKERNINFO</code></a></dt>
+  <dd>/* no kernel output from <code class="Dv">VSTATUS</code> */</dd>
+  <dt><a class="permalink" href="#PENDIN"><code class="Dv" id="PENDIN">PENDIN</code></a></dt>
+  <dd>/* XXX retype pending input (state) */</dd>
+  <dt><a class="permalink" href="#NOFLSH"><code class="Dv" id="NOFLSH">NOFLSH</code></a></dt>
+  <dd>/* don't flush after interrupt */</dd>
+</dl>
+</div>
+<p class="Pp">If <code class="Dv">ECHO</code> is set, input characters are
+    echoed back to the terminal. If <code class="Dv">ECHO</code> is not set,
+    input characters are not echoed.</p>
+<p class="Pp">If <code class="Dv">ECHOE</code> and
+    <code class="Dv">ICANON</code> are set, the <code class="Dv">ERASE</code>
+    character causes the terminal to erase the last character in the current
+    line from the display, if possible. If there is no character to erase, an
+    implementation may echo an indication that this was the case or do
+  nothing.</p>
+<p class="Pp">If <code class="Dv">ECHOK</code> and
+    <code class="Dv">ICANON</code> are set, the <code class="Dv">KILL</code>
+    character causes the current line to be discarded and the system echoes the
+    &#x2018;<code class="Li">\n</code>&#x2019; character after the
+    <code class="Dv">KILL</code> character.</p>
+<p class="Pp">If <code class="Dv">ECHOKE</code> and
+    <code class="Dv">ICANON</code> are set, the <code class="Dv">KILL</code>
+    character causes the current line to be discarded and the system causes the
+    terminal to erase the line from the display.</p>
+<p class="Pp">If <code class="Dv">ECHOPRT</code> and
+    <code class="Dv">ICANON</code> are set, the system assumes that the display
+    is a printing device and prints a backslash and the erased characters when
+    processing <code class="Dv">ERASE</code> characters, followed by a forward
+    slash.</p>
+<p class="Pp">If <code class="Dv">ECHOCTL</code> is set, the system echoes
+    control characters in a visible fashion using a caret followed by the
+    control character.</p>
+<p class="Pp">If <code class="Dv">ALTWERASE</code> is set, the system uses an
+    alternative algorithm for determining what constitutes a word when
+    processing <code class="Dv">WERASE</code> characters (see
+    <code class="Dv">WERASE</code>).</p>
+<p class="Pp">If <code class="Dv">ECHONL</code> and
+    <code class="Dv">ICANON</code> are set, the
+    &#x2018;<code class="Li">\n</code>&#x2019; character echoes even if
+    <code class="Dv">ECHO</code> is not set.</p>
+<p class="Pp">If <code class="Dv">ICANON</code> is set, canonical processing is
+    enabled. This enables the erase and kill edit functions, and the assembly of
+    input characters into lines delimited by <code class="Dv">NL,</code>
+    <code class="Dv">EOF</code>, and <code class="Dv">EOL,</code> as described
+    in <a class="Sx" href="#Canonical_Mode_Input_Processing">Canonical Mode
+    Input Processing</a>.</p>
+<p class="Pp">If <code class="Dv">ICANON</code> is not set, read requests are
+    satisfied directly from the input queue. A read is not satisfied until at
+    least <code class="Dv">MIN</code> bytes have been received or the timeout
+    value <code class="Dv">TIME</code> expired between bytes. The time value
+    represents tenths of seconds. See
+    <a class="Sx" href="#Noncanonical_Mode_Input_Processing">Noncanonical Mode
+    Input Processing</a> for more details.</p>
+<p class="Pp">If <code class="Dv">ISIG</code> is set, each input character is
+    checked against the special control characters <code class="Dv">INTR</code>,
+    <code class="Dv">QUIT</code>, and <code class="Dv">SUSP</code> (job control
+    only). If an input character matches one of these control characters, the
+    function associated with that character is performed. If
+    <code class="Dv">ISIG</code> is not set, no checking is done. Thus these
+    special input functions are possible only if <code class="Dv">ISIG</code> is
+    set.</p>
+<p class="Pp">If <code class="Dv">IEXTEN</code> is set, implementation-defined
+    functions are recognized from the input data. How
+    <code class="Dv">IEXTEN</code> being set interacts with
+    <code class="Dv">ICANON</code>, <code class="Dv">ISIG</code>,
+    <code class="Dv">IXON</code>, or <code class="Dv">IXOFF</code> is
+    implementation defined. If <code class="Dv">IEXTEN</code> is not set, then
+    implementation-defined functions are not recognized, and the corresponding
+    input characters are not processed as described for
+    <code class="Dv">ICANON</code>, <code class="Dv">ISIG</code>,
+    <code class="Dv">IXON</code>, and <code class="Dv">IXOFF</code>.</p>
+<p class="Pp">If <code class="Dv">NOFLSH</code> is set, the normal flush of the
+    input and output queues associated with the <code class="Dv">INTR</code>,
+    <code class="Dv">QUIT</code>, and <code class="Dv">SUSP</code> characters
+    are not be done.</p>
+<p class="Pp">If <code class="Dv">ICANON</code> is set, an upper case character
+    is preserved on input if prefixed by a \ character. In addition, this prefix
+    is added to upper case characters on output.</p>
+<p class="Pp">In addition, the following special character translations are in
+    effect:</p>
+<p class="Pp"></p>
+<table class="Bl-column Bd-indent Bl-compact">
+  <tr>
+    <td><i class="Em">for: use:</i></td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#_"><code class="Dv" id="_">`</code></a></td>
+    <td>\'</td>
+  </tr>
+  <tr>
+    <td>|</td>
+    <td>\!</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#~"><code class="Dv" id="~">~</code></a></td>
+    <td>\^</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#__2"><code class="Dv" id="__2">{</code></a></td>
+    <td>\(</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#__3"><code class="Dv" id="__3">}</code></a></td>
+    <td>\)</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#_e"><code class="Dv" id="_e">\</code></a></td>
+    <td>\\</td>
+  </tr>
+</table>
+<p class="Pp">If <code class="Dv">TOSTOP</code> is set, the signal
+    <code class="Dv">SIGTTOU</code> is sent to the process group of a process
+    that tries to write to its controlling terminal if it is not in the
+    foreground process group for that terminal. This signal, by default, stops
+    the members of the process group. Otherwise, the output generated by that
+    process is output to the current output stream. Processes that are blocking
+    or ignoring <code class="Dv">SIGTTOU</code> signals are excepted and allowed
+    to produce output and the <code class="Dv">SIGTTOU</code> signal is not
+    sent.</p>
+<p class="Pp">If <code class="Dv">NOKERNINFO</code> is set, the kernel does not
+    produce a status message when processing <code class="Dv">STATUS</code>
+    characters (see <code class="Dv">STATUS</code>).</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Special_Control_Characters"><a class="permalink" href="#Special_Control_Characters">Special
+  Control Characters</a></h2>
+The special control characters values are defined by the array
+  <var class="Fa">c_cc</var>. This table lists the array index, the
+  corresponding special character, and the system default value. For an accurate
+  list of the system defaults, consult the header file
+  &#x27E8;<span class="Pa">ttydefaults.h</span>&#x27E9;.
+<p class="Pp"></p>
+<table class="Bl-column Bd-indent Bl-compact">
+  <tr>
+    <td><i class="Em">Index Name</i></td>
+    <td>Special Character</td>
+    <td>Default Value</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#VEOF"><code class="Dv" id="VEOF">VEOF</code></a></td>
+    <td>EOF</td>
+    <td>^D</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#VEOL"><code class="Dv" id="VEOL">VEOL</code></a></td>
+    <td>EOL</td>
+    <td>_POSIX_VDISABLE</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#VEOL2"><code class="Dv" id="VEOL2">VEOL2</code></a></td>
+    <td>EOL2</td>
+    <td>_POSIX_VDISABLE</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#VERASE"><code class="Dv" id="VERASE">VERASE</code></a></td>
+    <td>ERASE</td>
+    <td>^? &#x2018;<code class="Li">\177</code>&#x2019;</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#VWERASE"><code class="Dv" id="VWERASE">VWERASE</code></a></td>
+    <td>WERASE</td>
+    <td>^W</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#VKILL"><code class="Dv" id="VKILL">VKILL</code></a></td>
+    <td>KILL</td>
+    <td>^U</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#VREPRINT"><code class="Dv" id="VREPRINT">VREPRINT</code></a></td>
+    <td>REPRINT</td>
+    <td>^R</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#VINTR"><code class="Dv" id="VINTR">VINTR</code></a></td>
+    <td>INTR</td>
+    <td>^C</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#VQUIT"><code class="Dv" id="VQUIT">VQUIT</code></a></td>
+    <td>QUIT</td>
+    <td>^\\ &#x2018;<code class="Li">\34</code>&#x2019;</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#VSUSP"><code class="Dv" id="VSUSP">VSUSP</code></a></td>
+    <td>SUSP</td>
+    <td>^Z</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#VDSUSP"><code class="Dv" id="VDSUSP">VDSUSP</code></a></td>
+    <td>DSUSP</td>
+    <td>^Y</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#VSTART"><code class="Dv" id="VSTART">VSTART</code></a></td>
+    <td>START</td>
+    <td>^Q</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#VSTOP"><code class="Dv" id="VSTOP">VSTOP</code></a></td>
+    <td>STOP</td>
+    <td>^S</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#VLNEXT"><code class="Dv" id="VLNEXT">VLNEXT</code></a></td>
+    <td>LNEXT</td>
+    <td>^V</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#VDISCARD"><code class="Dv" id="VDISCARD">VDISCARD</code></a></td>
+    <td>DISCARD</td>
+    <td>^O</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#VMIN"><code class="Dv" id="VMIN">VMIN</code></a></td>
+    <td>---</td>
+    <td>1</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#VTIME"><code class="Dv" id="VTIME">VTIME</code></a></td>
+    <td>---</td>
+    <td>0</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#VSTATUS"><code class="Dv" id="VSTATUS">VSTATUS</code></a></td>
+    <td>STATUS</td>
+    <td>^T</td>
+  </tr>
+</table>
+<p class="Pp">If the value of one of the changeable special control characters
+    (see <a class="Sx" href="#Special_Characters">Special Characters</a>) is
+    <code class="Dv">{_POSIX_VDISABLE}</code>, that function is disabled; that
+    is, no input data is recognized as the disabled special character. If
+    <code class="Dv">ICANON</code> is not set, the value of
+    <code class="Dv">{_POSIX_VDISABLE}</code> has no special meaning for the
+    <code class="Dv">VMIN</code> and <code class="Dv">VTIME</code> entries of
+    the <var class="Fa">c_cc</var> array.</p>
+<p class="Pp">The initial values of the flags and control characters after
+    open() is set according to the values in the header
+    &#x27E8;<span class="Pa">sys/ttydefaults.h</span>&#x27E9;.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">tcgetattr(3)</a>, <a class="Xr">tcsetattr(3)</a>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">April 19, 1994</td>
+    <td class="foot-os">BSD 4</td>
+  </tr>
+</table>
+</body>
+</html>

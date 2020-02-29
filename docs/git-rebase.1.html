@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   t
+       Title: git-rebase
+      Author: [FIXME: author] [see http://docbook.sf.net/el/author]
+   Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+        Date: 02/24/2019
+      Manual: Git Manual
+      Source: Git 2.21.0
+    Language: English
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>GIT-REBASE(1)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">GIT-REBASE(1)</td>
+    <td class="head-vol">Git Manual</td>
+    <td class="head-rtitle">GIT-REBASE(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+git-rebase - Reapply commits on top of another base tip
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>
+<i>git rebase</i> [-i | --interactive] [&lt;options&gt;] [--exec &lt;cmd&gt;] [--onto &lt;newbase&gt;]
+        [&lt;upstream&gt; [&lt;branch&gt;]]
+<i>git rebase</i> [-i | --interactive] [&lt;options&gt;] [--exec &lt;cmd&gt;] [--onto &lt;newbase&gt;]
+        --root [&lt;branch&gt;]
+<i>git rebase</i> --continue | --skip | --abort | --quit | --edit-todo | --show-current-patch
+</pre>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+If &lt;branch&gt; is specified, <i>git rebase</i> will perform an automatic
+  <b>git checkout &lt;branch&gt;</b> before doing anything else. Otherwise it
+  remains on the current branch.
+<p class="Pp">If &lt;upstream&gt; is not specified, the upstream configured in
+    branch.&lt;name&gt;.remote and branch.&lt;name&gt;.merge options will be
+    used (see <b>git-config</b>(1) for details) and the <b>--fork-point</b>
+    option is assumed. If you are currently not on any branch or if the current
+    branch does not have a configured upstream, the rebase will abort.</p>
+<p class="Pp">All changes made by commits in the current branch but that are not
+    in &lt;upstream&gt; are saved to a temporary area. This is the same set of
+    commits that would be shown by <b>git log &lt;upstream&gt;..HEAD</b>; or by
+    <b>git log 'fork_point'..HEAD</b>, if <b>--fork-point</b> is active (see the
+    description on <b>--fork-point</b> below); or by <b>git log HEAD</b>, if the
+    <b>--root</b> option is specified.</p>
+<p class="Pp">The current branch is reset to &lt;upstream&gt;, or
+    &lt;newbase&gt; if the --onto option was supplied. This has the exact same
+    effect as <b>git reset --hard &lt;upstream&gt;</b> (or &lt;newbase&gt;).
+    ORIG_HEAD is set to point at the tip of the branch before the reset.</p>
+<p class="Pp">The commits that were previously saved into the temporary area are
+    then reapplied to the current branch, one by one, in order. Note that any
+    commits in HEAD which introduce the same textual changes as a commit in
+    HEAD..&lt;upstream&gt; are omitted (i.e., a patch already accepted upstream
+    with a different commit message or timestamp will be skipped).</p>
+<p class="Pp">It is possible that a merge failure will prevent this process from
+    being completely automatic. You will have to resolve any such merge failure
+    and run <b>git rebase --continue</b>. Another option is to bypass the commit
+    that caused the merge failure with <b>git rebase --skip</b>. To check out
+    the original &lt;branch&gt; and remove the .git/rebase-apply working files,
+    use the command <b>git rebase --abort</b> instead.</p>
+<p class="Pp">Assume the following history exists and the current branch is
+    &quot;topic&quot;:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+          A---B---C topic
+         /
+    D---E---F---G master
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">From this point, the result of either of the following
+  commands:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+git rebase master
+git rebase master topic
+</pre>
+</div>
+<p class="Pp">would be:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+                  A'--B'--C' topic
+                 /
+    D---E---F---G master
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp"><b>NOTE:</b> The latter form is just a short-hand of <b>git
+    checkout topic</b> followed by <b>git rebase master</b>. When rebase exits
+    <b>topic</b> will remain the checked-out branch.</p>
+<p class="Pp">If the upstream branch already contains a change you have made
+    (e.g., because you mailed a patch which was applied upstream), then that
+    commit will be skipped. For example, running <b>git rebase master</b> on the
+    following history (in which <b>A'</b> and <b>A</b> introduce the same set of
+    changes, but have different committer information):</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+          A---B---C topic
+         /
+    D---E---A'---F master
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">will result in:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+                   B'---C' topic
+                  /
+    D---E---A'---F master
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Here is how you would transplant a topic branch based on one
+    branch to another, to pretend that you forked the topic branch from the
+    latter branch, using <b>rebase --onto</b>.</p>
+<p class="Pp">First let&#x2019;s assume your <i>topic</i> is based on branch
+    <i>next</i>. For example, a feature developed in <i>topic</i> depends on
+    some functionality which is found in <i>next</i>.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+    o---o---o---o---o  master
+         \
+          o---o---o---o---o  next
+                           \
+                            o---o---o  topic
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">We want to make <i>topic</i> forked from branch <i>master</i>; for
+    example, because the functionality on which <i>topic</i> depends was merged
+    into the more stable <i>master</i> branch. We want our tree to look like
+    this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+    o---o---o---o---o  master
+        |            \
+        |             o'--o'--o'  topic
+         \
+          o---o---o---o---o  next
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">We can get this using the following command:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+git rebase --onto master next topic
+</pre>
+</div>
+<p class="Pp">Another example of --onto option is to rebase part of a branch. If
+    we have the following situation:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+                            H---I---J topicB
+                           /
+                  E---F---G  topicA
+                 /
+    A---B---C---D  master
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">then the command</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+git rebase --onto master topicA topicB
+</pre>
+</div>
+<p class="Pp">would result in:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+                 H'--I'--J'  topicB
+                /
+                | E---F---G  topicA
+                |/
+    A---B---C---D  master
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">This is useful when topicB does not depend on topicA.</p>
+<p class="Pp">A range of commits could also be removed with rebase. If we have
+    the following situation:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+    E---F---G---H---I---J  topicA
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">then the command</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+git rebase --onto topicA~5 topicA~3 topicA
+</pre>
+</div>
+<p class="Pp">would result in the removal of commits F and G:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+    E---H'---I'---J'  topicA
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">This is useful if F and G were flawed in some way, or should not
+    be part of topicA. Note that the argument to --onto and the &lt;upstream&gt;
+    parameter can be any valid commit-ish.</p>
+<p class="Pp">In case of conflict, <i>git rebase</i> will stop at the first
+    problematic commit and leave conflict markers in the tree. You can use
+    <i>git diff</i> to locate the markers (&lt;&lt;&lt;&lt;&lt;&lt;) and make
+    edits to resolve the conflict. For each file you edit, you need to tell Git
+    that the conflict has been resolved, typically this would be done with</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+git add &lt;filename&gt;
+</pre>
+</div>
+<p class="Pp">After resolving the conflict manually and updating the index with
+    the desired resolution, you can continue the rebasing process with</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+git rebase --continue
+</pre>
+</div>
+<p class="Pp">Alternatively, you can undo the <i>git rebase</i> with</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+git rebase --abort
+</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION"><a class="permalink" href="#CONFIGURATION">CONFIGURATION</a></h1>
+rebase.useBuiltin
+<div class="Bd-indent">Set to <b>false</b> to use the legacy shellscript
+  implementation of <b>git-rebase</b>(1). Is <b>true</b> by default, which means
+  use the built-in rewrite of it in C.
+<p class="Pp">The C rewrite is first included with Git version 2.20. This option
+    serves an an escape hatch to re-enable the legacy version in case any bugs
+    are found in the rewrite. This option and the shellscript version of
+    <b>git-rebase</b>(1) will be removed in some future release.</p>
+<p class="Pp">If you find some reason to set this option to <b>false</b> other
+    than one-off testing you should report the behavior difference as a bug in
+    git.</p>
+</div>
+<p class="Pp">rebase.stat</p>
+<div class="Bd-indent">Whether to show a diffstat of what changed upstream since
+  the last rebase. False by default.</div>
+<p class="Pp">rebase.autoSquash</p>
+<div class="Bd-indent">If set to true enable <b>--autosquash</b> option by
+  default.</div>
+<p class="Pp">rebase.autoStash</p>
+<div class="Bd-indent">When set to true, automatically create a temporary stash
+  entry before the operation begins, and apply it after the operation ends. This
+  means that you can run rebase on a dirty worktree. However, use with care: the
+  final stash application after a successful rebase might result in non-trivial
+  conflicts. This option can be overridden by the <b>--no-autostash</b> and
+  <b>--autostash</b> options of <b>git-rebase</b>(1). Defaults to false.</div>
+<p class="Pp">rebase.missingCommitsCheck</p>
+<div class="Bd-indent">If set to &quot;warn&quot;, git rebase -i will print a
+  warning if some commits are removed (e.g. a line was deleted), however the
+  rebase will still proceed. If set to &quot;error&quot;, it will print the
+  previous warning and stop the rebase, <i>git rebase --edit-todo</i> can then
+  be used to correct the error. If set to &quot;ignore&quot;, no checking is
+  done. To drop a commit without warning or error, use the <b>drop</b> command
+  in the todo list. Defaults to &quot;ignore&quot;.</div>
+<p class="Pp">rebase.instructionFormat</p>
+<div class="Bd-indent">A format string, as specified in <b>git-log</b>(1), to be
+  used for the todo list during an interactive rebase. The format will
+  automatically have the long commit hash prepended to the format.</div>
+<p class="Pp">rebase.abbreviateCommands</p>
+<div class="Bd-indent">If set to true, <b>git rebase</b> will use abbreviated
+  command names in the todo list resulting in something like this:
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+        p deadbee The oneline of the commit
+        p fa1afe1 The oneline of the next commit
+        ...
+</pre>
+</div>
+<p class="Pp">instead of:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+        pick deadbee The oneline of the commit
+        pick fa1afe1 The oneline of the next commit
+        ...
+</pre>
+</div>
+<p class="Pp">Defaults to false.</p>
+</div>
+<p class="Pp">rebase.rescheduleFailedExec</p>
+<div class="Bd-indent">Automatically reschedule <b>exec</b> commands that
+  failed. This only makes sense in interactive mode (or when an <b>--exec</b>
+  option was provided). This is the same as specifying the
+  <b>--reschedule-failed-exec</b> option.</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+--onto &lt;newbase&gt;
+<div class="Bd-indent">Starting point at which to create the new commits. If the
+  --onto option is not specified, the starting point is &lt;upstream&gt;. May be
+  any valid commit, and not just an existing branch name.
+<p class="Pp">As a special case, you may use &quot;A...B&quot; as a shortcut for
+    the merge base of A and B if there is exactly one merge base. You can leave
+    out at most one of A and B, in which case it defaults to HEAD.</p>
+</div>
+<p class="Pp">&lt;upstream&gt;</p>
+<div class="Bd-indent">Upstream branch to compare against. May be any valid
+  commit, not just an existing branch name. Defaults to the configured upstream
+  for the current branch.</div>
+<p class="Pp">&lt;branch&gt;</p>
+<div class="Bd-indent">Working branch; defaults to HEAD.</div>
+<p class="Pp">--continue</p>
+<div class="Bd-indent">Restart the rebasing process after having resolved a
+  merge conflict.</div>
+<p class="Pp">--abort</p>
+<div class="Bd-indent">Abort the rebase operation and reset HEAD to the original
+  branch. If &lt;branch&gt; was provided when the rebase operation was started,
+  then HEAD will be reset to &lt;branch&gt;. Otherwise HEAD will be reset to
+  where it was when the rebase operation was started.</div>
+<p class="Pp">--quit</p>
+<div class="Bd-indent">Abort the rebase operation but HEAD is not reset back to
+  the original branch. The index and working tree are also left unchanged as a
+  result.</div>
+<p class="Pp">--keep-empty</p>
+<div class="Bd-indent">Keep the commits that do not change anything from its
+  parents in the result.
+<p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
+</div>
+<p class="Pp">--allow-empty-message</p>
+<div class="Bd-indent">By default, rebasing commits with an empty message will
+  fail. This option overrides that behavior, allowing commits with empty
+  messages to be rebased.
+<p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
+</div>
+<p class="Pp">--skip</p>
+<div class="Bd-indent">Restart the rebasing process by skipping the current
+  patch.</div>
+<p class="Pp">--edit-todo</p>
+<div class="Bd-indent">Edit the todo list during an interactive rebase.</div>
+<p class="Pp">--show-current-patch</p>
+<div class="Bd-indent">Show the current patch in an interactive rebase or when
+  rebase is stopped because of conflicts. This is the equivalent of <b>git show
+  REBASE_HEAD</b>.</div>
+<p class="Pp">-m, --merge</p>
+<div class="Bd-indent">Use merging strategies to rebase. When the recursive
+  (default) merge strategy is used, this allows rebase to be aware of renames on
+  the upstream side.
+<p class="Pp">Note that a rebase merge works by replaying each commit from the
+    working branch on top of the &lt;upstream&gt; branch. Because of this, when
+    a merge conflict happens, the side reported as <i>ours</i> is the so-far
+    rebased series, starting with &lt;upstream&gt;, and <i>theirs</i> is the
+    working branch. In other words, the sides are swapped.</p>
+<p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
+</div>
+<p class="Pp">-s &lt;strategy&gt;, --strategy=&lt;strategy&gt;</p>
+<div class="Bd-indent">Use the given merge strategy. If there is no <b>-s</b>
+  option <i>git merge-recursive</i> is used instead. This implies --merge.
+<p class="Pp">Because <i>git rebase</i> replays each commit from the working
+    branch on top of the &lt;upstream&gt; branch using the given strategy, using
+    the <i>ours</i> strategy simply empties all patches from the &lt;branch&gt;,
+    which makes little sense.</p>
+<p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
+</div>
+<p class="Pp">-X &lt;strategy-option&gt;,
+    --strategy-option=&lt;strategy-option&gt;</p>
+<div class="Bd-indent">Pass the &lt;strategy-option&gt; through to the merge
+  strategy. This implies <b>--merge</b> and, if no strategy has been specified,
+  <b>-s recursive</b>. Note the reversal of <i>ours</i> and <i>theirs</i> as
+  noted above for the <b>-m</b> option.
+<p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
+</div>
+<p class="Pp">-S[&lt;keyid&gt;], --gpg-sign[=&lt;keyid&gt;]</p>
+<div class="Bd-indent">GPG-sign commits. The <b>keyid</b> argument is optional
+  and defaults to the committer identity; if specified, it must be stuck to the
+  option without a space.</div>
+<p class="Pp">-q, --quiet</p>
+<div class="Bd-indent">Be quiet. Implies --no-stat.</div>
+<p class="Pp">-v, --verbose</p>
+<div class="Bd-indent">Be verbose. Implies --stat.</div>
+<p class="Pp">--stat</p>
+<div class="Bd-indent">Show a diffstat of what changed upstream since the last
+  rebase. The diffstat is also controlled by the configuration option
+  rebase.stat.</div>
+<p class="Pp">-n, --no-stat</p>
+<div class="Bd-indent">Do not show a diffstat as part of the rebase
+  process.</div>
+<p class="Pp">--no-verify</p>
+<div class="Bd-indent">This option bypasses the pre-rebase hook. See also
+  <b>githooks</b>(5).</div>
+<p class="Pp">--verify</p>
+<div class="Bd-indent">Allows the pre-rebase hook to run, which is the default.
+  This option can be used to override --no-verify. See also
+  <b>githooks</b>(5).</div>
+<p class="Pp">-C&lt;n&gt;</p>
+<div class="Bd-indent">Ensure at least &lt;n&gt; lines of surrounding context
+  match before and after each change. When fewer lines of surrounding context
+  exist they all must match. By default no context is ever ignored.
+<p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
+</div>
+<p class="Pp">--no-ff, --force-rebase, -f</p>
+<div class="Bd-indent">Individually replay all rebased commits instead of
+  fast-forwarding over the unchanged ones. This ensures that the entire history
+  of the rebased branch is composed of new commits.
+<p class="Pp">You may find this helpful after reverting a topic branch merge, as
+    this option recreates the topic branch with fresh commits so it can be
+    remerged successfully without needing to &quot;revert the reversion&quot;
+    (see the <b>revert-a-faulty-merge How-To</b>[1] for details).</p>
+</div>
+<p class="Pp">--fork-point, --no-fork-point</p>
+<div class="Bd-indent">Use reflog to find a better common ancestor between
+  &lt;upstream&gt; and &lt;branch&gt; when calculating which commits have been
+  introduced by &lt;branch&gt;.
+<p class="Pp">When --fork-point is active, <i>fork_point</i> will be used
+    instead of &lt;upstream&gt; to calculate the set of commits to rebase, where
+    <i>fork_point</i> is the result of <b>git merge-base --fork-point
+    &lt;upstream&gt; &lt;branch&gt;</b> command (see <b>git-merge-base</b>(1)).
+    If <i>fork_point</i> ends up being empty, the &lt;upstream&gt; will be used
+    as a fallback.</p>
+<p class="Pp">If either &lt;upstream&gt; or --root is given on the command line,
+    then the default is <b>--no-fork-point</b>, otherwise the default is
+    <b>--fork-point</b>.</p>
+</div>
+<p class="Pp">--ignore-whitespace, --whitespace=&lt;option&gt;</p>
+<div class="Bd-indent">These flag are passed to the <i>git apply</i> program
+  (see <b>git-apply</b>(1)) that applies the patch.
+<p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
+</div>
+<p class="Pp">--committer-date-is-author-date, --ignore-date</p>
+<div class="Bd-indent">These flags are passed to <i>git am</i> to easily change
+  the dates of the rebased commits (see <b>git-am</b>(1)).
+<p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
+</div>
+<p class="Pp">--signoff</p>
+<div class="Bd-indent">Add a Signed-off-by: trailer to all the rebased commits.
+  Note that if <b>--interactive</b> is given then only commits marked to be
+  picked, edited or reworded will have the trailer added.
+<p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
+</div>
+<p class="Pp">-i, --interactive</p>
+<div class="Bd-indent">Make a list of the commits which are about to be rebased.
+  Let the user edit that list before rebasing. This mode can also be used to
+  split commits (see SPLITTING COMMITS below).
+<p class="Pp">The commit list format can be changed by setting the configuration
+    option rebase.instructionFormat. A customized instruction format will
+    automatically have the long commit hash prepended to the format.</p>
+<p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
+</div>
+<p class="Pp">-r, --rebase-merges[=(rebase-cousins|no-rebase-cousins)]</p>
+<div class="Bd-indent">By default, a rebase will simply drop merge commits from
+  the todo list, and put the rebased commits into a single, linear branch. With
+  <b>--rebase-merges</b>, the rebase will instead try to preserve the branching
+  structure within the commits that are to be rebased, by recreating the merge
+  commits. Any resolved merge conflicts or manual amendments in these merge
+  commits will have to be resolved/re-applied manually.
+<p class="Pp">By default, or when <b>no-rebase-cousins</b> was specified,
+    commits which do not have <b>&lt;upstream&gt;</b> as direct ancestor will
+    keep their original branch point, i.e. commits that would be excluded by
+    gitlink:git-log[1]'s <b>--ancestry-path</b> option will keep their original
+    ancestry by default. If the <b>rebase-cousins</b> mode is turned on, such
+    commits are instead rebased onto <b>&lt;upstream&gt;</b> (or
+    <b>&lt;onto&gt;</b>, if specified).</p>
+<p class="Pp">The <b>--rebase-merges</b> mode is similar in spirit to
+    <b>--preserve-merges</b>, but in contrast to that option works well in
+    interactive rebases: commits can be reordered, inserted and dropped at
+  will.</p>
+<p class="Pp">It is currently only possible to recreate the merge commits using
+    the <b>recursive</b> merge strategy; Different merge strategies can be used
+    only via explicit <b>exec git merge -s &lt;strategy&gt; [...]</b>
+  commands.</p>
+<p class="Pp">See also REBASING MERGES and INCOMPATIBLE OPTIONS below.</p>
+</div>
+<p class="Pp">-p, --preserve-merges</p>
+<div class="Bd-indent">Recreate merge commits instead of flattening the history
+  by replaying commits a merge commit introduces. Merge conflict resolutions or
+  manual amendments to merge commits are not preserved.
+<p class="Pp">This uses the <b>--interactive</b> machinery internally, but
+    combining it with the <b>--interactive</b> option explicitly is generally
+    not a good idea unless you know what you are doing (see BUGS below).</p>
+<p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
+</div>
+<p class="Pp">-x &lt;cmd&gt;, --exec &lt;cmd&gt;</p>
+<div class="Bd-indent">Append &quot;exec &lt;cmd&gt;&quot; after each line
+  creating a commit in the final history. &lt;cmd&gt; will be interpreted as one
+  or more shell commands. Any command that fails will interrupt the rebase, with
+  exit code 1.
+<p class="Pp">You may execute several commands by either using one instance of
+    <b>--exec</b> with several commands:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+git rebase -i --exec &quot;cmd1 &amp;&amp; cmd2 &amp;&amp; ...&quot;
+</pre>
+</div>
+<p class="Pp">or by giving more than one <b>--exec</b>:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+git rebase -i --exec &quot;cmd1&quot; --exec &quot;cmd2&quot; --exec ...
+</pre>
+</div>
+<p class="Pp">If <b>--autosquash</b> is used, &quot;exec&quot; lines will not be
+    appended for the intermediate commits, and will only appear at the end of
+    each squash/fixup series.</p>
+<p class="Pp">This uses the <b>--interactive</b> machinery internally, but it
+    can be run without an explicit <b>--interactive</b>.</p>
+<p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
+</div>
+<p class="Pp">--root</p>
+<div class="Bd-indent">Rebase all commits reachable from &lt;branch&gt;, instead
+  of limiting them with an &lt;upstream&gt;. This allows you to rebase the root
+  commit(s) on a branch. When used with --onto, it will skip changes already
+  contained in &lt;newbase&gt; (instead of &lt;upstream&gt;) whereas without
+  --onto it will operate on every change. When used together with both --onto
+  and --preserve-merges, <i>all</i> root commits will be rewritten to have
+  &lt;newbase&gt; as parent instead.
+<p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
+</div>
+<p class="Pp">--autosquash, --no-autosquash</p>
+<div class="Bd-indent">When the commit log message begins with &quot;squash!
+  ...&quot; (or &quot;fixup! ...&quot;), and there is already a commit in the
+  todo list that matches the same <b>...</b>, automatically modify the todo list
+  of rebase -i so that the commit marked for squashing comes right after the
+  commit to be modified, and change the action of the moved commit from
+  <b>pick</b> to <b>squash</b> (or <b>fixup</b>). A commit matches the
+  <b>...</b> if the commit subject matches, or if the <b>...</b> refers to the
+  commit&#x2019;s hash. As a fall-back, partial matches of the commit subject
+  work, too. The recommended way to create fixup/squash commits is by using the
+  <b>--fixup</b>/<b>--squash</b> options of <b>git-commit</b>(1).
+<p class="Pp">If the <b>--autosquash</b> option is enabled by default using the
+    configuration variable <b>rebase.autoSquash</b>, this option can be used to
+    override and disable this setting.</p>
+<p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
+</div>
+<p class="Pp">--autostash, --no-autostash</p>
+<div class="Bd-indent">Automatically create a temporary stash entry before the
+  operation begins, and apply it after the operation ends. This means that you
+  can run rebase on a dirty worktree. However, use with care: the final stash
+  application after a successful rebase might result in non-trivial
+  conflicts.</div>
+<p class="Pp">--reschedule-failed-exec, --no-reschedule-failed-exec</p>
+<div class="Bd-indent">Automatically reschedule <b>exec</b> commands that
+  failed. This only makes sense in interactive mode (or when an <b>--exec</b>
+  option was provided).</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INCOMPATIBLE_OPTIONS"><a class="permalink" href="#INCOMPATIBLE_OPTIONS">INCOMPATIBLE
+  OPTIONS</a></h1>
+The following options:
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--committer-date-is-author-date</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--ignore-date</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--whitespace</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--ignore-whitespace</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;-C</div>
+<p class="Pp">are incompatible with the following options:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--merge</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--strategy</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--strategy-option</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--allow-empty-message</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--[no-]autosquash</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--rebase-merges</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--preserve-merges</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--interactive</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--exec</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--keep-empty</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--edit-todo</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--root when used in combination with --onto</div>
+<p class="Pp">In addition, the following pairs of options are incompatible:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--preserve-merges and --interactive</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--preserve-merges and --signoff</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--preserve-merges and --rebase-merges</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--rebase-merges and --strategy</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--rebase-merges and --strategy-option</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BEHAVIORAL_DIFFERENCES"><a class="permalink" href="#BEHAVIORAL_DIFFERENCES">BEHAVIORAL
+  DIFFERENCES</a></h1>
+There are some subtle differences how the backends behave.
+<section class="Ss">
+<h2 class="Ss" id="Empty_commits"><a class="permalink" href="#Empty_commits">Empty
+  commits</a></h2>
+The am backend drops any &quot;empty&quot; commits, regardless of whether the
+  commit started empty (had no changes relative to its parent to start with) or
+  ended empty (all changes were already applied upstream in other commits).
+<p class="Pp">The interactive backend drops commits by default that started
+    empty and halts if it hits a commit that ended up empty. The
+    <b>--keep-empty</b> option exists for the interactive backend to allow it to
+    keep commits that started empty.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Directory_rename_detection"><a class="permalink" href="#Directory_rename_detection">Directory
+  rename detection</a></h2>
+Directory rename heuristics are enabled in the merge and interactive backends.
+  Due to the lack of accurate tree information, directory rename detection is
+  disabled in the am backend.
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MERGE_STRATEGIES"><a class="permalink" href="#MERGE_STRATEGIES">MERGE
+  STRATEGIES</a></h1>
+The merge mechanism (<b>git merge</b> and <b>git pull</b> commands) allows the
+  backend <i>merge strategies</i> to be chosen with <b>-s</b> option. Some
+  strategies can also take their own options, which can be passed by giving
+  <b>-X&lt;option&gt;</b> arguments to <b>git merge</b> and/or <b>git pull</b>.
+<p class="Pp">resolve</p>
+<div class="Bd-indent">This can only resolve two heads (i.e. the current branch
+  and another branch you pulled from) using a 3-way merge algorithm. It tries to
+  carefully detect criss-cross merge ambiguities and is considered generally
+  safe and fast.</div>
+<p class="Pp">recursive</p>
+<div class="Bd-indent">This can only resolve two heads using a 3-way merge
+  algorithm. When there is more than one common ancestor that can be used for
+  3-way merge, it creates a merged tree of the common ancestors and uses that as
+  the reference tree for the 3-way merge. This has been reported to result in
+  fewer merge conflicts without causing mismerges by tests done on actual merge
+  commits taken from Linux 2.6 kernel development history. Additionally this can
+  detect and handle merges involving renames, but currently cannot make use of
+  detected copies. This is the default merge strategy when pulling or merging
+  one branch.
+<p class="Pp">The <i>recursive</i> strategy can take the following options:</p>
+<p class="Pp">ours</p>
+<div class="Bd-indent">This option forces conflicting hunks to be auto-resolved
+  cleanly by favoring <i>our</i> version. Changes from the other tree that do
+  not conflict with our side are reflected to the merge result. For a binary
+  file, the entire contents are taken from our side.
+<p class="Pp">This should not be confused with the <i>ours</i> merge strategy,
+    which does not even look at what the other tree contains at all. It discards
+    everything the other tree did, declaring <i>our</i> history contains all
+    that happened in it.</p>
+</div>
+<p class="Pp">theirs</p>
+<div class="Bd-indent">This is the opposite of <i>ours</i>; note that, unlike
+  <i>ours</i>, there is no <i>theirs</i> merge strategy to confuse this merge
+  option with.</div>
+<p class="Pp">patience</p>
+<div class="Bd-indent">With this option, <i>merge-recursive</i> spends a little
+  extra time to avoid mismerges that sometimes occur due to unimportant matching
+  lines (e.g., braces from distinct functions). Use this when the branches to be
+  merged have diverged wildly. See also <b>git-diff</b>(1)
+  <b>--patience</b>.</div>
+<p class="Pp">diff-algorithm=[patience|minimal|histogram|myers]</p>
+<div class="Bd-indent">Tells <i>merge-recursive</i> to use a different diff
+  algorithm, which can help avoid mismerges that occur due to unimportant
+  matching lines (such as braces from distinct functions). See also
+  <b>git-diff</b>(1) <b>--diff-algorithm</b>.</div>
+<p class="Pp">ignore-space-change, ignore-all-space, ignore-space-at-eol,
+    ignore-cr-at-eol</p>
+<div class="Bd-indent">Treats lines with the indicated type of whitespace change
+  as unchanged for the sake of a three-way merge. Whitespace changes mixed with
+  other changes to a line are not ignored. See also <b>git-diff</b>(1)
+  <b>-b</b>, <b>-w</b>, <b>--ignore-space-at-eol</b>, and
+  <b>--ignore-cr-at-eol</b>.
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;If <i>their</i> version only introduces
+  whitespace changes to a line, <i>our</i> version is used;</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;If <i>our</i> version introduces whitespace
+  changes but <i>their</i> version includes a substantial change, <i>their</i>
+  version is used;</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Otherwise, the merge proceeds in the usual
+  way.</div>
+</div>
+<p class="Pp">renormalize</p>
+<div class="Bd-indent">This runs a virtual check-out and check-in of all three
+  stages of a file when resolving a three-way merge. This option is meant to be
+  used when merging branches with different clean filters or end-of-line
+  normalization rules. See &quot;Merging branches with differing
+  checkin/checkout attributes&quot; in <b>gitattributes</b>(5) for
+  details.</div>
+<p class="Pp">no-renormalize</p>
+<div class="Bd-indent">Disables the <b>renormalize</b> option. This overrides
+  the <b>merge.renormalize</b> configuration variable.</div>
+<p class="Pp">no-renames</p>
+<div class="Bd-indent">Turn off rename detection. This overrides the
+  <b>merge.renames</b> configuration variable. See also <b>git-diff</b>(1)
+  <b>--no-renames</b>.</div>
+<p class="Pp">find-renames[=&lt;n&gt;]</p>
+<div class="Bd-indent">Turn on rename detection, optionally setting the
+  similarity threshold. This is the default. This overrides the
+  <i>merge.renames</i> configuration variable. See also <b>git-diff</b>(1)
+  <b>--find-renames</b>.</div>
+<p class="Pp">rename-threshold=&lt;n&gt;</p>
+<div class="Bd-indent">Deprecated synonym for
+  <b>find-renames=&lt;n&gt;</b>.</div>
+<p class="Pp">subtree[=&lt;path&gt;]</p>
+<div class="Bd-indent">This option is a more advanced form of <i>subtree</i>
+  strategy, where the strategy makes a guess on how two trees must be shifted to
+  match with each other when merging. Instead, the specified path is prefixed
+  (or stripped from the beginning) to make the shape of two trees to
+  match.</div>
+</div>
+<p class="Pp">octopus</p>
+<div class="Bd-indent">This resolves cases with more than two heads, but refuses
+  to do a complex merge that needs manual resolution. It is primarily meant to
+  be used for bundling topic branch heads together. This is the default merge
+  strategy when pulling or merging more than one branch.</div>
+<p class="Pp">ours</p>
+<div class="Bd-indent">This resolves any number of heads, but the resulting tree
+  of the merge is always that of the current branch head, effectively ignoring
+  all changes from all other branches. It is meant to be used to supersede old
+  development history of side branches. Note that this is different from the
+  -Xours option to the <i>recursive</i> merge strategy.</div>
+<p class="Pp">subtree</p>
+<div class="Bd-indent">This is a modified recursive strategy. When merging trees
+  A and B, if B corresponds to a subtree of A, B is first adjusted to match the
+  tree structure of A, instead of reading the trees at the same level. This
+  adjustment is also done to the common ancestor tree.</div>
+<p class="Pp">With the strategies that use 3-way merge (including the default,
+    <i>recursive</i>), if a change is made on both branches, but later reverted
+    on one of the branches, that change will be present in the merged result;
+    some people find this behavior confusing. It occurs because only the heads
+    and the merge base are considered when performing a merge, not the
+    individual commits. The merge algorithm therefore considers the reverted
+    change as no change at all, and substitutes the changed version instead.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+You should understand the implications of using <i>git rebase</i> on a
+  repository that you share. See also RECOVERING FROM UPSTREAM REBASE below.
+<p class="Pp">When the git-rebase command is run, it will first execute a
+    &quot;pre-rebase&quot; hook if one exists. You can use this hook to do
+    sanity checks and reject the rebase if it isn&#x2019;t appropriate. Please
+    see the template pre-rebase hook script for an example.</p>
+<p class="Pp">Upon completion, &lt;branch&gt; will be the current branch.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INTERACTIVE_MODE"><a class="permalink" href="#INTERACTIVE_MODE">INTERACTIVE
+  MODE</a></h1>
+Rebasing interactively means that you have a chance to edit the commits which
+  are rebased. You can reorder the commits, and you can remove them (weeding out
+  bad or otherwise unwanted patches).
+<p class="Pp">The interactive mode is meant for this type of workflow:</p>
+<p class="Pp"></p>
+<div class="Bd-indent"> 1.have a wonderful idea</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 2.hack on the code</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 3.prepare a series for submission</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 4.submit</div>
+<p class="Pp">where point 2. consists of several instances of</p>
+<p class="Pp">a) regular use</p>
+<p class="Pp"></p>
+<div class="Bd-indent"> 1.finish something worthy of a commit</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 2.commit</div>
+<p class="Pp">b) independent fixup</p>
+<p class="Pp"></p>
+<div class="Bd-indent"> 1.realize that something does not work</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 2.fix that</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 3.commit it</div>
+<p class="Pp">Sometimes the thing fixed in b.2. cannot be amended to the
+    not-quite perfect commit it fixes, because that commit is buried deeply in a
+    patch series. That is exactly what interactive rebase is for: use it after
+    plenty of &quot;a&quot;s and &quot;b&quot;s, by rearranging and editing
+    commits, and squashing multiple commits into one.</p>
+<p class="Pp">Start it with the last commit you want to retain as-is:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+git rebase -i &lt;after-this-commit&gt;
+</pre>
+</div>
+<p class="Pp">An editor will be fired up with all the commits in your current
+    branch (ignoring merge commits), which come after the given commit. You can
+    reorder the commits in this list to your heart&#x2019;s content, and you can
+    remove them. The list looks more or less like this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+pick deadbee The oneline of this commit
+pick fa1afe1 The oneline of the next commit
+...
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">The oneline descriptions are purely for your pleasure; <i>git
+    rebase</i> will not look at them but at the commit names
+    (&quot;deadbee&quot; and &quot;fa1afe1&quot; in this example), so do not
+    delete or edit the names.</p>
+<p class="Pp">By replacing the command &quot;pick&quot; with the command
+    &quot;edit&quot;, you can tell <i>git rebase</i> to stop after applying that
+    commit, so that you can edit the files and/or the commit message, amend the
+    commit, and continue rebasing.</p>
+<p class="Pp">To interrupt the rebase (just like an &quot;edit&quot; command
+    would do, but without cherry-picking any commit first), use the
+    &quot;break&quot; command.</p>
+<p class="Pp">If you just want to edit the commit message for a commit, replace
+    the command &quot;pick&quot; with the command &quot;reword&quot;.</p>
+<p class="Pp">To drop a commit, replace the command &quot;pick&quot; with
+    &quot;drop&quot;, or just delete the matching line.</p>
+<p class="Pp">If you want to fold two or more commits into one, replace the
+    command &quot;pick&quot; for the second and subsequent commits with
+    &quot;squash&quot; or &quot;fixup&quot;. If the commits had different
+    authors, the folded commit will be attributed to the author of the first
+    commit. The suggested commit message for the folded commit is the
+    concatenation of the commit messages of the first commit and of those with
+    the &quot;squash&quot; command, but omits the commit messages of commits
+    with the &quot;fixup&quot; command.</p>
+<p class="Pp"><i>git rebase</i> will stop when &quot;pick&quot; has been
+    replaced with &quot;edit&quot; or when a command fails due to merge errors.
+    When you are done editing and/or resolving conflicts you can continue with
+    <b>git rebase --continue</b>.</p>
+<p class="Pp">For example, if you want to reorder the last 5 commits, such that
+    what was HEAD~4 becomes the new HEAD. To achieve that, you would call <i>git
+    rebase</i> like this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git rebase -i HEAD~5
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">And move the first patch to the end of the list.</p>
+<p class="Pp">You might want to preserve merges, if you have a history like
+    this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+           X
+            \
+         A---M---B
+        /
+---o---O---P---Q
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Suppose you want to rebase the side branch starting at
+    &quot;A&quot; to &quot;Q&quot;. Make sure that the current HEAD is
+    &quot;B&quot;, and call</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git rebase -i -p --onto Q O
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Reordering and editing commits usually creates untested
+    intermediate steps. You may want to check that your history editing did not
+    break anything by running a test, or at least recompiling at intermediate
+    points in history by using the &quot;exec&quot; command (shortcut
+    &quot;x&quot;). You may do so by creating a todo list like this one:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+pick deadbee Implement feature XXX
+fixup f1a5c00 Fix to feature XXX
+exec make
+pick c0ffeee The oneline of the next commit
+edit deadbab The oneline of the commit after
+exec cd subdir; make test
+...
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">The interactive rebase will stop when a command fails (i.e. exits
+    with non-0 status) to give you an opportunity to fix the problem. You can
+    continue with <b>git rebase --continue</b>.</p>
+<p class="Pp">The &quot;exec&quot; command launches the command in a shell (the
+    one specified in <b>$SHELL</b>, or the default shell if <b>$SHELL</b> is not
+    set), so you can use shell features (like &quot;cd&quot;, &quot;&gt;&quot;,
+    &quot;;&quot; ...). The command is run from the root of the working
+  tree.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git rebase -i --exec &quot;make test&quot;
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">This command lets you check that intermediate commits are
+    compilable. The todo list becomes like that:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+pick 5928aea one
+exec make test
+pick 04d0fda two
+exec make test
+pick ba46169 three
+exec make test
+pick f4593f9 four
+exec make test
+</pre>
+</div>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SPLITTING_COMMITS"><a class="permalink" href="#SPLITTING_COMMITS">SPLITTING
+  COMMITS</a></h1>
+In interactive mode, you can mark commits with the action &quot;edit&quot;.
+  However, this does not necessarily mean that <i>git rebase</i> expects the
+  result of this edit to be exactly one commit. Indeed, you can undo the commit,
+  or you can add other commits. This can be used to split a commit into two:
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Start an interactive rebase with <b>git rebase -i
+  &lt;commit&gt;^</b>, where &lt;commit&gt; is the commit you want to split. In
+  fact, any commit range will do, as long as it contains that commit.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Mark the commit you want to split with the action
+  &quot;edit&quot;.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;When it comes to editing that commit, execute
+  <b>git reset HEAD^</b>. The effect is that the HEAD is rewound by one, and the
+  index follows suit. However, the working tree stays the same.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Now add the changes to the index that you want to
+  have in the first commit. You can use <b>git add</b> (possibly interactively)
+  or <i>git gui</i> (or both) to do that.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Commit the now-current index with whatever commit
+  message is appropriate now.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Repeat the last two steps until your working tree
+  is clean.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Continue the rebase with <b>git rebase
+  --continue</b>.</div>
+<p class="Pp">If you are not absolutely sure that the intermediate revisions are
+    consistent (they compile, pass the testsuite, etc.) you should use <i>git
+    stash</i> to stash away the not-yet-committed changes after each commit,
+    test, and amend the commit if fixes are necessary.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RECOVERING_FROM_UPSTREAM_REBASE"><a class="permalink" href="#RECOVERING_FROM_UPSTREAM_REBASE">RECOVERING
+  FROM UPSTREAM REBASE</a></h1>
+Rebasing (or any other form of rewriting) a branch that others have based work
+  on is a bad idea: anyone downstream of it is forced to manually fix their
+  history. This section explains how to do the fix from the downstream&#x2019;s
+  point of view. The real fix, however, would be to avoid rebasing the upstream
+  in the first place.
+<p class="Pp">To illustrate, suppose you are in a situation where someone
+    develops a <i>subsystem</i> branch, and you are working on a <i>topic</i>
+    that is dependent on this <i>subsystem</i>. You might end up with a history
+    like the following:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+    o---o---o---o---o---o---o---o  master
+         \
+          o---o---o---o---o  subsystem
+                           \
+                            *---*---*  topic
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">If <i>subsystem</i> is rebased against <i>master</i>, the
+    following happens:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+    o---o---o---o---o---o---o---o  master
+         \                       \
+          o---o---o---o---o       o'--o'--o'--o'--o'  subsystem
+                           \
+                            *---*---*  topic
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">If you now continue development as usual, and eventually merge
+    <i>topic</i> to <i>subsystem</i>, the commits from <i>subsystem</i> will
+    remain duplicated forever:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+    o---o---o---o---o---o---o---o  master
+         \                       \
+          o---o---o---o---o       o'--o'--o'--o'--o'--M  subsystem
+                           \                         /
+                            *---*---*-..........-*--*  topic
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Such duplicates are generally frowned upon because they clutter up
+    history, making it harder to follow. To clean things up, you need to
+    transplant the commits on <i>topic</i> to the new <i>subsystem</i> tip,
+    i.e., rebase <i>topic</i>. This becomes a ripple effect: anyone downstream
+    from <i>topic</i> is forced to rebase too, and so on!</p>
+<p class="Pp">There are two kinds of fixes, discussed in the following
+    subsections:</p>
+<p class="Pp">Easy case: The changes are literally the same.</p>
+<div class="Bd-indent">This happens if the <i>subsystem</i> rebase was a simple
+  rebase and had no conflicts.</div>
+<p class="Pp">Hard case: The changes are not the same.</p>
+<div class="Bd-indent">This happens if the <i>subsystem</i> rebase had
+  conflicts, or used <b>--interactive</b> to omit, edit, squash, or fixup
+  commits; or if the upstream used one of <b>commit --amend</b>, <b>reset</b>,
+  or <b>filter-branch</b>.</div>
+<section class="Ss">
+<h2 class="Ss" id="The_easy_case"><a class="permalink" href="#The_easy_case">The
+  easy case</a></h2>
+Only works if the changes (patch IDs based on the diff contents) on
+  <i>subsystem</i> are literally the same before and after the rebase
+  <i>subsystem</i> did.
+<p class="Pp">In that case, the fix is easy because <i>git rebase</i> knows to
+    skip changes that are already present in the new upstream. So if you say
+    (assuming you&#x2019;re on <i>topic</i>)</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+    $ git rebase subsystem
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">you will end up with the fixed history</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+    o---o---o---o---o---o---o---o  master
+                                 \
+                                  o'--o'--o'--o'--o'  subsystem
+                                                   \
+                                                    *---*---*  topic
+</pre>
+</div>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="The_hard_case"><a class="permalink" href="#The_hard_case">The
+  hard case</a></h2>
+Things get more complicated if the <i>subsystem</i> changes do not exactly
+  correspond to the ones before the rebase.
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp">While an &quot;easy case recovery&quot; sometimes appears to be
+    successful even in the hard case, it may have unintended consequences. For
+    example, a commit that was removed via <b>git rebase --interactive</b> will
+    be <b>resurrected</b>!</p>
+<p class="Pp"></p>
+</div>
+<p class="Pp">The idea is to manually tell <i>git rebase</i> &quot;where the old
+    <i>subsystem</i> ended and your <i>topic</i> began&quot;, that is, what the
+    old merge-base between them was. You will have to find a way to name the
+    last commit of the old <i>subsystem</i>, for example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;With the <i>subsystem</i> reflog: after <i>git
+  fetch</i>, the old tip of <i>subsystem</i> is at <b>subsystem@{1}</b>.
+  Subsequent fetches will increase the number. (See <b>git-reflog</b>(1).)</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Relative to the tip of <i>topic</i>: knowing that
+  your <i>topic</i> has three commits, the old tip of <i>subsystem</i> must be
+  <b>topic~3</b>.</div>
+<p class="Pp">You can then transplant the old <b>subsystem..topic</b> to the new
+    tip by saying (for the reflog case, and assuming you are on <i>topic</i>
+    already):</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+    $ git rebase --onto subsystem subsystem@{1}
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">The ripple effect of a &quot;hard case&quot; recovery is
+    especially bad: <i>everyone</i> downstream from <i>topic</i> will now have
+    to perform a &quot;hard case&quot; recovery too!</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REBASING_MERGES"><a class="permalink" href="#REBASING_MERGES">REBASING
+  MERGES</a></h1>
+The interactive rebase command was originally designed to handle individual
+  patch series. As such, it makes sense to exclude merge commits from the todo
+  list, as the developer may have merged the then-current <b>master</b> while
+  working on the branch, only to rebase all the commits onto <b>master</b>
+  eventually (skipping the merge commits).
+<p class="Pp">However, there are legitimate reasons why a developer may want to
+    recreate merge commits: to keep the branch structure (or &quot;commit
+    topology&quot;) when working on multiple, inter-related branches.</p>
+<p class="Pp">In the following example, the developer works on a topic branch
+    that refactors the way buttons are defined, and on another topic branch that
+    uses that refactoring to implement a &quot;Report a bug&quot; button. The
+    output of <b>git log --graph --format=%s -5</b> may look like this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+*   Merge branch 'report-a-bug'
+|\
+| * Add the feedback button
+* | Merge branch 'refactor-button'
+|\ \
+| |/
+| * Use the Button class for all buttons
+| * Extract a generic Button class from the DownloadButton one
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">The developer might want to rebase those commits to a newer
+    <b>master</b> while keeping the branch topology, for example when the first
+    topic branch is expected to be integrated into <b>master</b> much earlier
+    than the second one, say, to resolve merge conflicts with changes to the
+    DownloadButton class that made it into <b>master</b>.</p>
+<p class="Pp">This rebase can be performed using the <b>--rebase-merges</b>
+    option. It will generate a todo list looking like this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+label onto
+# Branch: refactor-button
+reset onto
+pick 123456 Extract a generic Button class from the DownloadButton one
+pick 654321 Use the Button class for all buttons
+label refactor-button
+# Branch: report-a-bug
+reset refactor-button # Use the Button class for all buttons
+pick abcdef Add the feedback button
+label report-a-bug
+reset onto
+merge -C a1b2c3 refactor-button # Merge 'refactor-button'
+merge -C 6f5e4d report-a-bug # Merge 'report-a-bug'
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">In contrast to a regular interactive rebase, there are
+    <b>label</b>, <b>reset</b> and <b>merge</b> commands in addition to
+    <b>pick</b> ones.</p>
+<p class="Pp">The <b>label</b> command associates a label with the current HEAD
+    when that command is executed. These labels are created as worktree-local
+    refs (<b>refs/rewritten/&lt;label&gt;</b>) that will be deleted when the
+    rebase finishes. That way, rebase operations in multiple worktrees linked to
+    the same repository do not interfere with one another. If the <b>label</b>
+    command fails, it is rescheduled immediately, with a helpful message how to
+    proceed.</p>
+<p class="Pp">The <b>reset</b> command resets the HEAD, index and worktree to
+    the specified revision. It is similar to an <b>exec git reset --hard
+    &lt;label&gt;</b>, but refuses to overwrite untracked files. If the
+    <b>reset</b> command fails, it is rescheduled immediately, with a helpful
+    message how to edit the todo list (this typically happens when a
+    <b>reset</b> command was inserted into the todo list manually and contains a
+    typo).</p>
+<p class="Pp">The <b>merge</b> command will merge the specified revision(s) into
+    whatever is HEAD at that time. With <b>-C &lt;original-commit&gt;</b>, the
+    commit message of the specified merge commit will be used. When the
+    <b>-C</b> is changed to a lower-case <b>-c</b>, the message will be opened
+    in an editor after a successful merge so that the user can edit the
+  message.</p>
+<p class="Pp">If a <b>merge</b> command fails for any reason other than merge
+    conflicts (i.e. when the merge operation did not even start), it is
+    rescheduled immediately.</p>
+<p class="Pp">At this time, the <b>merge</b> command will <b>always</b> use the
+    <b>recursive</b> merge strategy for regular merges, and <b>octopus</b> for
+    octopus merges, with no way to choose a different one. To work around this,
+    an <b>exec</b> command can be used to call <b>git merge</b> explicitly,
+    using the fact that the labels are worktree-local refs (the ref
+    <b>refs/rewritten/onto</b> would correspond to the label <b>onto</b>, for
+    example).</p>
+<p class="Pp">Note: the first command (<b>label onto</b>) labels the revision
+    onto which the commits are rebased; The name <b>onto</b> is just a
+    convention, as a nod to the <b>--onto</b> option.</p>
+<p class="Pp">It is also possible to introduce completely new merge commits from
+    scratch by adding a command of the form <b>merge &lt;merge-head&gt;</b>.
+    This form will generate a tentative commit message and always open an editor
+    to let the user edit it. This can be useful e.g. when a topic branch turns
+    out to address more than a single concern and wants to be split into two or
+    even more topic branches. Consider this todo list:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+pick 192837 Switch from GNU Makefiles to CMake
+pick 5a6c7e Document the switch to CMake
+pick 918273 Fix detection of OpenSSL in CMake
+pick afbecd http: add support for TLS v1.3
+pick fdbaec Fix detection of cURL in CMake on Windows
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">The one commit in this list that is not related to CMake may very
+    well have been motivated by working on fixing all those bugs introduced by
+    switching to CMake, but it addresses a different concern. To split this
+    branch into two topic branches, the todo list could be edited like this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+label onto
+pick afbecd http: add support for TLS v1.3
+label tlsv1.3
+reset onto
+pick 192837 Switch from GNU Makefiles to CMake
+pick 918273 Fix detection of OpenSSL in CMake
+pick fdbaec Fix detection of cURL in CMake on Windows
+pick 5a6c7e Document the switch to CMake
+label cmake
+reset onto
+merge tlsv1.3
+merge cmake
+</pre>
+</div>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+The todo list presented by <b>--preserve-merges --interactive</b> does not
+  represent the topology of the revision graph. Editing commits and rewording
+  their commit messages should work fine, but attempts to reorder commits tend
+  to produce counterintuitive results. Use <b>--rebase-merges</b> in such
+  scenarios instead.
+<p class="Pp">For example, an attempt to rearrange</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+1 --- 2 --- 3 --- 4 --- 5
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">to</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+1 --- 2 --- 4 --- 3 --- 5
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">by moving the &quot;pick 4&quot; line will result in the following
+    history:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+        3
+       /
+1 --- 2 --- 4 --- 5
+</pre>
+</div>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="GIT"><a class="permalink" href="#GIT">GIT</a></h1>
+Part of the <b>git</b>(1) suite
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES_2"><a class="permalink" href="#NOTES_2">NOTES</a></h1>
+<dl class="Bl-tag">
+  <dt> 1.</dt>
+  <dd>revert-a-faulty-merge How-To</dd>
+</dl>
+<div class="Bd-indent">git-htmldocs/howto/revert-a-faulty-merge.html</div>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">02/24/2019</td>
+    <td class="foot-os">Git 2.21.0</td>
+  </tr>
+</table>
+</body>
+</html>

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   Copyright (c) 2014 Apple Inc. All rights reserved.
+ -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>os_trace(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">os_trace(3)</td>
+    <td class="head-vol">Library Functions Manual</td>
+    <td class="head-rtitle">os_trace(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">os_trace</code>, <code class="Nm">os_trace_debug</code>,
+  <code class="Nm">os_trace_error</code>, <code class="Nm">os_trace_fault</code>
+  &#x2014;
+<div class="Nd">trace message for the current activity</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<code class="In">#include &lt;<a class="In">os/trace.h</a>&gt;</code>
+<p class="Pp"><var class="Ft">void</var>
+  <br/>
+  <code class="Fn">os_trace</code>(<var class="Fa" style="white-space: nowrap;">const
+    char *format</var>,
+  <var class="Fa" style="white-space: nowrap;">...</var>);</p>
+<p class="Pp"><var class="Ft">void</var>
+  <br/>
+  <code class="Fn">os_trace_debug</code>(<var class="Fa" style="white-space: nowrap;">const
+    char *format</var>,
+  <var class="Fa" style="white-space: nowrap;">...</var>);</p>
+<p class="Pp"><var class="Ft">void</var>
+  <br/>
+  <code class="Fn">os_trace_error</code>(<var class="Fa" style="white-space: nowrap;">const
+    char *format</var>,
+  <var class="Fa" style="white-space: nowrap;">...</var>);</p>
+<p class="Pp"><var class="Ft">void</var>
+  <br/>
+  <code class="Fn">os_trace_fault</code>(<var class="Fa" style="white-space: nowrap;">const
+    char *format</var>,
+  <var class="Fa" style="white-space: nowrap;">...</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+This interface is deprecated and replaced by <a class="Xr">os_log(3)</a>.
+<p class="Pp"><code class="Nm">os_trace</code> and its variants use a
+    memory-only buffer to store the provided trace message. Trace messages are
+    correlated based on a new identifier assigned when an activity is created by
+    the system, see <a class="Xr">os_activity_initiate(3)</a>. The identifier is
+    automatically carried across GCD and XPC boundaries. This identifier
+    provides a correlation point for intra and inter-process work based on that
+    activity.</p>
+<p class="Pp">Trace messages should never be done in tight loops as they may
+    overrun the buffer pushing relevant trace messages out. Loss of those
+    entries reduces the effectiveness of the trace mechanism.</p>
+<p class="Pp">The API was designed to prevent strings from being recorded in the
+    buffers for performance and privacy protection. See
+    <a class="Xr">os_log(3)</a> for string and object support, among other
+    features. The os_trace API set only supports scalar types (float,double,
+    etc.). All unsupported types will emit UNSUP to the trace output. The format
+    string length does not factor into the trace buffer memory, although there
+    is a maximum supported length of 100 characters.</p>
+<p class="Pp">Inappropriate use of strings in messages:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+os_trace(&quot;user %s logged in from hostname %s&quot;, username, host);
+</pre>
+</div>
+<p class="Pp">Will output:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+user UNSUP logged in from hostname UNSUP
+</pre>
+</div>
+<p class="Pp">There are four (4) types of trace messages: default, debug, error,
+    and fault.</p>
+<p class="Pp"><code class="Nm">os_trace</code> is a &quot;default&quot; trace
+    message. The default category of messages are always recorded into the
+    memory buffers regardless of the state of the process. Limit use to messages
+    that would help diagnose a failure, crash, etc.</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+os_trace(&quot;issue query for record type: %d, timeout: %d&quot;, recType, timeout);
+</pre>
+</div>
+<p class="Pp"><code class="Nm">os_trace_debug</code> is a &quot;debug&quot;
+    trace message. The debug category of messages are only recorded if the
+    process is under a debugger or is specifically requested to include debug
+    messages. Debug messages should be used for development use while debugging
+    a problem.</p>
+<p class="Pp"><code class="Nm">os_trace_error</code> is an &quot;error&quot;
+    trace message. The error category of messages should be used when a process
+    encounters a soft-error (i.e., an unexpected error that was successfully
+    avoided).</p>
+<p class="Pp"><code class="Nm">os_trace_fault</code> is a &quot;fault&quot;
+    trace message. The fault category of messages should be used when a process
+    is about to crash or would otherwise crash but recovered. This call causes a
+    collection of all buffers related to activity that triggered the fault. The
+    buffers are analyzed and may be provided in crash/spin reports.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+Example use of trace messages.
+<div class="Bd Pp Bd-indent">
+<pre>
+#include &lt;os/trace.h&gt;
+#include &lt;pwd.h&gt;
+
+uid_t uid;
+
+os_trace(&quot;looking up user %d&quot;, uid);
+struct passwd *pwd = getpwuid(uid);
+if (pwd == NULL) {
+    os_trace_error(&quot;failed to lookup user %d&quot;, uid);
+    return ENOENT;
+}
+
+error = _openPref(pwd-&gt;pw_name, pwd-&gt;pw_dir);
+if (error) {
+    os_trace_error(&quot;failed to open prefs %d&quot;, error);
+    return error;
+}
+</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
+Please note that os_trace is printf-like, but not printf-compatible. Format
+  specifiers should be exactly matched to the types of the arguments being used
+  to fill them.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">os_activity_initiate(3)</a>, <a class="Xr">os_log(3)</a>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">June 2, 2016</td>
+    <td class="foot-os">Darwin</td>
+  </tr>
+</table>
+</body>
+</html>

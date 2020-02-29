@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+  
+   The contents of this file constitute Original Code as defined in and
+   are subject to the Apple Public Source License Version 1.1 (the
+   "License").  You may not use this file except in compliance with the
+   License.  Please obtain a copy of the License at
+   http://www.apple.com/publicsource and read it before using this file.
+  
+   This Original Code and all software distributed under the License are
+   distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+   EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+   INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+   License for the specific language governing rights and limitations
+   under the License.
+  
+       @(#)searchfs.2
+ -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>SEARCHFS(2)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SEARCHFS(2)</td>
+    <td class="head-vol">System Calls Manual</td>
+    <td class="head-rtitle">SEARCHFS(2)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">searchfs</code> &#x2014;
+<div class="Nd">search a volume quickly</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<code class="In">#include <a class="In">&lt;sys/attr.h&gt;</a></code>
+<br/>
+<code class="In">#include <a class="In">&lt;unistd.h&gt;</a></code>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">searchfs</code>(<var class="Fa" style="white-space: nowrap;">const
+    char* path</var>, <var class="Fa" style="white-space: nowrap;">struct
+    fssearchblock* searchBlock</var>,
+    <var class="Fa" style="white-space: nowrap;">unsigned long*
+    numMatches</var>, <var class="Fa" style="white-space: nowrap;">unsigned int
+    scriptCode</var>, <var class="Fa" style="white-space: nowrap;">unsigned int
+    options</var>, <var class="Fa" style="white-space: nowrap;">struct
+    searchstate* state</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The <code class="Fn">searchfs</code>() function searches the volume (that is,
+  mounted file system) specified by <var class="Fa">path</var> for file system
+  objects matching the criteria specified by <var class="Fa">searchBlock</var>,
+  <var class="Fa">scriptCode</var>, and <var class="Fa">options</var>. The
+  <var class="Fa">numMatches</var> parameter returns the number of matching file
+  system objects found. The function also returns attributes of those file
+  system objects in a buffer specified by <var class="Fa">searchBlock</var>. The
+  <var class="Fa">searchState</var> parameter allows you search the volume using
+  multiple calls to <code class="Fn">searchfs</code>(), resuming the search
+  where it left off. The routine will only return objects to which you have
+  access (that is, you have execute permissions on the directories leading to
+  this object from the root).
+<p class="Pp">The <var class="Fa">path</var> parameter must reference a valid
+    file system object on the volume to be searched. Typically the path is to
+    the volume's root directory. The entire volume is always searched. All
+    directories listed in the path name leading to this object must be
+    searchable.</p>
+<p class="Pp">The <var class="Fa">searchBlock</var> parameter is a pointer to an
+    <var class="Vt">fssearchblock</var> structure, as defined by
+    &#x27E8;<span class="Pa">sys/attr.h</span>&#x27E9; (shown below). You are
+    responsible for filling out all fields of this structure before calling the
+    function.</p>
+<div class="Bd Pp">
+<pre>
+struct fssearchblock {
+    struct attrlist *   returnattrs;
+    void *              returnbuffer;
+    size_t              returnbuffersize;
+    unsigned int        maxmatches;
+    struct timeval      timelimit;
+    void *              searchparams1;
+    size_t              sizeofsearchparams1;
+    void *              searchparams2;
+    size_t              sizeofsearchparams2;
+    struct attrlist     searchattrs;
+};
+</pre>
+</div>
+<p class="Pp">For information about the <var class="Vt">attrlist</var>
+    structure, see the discussion of <a class="Xr">getattrlist(2)</a>.</p>
+<p class="Pp">The fields of the <var class="Vt">fssearchblock</var> structure
+    are defined as follows.</p>
+<dl class="Bl-tag">
+  <dt>returnattrs</dt>
+  <dd><code class="Fn">searchfs</code>() can return arbitrary attributes of the
+      file system objects that meet the designated search criteria passed in via
+      <var class="Vt">searchparams1</var> and
+      <var class="Vt">searchparams2.</var> This field must point to an
+      <var class="Vt">attrlist</var> structure that specifies the attributes
+      that you want returned. To request an attribute you must set the
+      corresponding bit in the appropriate <var class="Vt">attrgroup_t</var>
+      field of the <var class="Vt">attrlist</var> structure. You are responsible
+      for filling out all fields of this structure before calling the function.
+      You must not request volume attributes.</dd>
+  <dt>returnbuffer</dt>
+  <dd><code class="Fn">searchfs</code>() places attributes of the matching file
+      system objects into this returned attributes buffer. The attributes for
+      any given object are grouped together and packed in exactly the same way
+      as they would be returned from <a class="Xr">getdirentriesattr(2)</a>. The
+      initial contents of this buffer are ignored.</dd>
+  <dt>returnbuffersize</dt>
+  <dd>Set this field to the size, in bytes, of the buffer pointed to by
+      <var class="Fa">returnbuffer</var>.</dd>
+  <dt>maxmatches</dt>
+  <dd>Specifies the maximum number of matches that you want this call to
+      <code class="Fn">searchfs</code>() to return.</dd>
+  <dt>timelimit</dt>
+  <dd>Specifies the maximum time that you want this call to
+      <code class="Fn">searchfs</code>() to run.
+    <p class="Pp">If you're implementing a volume format, you should impose your
+        own internal limit on the duration of this call to prevent a malicious
+        user program from monopolizing kernel resources.</p>
+  </dd>
+  <dt>searchparams1</dt>
+  <dd>Specifies the lower bound of the search criteria. This is discussed in
+      detail below. You must place attribute values into the buffer in the same
+      way as they would be returned by <a class="Xr">getattrlist(2)</a>, where
+      the <var class="Fa">searchattrs</var> field determines the exact layout of
+      the attribute values.</dd>
+  <dt>sizeofsearchparams1</dt>
+  <dd>Set this field to the size, in bytes, of the buffer pointed to by
+      <var class="Fa">searchparams1</var>.</dd>
+  <dt>searchparams2</dt>
+  <dd>Specifies the upper bound of the search criteria. This is discussed in
+      detail below. You must place attribute values into the buffer in the same
+      way as they would be returned by <a class="Xr">getattrlist(2)</a>, where
+      the <var class="Fa">searchattrs</var> field determines the exact layout of
+      the attribute values.</dd>
+  <dt>sizeofsearchparams2</dt>
+  <dd>Set this field to the size, in bytes, of the buffer pointed to by
+      <var class="Fa">searchparams2</var>.</dd>
+  <dt>searchattrs</dt>
+  <dd>Specifies the attributes that you want you use for your search criteria.
+      You are responsible for filling out all fields of this structure before
+      calling the function. To search for an attribute you must set the
+      corresponding bit in the appropriate <var class="Vt">attrgroup_t</var>
+      field of the <var class="Vt">attrlist</var> structure, and place the
+      appropriate values into the <var class="Fa">searchparam1</var> and
+      <var class="Fa">searchparam2</var> buffers. The attributes specified here
+      determine the format of those buffers. This is discussed in detail
+    below.</dd>
+</dl>
+<p class="Pp">The <var class="Fa">numMatches</var> parameter points to an
+    <var class="Vt">unsigned int</var> variable. The initial value of this
+    variable is ignored. On return, this variable contains the number of
+    matching file system objects found. The is always less than or equal to the
+    <var class="Fa">maxmatches</var> field of the
+    <var class="Fa">searchBlock</var> parameter. The attributes for the matching
+    objects have been placed into the returned attributes buffer.</p>
+<p class="Pp">The <var class="Fa">scriptCode</var> parameter is currently
+    ignored. You should always pass in the value 0x08000103, which corresponds
+    to the UTF-8 text encoding value defined by
+    &#x27E8;<span class="Pa">CarbonCore/TextCommon.h</span>&#x27E9;.</p>
+<p class="Pp">The <var class="Fa">options</var> parameter is a bit set that
+    controls the behaviour of <code class="Fn">searchfs</code>(). The following
+    option bits are defined.</p>
+<dl class="Bl-tag">
+  <dt>SRCHFS_START</dt>
+  <dd>If this bit is set, <code class="Fn">searchfs</code>() will ignore the
+      <var class="Fa">state</var> parameter and start a new search. Otherwise
+      <code class="Fn">searchfs</code>() assumes that
+      <var class="Fa">searchstate</var> is valid and attempts to resume a
+      previous search based on that state.</dd>
+  <dt>SRCHFS_MATCHPARTIALNAMES</dt>
+  <dd>If this bit is set, <code class="Fn">searchfs</code>() will consider
+      substrings to be successful matches when evaluating the
+      <code class="Dv">ATTR_CMN_NAME</code> attribute.</dd>
+  <dt>SRCHFS_MATCHDIRS</dt>
+  <dd>If this bit is set, <code class="Fn">searchfs</code>() will search for
+      directories that match the search criteria. To get meaningful results you
+      must specify either this bit or <code class="Dv">SRCHFS_MATCHFILES</code>,
+      or both.</dd>
+  <dt>SRCHFS_MATCHFILES</dt>
+  <dd>If this bit is set, <code class="Fn">searchfs</code>() will search for
+      files that match the search criteria. To get meaningful results you must
+      specify either this bit or <code class="Dv">SRCHFS_MATCHDIRS</code>, or
+      both.</dd>
+  <dt>SRCHFS_SKIPLINKS</dt>
+  <dd>If this bit is set, <code class="Fn">searchfs</code>() will only return
+      one reference for a hard linked file, rather than a reference for each
+      hard link to the file.
+    <p class="Pp">This option is not recommended for general development. Its
+        primary client is the <a class="Xr">quotacheck(2)</a> utility. Note that
+        not all filesystems that support <code class="Fn">searchfs</code>()
+        support this option and may return EINVAL if it is requested.</p>
+    <p class="Pp">This option is privileged (the caller's effective UID must be
+        0) and cannot be used if you request the
+        <code class="Dv">ATTR_CMN_NAME</code> or
+        <code class="Dv">ATTR_CMN_PAROBJID</code> attributes.</p>
+    <p class="Pp">Introduced with Darwin 7.0 (Mac OS X version 10.3).</p>
+  </dd>
+  <dt>SRCHFS_SKIPINVISIBLE</dt>
+  <dd>If this bit is set, <code class="Fn">searchfs</code>() will not match any
+      invisible file system objects (that is, objects whose
+      <code class="Dv">ATTR_CMN_FNDRINFO</code> attribute has bit 6 set in the
+      ninth byte) or any objects within invisible directories.
+    <p class="Pp">Introduced with Darwin 7.0 (Mac OS X version 10.3).</p>
+  </dd>
+  <dt>SRCHFS_SKIPPACKAGES</dt>
+  <dd>If this bit is set, <code class="Fn">searchfs</code>() will not match any
+      file system objects that are inside a package. A package is defined as a
+      directory whose extension matches one of the extensions that are
+      configured into the kernel by Launch Services.
+    <p class="Pp">Introduced with Darwin 7.0 (Mac OS X version 10.3).</p>
+  </dd>
+  <dt>SRCHFS_SKIPINAPPROPRIATE</dt>
+  <dd>If this bit is set, <code class="Fn">searchfs</code>() will not match any
+      file system objects that are within an inappropriate directory. The
+      current list of inappropriate directories contains one item: /System.
+    <p class="Pp">Introduced with Darwin 7.0 (Mac OS X version 10.3).</p>
+  </dd>
+  <dt>SRCHFS_NEGATEPARAMS</dt>
+  <dd>If this bit is set, <code class="Fn">searchfs</code>() will return all the
+      file system objects that do not match the search criteria.
+    <p class="Pp">Introduced with Darwin 7.0 (Mac OS X version 10.3).</p>
+  </dd>
+</dl>
+<p class="Pp">The <var class="Fa">state</var> parameter is a pointer to an
+    opaque data structure that <code class="Fn">searchfs</code>() uses to
+    maintain the state of a search between successive calls. In your first call
+    to <code class="Fn">searchfs</code>(), you specify the
+    <code class="Dv">SRCHFS_START</code> flag in the
+    <var class="Fa">options</var> parameter. This tells
+    <code class="Fn">searchfs</code>() that the search state is invalid and that
+    it should start a new search. When this call completes, it may have only
+    returned partial results; in that case, it will have updated the structure
+    pointed to by <var class="Fa">state</var>. If you call
+    <code class="Fn">searchfs</code>() again, this time without specifying the
+    <code class="Dv">SRCHFS_START</code> flag in the
+    <var class="Fa">options</var> parameter, it will resume the search where it
+    left off, using the search state that it previously stored in the state
+    structure. You do not need to explicitly dispose of this state.</p>
+<p class="Pp">The <code class="Fn">searchfs</code>() function returns
+    significant errors in the followings cases.</p>
+<ul class="Bl-bullet">
+  <li>If it has found as many objects as you requested in the
+      <var class="Fa">maxmatches</var> field of the
+      <var class="Fa">searchBlock</var> parameter, it will return
+      <code class="Dv">EAGAIN</code>.</li>
+  <li>If there is not enough space in the returned attributes buffer for the
+      first match, it will return <code class="Dv">ENOBUFS</code>. You should
+      allocate a larger returned attributes buffer and try again.
+      <var class="Fa">numMatches</var> will be zero in this case.</li>
+  <li>If the timeout expires it will return <code class="Dv">EAGAIN</code>.</li>
+  <li>If you attempt to resume a search (that is,
+      <code class="Dv">SRCHFS_START</code> is not specified in the
+      <var class="Fa">options</var> parameter) and the catalog has changed since
+      the last search, the function will return <code class="Dv">EBUSY</code>.
+      You must start your search again from the beginning.</li>
+</ul>
+<p class="Pp">If <code class="Fn">searchfs</code>() returns
+    <code class="Dv">EAGAIN</code>, the value in
+    <var class="Fa">numMatches</var> may be greater than zero. This is known as
+    a partial result. You should be sure to process these matches before calling
+    <code class="Fn">searchfs</code>() again.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEARCH_CRITERIA"><a class="permalink" href="#SEARCH_CRITERIA">SEARCH
+  CRITERIA</a></h1>
+You specify the search criteria using a combination of the
+  <var class="Fa">searchattrs</var>, <var class="Fa">searchparams1</var>,
+  <var class="Fa">sizeofsearchparams1,</var>
+  <var class="Fa">searchparams2</var>, and
+  <var class="Fa">sizeofsearchparams2</var> fields of the
+  <var class="Fa">searchBlock</var> parameter, and various flags in the
+  <var class="Fa">options</var> parameter. The <var class="Fa">searchattrs</var>
+  field determines the attributes considered when comparing a file system object
+  to the search criteria. You can specify that an attribute should be considered
+  by setting the corresponding bit in the appropriate
+  <var class="Vt">attrgroup_t</var> field of the <var class="Vt">attrlist</var>
+  structure. See the discussion of <a class="Xr">getattrlist(2)</a> for a
+  detailed description of this structure.
+<p class="Pp">The <var class="Fa">searchparams1</var>,
+    <var class="Fa">sizeofsearchparams1</var>,
+    <var class="Fa">searchparams2</var>, and
+    <var class="Fa">sizeofsearchparams2</var> fields specify the attribute
+    values that must be matched. The format of each of these buffers is
+    determined by the attributes that you're searching for. The values are
+    packed in exactly the same way as they would be returned from
+    <a class="Xr">getattrlist(2)</a>, including the leading
+    <var class="Vt">u_int32_t</var> length value. Note that the size of these
+    buffers must be bounded by SEARCHFS_MAX_SEARCHPARMS bytes, which is defined
+    in &lt;sys/attr.h&gt;.</p>
+<p class="Pp">The attribute values in the first and second search buffers form a
+    lower and upper bound for the search, respectively. These have different
+    meanings depending on the type of attribute.</p>
+<ul class="Bl-bullet">
+  <li>For string attributes (specifically <code class="Dv">ATTR_CMN_NAME</code>,
+      the object name), the value in the first search buffer is significant and
+      the value in the second search buffer is ignored. The string comparison is
+      either an exact match or a substring match depending on the
+      <code class="Dv">SRCHFS_MATCHPARTIALNAMES</code> flag in the
+      <var class="Fa">options</var> parameter.</li>
+  <li>For structured attributes (specifically
+      <code class="Dv">ATTR_CMN_FNDRINFO</code>, the Finder information), the
+      value from the file system object is masked (logical AND) with the value
+      in the second search buffer and then compared, byte for byte, against the
+      value in the first search buffer. If it is equal, the object is a
+    match.</li>
+  <li>For scalar attributes (all other attributes, for example,
+      <code class="Dv">ATTR_CMN_MODTIME</code>, the modification date), the
+      values in the first and second search buffers are literally a lower and
+      upper bound. An object matches the criteria if its value is greater than
+      or equal to the value in the first buffer and less than or equal to the
+      value in the second.</li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+Upon successful completion, a value of 0 is returned. This means that the entire
+  volume has been searched and all matches returned. Otherwise, a value of -1 is
+  returned and <var class="Va">errno</var> is set to indicate the error.
+<p class="Pp">See the discussion of the <code class="Dv">EAGAIN</code>,
+    <code class="Dv">ENOBUFS</code>, and <code class="Dv">EBUSY</code> error
+    codes above.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMPATIBILITY"><a class="permalink" href="#COMPATIBILITY">COMPATIBILITY</a></h1>
+Not all volumes support <code class="Fn">searchfs</code>(). You can test whether
+  a volume supports <code class="Fn">searchfs</code>() by using
+  <a class="Xr">getattrlist(2)</a> to get the volume capabilities attribute
+  <code class="Dv">ATTR_VOL_CAPABILITIES</code>, and then testing the
+  <code class="Dv">VOL_CAP_INT_SEARCHFS</code> flag.
+<p class="Pp">The <code class="Fn">searchfs</code>() function has been
+    undocumented for more than two years. In that time a number of volume format
+    implementations have been created without a proper specification for the
+    behaviour of this routine. You may encounter volume format implementations
+    with slightly different behaviour than what is described here. Your program
+    is expected to be tolerant of this variant behaviour.</p>
+<p class="Pp">If you're implementing a volume format that supports
+    <code class="Fn">searchfs</code>(), you should be careful to support the
+    behaviour specified by this document.</p>
+<p class="Pp">A bug in systems prior to Darwin 7.0 (Mac OS X version 10.3) makes
+    searching for the <code class="Dv">ATTR_CMN_BKUPTIME</code> attribute
+    tricky. The bug causes the attribute to consume two items in the search
+    attribute buffers, the first in the proper place and the second between
+    <code class="Dv">ATTR_CMN_FNDRINFO</code> and
+    <code class="Dv">ATTR_CMN_OWNERID</code>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ERRORS"><a class="permalink" href="#ERRORS">ERRORS</a></h1>
+<code class="Fn">searchfs</code>() will fail if:
+<dl class="Bl-tag">
+  <dt>[<a class="permalink" href="#ENOTSUP"><code class="Er" id="ENOTSUP">ENOTSUP</code></a>]</dt>
+  <dd>The volume does not support <code class="Fn">searchfs</code>().</dd>
+  <dt>[<a class="permalink" href="#ENOTDIR"><code class="Er" id="ENOTDIR">ENOTDIR</code></a>]</dt>
+  <dd>A component of the path prefix is not a directory.</dd>
+  <dt>[<a class="permalink" href="#ENAMETOOLONG"><code class="Er" id="ENAMETOOLONG">ENAMETOOLONG</code></a>]</dt>
+  <dd>A component of a path name exceeded <code class="Dv">NAME_MAX</code>
+      characters, or an entire path name exceeded
+      <code class="Dv">PATH_MAX</code> characters.</dd>
+  <dt>[<a class="permalink" href="#ENOENT"><code class="Er" id="ENOENT">ENOENT</code></a>]</dt>
+  <dd>The file system object does not exist.</dd>
+  <dt>[<a class="permalink" href="#EACCES"><code class="Er" id="EACCES">EACCES</code></a>]</dt>
+  <dd>Search permission is denied for a component of the path prefix.</dd>
+  <dt>[<a class="permalink" href="#ELOOP"><code class="Er" id="ELOOP">ELOOP</code></a>]</dt>
+  <dd>Too many symbolic links were encountered in translating the pathname.</dd>
+  <dt>[<a class="permalink" href="#EFAULT"><code class="Er" id="EFAULT">EFAULT</code></a>]</dt>
+  <dd>One of the pointer parameters points to an invalid address.</dd>
+  <dt>[<a class="permalink" href="#EINVAL"><code class="Er" id="EINVAL">EINVAL</code></a>]</dt>
+  <dd>The <var class="Fa">options</var> parameter contains an invalid flag or
+      sizeofsearchparams1/2 is greater than SEARCHFS_MAX_SEARCHPARMS (see
+      attr.h). Additionally, filesystems that do not support SRCHFS_SKIPLINKS
+      may return EINVAL if this search option is requested. EINVAL may also be
+      returned if you request attributes for either searching or to be returned
+      for matched entries if the filesystem does not support vending that
+      particular attribute.</dd>
+  <dt>[<a class="permalink" href="#EAGAIN"><code class="Er" id="EAGAIN">EAGAIN</code></a>]</dt>
+  <dd>The search terminated with partial results, either because
+      <var class="Fa">numMatches</var> has hit the limit specified by
+      <var class="Fa">maxmatches</var> or because the timeout expired. Process
+      the matches returned so far and then call
+      <code class="Fn">searchfs</code>() again to look for more.</dd>
+  <dt>[<a class="permalink" href="#ENOBUFS"><code class="Er" id="ENOBUFS">ENOBUFS</code></a>]</dt>
+  <dd>The returned attributes buffer is too small for the first match. You
+      should allocate a larger returned attributes buffer and try again.
+      <var class="Fa">numMatches</var> will be zero in this case.</dd>
+  <dt>[<a class="permalink" href="#EBUSY"><code class="Er" id="EBUSY">EBUSY</code></a>]</dt>
+  <dd>The search could not be resumed because the volume has changed.</dd>
+  <dt>[<a class="permalink" href="#EIO"><code class="Er" id="EIO">EIO</code></a>]</dt>
+  <dd>An I/O error occurred while reading from or writing to the file
+    system.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
+The list of attributes valid for searching and returning to the caller may be
+  substantially smaller than that of the <a class="Xr">getattrlist(2)</a> system
+  call. See the following lists for the currently available search criteria. In
+  general, a filesystem that supports <code class="Fn">searchfs</code>() will
+  typically supply per-item attributes for matched objects that are also
+  supported by the <a class="Xr">getdirentries(2)</a> system call. This varies
+  from filesystem to filesystem.
+<p class="Pp"></p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEARCH_ATTRIBUTES"><a class="permalink" href="#SEARCH_ATTRIBUTES">SEARCH
+  ATTRIBUTES</a></h1>
+The list of attributes that are valid as search criteria currently includes the
+  following list of attributes for a particular filesystem object.
+<p class="Pp"></p>
+<p class="Pp"></p>
+<ul class="Bl-item Bl-compact">
+  <li>ATTR_CMN_NAME</li>
+  <li>ATTR_CMN_OBJID</li>
+  <li>ATTR_CMN_PAROBJID</li>
+  <li>ATTR_CMN_CRTIME</li>
+  <li>ATTR_CMN_MODTIME</li>
+  <li>ATTR_CMN_CHGTIME</li>
+  <li>ATTR_CMN_ACCTIME</li>
+  <li>ATTR_CMN_BKUPTIME</li>
+  <li>ATTR_CMN_FNDRINFO</li>
+  <li>ATTR_CMN_BKUPTIME</li>
+  <li>ATTR_CMN_OWNERID</li>
+  <li>ATTR_CMN_GRPID</li>
+  <li>ATTR_CMN_ACCESSMASK</li>
+  <li>ATTR_CMN_FILEID</li>
+  <li>ATTR_CMN_PARENTID
+    <p class="Pp"></p>
+  </li>
+  <li>ATTR_DIR_ENTRYCOUNT
+    <p class="Pp"></p>
+  </li>
+  <li>ATTR_FILE_DATALENGTH</li>
+  <li>ATTR_FILE_DATAALLOCSIZE</li>
+  <li>ATTR_FILE_RSRCLENGTH</li>
+  <li>ATTR_FILE_RSRCALLOCSIZE</li>
+</ul>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_ATTRIBUTES"><a class="permalink" href="#RETURN_ATTRIBUTES">RETURN
+  ATTRIBUTES</a></h1>
+As mentioned above, the list of attributes that are available to be returned to
+  the caller vary by filesystem, but should include the following attributes, in
+  the following order. The buffer should be assumed to be packed similar to the
+  output buffer of the <a class="Xr">getattrlist(2)</a> system call. Note that
+  again, this list may be substantially smaller than what is available via
+  <a class="Xr">getattrlist(2)</a>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<ul class="Bl-item Bl-compact">
+  <li>ATTR_CMN_NAME</li>
+  <li>ATTR_CMN_DEVID</li>
+  <li>ATTR_CMN_FSID</li>
+  <li>ATTR_CMN_OBJTYPE</li>
+  <li>ATTR_CMN_OBJTAG</li>
+  <li>ATTR_CMN_OBJID</li>
+  <li>ATTR_CMN_OBJPERMANENTID</li>
+  <li>ATTR_CMN_PAROBJID</li>
+  <li>ATTR_CMN_SCRIPT</li>
+  <li>ATTR_CMN_CRTIME</li>
+  <li>ATTR_CMN_MODTIME</li>
+  <li>ATTR_CMN_CHGTIME</li>
+  <li>ATTR_CMN_ACCTIME</li>
+  <li>ATTR_CMN_BKUPTIME</li>
+  <li>ATTR_CMN_FNDRINFO</li>
+  <li>ATTR_CMN_OWNERID</li>
+  <li>ATTR_CMN_GRPID</li>
+  <li>ATTR_CMN_ACCESSMASK</li>
+  <li>ATTR_CMN_FLAGS</li>
+  <li>ATTR_CMN_USERACCESS</li>
+  <li>ATTR_CMN_FILEID</li>
+  <li>ATTR_CMN_PARENTID
+    <p class="Pp"></p>
+  </li>
+  <li>ATTR_DIR_LINKCOUNT</li>
+  <li>ATTR_DIR_ENTRYCOUNT</li>
+  <li>ATTR_DIR_MOUNTSTATUS
+    <p class="Pp"></p>
+  </li>
+  <li>ATTR_FILE_LINKCOUNT</li>
+  <li>ATTR_FILE_TOTALSIZE</li>
+  <li>ATTR_FILE_ALLOCSIZE</li>
+  <li>ATTR_FILE_IOBLOCKSIZE</li>
+  <li>ATTR_FILE_CLUMPSIZE</li>
+  <li>ATTR_FILE_DEVTYPE</li>
+  <li>ATTR_FILE_DATALENGTH</li>
+  <li>ATTR_FILE_DATAALLOCSIZE</li>
+  <li>ATTR_FILE_RSRCLENGTH</li>
+  <li>ATTR_FILE_RSRCALLOCSIZE</li>
+</ul>
+<p class="Pp"></p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+The following code searches a volume for files of the specified type and
+  creator.
+<div class="Bd Pp">
+<pre>
+#include &lt;assert.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;stddef.h&gt;
+#include &lt;string.h&gt;
+#include &lt;sys/attr.h&gt;
+#include &lt;sys/errno.h&gt;
+#include &lt;unistd.h&gt;
+
+typedef struct attrlist         attrlist_t;
+typedef struct fssearchblock    fssearchblock_t;
+typedef struct searchstate      searchstate_t;
+
+struct SearchAttrBuf {
+    u_int32_t       length;
+    char            finderInfo[32];
+};
+typedef struct SearchAttrBuf SearchAttrBuf;
+
+struct ResultAttrBuf {
+    u_int32_t       length;
+    attrreference_t name;
+    fsobj_id_t      parObjID;
+};
+typedef struct ResultAttrBuf ResultAttrBuf;
+
+enum {
+    kMatchesPerCall = 16
+};
+
+static int SearchFSDemo(
+    const char *volPath,
+    const char *type,
+    const char *creator
+)
+{
+    int             err;
+    fssearchblock_t searchBlock;
+    SearchAttrBuf   lower;
+    SearchAttrBuf   upper;
+    static const unsigned char kAllOnes[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
+    unsigned long   matchCount;
+    unsigned long   matchIndex;
+    unsigned int    options;
+    searchstate_t   state;
+    ResultAttrBuf * thisEntry;
+    attrlist_t      returnAttrList;
+    char            resultAttrBuf[  kMatchesPerCall
+                                  * (sizeof(ResultAttrBuf) + 64)];
+
+    // resultAttrBuf is big enough for kMatchesPerCall entries,
+    // assuming that the average name length is less than 64.
+
+    assert(strlen(type)    == 4);
+    assert(strlen(creator) == 4);
+
+
+    memset(&amp;searchBlock, 0, sizeof(searchBlock));
+    searchBlock.searchattrs.bitmapcount = ATTR_BIT_MAP_COUNT;
+    searchBlock.searchattrs.commonattr  = ATTR_CMN_FNDRINFO;
+
+
+    memset(&amp;lower, 0, sizeof(lower));
+    memset(&amp;upper, 0, sizeof(upper));
+    lower.length = sizeof(lower);
+    upper.length = sizeof(upper);
+    memcpy(&amp;lower.finderInfo[0], type,     4);
+    memcpy(&amp;lower.finderInfo[4], creator,  4);
+    memcpy(&amp;upper.finderInfo[0], kAllOnes, 4);
+    memcpy(&amp;upper.finderInfo[4], kAllOnes, 4);
+    searchBlock.searchparams1       = &amp;lower;
+    searchBlock.sizeofsearchparams1 = sizeof(lower);
+    searchBlock.searchparams2       = &amp;upper;
+    searchBlock.sizeofsearchparams2 = sizeof(lower);
+
+
+    searchBlock.timelimit.tv_sec  = 0;
+    searchBlock.timelimit.tv_usec = 100 * 1000;
+
+
+    searchBlock.maxmatches = kMatchesPerCall;
+
+
+    memset(&amp;returnAttrList, 0, sizeof(returnAttrList));
+    returnAttrList.bitmapcount = ATTR_BIT_MAP_COUNT;
+    returnAttrList.commonattr  = ATTR_CMN_NAME | ATTR_CMN_PAROBJID;
+
+    searchBlock.returnattrs = &amp;returnAttrList;
+    searchBlock.returnbuffer = resultAttrBuf;
+    searchBlock.returnbuffersize = sizeof(resultAttrBuf);
+
+
+    options = SRCHFS_START | SRCHFS_MATCHFILES;
+
+
+    do {
+        err = searchfs(
+            volPath,
+            &amp;searchBlock,
+            &amp;matchCount,
+            0x08000103,
+            options,
+            &amp;state
+        );
+        if (err != 0) {
+            err = errno;
+        }
+        if ( (err == 0) || (err == EAGAIN) ) {
+            thisEntry = (ResultAttrBuf *) resultAttrBuf;
+
+
+            for (matchIndex = 0; matchIndex &lt; matchCount; matchIndex++) {
+                printf(&quot;%08x &quot;, thisEntry-&gt;parObjID.fid_objno);
+                printf(
+                    &quot;%s\n&quot;,
+                    ((char *) &amp;thisEntry-&gt;name)
+                        + thisEntry-&gt;name.attr_dataoffset
+                );
+                // Advance to the next entry.
+                ((char *) thisEntry) += thisEntry-&gt;length;
+            }
+        }
+
+
+        options &amp;= ~SRCHFS_START;
+    } while (err == EAGAIN);
+
+
+    return err;
+}
+</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">getattrlist(2)</a>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+A <code class="Fn">searchfs</code>() function call appeared in Darwin 1.3.1 (Mac
+  OS X version 10.0).
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">November 16, 2017</td>
+    <td class="foot-os">Darwin</td>
+  </tr>
+</table>
+</body>
+</html>

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+  	$FreeBSD: src/usr.sbin/rtadvd/rtadvd.8,v 1.3.2.6 2001/08/16 15:56:30 ru Exp $
+  	$KAME: rtadvd.8,v 1.24 2002/05/31 16:16:08 jinmei Exp $
+  
+   Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
+   All rights reserved.
+  
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions
+   are met:
+   1. Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+   2. Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+   3. Neither the name of the project nor the names of its contributors
+      may be used to endorse or promote products derived from this software
+      without specific prior written permission.
+  
+   THIS SOFTWARE IS PROVIDED BY THE PROJECT AND CONTRIBUTORS ``AS IS'' AND
+   ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+   ARE DISCLAIMED.  IN NO EVENT SHALL THE PROJECT OR CONTRIBUTORS BE LIABLE
+   FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+   OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+   OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+   SUCH DAMAGE.
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>RTADVD(8)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">RTADVD(8)</td>
+    <td class="head-vol">System Manager's Manual</td>
+    <td class="head-rtitle">RTADVD(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">rtadvd</code> &#x2014;
+<div class="Nd">router advertisement daemon</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">rtadvd</code></td>
+    <td>[<code class="Fl">-dDfMRs</code>] [<code class="Fl">-c</code>
+      <var class="Ar">configfile</var>] [<code class="Fl">-F</code>
+      <var class="Ar">dumpfile</var>] [<code class="Fl">-p</code>
+      <var class="Ar">pidfile</var>] <var class="Ar">interface ...</var></td>
+  </tr>
+</table>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<code class="Nm">rtadvd</code> sends router advertisement packets to the
+  specified <var class="Ar">interfaces</var>.
+<p class="Pp">The program will daemonize itself on invocation. It will then send
+    router advertisement packets periodically, as well as in response to router
+    solicitation messages sent by end hosts.</p>
+<p class="Pp">Router advertisements can be configured on a per-interface basis,
+    as described in <a class="Xr">rtadvd.conf(5)</a>.</p>
+<p class="Pp">If there is no configuration file entry for an interface, or if
+    the configuration file does not exist altogether,
+    <code class="Nm">rtadvd</code> sets all the parameters to their default
+    values. In particular, <code class="Nm">rtadvd</code> reads all the
+    interface routes from the routing table and advertises them as on-link
+    prefixes.</p>
+<p class="Pp"><code class="Nm">rtadvd</code> also watches the routing table. If
+    an interface direct route is added on an advertising interface and no static
+    prefixes are specified by the configuration file,
+    <code class="Nm">rtadvd</code> adds the corresponding prefix to its
+    advertising list.</p>
+<p class="Pp">Similarly, when an interface direct route is deleted,
+    <code class="Nm">rtadvd</code> will start advertising the prefixes with zero
+    valid and preferred lifetimes to help the receiving hosts switch to a new
+    prefix when renumbering. Note, however, that the zero valid lifetime cannot
+    invalidate the autoconfigured addresses at a receiving host immediately.
+    According to the specification, the host will retain the address for a
+    certain period, which will typically be two hours. The zero lifetimes rather
+    intend to make the address deprecated, indicating that a new non-deprecated
+    address should be used as the source address of a new connection. This
+    behavior will last for two hours. Then <code class="Nm">rtadvd</code> will
+    completely remove the prefix from the advertising list, and succeeding
+    advertisements will not contain the prefix information.</p>
+<p class="Pp">Moreover, if the status of an advertising interface changes,
+    <code class="Nm">rtadvd</code> will start or stop sending router
+    advertisements according to the latest status.</p>
+<p class="Pp">The <code class="Fl">-s</code> option may be used to disable this
+    behavior; <code class="Nm">rtadvd</code> will not watch the routing table
+    and the whole functionality described above will be suppressed.</p>
+<p class="Pp">Basically, hosts MUST NOT send Router Advertisement messages at
+    any time (RFC 2461, Section 6.2.3). However, it would sometimes be useful to
+    allow hosts to advertise some parameters such as prefix information and link
+    MTU. Thus, <code class="Nm">rtadvd</code> can be invoked if router lifetime
+    is explicitly set zero on every advertising interface.</p>
+<p class="Pp">The command line options are:</p>
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#c"><code class="Fl" id="c">-c</code></a></dt>
+  <dd>Specify an alternate location, <var class="Ar">configfile</var>, for the
+      configuration file. By default, <span class="Pa">/etc/rtadvd.conf</span>
+      is used.</dd>
+  <dt><a class="permalink" href="#d"><code class="Fl" id="d">-d</code></a></dt>
+  <dd>Print debugging information.</dd>
+  <dt><a class="permalink" href="#D"><code class="Fl" id="D">-D</code></a></dt>
+  <dd>Even more debugging information is printed.</dd>
+  <dt><a class="permalink" href="#f"><code class="Fl" id="f">-f</code></a></dt>
+  <dd>This option is now deprecated and ignored.</dd>
+  <dt><a class="permalink" href="#F"><code class="Fl" id="F">-F</code></a></dt>
+  <dd>Specify an alternative file in which to dump internal states when
+      <code class="Nm">rtadvd</code> receives signal
+      <code class="Dv">SIGUSR1</code>. The default is
+      <span class="Pa">/var/run/rtadvd.dump</span>.</dd>
+  <dt><a class="permalink" href="#M"><code class="Fl" id="M">-M</code></a></dt>
+  <dd>Specify an interface to join the all-routers site-local multicast group.
+      By default, <code class="Nm">rtadvd</code> tries to join the first
+      advertising interface appearing on the command line. This option has
+      meaning only with the <code class="Fl">-R</code> option, which enables
+      routing renumbering protocol support.</dd>
+  <dt><a class="permalink" href="#p"><code class="Fl" id="p">-p</code></a></dt>
+  <dd>Specify an alternative file in which to store the process ID. The default
+      is <span class="Pa">/var/run/rtadvd.pid.</span></dd>
+  <dt><a class="permalink" href="#R"><code class="Fl" id="R">-R</code></a></dt>
+  <dd>Accept router renumbering requests. If you enable it, certain IPsec setup
+      is suggested for security reasons. This option is currently disabled, and
+      is ignored by <code class="Nm">rtadvd</code> with a warning message.</dd>
+  <dt><a class="permalink" href="#s"><code class="Fl" id="s">-s</code></a></dt>
+  <dd>Do not add or delete prefixes dynamically. Only statically configured
+      prefixes, if any, will be advertised.</dd>
+</dl>
+<p class="Pp">Upon receipt of signal <code class="Dv">SIGUSR1</code>,
+    <code class="Nm">rtadvd</code> will dump the current internal state into
+    <span class="Pa">/var/run/rtadvd.dump</span> or the file specified with
+    option <code class="Fl">-F</code>.</p>
+<p class="Pp">Use <code class="Dv">SIGTERM</code> to kill
+    <code class="Nm">rtadvd</code> gracefully. In this case,
+    <code class="Nm">rtadvd</code> will transmit router advertisement with
+    router lifetime 0 to all the interfaces (in accordance with RFC2461
+  6.2.5).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag Bl-compact">
+  <dt><span class="Pa">/etc/rtadvd.conf</span></dt>
+  <dd>The default configuration file.</dd>
+  <dt><span class="Pa">/var/run/rtadvd.pid</span></dt>
+  <dd>The default process ID file.</dd>
+  <dt><span class="Pa">/var/run/rtadvd.dump</span></dt>
+  <dd>The default file in which <code class="Nm">rtadvd</code> dumps its
+      internal state.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT
+  STATUS</a></h1>
+The <code class="Nm">rtadvd</code> utility exits&#x00A0;0 on success,
+  and&#x00A0;&gt;0 if an error occurs.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">rtadvd.conf(5)</a>, <a class="Xr">rtsol(8)</a>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+The <code class="Nm">rtadvd</code> command first appeared in the WIDE Hydrangea
+  IPv6 protocol stack kit.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+There used to be some text that recommended users not to let
+  <code class="Nm">rtadvd</code> advertise Router Advertisement messages on an
+  upstream link to avoid undesirable <a class="Xr">icmp6(4)</a> redirect
+  messages. However, based on the later discussion in the IETF ipng working
+  group, all routers should rather advertise the messages regardless of the
+  network topology, in order to ensure reachability.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">August 27, 2011</td>
+    <td class="foot-os">Mac OS X 10.15</td>
+  </tr>
+</table>
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>SLAPO-UNIQUE(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SLAPO-UNIQUE(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">SLAPO-UNIQUE(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+slapo-unique - Attribute Uniqueness overlay to slapd
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+/etc/openldap/slapd.conf
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The Attribute Uniqueness overlay can be used with a backend database such as
+  <b>slapd-bdb</b>(5) to enforce the uniqueness of some or all attributes within
+  a scope. This subtree defaults to all objects within the subtree of the
+  database for which the Uniqueness overlay is configured.
+<p class="Pp">Uniqueness is enforced by searching the subtree to ensure that the
+    values of all attributes presented with an <b>add</b>, <b>modify</b> or
+    <b>modrdn</b> operation are unique within the scope. For example, if
+    uniqueness were enforced for the <b>uid</b> attribute, the subtree would be
+    searched for any other records which also have a <b>uid</b> attribute
+    containing the same value. If any are found, the request is rejected.</p>
+<p class="Pp">The search is performed using the rootdn of the database, to avoid
+    issues with ACLs preventing the overlay from seeing all of the relevant
+    data. As such, the database must have a rootdn configured.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION"><a class="permalink" href="#CONFIGURATION">CONFIGURATION</a></h1>
+These <b>slapd.conf</b> options apply to the Attribute Uniqueness overlay. They
+  should appear after the <b>overlay</b> directive.
+<dl class="Bl-tag">
+  <dt><b>unique_uri &lt;[strict ][ignore ]URI[URI...]...&gt;</b></dt>
+  <dd>Configure the base, attributes, scope, and filter for uniqueness checking.
+      Multiple URIs may be specified within a domain, allowing complex
+      selections of objects. Multiple <b>unique_uri</b> statements or
+      <b>olcUniqueURI</b> attributes will create independent domains, each with
+      their own independent lists of URIs and ignore/strict settings.
+    <p class="Pp">Keywords <b>strict</b> and <b>ignore</b> have to be enclosed
+        in quotes (&quot;) together with the URI.</p>
+    <p class="Pp">The LDAP URI syntax is a subset of <b>RFC-4516,</b> and takes
+        the form:</p>
+    <p class="Pp">ldap:///[base dn]?[attributes...]?scope[?filter]</p>
+    <p class="Pp">The <b>base dn</b> defaults to that of the back-end database.
+        Specified base dns must be within the subtree of the back-end
+      database.</p>
+    <p class="Pp">If no <b>attributes</b> are specified, the URI applies to all
+        non-operational attributes.</p>
+    <p class="Pp">The <b>scope</b> component is effectively mandatory, because
+        LDAP URIs default to <b>base</b> scope, which is not valid for
+        uniqueness, because groups of one object are always unique. Scopes of
+        <b>sub</b> (for subtree) and <b>one</b> for one-level are valid.</p>
+    <p class="Pp">The <b>filter</b> component causes the domain to apply
+        uniqueness constraints only to matching objects. e.g.
+        <b>ldap:///?cn?sub?(sn=e*)</b> would require unique <b>cn</b> attributes
+        for all objects in the subtree of the back-end database whose <b>sn</b>
+        starts with an e.</p>
+    <p class="Pp">It is possible to assert uniqueness upon all non-operational
+        attributes except those listed by prepending the keyword <b>ignore</b>
+        If not configured, all non-operational (e.g., system) attributes must be
+        unique. Note that the <b>attributes</b> list of an <b>ignore</b> URI
+        should generally contain the <b>objectClass</b>, <b>dc</b>, <b>ou</b>
+        and <b>o</b> attributes, as these will generally not be unique, nor are
+        they operational attributes.</p>
+    <p class="Pp">It is possible to set strict checking for the uniqueness
+        domain by prepending the keyword <b>strict.</b> By default, uniqueness
+        is not enforced for null values. Enabling <b>strict</b> mode extends the
+        concept of uniqueness to include null values, such that only one
+        attribute within a subtree will be allowed to have a null value.
+        Strictness applies to all URIs within a uniqueness domain, but some
+        domains may be strict while others are not.</p>
+  </dd>
+</dl>
+<p class="Pp">It is not possible to set both URIs and legacy slapo-unique
+    configuration parameters simultaneously. In general, the legacy
+    configuration options control pieces of a single unfiltered subtree
+  domain.</p>
+<dl class="Bl-tag">
+  <dt><b>unique_base &lt;basedn&gt;</b></dt>
+  <dd>This legacy configuration parameter should be converted to the <b>base
+      dn</b> component of the above <b>unique_uri</b> style of parameter.</dd>
+  <dt><b>unique_ignore &lt;attribute...&gt;</b></dt>
+  <dd>This legacy configuration parameter should be converted to a
+      <b>unique_uri</b> parameter with <b>ignore</b> keyword as described
+    above.</dd>
+  <dt><b>unique_attributes &lt;attribute...&gt;</b></dt>
+  <dd>This legacy configuration parameter should be converted to a
+      <b>unique_uri</b> parameter, as described above.</dd>
+  <dt><b>unique_strict &lt;attribute...&gt;</b></dt>
+  <dd>This legacy configuration parameter should be converted to a <b>strict</b>
+      keyword prepended to a <b>unique_uri</b> parameter, as described
+    above.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
+<b>unique_uri</b> cannot be used with the old-style of configuration, and vice
+  versa. <b>unique_uri</b> can implement everything the older system can do,
+  however.
+<p class="Pp">Typical attributes for the <b>ignore ldap:///...</b> URIs are
+    intentionally not hardcoded into the overlay to allow for maximum
+    flexibility in meeting site-specific requirements.</p>
+<p class="Pp">Replication and operations with <b>manageDsaIt</b> control are
+    allowed to bypass this enforcement. It is therefore important that all
+    servers accepting writes have this overlay configured in order to maintain
+    uniqueness in a replicated DIT.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt>/etc/openldap/slapd.conf</dt>
+  <dd>default slapd configuration file</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>slapd.conf</b>(5), <b>slapd-config</b>(5).
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2011/11/24</td>
+    <td class="foot-os">OpenLDAP 2.4.28</td>
+  </tr>
+</table>
+</body>
+</html>

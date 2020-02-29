@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   Generated from file '/Library/Caches/com.apple.xbs/Sources/tcl/tcl-128/tcl_ext/tcllib/tcllib/modules/grammar_me/me_vm.man' by tcllib/doctools with format 'nroff'
+   Copyright (c) 2005 Andreas Kupries <andreas_kupries@users.sourceforge.net>
+  
+   The definitions below are for supplemental macros used in Tcl/Tk
+   manual entries.
+  
+   .AP type name in/out ?indent?
+  	Start paragraph describing an argument to a library procedure.
+  	type is type of argument (int, etc.), in/out is either "in", "out",
+  	or "in/out" to describe whether procedure reads or modifies arg,
+  	and indent is equivalent to second arg of .IP (shouldn't ever be
+  	needed;  use .AS below instead)
+  
+   .AS ?type? ?name?
+  	Give maximum sizes of arguments for setting tab stops.  Type and
+  	name are examples of largest possible arguments that will be passed
+  	to .AP later.  If args are omitted, default tab stops are used.
+  
+   .BS
+  	Start box enclosure.  From here until next .BE, everything will be
+  	enclosed in one large box.
+  
+   .BE
+  	End of box enclosure.
+  
+   .CS
+  	Begin code excerpt.
+  
+   .CE
+  	End code excerpt.
+  
+   .VS ?version? ?br?
+  	Begin vertical sidebar, for use in marking newly-changed parts
+  	of man pages.  The first argument is ignored and used for recording
+  	the version when the .VS was added, so that the sidebars can be
+  	found and removed when they reach a certain age.  If another argument
+  	is present, then a line break is forced before starting the sidebar.
+  
+   .VE
+  	End of vertical sidebar.
+  
+   .DS
+  	Begin an indented unfilled display.
+  
+   .DE
+  	End of indented unfilled display.
+  
+   .SO
+  	Start of list of standard options for a Tk widget.  The
+  	options follow on successive lines, in four columns separated
+  	by tabs.
+  
+   .SE
+  	End of list of standard options for a Tk widget.
+  
+   .OP cmdName dbName dbClass
+  	Start of description of a specific option.  cmdName gives the
+  	option's name as specified in the class command, dbName gives
+  	the option's name in the option database, and dbClass gives
+  	the option's class in the option database.
+  
+   .UL arg1 arg2
+  	Print arg1 underlined, then print arg2 normally.
+  
+   RCS: @(#) $Id: man.macros,v 1.1 2009/01/30 04:56:47 andreas_kupries Exp $
+  
+  	# Set up traps and other miscellaneous stuff for Tcl/Tk man pages.
+  	# Start an argument description
+  .b
+  	# define tabbing values for .AP
+  
+  	# BS - start boxed text
+  	# ^y = starting y location
+  	# ^b = 1
+  	# BE - end boxed text (draw box now)
+  	Draw four-sided box normally, but don't draw top of
+  	box if the box started on an earlier page.
+  	# VS - start vertical sidebar
+  	# ^Y = starting y location
+  	# ^v = 1 (for troff;  for nroff this doesn't matter)
+  	# VE - end of vertical sidebar
+  	# Special macro to handle page bottom:  finish off current
+  	# box/sidebar if in box/sidebar mode, then invoked standard
+  	# page bottom macro.
+  	Draw three-sided box if this is the box's first page,
+  	draw two sides but no top otherwise.
+  	# DS - begin display
+  	# DE - end display
+  	# SO - start of list of standard options
+  	# SE - end of list of standard options
+  	# OP - start of full description for a single option
+  	# CS - begin code excerpt
+  	# CE - end code excerpt
+ -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>grammar::me_vm(n)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">grammar::me_vm(n)</td>
+    <td class="head-vol">Grammar operations and usage</td>
+    <td class="head-rtitle">grammar::me_vm(n)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<pre>
+
+</pre>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+grammar::me_vm - Virtual machine for parsing token streams
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+Please go and read the document <b>grammar::me_intro</b> first for an overview
+  of the various documents and their relations.
+<p class="Pp">This document specifies a virtual machine for the controlled
+    matching and parsing of token streams, creating an <i>abstract syntax
+    tree</i> (short <i>AST</i>) reflecting the structure of the input. Special
+    machine features are the caching and reuse of partial results, caching of
+    the encountered input, and the ability to backtrack in both input and AST
+    creation.</p>
+<p class="Pp">These features make the specified virtual machine especially
+    useful to packrat parsers based on parsing expression grammars. It is
+    however not restricted to this type of parser. Normal LL and LR parsers can
+    be implemented with it as well.</p>
+<p class="Pp">The following sections will discuss first the abstract state kept
+    by ME virtual machines, and then their instruction set.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MACHINE_STATE"><a class="permalink" href="#MACHINE_STATE">MACHINE
+  STATE</a></h1>
+A ME virtual machine manages the following state:
+<dl class="Bl-tag">
+  <dt><i>Current token</i> CT</dt>
+  <dd>The token from the input under consideration by the machine.
+    <p class="Pp">This information is used and modified by the instructions
+        defined in the section <b>TERMINAL MATCHING</b>.</p>
+  </dd>
+  <dt><i>Current location</i> CL</dt>
+  <dd>The location of the <i>current token</i> in the input stream, as offset
+      relative to the beginning of the stream. The first token is considered to
+      be at offset <b>0</b>.
+    <p class="Pp">This information is implicitly used and modified by the
+        instructions defined in the sections <b>TERMINAL MATCHING</b> and
+        <b>NONTERMINAL MATCHING</b>, and can be directly queried and modified by
+        the instructions defined in section <b>INPUT LOCATION HANDLING</b>.</p>
+  </dd>
+  <dt><i>Location stack</i> LS</dt>
+  <dd>In addition to the above a stack of locations, for backtracking. Locations
+      can put on the stack, removed from it, and removed with setting the
+      current location.
+    <p class="Pp">This information is implicitly used and modified by the
+        instructions defined in the sections <b>TERMINAL MATCHING</b> and
+        <b>NONTERMINAL MATCHING</b>, and can be directly queried and modified by
+        the instructions defined in section <b>INPUT LOCATION HANDLING</b>.</p>
+  </dd>
+  <dt><i>Match status</i> OK</dt>
+  <dd>A boolean value, the result of the last attempt at matching input. It is
+      set to <b>true</b> if that attempt was successful, and <b>false</b>
+      otherwise.
+    <p class="Pp">This information is influenced by the instructions defined in
+        the sections <b>TERMINAL MATCHING</b>, <b>NONTERMINAL MATCHING</b>, and
+        <b>UNCONDITIONAL MATCHING</b>. It is queried by the instructions defined
+        in the section <b>CONTROL FLOW</b>.</p>
+  </dd>
+  <dt><i>Semantic value</i> SV</dt>
+  <dd>The semantic value associated with (generated by) the last attempt at
+      matching input. Contains either the empty string or a node for the
+      abstract syntax tree constructed from the input.
+    <p class="Pp">This information is influenced by the instructions defined in
+        the sections <b>SEMANTIC VALUES</b>, and <b>AST STACK HANDLING</b>.</p>
+  </dd>
+  <dt><i>AST stack</i> AS</dt>
+  <dd>A stack of partial abstract syntax trees constructed by the machine during
+      matching.
+    <p class="Pp">This information is influenced by the instructions defined in
+        the sections <b>SEMANTIC VALUES</b>, and <b>AST STACK HANDLING</b>.</p>
+  </dd>
+  <dt><i>AST Marker stack</i> MS</dt>
+  <dd>In addition to the above a stack of stacks, for backtracking. This is
+      actually a stack of markers into the AST stack, thus implicitly
+      snapshooting the state of the AST stack at some point in time. Markers can
+      be put on the stack, dropped from it, and used to roll back the AST stack
+      to an earlier state.
+    <p class="Pp">This information is influenced by the instructions defined in
+        the sections <b>SEMANTIC VALUES</b>, and <b>AST STACK HANDLING</b>.</p>
+  </dd>
+  <dt><i>Error status</i> ER</dt>
+  <dd>Error information associated with the last attempt at matching input.
+      Contains either the empty string or a list of 2 elements, a location in
+      the input and a list of error messages associated with it, in this order.
+    <p class="Pp"><i>Note</i> that error information can be set even if the last
+        attempt at matching input was successful. For example the *-operator
+        (matching a sub-expression zero or more times) in a parsing expression
+        grammar is always successful, even if it encounters a problem further in
+        the input and has to backtrack. Such problems must not be forgotten when
+        continuing to match.</p>
+    <p class="Pp">This information is queried and influenced by the instructions
+        defined in the sections <b>TERMINAL MATCHING</b>, <b>NONTERMINAL
+        MATCHING</b>, and <b>ERROR HANDLING</b>.</p>
+  </dd>
+  <dt><i>Error stack</i> ES</dt>
+  <dd>In addition to the above a stack of error information, to allow the
+      merging of current and older error information when performing
+      backtracking in choices after an unsucessful match.
+    <p class="Pp">This information is queried and influenced by the instructions
+        defined in the sections <b>TERMINAL MATCHING</b>, <b>NONTERMINAL
+        MATCHING</b>, and <b>ERROR HANDLING</b>.</p>
+  </dd>
+  <dt><i>Return stack</i> RS</dt>
+  <dd>A stack of program counter values, i.e. locations in the code controlling
+      the virtual machine, for the management of subroutine calls, i.e. the
+      matching of nonterminal symbols.
+    <p class="Pp">This information is queried and influenced by the instructions
+        defined in the section <b>NONTERMINAL MATCHING</b>.</p>
+  </dd>
+  <dt><i>Nonterminal cache</i> NC</dt>
+  <dd>A cache of machine states (A 4-tuple containing a location in the input,
+      match status <i>OK</i>, semantic value <i>SV</i>, and error status
+      <i>ER</i>) keyed by name of nonterminal symbol and location in the input
+      stream.
+    <p class="Pp">The key location is where machine started the attempt to match
+        the named nonterminal symbol, and the location in the value is where
+        machine ended up after the attempt completed, independent of the success
+        of the attempt.</p>
+    <p class="Pp">This status is queried and influenced by the instructions
+        defined in the section <b>NONTERMINAL MATCHING</b>.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MACHINE_INSTRUCTIONS"><a class="permalink" href="#MACHINE_INSTRUCTIONS">MACHINE
+  INSTRUCTIONS</a></h1>
+With the machine state specified it is now possible to explain the instruction
+  set of ME virtual machines. They are grouped roughly by the machine state they
+  influence and/or query.
+<section class="Ss">
+<h2 class="Ss" id="TERMINAL_MATCHING"><a class="permalink" href="#TERMINAL_MATCHING">TERMINAL
+  MATCHING</a></h2>
+First the instructions to match tokens from the input stream, and by extension
+  all terminal symbols.
+<p class="Pp">These instructions are the only ones which may retrieve a new
+    token from the input stream. This is a <i>may</i> and not a <i>will</i>
+    because the instructions will a retrieve new token if, and only if the
+    current location <i>CL</i> is at the head of the stream. If the machine has
+    backtracked (see <b>icl_rewind</b>) the instructions will retrieve the token
+    to compare against from the internal cache.</p>
+<dl class="Bl-tag">
+  <dt><b>ict_advance</b> <i>message</i></dt>
+  <dd>This instruction tries to advance to the next token in the input stream,
+      i.e. the one after the current location <i>CL</i>. The instruction will
+      fail if, and only if the end of the input stream is reached, i.e. if there
+      is no next token.
+    <p class="Pp">The sucess/failure of the instruction is remembered in the
+        match status <i>OK</i>. In the case of failure the error status
+        <i>ER</i> is set to the current location and the message <i>message</i>.
+        In the case of success the error status <i>ER</i> is cleared, the new
+        token is made the current token <i>CT</i>, and the new location is made
+        the current location <i>CL</i>.</p>
+    <p class="Pp">The argument <i>message</i> is a reference to the string to
+        put into the error status <i>ER</i>, if such is needed.</p>
+  </dd>
+  <dt><b>ict_match_token</b> <i>tok</i> <i>message</i></dt>
+  <dd>This instruction tests the current token <i>CT</i> for equality with the
+      argument <i>tok</i> and records the result in the match status <i>OK</i>.
+      The instruction fails if the current token is not equal to <i>tok</i>.
+    <p class="Pp">In case of failure the error status <i>ER</i> is set to the
+        current location <i>CL</i> and the message <i>message</i>, and the
+        current location <i>CL</i> is moved one token backwards. Otherwise, i.e.
+        upon success, the error status <i>ER</i> is cleared and the current
+        location <i>CL</i> is not touched.</p>
+  </dd>
+  <dt><b>ict_match_tokrange</b> <i>tokbegin</i> <i>tokend</i>
+    <i>message</i></dt>
+  <dd>This instruction tests the current token <i>CT</i> for being in the range
+      of tokens from <i>tokbegin</i> to <i>tokend</i> (inclusive) and records
+      the result in the match status <i>OK</i>. The instruction fails if the
+      current token is not inside the range.
+    <p class="Pp">In case of failure the error status <i>ER</i> is set to the
+        current location <i>CL</i> and the message <i>message</i>, and the
+        current location <i>CL</i> is moved one token backwards. Otherwise, i.e.
+        upon success, the error status <i>ER</i> is cleared and the current
+        location <i>CL</i> is not touched.</p>
+  </dd>
+  <dt><b>ict_match_tokclass</b> <i>code</i> <i>message</i></dt>
+  <dd>This instruction tests the current token <i>CT</i> for being a member of
+      the token class <i>code</i> and records the result in the match status
+      <i>OK</i>. The instruction fails if the current token is not a member of
+      the specified class.
+    <p class="Pp">In case of failure the error status <i>ER</i> is set to the
+        current location <i>CL</i> and the message <i>message</i>, and the
+        current location <i>CL</i> is moved one token backwards. Otherwise, i.e.
+        upon success, the error status <i>ER</i> is cleared and the current
+        location <i>CL</i> is not touched.</p>
+    <p class="Pp">Currently the following classes are legal:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>alnum</dt>
+  <dd>A token is accepted if it is a unicode alphabetical character, or a
+    digit.</dd>
+  <dt>alpha</dt>
+  <dd>A token is accepted if it is a unicode alphabetical character.</dd>
+  <dt>digit</dt>
+  <dd>A token is accepted if it is a unicode digit character.</dd>
+  <dt>xdigit</dt>
+  <dd>A token is accepted if it is a hexadecimal digit character.</dd>
+  <dt>punct</dt>
+  <dd>A token is accepted if it is a unicode punctuation character.</dd>
+  <dt>space</dt>
+  <dd>A token is accepted if it is a unicode space character.</dd>
+</dl>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="NONTERMINAL_MATCHING"><a class="permalink" href="#NONTERMINAL_MATCHING">NONTERMINAL
+  MATCHING</a></h2>
+The instructions in this section handle the matching of nonterminal symbols.
+  They query the nonterminal cache <i>NC</i> for saved information, and put such
+  information into the cache.
+<p class="Pp">The usage of the cache is a performance aid for backtracking
+    parsers, allowing them to avoid an expensive rematch of complex nonterminal
+    symbols if they have been encountered before.</p>
+<dl class="Bl-tag">
+  <dt><b>inc_restore</b> <i>branchlabel</i> <i>nt</i></dt>
+  <dd>This instruction checks if the nonterminal cache <i>NC</i> contains
+      information about the nonterminal symbol <i>nt</i>, at the current
+      location <i>CL</i>. If that is the case the instruction will update the
+      machine state (current location <i>CL</i>, match status <i>OK</i>,
+      semantic value <i>SV</i>, and error status <i>ER</i>) with the found
+      information and continue execution at the instruction refered to by the
+      <i>branchlabel</i>. The new current location <i>CL</i> will be the last
+      token matched by the nonterminal symbol, i.e. belonging to it.
+    <p class="Pp">If no information was found the instruction will continue
+        execution at the next instruction.</p>
+    <p class="Pp">Together with <b>icf_ntcall</b> it is possible to generate
+        code for memoized and non-memoized matching of nonterminal symbols,
+        either as subroutine calls, or inlined in the caller.</p>
+  </dd>
+  <dt><b>inc_save</b> <i>nt</i></dt>
+  <dd>This instruction saves the current state of the machine (current location
+      <i>CL</i>, match status <i>OK</i>, semantic value <i>SV</i>, and error
+      status <i>ER</i>), to the nonterminal cache <i>NC</i>. It will also pop an
+      entry from the location stack <i>LS</i> and save it as the start location
+      of the match.
+    <p class="Pp">It is expected to be called at the end of matching a
+        nonterminal symbol, with <i>nt</i> the name of the nonterminal symbol
+        the code was working on. This allows the instruction <b>inc_restore</b>
+        to check for and retrieve the data, should we have to match this
+        nonterminal symbol at the same location again, during backtracking.</p>
+  </dd>
+  <dt><b>icf_ntcall</b> <i>branchlabel</i></dt>
+  <dd>This instruction invokes the code for matching the nonterminal symbol
+      <i>nt</i> as a subroutine. To this end it stores the current program
+      counter <i>PC</i> on the return stack <i>RS</i>, the current location
+      <i>CL</i> on the location stack <i>LS</i>, and then continues execution at
+      the address <i>branchlabel</i>.
+    <p class="Pp">The next matching <b>icf_ntreturn</b> will cause the execution
+        to continue at the instruction coming after the call.</p>
+  </dd>
+  <dt><b>icf_ntreturn</b></dt>
+  <dd>This instruction will pop an entry from the return stack <i>RS</i>, assign
+      it to the program counter <i>PC</i>, and then continue execution at the
+      new address.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="UNCONDITIONAL_MATCHING"><a class="permalink" href="#UNCONDITIONAL_MATCHING">UNCONDITIONAL
+  MATCHING</a></h2>
+The instructions in this section are the remaining match operators. They change
+  the match status <i>OK</i> directly and unconditionally.
+<dl class="Bl-tag">
+  <dt><b>iok_ok</b></dt>
+  <dd>This instruction sets the match status <i>OK</i> to <b>true</b>,
+      indicating a successful match.</dd>
+  <dt><b>iok_fail</b></dt>
+  <dd>This instruction sets the match status <i>OK</i> to <b>false</b>,
+      indicating a failed match.</dd>
+  <dt><b>iok_negate</b></dt>
+  <dd>This instruction negates the match status <i>OK</i>, turning a failure
+      into a success and vice versa.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="CONTROL_FLOW"><a class="permalink" href="#CONTROL_FLOW">CONTROL
+  FLOW</a></h2>
+The instructions in this section implement both conditional and unconditional
+  control flow. The conditional jumps query the match status <i>OK</i>.
+<dl class="Bl-tag">
+  <dt><b>icf_jalways</b> <i>branchlabel</i></dt>
+  <dd>This instruction sets the program counter <i>PC</i> to the address
+      specified by <i>branchlabel</i> and then continues execution from there.
+      This is an unconditional jump.</dd>
+  <dt><b>icf_jok</b> <i>branchlabel</i></dt>
+  <dd>This instruction sets the program counter <i>PC</i> to the address
+      specified by <i>branchlabel</i>. This happens if, and only if the match
+      status <i>OK</i> indicates a success. Otherwise it simply continues
+      execution at the next instruction. This is a conditional jump.</dd>
+  <dt><b>icf_jfail</b> <i>branchlabel</i></dt>
+  <dd>This instruction sets the program counter <i>PC</i> to the address
+      specified by <i>branchlabel</i>. This happens if, and only if the match
+      status <i>OK</i> indicates a failure. Otherwise it simply continues
+      execution at the next instruction. This is a conditional jump.</dd>
+  <dt><b>icf_halt</b></dt>
+  <dd>This instruction halts the machine and blocks any further execution.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="INPUT_LOCATION_HANDLING"><a class="permalink" href="#INPUT_LOCATION_HANDLING">INPUT
+  LOCATION HANDLING</a></h2>
+The instructions in this section are for backtracking, they manipulate the
+  current location <i>CL</i> of the machine state. They allow a user of the
+  machine to query and save locations in the input, and to rewind the current
+  location <i>CL</i> to saved locations, making them one of the components
+  enabling the implementation of backtracking parsers.
+<dl class="Bl-tag">
+  <dt><b>icl_push</b></dt>
+  <dd>This instruction pushes a copy of the current location <i>CL</i> on the
+      location stack <i>LS</i>.</dd>
+  <dt><b>icl_rewind</b></dt>
+  <dd>This instruction pops an entry from the location stack <i>LS</i> and then
+      moves the current location <i>CL</i> back to this point in the input.</dd>
+  <dt><b>icl_pop</b></dt>
+  <dd>This instruction pops an entry from the location stack <i>LS</i> and
+      discards it.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="ERROR_HANDLING"><a class="permalink" href="#ERROR_HANDLING">ERROR
+  HANDLING</a></h2>
+The instructions in this section provide read and write access to the error
+  status <i>ER</i> of the machine.
+<dl class="Bl-tag">
+  <dt><b>ier_push</b></dt>
+  <dd>This instruction pushes a copy of the current error status <i>ER</i> on
+      the error stack <i>ES</i>.</dd>
+  <dt><b>ier_clear</b></dt>
+  <dd>This instruction clears the error status <i>ER</i>.</dd>
+  <dt><b>ier_nonterminal</b> <i>message</i></dt>
+  <dd>This instruction checks if the error status <i>ER</i> contains an error
+      whose location is just past the location found in the top entry of the
+      location stack <i>LS</i>. Nothing happens if no such error is found.
+      Otherwise the found error is replaced by an error at the location found on
+      the stack, having the message <i>message</i>.</dd>
+  <dt><b>ier_merge</b></dt>
+  <dd>This instruction pops an entry from the error stack <i>ES</i>, merges it
+      with the current error status <i>ER</i> and stores the result of the merge
+      as the new error status <i>ER</i>.
+    <p class="Pp">The merge is performed as described below:</p>
+    <p class="Pp">If one of the two error states is empty the other is chosen.
+        If neither error state is empty, and refering to different locations,
+        then the error state with the location further in the input is chosen.
+        If both error states refer to the same location their messages are
+        merged (with removing duplicates).</p>
+  </dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="SEMANTIC_VALUES"><a class="permalink" href="#SEMANTIC_VALUES">SEMANTIC
+  VALUES</a></h2>
+The instructions in this section manipulate the semantic value <i>SV</i>.
+<dl class="Bl-tag">
+  <dt><b>isv_clear</b></dt>
+  <dd>This instruction clears the semantic value <i>SV</i>.</dd>
+  <dt><b>isv_terminal</b></dt>
+  <dd>This instruction creates a terminal AST node for the current token
+      <i>CT</i>, makes it the semantic value <i>SV</i>, and also pushes the node
+      on the AST stack <i>AS</i>.</dd>
+  <dt><b>isv_nonterminal_leaf</b> <i>nt</i></dt>
+  <dd>This instruction creates a nonterminal AST node without any children for
+      the nonterminal <i>nt</i>, and makes it the semantic value <i>SV</i>.
+    <p class="Pp">This instruction should be executed if, and only if the match
+        status <i>OK</i> indicates a success. In the case of a failure
+        <b>isv_clear</b> should be called.</p>
+  </dd>
+  <dt><b>isv_nonterminal_range</b> <i>nt</i></dt>
+  <dd>This instruction creates a nonterminal AST node for the nonterminal
+      <i>nt</i>, with a single terminal node as its child, and makes this AST
+      the semantic value <i>SV</i>. The terminal node refers to the input string
+      from the location found on top of the location stack <i>LS</i> to the
+      current location <i>CL</i> (both inclusive).
+    <p class="Pp">This instruction should be executed if, and only if the match
+        status <i>OK</i> indicates a success. In the case of a failure
+        <b>isv_clear</b> should be called.</p>
+  </dd>
+  <dt><b>isv_nonterminal_reduce</b> <i>nt</i></dt>
+  <dd>This instruction creates a nonterminal AST node for the nonterminal
+      <i>nt</i> and makes it the semantic value <i>SV</i>.
+    <p class="Pp">All entries on the AST stack <i>AS</i> above the marker found
+        in the top entry of the AST Marker stack <i>MS</i> become children of
+        the new node, with the entry at the stack top becoming the rightmost
+        child. If the AST Marker stack <i>MS</i> is empty the whole stack is
+        used. The AST marker stack <i>MS</i> is left unchanged.</p>
+    <p class="Pp">This instruction should be executed if, and only if the match
+        status <i>OK</i> indicates a success. In the case of a failure
+        <b>isv_clear</b> should be called.</p>
+  </dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="AST_STACK_HANDLING"><a class="permalink" href="#AST_STACK_HANDLING">AST
+  STACK HANDLING</a></h2>
+The instructions in this section manipulate the AST stack <i>AS</i>, and the AST
+  Marker stack <i>MS</i>.
+<dl class="Bl-tag">
+  <dt><b>ias_push</b></dt>
+  <dd>This instruction pushes the semantic value <i>SV</i> on the AST stack
+      <i>AS</i>.</dd>
+  <dt><b>ias_mark</b></dt>
+  <dd>This instruction pushes a marker for the current state of the AST stack
+      <i>AS</i> on the AST Marker stack <i>MS</i>.</dd>
+  <dt><b>ias_mrewind</b></dt>
+  <dd>This instruction pops an entry from the AST Marker stack <i>MS</i> and
+      then proceeds to pop entries from the AST stack <i>AS</i> until the state
+      represented by the popped marker has been reached again. Nothing is done
+      if the AST stack <i>AS</i> is already smaller than indicated by the popped
+      marker.</dd>
+  <dt><b>ias_mpop</b></dt>
+  <dd>This instruction pops an entry from the AST Marker stack <i>MS</i> and
+      discards it.</dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS,_IDEAS,_FEEDBACK"><a class="permalink" href="#BUGS,_IDEAS,_FEEDBACK">BUGS,
+  IDEAS, FEEDBACK</a></h1>
+This document, and the package it describes, will undoubtedly contain bugs and
+  other problems. Please report such in the category <i>grammar_me</i> of the
+  <i>Tcllib SF Trackers</i> [http://sourceforge.net/tracker/?group_id=12883].
+  Please also report any ideas for enhancements you may have for either package
+  and/or documentation.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="KEYWORDS"><a class="permalink" href="#KEYWORDS">KEYWORDS</a></h1>
+grammar, parsing, virtual machine
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CATEGORY"><a class="permalink" href="#CATEGORY">CATEGORY</a></h1>
+Grammars and finite automata
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<pre>
+Copyright (c) 2005 Andreas Kupries &lt;andreas_kupries@users.sourceforge.net&gt;
+</pre>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">0.1</td>
+    <td class="foot-os">grammar_me</td>
+  </tr>
+</table>
+</body>
+</html>

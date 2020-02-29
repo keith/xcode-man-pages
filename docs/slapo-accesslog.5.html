@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>SLAPO-ACCESSLOG(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SLAPO-ACCESSLOG(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">SLAPO-ACCESSLOG(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+slapo-accesslog - Access Logging overlay to slapd
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+/etc/openldap/slapd.conf
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The Access Logging overlay can be used to record all accesses to a given backend
+  database on another database. This allows all of the activity on a given
+  database to be reviewed using arbitrary LDAP queries, instead of just logging
+  to local flat text files. Configuration options are available for selecting a
+  subset of operation types to log, and to automatically prune older log records
+  from the logging database. Log records are stored with audit schema (see
+  below) to assure their readability whether viewed as LDIF or in raw form.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION"><a class="permalink" href="#CONFIGURATION">CONFIGURATION</a></h1>
+These <b>slapd.conf</b> options apply to the Access Logging overlay. They should
+  appear after the <b>overlay</b> directive.
+<dl class="Bl-tag">
+  <dt><b>logdb &lt;suffix&gt;</b></dt>
+  <dd>Specify the suffix of a database to be used for storing the log records.
+      The specified database must be defined elsewhere in the configuration. The
+      access controls on the log database should prevent general access. The
+      suffix entry of the log database will be created automatically by this
+      overlay. The log entries will be generated as the immediate children of
+      the suffix entry.</dd>
+  <dt><b>logops &lt;operations&gt;</b></dt>
+  <dd>Specify which types of operations to log. The valid operation types are
+      abandon, add, bind, compare, delete, extended, modify, modrdn, search, and
+      unbind. Aliases for common sets of operations are also available:</dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>writes</b></dt>
+  <dd>add, delete, modify, modrdn</dd>
+  <dt><b>reads</b></dt>
+  <dd>compare, search</dd>
+  <dt><b>session</b></dt>
+  <dd>abandon, bind, unbind</dd>
+  <dt><b>all</b></dt>
+  <dd>all operations</dd>
+</dl>
+</div>
+<dl class="Bl-tag">
+  <dt><b>logbase &lt;operations&gt; &lt;baseDN&gt;</b></dt>
+  <dd>Specify a set of operations that will only be logged if they occur under a
+      specific subtree of the database. The operation types are as above for the
+      <b>logops</b> setting, and delimited by a '|' character.</dd>
+  <dt><b>logold &lt;filter&gt;</b></dt>
+  <dd>Specify a filter for matching against Deleted and Modified entries. If the
+      entry matches the filter, the old contents of the entry will be logged
+      along with the current request.</dd>
+  <dt><b>logoldattr &lt;attr&gt; ...</b></dt>
+  <dd>Specify a list of attributes whose old contents are always logged in
+      Modify and ModRDN requests. Usually only the contents of attributes that
+      were actually modified will be logged; by default no old attributes are
+      logged for ModRDN requests.</dd>
+  <dt><b>logpurge &lt;age&gt; &lt;interval&gt;</b></dt>
+  <dd>Specify the maximum age for log entries to be retained in the database,
+      and how often to scan the database for old entries. Both the <b>age</b>
+      and <b>interval</b> are specified as a time span in days, hours, minutes,
+      and seconds. The time format is [ddd+]hh:mm[:ss] i.e., the days and
+      seconds components are optional but hours and minutes are required. Except
+      for days, which can be up to 5 digits, each numeric field must be exactly
+      two digits. For example</dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>logpurge 2+00:00 1+00:00</dt>
+  <dd></dd>
+</dl>
+</div>
+would specify that the log database should be scanned every day for old entries,
+  and entries older than two days should be deleted. When using a log database
+  that supports ordered indexing on generalizedTime attributes, specifying an eq
+  index on the <b>reqStart</b> attribute will greatly benefit the performance of
+  the purge operation.</div>
+<dl class="Bl-tag">
+  <dt><b>logsuccess TRUE | FALSE</b></dt>
+  <dd>If set to TRUE then log records will only be generated for successful
+      requests, i.e., requests that produce a result code of 0 (LDAP_SUCCESS).
+      If FALSE, log records are generated for all requests whether they succeed
+      or not. The default is FALSE.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<pre>
+	database bdb
+	suffix dc=example,dc=com
+	...
+	overlay accesslog
+	logdb cn=log
+	logops writes reads
+	logbase search|compare ou=testing,dc=example,dc=com
+	logold (objectclass=person)
+	database bdb
+	suffix cn=log
+	...
+	index reqStart eq
+	access to *
+	  by dn.base=&quot;cn=admin,dc=example,dc=com&quot; read
+</pre>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SCHEMA"><a class="permalink" href="#SCHEMA">SCHEMA</a></h1>
+The <b>accesslog</b> overlay utilizes the &quot;audit&quot; schema described
+  herein. This schema is specifically designed for <b>accesslog</b> auditing and
+  is not intended to be used otherwise. It is also noted that the schema
+  described here is <i>a work in</i> <i>progress</i>, and hence subject to
+  change without notice. The schema is loaded automatically by the overlay.
+<p class="Pp">The schema includes a number of object classes and associated
+    attribute types as described below.</p>
+<p class="Pp">There is a basic <b>auditObject</b> class from which two
+    additional classes, <b>auditReadObject</b> and <b>auditWriteObject</b> are
+    derived. Object classes for each type of LDAP operation are further derived
+    from these classes. This object class hierarchy is designed to allow
+    flexible yet efficient searches of the log based on either a specific
+    operation type's class, or on more general classifications. The definition
+    of the <b>auditObject</b> class is as follows:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">( 1.3.6.1.4.1.4203.666.11.5.2.1
+ NAME 'auditObject'
+ DESC 'OpenLDAP request auditing'
+ SUP top STRUCTURAL
+ MUST ( reqStart $ reqType $ reqSession )
+ MAY ( reqDN $ reqAuthzID $ reqControls $ reqRespControls $
+ reqEnd $ reqResult $ reqMessage $ reqReferral ) )</div>
+<p class="Pp">Note that all of the OIDs used in the logging schema currently
+    reside under the OpenLDAP Experimental branch. It is anticipated that they
+    will migrate to a Standard branch in the future.</p>
+<p class="Pp">An overview of the attributes follows: <b>reqStart</b> and
+    <b>reqEnd</b> provide the start and end time of the operation, respectively.
+    They use generalizedTime syntax. The <b>reqStart</b> attribute is also used
+    as the RDN for each log entry.</p>
+<p class="Pp">The <b>reqType</b> attribute is a simple string containing the
+    type of operation being logged, e.g. <b>add</b>, <b>delete</b>,
+    <b>search</b>, etc. For extended operations, the type also includes the OID
+    of the extended operation, e.g. <b>extended(1.1.1.1)</b></p>
+<p class="Pp">The <b>reqSession</b> attribute is an implementation-specific
+    identifier that is common to all the operations associated with the same
+    LDAP session. Currently this is slapd's internal connection ID, stored in
+    decimal.</p>
+<p class="Pp">The <b>reqDN</b> attribute is the distinguishedName of the target
+    of the operation. E.g., for a Bind request, this is the Bind DN. For an Add
+    request, this is the DN of the entry being added. For a Search request, this
+    is the base DN of the search.</p>
+<p class="Pp">The <b>reqAuthzID</b> attribute is the distinguishedName of the
+    user that performed the operation. This will usually be the same name as was
+    established at the start of a session by a Bind request (if any) but may be
+    altered in various circumstances.</p>
+<p class="Pp">The <b>reqControls</b> and <b>reqRespControls</b> attributes carry
+    any controls sent by the client on the request and returned by the server in
+    the response, respectively. The attribute values are just uninterpreted
+    octet strings.</p>
+<p class="Pp">The <b>reqResult</b> attribute is the numeric LDAP result code of
+    the operation, indicating either success or a particular LDAP error code. An
+    error code may be accompanied by a text error message which will be recorded
+    in the <b>reqMessage</b> attribute.</p>
+<p class="Pp">The <b>reqReferral</b> attribute carries any referrals that were
+    returned with the result of the request.</p>
+<p class="Pp">Operation-specific classes are defined with additional attributes
+    to carry all of the relevant parameters associated with the operation:</p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">( 1.3.6.1.4.1.4203.666.11.5.2.4
+ NAME 'auditAbandon'
+ DESC 'Abandon operation'
+ SUP auditObject STRUCTURAL
+ MUST reqId )</div>
+<p class="Pp">For the <b>Abandon</b> operation the <b>reqId</b> attribute
+    contains the message ID of the request that was abandoned.</p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">( 1.3.6.1.4.1.4203.666.11.5.2.5
+ NAME 'auditAdd'
+ DESC 'Add operation'
+ SUP auditWriteObject STRUCTURAL
+ MUST reqMod )</div>
+<p class="Pp">The <b>Add</b> class inherits from the <b>auditWriteObject</b>
+    class. The Add and Modify classes are very similar. The <b>reqMod</b>
+    attribute carries all of the attributes of the original entry being added.
+    (Or in the case of a Modify operation, all of the modifications being
+    performed.) The values are formatted as</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>attribute:&lt;+|-|=|#&gt; [ value]</dt>
+  <dd></dd>
+</dl>
+</div>
+<br/>
+Where '+' indicates an Add of a value, '-' for Delete, '=' for Replace, and '#'
+  for Increment. In an Add operation, all of the reqMod values will have the '+'
+  designator.
+<p class="Pp"></p>
+<div class="Bd-indent">( 1.3.6.1.4.1.4203.666.11.5.2.6
+ NAME 'auditBind'
+ DESC 'Bind operation'
+ SUP auditObject STRUCTURAL
+ MUST ( reqVersion $ reqMethod ) )</div>
+<p class="Pp">The <b>Bind</b> class includes the <b>reqVersion</b> attribute
+    which contains the LDAP protocol version specified in the Bind as well as
+    the <b>reqMethod</b> attribute which contains the Bind Method used in the
+    Bind. This will be the string <b>SIMPLE</b> for LDAP Simple Binds or
+    <b>SASL(&lt;mech&gt;)</b> for SASL Binds. Note that unless configured as a
+    global overlay, only Simple Binds using DNs that reside in the current
+    database will be logged.</p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">( 1.3.6.1.4.1.4203.666.11.5.2.7
+ NAME 'auditCompare'
+ DESC 'Compare operation'
+ SUP auditObject STRUCTURAL
+ MUST reqAssertion )</div>
+<p class="Pp">For the <b>Compare</b> operation the <b>reqAssertion</b> attribute
+    carries the Attribute Value Assertion used in the compare request.</p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">( 1.3.6.1.4.1.4203.666.11.5.2.8
+ NAME 'auditDelete'
+ DESC 'Delete operation'
+ SUP auditWriteObject STRUCTURAL
+ MAY reqOld )</div>
+<p class="Pp">The <b>Delete</b> operation needs no further parameters. However,
+    the <b>reqOld</b> attribute may optionally be used to record the contents of
+    the entry prior to its deletion. The values are formatted as</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>attribute: value</dt>
+  <dd></dd>
+</dl>
+</div>
+The <b>reqOld</b> attribute is only populated if the entry being deleted matches
+  the configured <b>logold</b> filter.
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">( 1.3.6.1.4.1.4203.666.11.5.2.9
+ NAME 'auditModify'
+ DESC 'Modify operation'
+ SUP auditWriteObject STRUCTURAL
+ MAY reqOld MUST reqMod )</div>
+<p class="Pp">The <b>Modify</b> operation contains a description of
+    modifications in the <b>reqMod</b> attribute, which was already described
+    above in the Add operation. It may optionally contain the previous contents
+    of any modified attributes in the <b>reqOld</b> attribute, using the same
+    format as described above for the Delete operation. The <b>reqOld</b>
+    attribute is only populated if the entry being modified matches the
+    configured <b>logold</b> filter.</p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">( 1.3.6.1.4.1.4203.666.11.5.2.10
+ NAME 'auditModRDN'
+ DESC 'ModRDN operation'
+ SUP auditWriteObject STRUCTURAL
+ MUST ( reqNewRDN $ reqDeleteOldRDN )
+ MAY ( reqNewSuperior $ reqOld ) )</div>
+<p class="Pp">The <b>ModRDN</b> class uses the <b>reqNewRDN</b> attribute to
+    carry the new RDN of the request. The <b>reqDeleteOldRDN</b> attribute is a
+    Boolean value showing <b>TRUE</b> if the old RDN was deleted from the entry,
+    or <b>FALSE</b> if the old RDN was preserved. The <b>reqNewSuperior</b>
+    attribute carries the DN of the new parent entry if the request specified
+    the new parent. The <b>reqOld</b> attribute is only populated if the entry
+    being modified matches the configured <b>logold</b> filter and contains
+    attributes in the <b>logoldattr</b> list.</p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">( 1.3.6.1.4.1.4203.666.11.5.2.11
+ NAME 'auditSearch'
+ DESC 'Search operation'
+ SUP auditReadObject STRUCTURAL
+ MUST ( reqScope $ reqDerefAliases $ reqAttrsOnly )
+ MAY ( reqFilter $ reqAttr $ reqEntries $ reqSizeLimit $
+ reqTimeLimit ) )</div>
+<p class="Pp">For the <b>Search</b> class the <b>reqScope</b> attribute contains
+    the scope of the original search request, using the values specified for the
+    LDAP URL format. I.e. <b>base</b>, <b>one</b>, <b>sub</b>, or <b>subord</b>.
+    The <b>reqDerefAliases</b> attribute is one of <b>never</b>, <b>finding</b>,
+    <b>searching</b>, or <b>always</b>, denoting how aliases will be processed
+    during the search. The <b>reqAttrsOnly</b> attribute is a Boolean value
+    showing <b>TRUE</b> if only attribute names were requested, or <b>FALSE</b>
+    if attributes and their values were requested. The <b>reqFilter</b>
+    attribute carries the filter used in the search request. The <b>reqAttr</b>
+    attribute lists the requested attributes if specific attributes were
+    requested. The <b>reqEntries</b> attribute is the integer count of how many
+    entries were returned by this search request. The <b>reqSizeLimit</b> and
+    <b>reqTimeLimit</b> attributes indicate what limits were requested on the
+    search operation.</p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">( 1.3.6.1.4.1.4203.666.11.5.2.12
+ NAME 'auditExtended'
+ DESC 'Extended operation'
+ SUP auditObject STRUCTURAL
+ MAY reqData )</div>
+<p class="Pp">The <b>Extended</b> class represents an LDAP Extended Operation.
+    As noted above, the actual OID of the operation is included in the
+    <b>reqType</b> attribute of the parent class. If any optional data was
+    provided with the request, it will be contained in the <b>reqData</b>
+    attribute as an uninterpreted octet string.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+The Access Log implemented by this overlay may be used for a variety of other
+  tasks, e.g. as a ChangeLog for a replication mechanism, as well as for
+  security/audit logging purposes.
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt>/etc/openldap/slapd.conf</dt>
+  <dd>default slapd configuration file</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>slapd.conf</b>(5), <b>slapd-config</b>(5).
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACKNOWLEDGEMENTS"><a class="permalink" href="#ACKNOWLEDGEMENTS">ACKNOWLEDGEMENTS</a></h1>
+This module was written in 2005 by Howard Chu of Symas Corporation.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2011/11/24</td>
+    <td class="foot-os">OpenLDAP 2.4.28</td>
+  </tr>
+</table>
+</body>
+</html>

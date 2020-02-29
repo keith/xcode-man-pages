@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   Copyright 1996 Massachusetts Institute of Technology
+  
+   Permission to use, copy, modify, and distribute this software and
+   its documentation for any purpose and without fee is hereby
+   granted, provided that both the above copyright notice and this
+   permission notice appear in all copies, that both the above
+   copyright notice and this permission notice appear in all
+   supporting documentation, and that the name of M.I.T. not be used
+   in advertising or publicity pertaining to distribution of the
+   software without specific, written prior permission.  M.I.T. makes
+   no representations about the suitability of this software for any
+   purpose.  It is provided "as is" without express or implied
+   warranty.
+  
+   THIS SOFTWARE IS PROVIDED BY M.I.T. ``AS IS''.  M.I.T. DISCLAIMS
+   ALL EXPRESS OR IMPLIED WARRANTIES WITH REGARD TO THIS SOFTWARE,
+   INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+   MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. IN NO EVENT
+   SHALL M.I.T. BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+   USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+   ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+   OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+   SUCH DAMAGE.
+  
+   $FreeBSD: /repoman/r/ncvs/src/share/man/man4/ifmib.4,v 1.20 2004/07/03 18:29:20 ru Exp $
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>IFMIB(4)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">IFMIB(4)</td>
+    <td class="head-vol">Device Drivers Manual</td>
+    <td class="head-rtitle">IFMIB(4)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">ifmib</code> &#x2014;
+<div class="Nd">Management Information Base for network interfaces</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<code class="In">#include &lt;<a class="In">sys/types.h</a>&gt;</code>
+<br/>
+<code class="In">#include &lt;<a class="In">sys/socket.h</a>&gt;</code>
+<br/>
+<code class="In">#include &lt;<a class="In">sys/sysctl.h</a>&gt;</code>
+<br/>
+<code class="In">#include &lt;<a class="In">sys/time.h</a>&gt;</code>
+<br/>
+<code class="In">#include &lt;<a class="In">net/if.h</a>&gt;</code>
+<br/>
+<code class="In">#include &lt;<a class="In">net/if_mib.h</a>&gt;</code>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The <code class="Nm">ifmib</code> facility is an application of the
+  <a class="Xr">sysctl(3)</a> interface to provide management information about
+  network interfaces to client applications such as
+  <a class="Xr">netstat(1)</a>, <a class="Xr">slstat(8)</a>, and SNMP management
+  agents. This information is structured as a table, where each row in the table
+  represents a logical network interface (either a hardware device or a software
+  pseudo-device like <a class="Xr">lo(4)</a>). There are two columns in the
+  table, each containing a single structure: one column contains generic
+  information relevant to all interfaces, and the other contains information
+  specific to the particular class of interface. (Generally the latter will
+  implement the SNMP MIB defined for that particular interface class, if one
+  exists and can be implemented in the kernel.)
+<p class="Pp">The <code class="Nm">ifmib</code> facility is accessed via the
+    &#x201C;<code class="Li">net.link.generic</code>&#x201D; branch of the
+    <a class="Xr">sysctl(3)</a> MIB. The manifest constants for each level in
+    the <a class="Xr">sysctl(3)</a> <var class="Ar">name</var> are defined in
+    <code class="In">&lt;<a class="In">net/if_mib.h</a>&gt;</code>. The index of
+    the last row in the table is given by
+    &#x201C;<code class="Li">net.link.generic.system.ifcount</code>&#x201D; (or,
+    using the manifest constants, <code class="Dv">CTL_NET</code>,
+    <code class="Dv">PF_LINK</code>, <code class="Dv">NETLINK_GENERIC</code>,
+    <code class="Dv">IFMIB_SYSTEM</code>,
+    <code class="Dv">IFMIB_IFCOUNT</code>). A management application searching
+    for a particular interface should start with row 1 and continue through the
+    table row-by-row until the desired interface is found, or the interface
+    count is reached. Note that the table may be sparse, i.e., a given row may
+    not exist, indicated by an <var class="Va">errno</var> of
+    <code class="Er">ENOENT</code>. Such an error should be ignored, and the
+    next row should be checked.</p>
+<p class="Pp">The generic interface information, common to all interfaces, can
+    be accessed via the following procedure:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+int
+get_ifmib_general(int row, struct ifmibdata *ifmd)
+{
+	int name[6];
+	size_t len;
+
+	name[0] = CTL_NET;
+	name[1] = PF_LINK;
+	name[2] = NETLINK_GENERIC;
+	name[3] = IFMIB_IFDATA;
+	name[4] = row;
+	name[5] = IFDATA_GENERAL;
+
+	len = sizeof(*ifmd);
+
+	return sysctl(name, 6, ifmd, &amp;len, (void *)0, 0);
+}
+</pre>
+</div>
+<p class="Pp">The fields in <code class="Li">struct ifmibdata</code> are as
+    follows:</p>
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#ifmd_name"><code class="Li" id="ifmd_name">ifmd_name</code></a></dt>
+  <dd>(<code class="Li">char []</code>) the name of the interface, including the
+      unit number</dd>
+  <dt><a class="permalink" href="#ifmd_pcount"><code class="Li" id="ifmd_pcount">ifmd_pcount</code></a></dt>
+  <dd>(<code class="Li">int</code>) the number of promiscuous listeners</dd>
+  <dt><a class="permalink" href="#ifmd_flags"><code class="Li" id="ifmd_flags">ifmd_flags</code></a></dt>
+  <dd>(<code class="Li">int</code>) the interface's flags (defined in
+      <code class="In">&lt;<a class="In">net/if.h</a>&gt;</code>)</dd>
+  <dt><a class="permalink" href="#ifmd_snd_len"><code class="Li" id="ifmd_snd_len">ifmd_snd_len</code></a></dt>
+  <dd>(<code class="Li">int</code>) the current instantaneous length of the send
+      queue</dd>
+  <dt><a class="permalink" href="#ifmd_snd_drops"><code class="Li" id="ifmd_snd_drops">ifmd_snd_drops</code></a></dt>
+  <dd>(<code class="Li">int</code>) the number of packets dropped at this
+      interface because the send queue was full</dd>
+  <dt><a class="permalink" href="#ifmd_data"><code class="Li" id="ifmd_data">ifmd_data</code></a></dt>
+  <dd>(<code class="Li">struct if_data</code>) more information from a structure
+      defined in <code class="In">&lt;<a class="In">net/if.h</a>&gt;</code> (see
+      <a class="Xr">if_data(9)</a>)</dd>
+</dl>
+<p class="Pp">Class-specific information can be retrieved by examining the
+    <code class="Dv">IFDATA_LINKSPECIFIC</code> column instead. Note that the
+    form and length of the structure will depend on the class of interface. For
+    <code class="Dv">IFT_ETHER</code>, <code class="Dv">IFT_ISO88023</code>, and
+    <code class="Dv">IFT_STARLAN</code> interfaces, the structure is called
+    &#x201C;<code class="Li">struct ifmib_iso_8802_3</code>&#x201D; (defined in
+    <code class="In">&lt;<a class="In">net/if_mib.h</a>&gt;</code>), and
+    implements a superset of the RFC 1650 MIB for Ethernet-like networks. For
+    <code class="Dv">IFT_SLIP</code>, the structure is a
+    &#x201C;<code class="Li">struct sl_softc</code>&#x201D;
+    (<code class="In">&lt;<a class="In">net/if_slvar.h</a>&gt;</code>).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">sysctl(3)</a>, <a class="Xr">intro(4)</a>,
+  <a class="Xr">ifnet(9)</a>
+<p class="Pp"><cite class="Rs"><span class="RsA">F. Kastenholz</span>,
+    <span class="RsT">Definitions of Managed Objects for the Ethernet-like
+    Interface Types Using SMIv2</span>, <span class="RsD">August 1994</span>,
+    <span class="RsO">RFC 1650</span>.</cite></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+Many Ethernet-like interfaces do not yet support the Ethernet MIB; the
+  interfaces known to support it include <a class="Xr">ed(4)</a> and
+  <a class="Xr">de(4)</a>. Regardless, all interfaces automatically support the
+  generic MIB.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+The <code class="Nm">ifmib</code> interface first appeared in
+  <span class="Ux">FreeBSD 2.2</span>.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">November 15, 1996</td>
+    <td class="foot-os">Mac OS X 10.15</td>
+  </tr>
+</table>
+</body>
+</html>

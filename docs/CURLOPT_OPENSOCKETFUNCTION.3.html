@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   **************************************************************************
+   *                                  _   _ ____  _
+   *  Project                     ___| | | |  _ \| |
+   *                             / __| | | | |_) | |
+   *                            | (__| |_| |  _ <| |___
+   *                             \___|\___/|_| \_\_____|
+   *
+   * Copyright (C) 1998 - 2017, Daniel Stenberg, <daniel@haxx.se>, et al.
+   *
+   * This software is licensed as described in the file COPYING, which
+   * you should have received as part of this distribution. The terms
+   * are also available at https://curl.haxx.se/docs/copyright.html.
+   *
+   * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+   * copies of the Software, and permit persons to whom the Software is
+   * furnished to do so, under the terms of the COPYING file.
+   *
+   * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+   * KIND, either express or implied.
+   *
+   **************************************************************************
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>CURLOPT_OPENSOCKETFUNCTION(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">CURLOPT_OPENSOCKETFUNCTION(3)</td>
+    <td class="head-vol">curl_easy_setopt options</td>
+    <td class="head-rtitle">CURLOPT_OPENSOCKETFUNCTION(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<p class="Pp"></p>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+CURLOPT_OPENSOCKETFUNCTION - set callback for opening sockets
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>
+#include &lt;curl/curl.h&gt;
+typedef enum  {
+  CURLSOCKTYPE_IPCXN,  /* socket created for a specific IP connection */
+  CURLSOCKTYPE_ACCEPT, /* socket created by accept() call */
+  CURLSOCKTYPE_LAST    /* never use */
+} curlsocktype;
+struct curl_sockaddr {
+  int family;
+  int socktype;
+  int protocol;
+  unsigned int addrlen;
+  struct sockaddr addr;
+};
+curl_socket_t opensocket_callback(void *clientp,
+                                  curlsocktype purpose,
+                                  struct curl_sockaddr *address);
+CURLcode curl_easy_setopt(CURL *handle, CURLOPT_OPENSOCKETFUNCTION, opensocket_callback);
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+Pass a pointer to your callback function, which should match the prototype shown
+  above.
+<p class="Pp">This callback function gets called by libcurl instead of the
+    <i>socket(2)</i> call. The callback's <i>purpose</i> argument identifies the
+    exact purpose for this particular socket: <i>CURLSOCKTYPE_IPCXN</i> is for
+    IP based connections and <i>CURLSOCKTYPE_ACCEPT</i> is for sockets created
+    after accept() - such as when doing active FTP. Future versions of libcurl
+    may support more purposes.</p>
+<p class="Pp">The <i>clientp</i> pointer contains whatever user-defined value
+    set using the <i>CURLOPT_OPENSOCKETDATA(3)</i> function.</p>
+<p class="Pp">The callback gets the resolved peer address as the <i>address</i>
+    argument and is allowed to modify the address or refuse to connect
+    completely. The callback function should return the newly created socket or
+    <i>CURL_SOCKET_BAD</i> in case no connection could be established or another
+    error was detected. Any additional <i>setsockopt(2)</i> calls can of course
+    be done on the socket at the user's discretion. A <i>CURL_SOCKET_BAD</i>
+    return value from the callback function will signal an unrecoverable error
+    to libcurl and it will return <i>CURLE_COULDNT_CONNECT</i> from the function
+    that triggered this callback. This return code can be used for IP address
+    blacklisting.</p>
+<p class="Pp">If you want to pass in a socket with an already established
+    connection, pass the socket back with this callback and then use
+    <i>CURLOPT_SOCKOPTFUNCTION(3)</i> to signal that it already is
+  connected.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DEFAULT"><a class="permalink" href="#DEFAULT">DEFAULT</a></h1>
+The default behavior is the equivalent of this:
+<pre>
+   return socket(addr-&gt;family, addr-&gt;socktype, addr-&gt;protocol);
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PROTOCOLS"><a class="permalink" href="#PROTOCOLS">PROTOCOLS</a></h1>
+All
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<pre>
+/* make libcurl use the already established socket 'sockfd' */
+static curl_socket_t opensocket(void *clientp,
+                                curlsocktype purpose,
+                                struct curl_sockaddr *address)
+{
+  curl_socket_t sockfd;
+  sockfd = *(curl_socket_t *)clientp;
+  /* the actual externally set socket is passed in via the OPENSOCKETDATA
+     option */
+  return sockfd;
+}
+static int sockopt_callback(void *clientp, curl_socket_t curlfd,
+                            curlsocktype purpose)
+{
+  /* This return code was added in libcurl 7.21.5 */
+  return CURL_SOCKOPT_ALREADY_CONNECTED;
+}
+curl = curl_easy_init();
+if(curl) {
+  /* libcurl will internally think that you connect to the host
+   * and port that you specify in the URL option. */
+  curl_easy_setopt(curl, CURLOPT_URL, &quot;http://99.99.99.99:9999&quot;);
+  /* call this function to get a socket */
+  curl_easy_setopt(curl, CURLOPT_OPENSOCKETFUNCTION, opensocket);
+  curl_easy_setopt(curl, CURLOPT_OPENSOCKETDATA, &amp;sockfd);
+  /* call this function to set options for the socket */
+  curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, sockopt_callback);
+  res = curl_easy_perform(curl);
+  curl_easy_cleanup(curl);
+}
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
+Added in 7.17.1.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+Returns CURLE_OK if the option is supported, and CURLE_UNKNOWN_OPTION if not.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>CURLOPT_OPENSOCKETDATA</b>(3), <b>CURLOPT_SOCKOPTFUNCTION</b>(3),
+  <b>CURLOPT_CLOSESOCKETFUNCTION</b>(3),
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">May 15, 2017</td>
+    <td class="foot-os">libcurl 7.64.1</td>
+  </tr>
+</table>
+</body>
+</html>

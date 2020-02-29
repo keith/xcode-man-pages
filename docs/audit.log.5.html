@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+  -
+   Copyright (c) 2005-2006 Robert N. M. Watson
+   Copyright (c) 2008 Apple Inc.
+   All rights reserved.
+  
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions
+   are met:
+   1. Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+   2. Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+  
+   THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+   ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+   ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+   FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+   OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+   OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+   SUCH DAMAGE.
+  
+   $P4: //depot/projects/trustedbsd/openbsm/man/audit.log.5#23 $
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>AUDIT.LOG(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">AUDIT.LOG(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">AUDIT.LOG(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">audit</code> &#x2014;
+<div class="Nd">Basic Security Module (BSM) file format</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The <code class="Nm">audit</code> file format is based on Sun's Basic Security
+  Module (BSM) file format, a token-based record stream to represent system
+  audit data. This file format is both flexible and extensible, able to describe
+  a broad range of data types, and easily extended to describe new data types in
+  a moderately backward and forward compatible way.
+<p class="Pp">BSM token streams typically begin and end with a
+    &#x201C;file&#x201D; token, which provides time stamp and file name
+    information for the stream; when processing a BSM token stream from a stream
+    as opposed to a single file source, file tokens may be seen at any point
+    between ordinary records identifying when particular parts of the stream
+    begin and end. All other tokens will appear in the context of a complete BSM
+    audit record, which begins with a &#x201C;header&#x201D; token, and ends
+    with a &#x201C;trailer&#x201D; token, which describe the audit record.
+    Between these two tokens will appear a variety of data tokens, such as
+    process information, file path names, IPC object information, MAC labels,
+    socket information, and so on.</p>
+<p class="Pp">The BSM file format defines specific token orders for each record
+    event type; however, some variation may occur depending on the operating
+    system in use, what system options, such as mandatory access control, are
+    present.</p>
+<p class="Pp">This manual page documents the common token types and their binary
+    format, and is intended for reference purposes only. It is recommended that
+    application programmers use the <a class="Xr">libbsm(3)</a> interface to
+    read and write tokens, rather than parsing or constructing records by
+  hand.</p>
+<section class="Ss">
+<h2 class="Ss" id="File_Token"><a class="permalink" href="#File_Token">File
+  Token</a></h2>
+The &#x201C;file&#x201D; token is used at the beginning and end of an audit log
+  file to indicate when the audit log begins and ends. It includes a pathname so
+  that, if concatenated together, original file boundaries are still observable,
+  and gaps in the audit log can be identified. A &#x201C;file&#x201D; token can
+  be created using <a class="Xr">au_to_file(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>Seconds</td>
+    <td>4 bytes</td>
+    <td>File time stamp</td>
+  </tr>
+  <tr>
+    <td>Microseconds</td>
+    <td>4 bytes</td>
+    <td>File time stamp</td>
+  </tr>
+  <tr>
+    <td>File name lengh</td>
+    <td>2 bytes</td>
+    <td>File name of audit trail</td>
+  </tr>
+  <tr>
+    <td>File pathname</td>
+    <td>N bytes + 1 NUL</td>
+    <td>File name of audit trail</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Header_Token"><a class="permalink" href="#Header_Token">Header
+  Token</a></h2>
+The &#x201C;header&#x201D; token is used to mark the beginning of a complete
+  audit record, and includes the length of the total record in bytes, a version
+  number for the record layout, the event type and subtype, and the time at
+  which the event occurred. A 32-bit &#x201C;header&#x201D; token can be created
+  using <a class="Xr">au_to_header32(3)</a>; a 64-bit &#x201C;header&#x201D;
+  token can be created using <a class="Xr">au_to_header64(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>Record Byte Count</td>
+    <td>4 bytes</td>
+    <td>Number of bytes in record</td>
+  </tr>
+  <tr>
+    <td>Version Number</td>
+    <td>2 bytes</td>
+    <td>Record version number</td>
+  </tr>
+  <tr>
+    <td>Event Type</td>
+    <td>2 bytes</td>
+    <td>Event type</td>
+  </tr>
+  <tr>
+    <td>Event Modifier</td>
+    <td>2 bytes</td>
+    <td>Event sub-type</td>
+  </tr>
+  <tr>
+    <td>Seconds</td>
+    <td>4/8 bytes</td>
+    <td>Record time stamp (32/64-bits)</td>
+  </tr>
+  <tr>
+    <td>Nanoseconds</td>
+    <td>4/8 bytes</td>
+    <td>Record time stamp (32/64-bits)</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Expanded_Header_Token"><a class="permalink" href="#Expanded_Header_Token">Expanded
+  Header Token</a></h2>
+The &#x201C;expanded header&#x201D; token is an expanded version of the
+  &#x201C;header&#x201D; token, with the addition of a machine IPv4 or IPv6
+  address. A 32-bit extended &#x201C;header&#x201D; token can be created using
+  <a class="Xr">au_to_header32_ex(3)</a>; a 64-bit extended
+  &#x201C;header&#x201D; token can be created using
+  <a class="Xr">au_to_header64_ex(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>Record Byte Count</td>
+    <td>4 bytes</td>
+    <td>Number of bytes in record</td>
+  </tr>
+  <tr>
+    <td>Version Number</td>
+    <td>2 bytes</td>
+    <td>Record version number</td>
+  </tr>
+  <tr>
+    <td>Event Type</td>
+    <td>2 bytes</td>
+    <td>Event type</td>
+  </tr>
+  <tr>
+    <td>Event Modifier</td>
+    <td>2 bytes</td>
+    <td>Event sub-type</td>
+  </tr>
+  <tr>
+    <td>Address Type/Length</td>
+    <td>1 byte</td>
+    <td>Host address type and length</td>
+  </tr>
+  <tr>
+    <td>Machine Address</td>
+    <td>4/16 bytes</td>
+    <td>IPv4 or IPv6 address</td>
+  </tr>
+  <tr>
+    <td>Seconds</td>
+    <td>4/8 bytes</td>
+    <td>Record time stamp (32/64-bits)</td>
+  </tr>
+  <tr>
+    <td>Nanoseconds</td>
+    <td>4/8 bytes</td>
+    <td>Record time stamp (32/64-bits)</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Trailer_Token"><a class="permalink" href="#Trailer_Token">Trailer
+  Token</a></h2>
+The &#x201C;trailer&#x201D; terminates a BSM audit record, and contains a magic
+  number, <code class="Dv">AUT_TRAILER_MAGIC</code> and length that can be used
+  to validate that the record was read properly. A &#x201C;trailer&#x201D; token
+  can be created using <a class="Xr">au_to_trailer(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>Trailer Magic</td>
+    <td>2 bytes</td>
+    <td>Trailer magic number</td>
+  </tr>
+  <tr>
+    <td>Record Byte Count</td>
+    <td>4 bytes</td>
+    <td>Number of bytes in record</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Identity_Token"><a class="permalink" href="#Identity_Token">Identity
+  Token</a></h2>
+The &#x201C;identity&#x201D; token contains information about the process that
+  triggered the audit record to be created. An &#x201C;identity&#x201D; token
+  can be created using <a class="Xr">au_to_identity(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Token_ID"><code class="Li" id="Token_ID">Token
+      ID</code></a></td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Signer_Type"><code class="Li" id="Signer_Type">Signer
+      Type</code></a></td>
+    <td>4 bytes</td>
+    <td>Code signing signer type</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Signing_ID_Length"><code class="Li" id="Signing_ID_Length">Signing
+      ID Length</code></a></td>
+    <td>2 bytes</td>
+    <td>Length of code signing identifier</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Signing_ID"><code class="Li" id="Signing_ID">Signing
+      ID</code></a></td>
+    <td>N bytes + 1 NUL</td>
+    <td>Code signing identifier</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Signing_ID_Truncated"><code class="Li" id="Signing_ID_Truncated">Signing
+      ID Truncated</code></a></td>
+    <td>1 byte</td>
+    <td>Whether or not the Signing ID field was truncated</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Team_ID_Length"><code class="Li" id="Team_ID_Length">Team
+      ID Length</code></a></td>
+    <td>2 bytes</td>
+    <td>Length of team identifier</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Team_ID"><code class="Li" id="Team_ID">Team
+      ID</code></a></td>
+    <td>N bytes + 1 NUL</td>
+    <td>Team identifier</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Team_ID_Truncated"><code class="Li" id="Team_ID_Truncated">Team
+      ID Truncated</code></a></td>
+    <td>1 byte</td>
+    <td>Whether or not the Team ID field was truncated</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#CDHash_Length"><code class="Li" id="CDHash_Length">CDHash
+      Length</code></a></td>
+    <td>2 bytes</td>
+    <td>Length of the CDHash</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#CDHash"><code class="Li" id="CDHash">CDHash</code></a></td>
+    <td>N bytes</td>
+    <td>CDHash</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Arbitrary_Data_Token"><a class="permalink" href="#Arbitrary_Data_Token">Arbitrary
+  Data Token</a></h2>
+The &#x201C;arbitrary data&#x201D; token contains a byte stream of opaque
+  (untyped) data. The size of the data is calculated as the size of each unit of
+  data multipled by the number of units of data. A &#x201C;How to print&#x201D;
+  field is present to specify how to print the data, but interpretation of that
+  field is not currently defined. An &#x201C;arbitrary data&#x201D; token can be
+  created using <a class="Xr">au_to_data(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>How to Print</td>
+    <td>1 byte</td>
+    <td>User-defined printing information</td>
+  </tr>
+  <tr>
+    <td>Basic Unit</td>
+    <td>1 byte</td>
+    <td>Size of a unit in bytes</td>
+  </tr>
+  <tr>
+    <td>Unit Count</td>
+    <td>1 byte</td>
+    <td>Number of units of data present</td>
+  </tr>
+  <tr>
+    <td>Data Items</td>
+    <td>Variable</td>
+    <td>User data</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="in_addr_Token"><a class="permalink" href="#in_addr_Token">in_addr
+  Token</a></h2>
+The &#x201C;in_addr&#x201D; token holds a network byte order IPv4 address. An
+  &#x201C;in_addr&#x201D; token can be created using
+  <a class="Xr">au_to_in_addr(3)</a> for an IPv4 address.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>IP Address</td>
+    <td>4 bytes</td>
+    <td>IPv4 address</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Expanded_in_addr_Token"><a class="permalink" href="#Expanded_in_addr_Token">Expanded
+  in_addr Token</a></h2>
+The &#x201C;in_addr_ex&#x201D; token holds a network byte order IPv4 or IPv6
+  address. An &#x201C;in_addr_ex&#x201D; token can be created using
+  <a class="Xr">au_to_in_addr_ex(3)</a> for an IPv6 address.
+<p class="Pp">See the <a class="Sx" href="#BUGS">BUGS</a> section for
+    information on the storage of this token.</p>
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>IP Address Type</td>
+    <td>1 byte</td>
+    <td>Type of address</td>
+  </tr>
+  <tr>
+    <td>IP Address</td>
+    <td>4/16 bytes</td>
+    <td>IPv4 or IPv6 address</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="ip_Token"><a class="permalink" href="#ip_Token">ip
+  Token</a></h2>
+The &#x201C;ip&#x201D; token contains an IP packet header in network byte order.
+  An &#x201C;ip&#x201D; token can be created using
+  <a class="Xr">au_to_ip(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>Version and IHL</td>
+    <td>1 byte</td>
+    <td>Version and IP header length</td>
+  </tr>
+  <tr>
+    <td>Type of Service</td>
+    <td>1 byte</td>
+    <td>IP TOS field</td>
+  </tr>
+  <tr>
+    <td>Length</td>
+    <td>2 bytes</td>
+    <td>IP packet length in network byte order</td>
+  </tr>
+  <tr>
+    <td>ID</td>
+    <td>2 bytes</td>
+    <td>IP header ID for reassembly</td>
+  </tr>
+  <tr>
+    <td>Offset</td>
+    <td>2 bytes</td>
+    <td>IP fragment offset and flags, network byte order</td>
+  </tr>
+  <tr>
+    <td>TTL</td>
+    <td>1 byte</td>
+    <td>IP Time-to-Live</td>
+  </tr>
+  <tr>
+    <td>Protocol</td>
+    <td>1 byte</td>
+    <td>IP protocol number</td>
+  </tr>
+  <tr>
+    <td>Checksum</td>
+    <td>2 bytes</td>
+    <td>IP header checksum, network byte order</td>
+  </tr>
+  <tr>
+    <td>Source Address</td>
+    <td>4 bytes</td>
+    <td>IPv4 source address</td>
+  </tr>
+  <tr>
+    <td>Destination Address</td>
+    <td>4 bytes</td>
+    <td>IPv4 destination address</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="iport_Token"><a class="permalink" href="#iport_Token">iport
+  Token</a></h2>
+The &#x201C;iport&#x201D; token stores an IP port number in network byte order.
+  An &#x201C;iport&#x201D; token can be created using
+  <a class="Xr">au_to_iport(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>Port Number</td>
+    <td>2 bytes</td>
+    <td>Port number in network byte order</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Path_Token"><a class="permalink" href="#Path_Token">Path
+  Token</a></h2>
+The &#x201C;path&#x201D; token contains a pathname. A &#x201C;path&#x201D; token
+  can be created using <a class="Xr">au_to_path(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>Path Length</td>
+    <td>2 bytes</td>
+    <td>Length of path in bytes</td>
+  </tr>
+  <tr>
+    <td>Path</td>
+    <td>N bytes + 1 NUL</td>
+    <td>Path name</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="path_attr_Token"><a class="permalink" href="#path_attr_Token">path_attr
+  Token</a></h2>
+The &#x201C;path_attr&#x201D; token contains a set of NUL-terminated path names.
+  The <a class="Xr">libbsm(3)</a> API cannot currently create a
+  &#x201C;path_attr&#x201D; token.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>Count</td>
+    <td>2 bytes</td>
+    <td>Number of NUL-terminated string(s) in token</td>
+  </tr>
+  <tr>
+    <td>Path</td>
+    <td>Variable</td>
+    <td>count NUL-terminated string(s)</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Process_Token"><a class="permalink" href="#Process_Token">Process
+  Token</a></h2>
+The &#x201C;process&#x201D; token contains a description of the security
+  properties of a process involved as the target of an auditable event, such as
+  the destination for signal delivery. It should not be confused with the
+  &#x201C;subject&#x201D; token, which describes the subject performing an
+  auditable event. This includes both the traditional
+  <span class="Ux">UNIX</span> security properties, such as user IDs and group
+  IDs, but also audit information such as the audit user ID and session. A
+  &#x201C;process&#x201D; token can be created using
+  <a class="Xr">au_to_process32(3)</a> or <a class="Xr">au_to_process64(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>Audit ID</td>
+    <td>4 bytes</td>
+    <td>Audit user ID</td>
+  </tr>
+  <tr>
+    <td>Effective User ID</td>
+    <td>4 bytes</td>
+    <td>Effective user ID</td>
+  </tr>
+  <tr>
+    <td>Effective Group ID</td>
+    <td>4 bytes</td>
+    <td>Effective group ID</td>
+  </tr>
+  <tr>
+    <td>Real User ID</td>
+    <td>4 bytes</td>
+    <td>Real user ID</td>
+  </tr>
+  <tr>
+    <td>Real Group ID</td>
+    <td>4 bytes</td>
+    <td>Real group ID</td>
+  </tr>
+  <tr>
+    <td>Process ID</td>
+    <td>4 bytes</td>
+    <td>Process ID</td>
+  </tr>
+  <tr>
+    <td>Session ID</td>
+    <td>4 bytes</td>
+    <td>Audit session ID</td>
+  </tr>
+  <tr>
+    <td>Terminal Port ID</td>
+    <td>4/8 bytes</td>
+    <td>Terminal port ID (32/64-bits)</td>
+  </tr>
+  <tr>
+    <td>Terminal Machine Address</td>
+    <td>4 bytes</td>
+    <td>IP address of machine</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Expanded_Process_Token"><a class="permalink" href="#Expanded_Process_Token">Expanded
+  Process Token</a></h2>
+The &#x201C;expanded process&#x201D; token contains the contents of the
+  &#x201C;process&#x201D; token, with the addition of a machine address type and
+  variable length address storage capable of containing IPv6 addresses. An
+  &#x201C;expanded process&#x201D; token can be created using
+  <a class="Xr">au_to_process32_ex(3)</a> or
+  <a class="Xr">au_to_process64_ex(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>Audit ID</td>
+    <td>4 bytes</td>
+    <td>Audit user ID</td>
+  </tr>
+  <tr>
+    <td>Effective User ID</td>
+    <td>4 bytes</td>
+    <td>Effective user ID</td>
+  </tr>
+  <tr>
+    <td>Effective Group ID</td>
+    <td>4 bytes</td>
+    <td>Effective group ID</td>
+  </tr>
+  <tr>
+    <td>Real User ID</td>
+    <td>4 bytes</td>
+    <td>Real user ID</td>
+  </tr>
+  <tr>
+    <td>Real Group ID</td>
+    <td>4 bytes</td>
+    <td>Real group ID</td>
+  </tr>
+  <tr>
+    <td>Process ID</td>
+    <td>4 bytes</td>
+    <td>Process ID</td>
+  </tr>
+  <tr>
+    <td>Session ID</td>
+    <td>4 bytes</td>
+    <td>Audit session ID</td>
+  </tr>
+  <tr>
+    <td>Terminal Port ID</td>
+    <td>4/8 bytes</td>
+    <td>Terminal port ID (32/64-bits)</td>
+  </tr>
+  <tr>
+    <td>Terminal Address Type/Length</td>
+    <td>1 byte</td>
+    <td>Length of machine address</td>
+  </tr>
+  <tr>
+    <td>Terminal Machine Address</td>
+    <td>4 bytes</td>
+    <td>IPv4 or IPv6 address of machine</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Return_Token"><a class="permalink" href="#Return_Token">Return
+  Token</a></h2>
+The &#x201C;return&#x201D; token contains a system call or library function
+  return condition, including return value and error number associated with the
+  global variable <code class="Er">errno</code>. A &#x201C;return&#x201D; token
+  can be created using <a class="Xr">au_to_return32(3)</a> or
+  <a class="Xr">au_to_return64(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>Error Number</td>
+    <td>1 byte</td>
+    <td>Errno value, or 0 if undefined</td>
+  </tr>
+  <tr>
+    <td>Return Value</td>
+    <td>4/8 bytes</td>
+    <td>Return value (32/64-bits)</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Subject_Token"><a class="permalink" href="#Subject_Token">Subject
+  Token</a></h2>
+The &#x201C;subject&#x201D; token contains information on the subject performing
+  the operation described by an audit record, and includes similar information
+  to that found in the &#x201C;process&#x201D; and &#x201C;expanded
+  process&#x201D; tokens. However, those tokens are used where the process being
+  described is the target of the operation, not the authorizing party. A
+  &#x201C;subject&#x201D; token can be created using
+  <a class="Xr">au_to_subject32(3)</a> and <a class="Xr">au_to_subject64(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>Audit ID</td>
+    <td>4 bytes</td>
+    <td>Audit user ID</td>
+  </tr>
+  <tr>
+    <td>Effective User ID</td>
+    <td>4 bytes</td>
+    <td>Effective user ID</td>
+  </tr>
+  <tr>
+    <td>Effective Group ID</td>
+    <td>4 bytes</td>
+    <td>Effective group ID</td>
+  </tr>
+  <tr>
+    <td>Real User ID</td>
+    <td>4 bytes</td>
+    <td>Real user ID</td>
+  </tr>
+  <tr>
+    <td>Real Group ID</td>
+    <td>4 bytes</td>
+    <td>Real group ID</td>
+  </tr>
+  <tr>
+    <td>Process ID</td>
+    <td>4 bytes</td>
+    <td>Process ID</td>
+  </tr>
+  <tr>
+    <td>Session ID</td>
+    <td>4 bytes</td>
+    <td>Audit session ID</td>
+  </tr>
+  <tr>
+    <td>Terminal Port ID</td>
+    <td>4/8 bytes</td>
+    <td>Terminal port ID (32/64-bits)</td>
+  </tr>
+  <tr>
+    <td>Terminal Machine Address</td>
+    <td>4 bytes</td>
+    <td>IP address of machine</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Expanded_Subject_Token"><a class="permalink" href="#Expanded_Subject_Token">Expanded
+  Subject Token</a></h2>
+The &#x201C;expanded subject&#x201D; token consists of the same elements as the
+  &#x201C;subject&#x201D; token, with the addition of type/length and variable
+  size machine address information in the terminal ID. An &#x201C;expanded
+  subject&#x201D; token can be created using
+  <a class="Xr">au_to_subject32_ex(3)</a> or
+  <a class="Xr">au_to_subject64_ex(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>Audit ID</td>
+    <td>4 bytes</td>
+    <td>Audit user ID</td>
+  </tr>
+  <tr>
+    <td>Effective User ID</td>
+    <td>4 bytes</td>
+    <td>Effective user ID</td>
+  </tr>
+  <tr>
+    <td>Effective Group ID</td>
+    <td>4 bytes</td>
+    <td>Effective group ID</td>
+  </tr>
+  <tr>
+    <td>Real User ID</td>
+    <td>4 bytes</td>
+    <td>Real user ID</td>
+  </tr>
+  <tr>
+    <td>Real Group ID</td>
+    <td>4 bytes</td>
+    <td>Real group ID</td>
+  </tr>
+  <tr>
+    <td>Process ID</td>
+    <td>4 bytes</td>
+    <td>Process ID</td>
+  </tr>
+  <tr>
+    <td>Session ID</td>
+    <td>4 bytes</td>
+    <td>Audit session ID</td>
+  </tr>
+  <tr>
+    <td>Terminal Port ID</td>
+    <td>4/8 bytes</td>
+    <td>Terminal port ID (32/64-bits)</td>
+  </tr>
+  <tr>
+    <td>Terminal Address Type/Length</td>
+    <td>1 byte</td>
+    <td>Length of machine address</td>
+  </tr>
+  <tr>
+    <td>Terminal Machine Address</td>
+    <td>4 bytes</td>
+    <td>IPv4 or IPv6 address of machine</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="System_V_IPC_Token"><a class="permalink" href="#System_V_IPC_Token">System
+  V IPC Token</a></h2>
+The &#x201C;System V IPC&#x201D; token contains the System V IPC message handle,
+  semaphore handle or shared memory handle. A System V IPC token may be created
+  using +.Xr au_to_ipc 3 .
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>Object ID type</td>
+    <td>1 byte</td>
+    <td>Object ID</td>
+  </tr>
+  <tr>
+    <td>Object ID</td>
+    <td>4 bytes</td>
+    <td>Object ID</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Text_Token"><a class="permalink" href="#Text_Token">Text
+  Token</a></h2>
+The &#x201C;text&#x201D; token contains a single NUL-terminated text string. A
+  &#x201C;text&#x201D; token may be created using
+  <a class="Xr">au_to_text(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>Text Length</td>
+    <td>2 bytes</td>
+    <td>Length of text string including NUL</td>
+  </tr>
+  <tr>
+    <td>Text</td>
+    <td>N bytes + 1 NUL</td>
+    <td>Text string including NUL</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Attribute_Token"><a class="permalink" href="#Attribute_Token">Attribute
+  Token</a></h2>
+The &#x201C;attribute&#x201D; token describes the attributes of a file
+  associated with the audit event. As files may be identified by 0, 1, or many
+  path names, a path name is not included with the attribute block for a file;
+  optional &#x201C;path&#x201D; tokens may also be present in an audit record
+  indicating which path, if any, was used to reach the object. An
+  &#x201C;attribute&#x201D; token can be created using
+  <a class="Xr">au_to_attr32(3)</a> or <a class="Xr">au_to_attr64(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>File Access Mode</td>
+    <td>1 byte</td>
+    <td>mode_t associated with file</td>
+  </tr>
+  <tr>
+    <td>Owner User ID</td>
+    <td>4 bytes</td>
+    <td>uid_t associated with file</td>
+  </tr>
+  <tr>
+    <td>Owner Group ID</td>
+    <td>4 bytes</td>
+    <td>gid_t associated with file</td>
+  </tr>
+  <tr>
+    <td>File System ID</td>
+    <td>4 bytes</td>
+    <td>fsid_t associated with file</td>
+  </tr>
+  <tr>
+    <td>File System Node ID</td>
+    <td>8 bytes</td>
+    <td>ino_t associated with file</td>
+  </tr>
+  <tr>
+    <td>Device</td>
+    <td>4/8 bytes</td>
+    <td>Device major/minor number (32/64-bit)</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Groups_Token"><a class="permalink" href="#Groups_Token">Groups
+  Token</a></h2>
+The &#x201C;groups&#x201D; token contains a list of group IDs associated with
+  the audit event. A &#x201C;groups&#x201D; token can be created using
+  <a class="Xr">au_to_groups(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>Number of Groups</td>
+    <td>2 bytes</td>
+    <td>Number of groups in token</td>
+  </tr>
+  <tr>
+    <td>Group List</td>
+    <td>N * 4 bytes</td>
+    <td>List of N group IDs</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="System_V_IPC_Permission_Token"><a class="permalink" href="#System_V_IPC_Permission_Token">System
+  V IPC Permission Token</a></h2>
+The &#x201C;System V IPC permission&#x201D; token contains a System V IPC access
+  permissions. A System V IPC permission token may be created using
+  <a class="Xr">au_to_ipc_perm(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Owner_user_ID"><code class="Li" id="Owner_user_ID">Owner
+      user ID</code></a></td>
+    <td>4 bytes</td>
+    <td>User ID of IPC owner</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Owner_group_ID"><code class="Li" id="Owner_group_ID">Owner
+      group ID</code></a></td>
+    <td>4 bytes</td>
+    <td>Group ID of IPC owner</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Creator_user_ID"><code class="Li" id="Creator_user_ID">Creator
+      user ID</code></a></td>
+    <td>4 bytes</td>
+    <td>User ID of IPC creator</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Creator_group_ID"><code class="Li" id="Creator_group_ID">Creator
+      group ID</code></a></td>
+    <td>4 bytes</td>
+    <td>Group ID of IPC creator</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Access_mode"><code class="Li" id="Access_mode">Access
+      mode</code></a></td>
+    <td>4 bytes</td>
+    <td>Access mode</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Sequnce_number"><code class="Li" id="Sequnce_number">Sequnce
+      number</code></a></td>
+    <td>4 bytes</td>
+    <td>Sequnce number</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Key"><code class="Li" id="Key">Key</code></a></td>
+    <td>4 bytes</td>
+    <td>IPC key</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Arg_Token"><a class="permalink" href="#Arg_Token">Arg
+  Token</a></h2>
+The &#x201C;arg&#x201D; token contains informations about arguments of the
+  system call. Depending on the size of the desired argument value, an Arg token
+  may be created using <a class="Xr">au_to_arg32(3)</a> or
+  <a class="Xr">au_to_arg64(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Argument_ID"><code class="Li" id="Argument_ID">Argument
+      ID</code></a></td>
+    <td>1 byte</td>
+    <td>Argument ID</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Argument_value"><code class="Li" id="Argument_value">Argument
+      value</code></a></td>
+    <td>4/8 bytes</td>
+    <td>Argument value</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Length"><code class="Li" id="Length">Length</code></a></td>
+    <td>2 bytes</td>
+    <td>Length of the text</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Text"><code class="Li" id="Text">Text</code></a></td>
+    <td>N bytes + 1 NUL</td>
+    <td>The string including nul</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="exec_args_Token"><a class="permalink" href="#exec_args_Token">exec_args
+  Token</a></h2>
+The &#x201C;exec_args&#x201D; token contains informations about arguements of
+  the exec() system call. An exec_args token may be created using
+  <a class="Xr">au_to_exec_args(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Count"><code class="Li" id="Count">Count</code></a></td>
+    <td>4 bytes</td>
+    <td>Number of arguments</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Text_2"><code class="Li" id="Text_2">Text</code></a></td>
+    <td>* bytes</td>
+    <td>Count nul-terminated strings</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="exec_env_Token"><a class="permalink" href="#exec_env_Token">exec_env
+  Token</a></h2>
+The &#x201C;exec_env&#x201D; token contains current eviroment variables to an
+  exec() system call. An exec_args token may be created using
+  <a class="Xr">au_to_exec_env(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Count_ID"><code class="Li" id="Count_ID">Count
+      ID</code></a></td>
+    <td>4 bytes</td>
+    <td>Number of variables</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Text_3"><code class="Li" id="Text_3">Text</code></a></td>
+    <td>* bytes</td>
+    <td>Count nul-terminated strings</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Exit_Token"><a class="permalink" href="#Exit_Token">Exit
+  Token</a></h2>
+The &#x201C;exit&#x201D; token contains process exit/return code information. An
+  &#x201C;exit&#x201D; token can be created using
+  <a class="Xr">au_to_exit(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>Status</td>
+    <td>4 bytes</td>
+    <td>Process status on exit</td>
+  </tr>
+  <tr>
+    <td>Return Value</td>
+    <td>4 bytes</td>
+    <td>Process return value on exit</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Socket_Token"><a class="permalink" href="#Socket_Token">Socket
+  Token</a></h2>
+The &#x201C;socket&#x201D; token contains information about UNIX domain and
+  Internet sockets. Each token has four or eight fields. Depending on the type
+  of socket, a socket token may be created using
+  <a class="Xr">au_to_sock_unix(3)</a>, <a class="Xr">au_to_sock_inet32(3)</a>
+  or <a class="Xr">au_to_sock_inet128(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td><b class="Sy">Bytes</b></td>
+    <td><b class="Sy">Description</b></td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Token_ID_2"><code class="Li" id="Token_ID_2">Token
+      ID</code></a></td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Socket_family"><code class="Li" id="Socket_family">Socket
+      family</code></a></td>
+    <td>2 bytes</td>
+    <td>Socket family</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Local_port"><code class="Li" id="Local_port">Local
+      port</code></a></td>
+    <td>2 bytes</td>
+    <td>Local port</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Socket_address"><code class="Li" id="Socket_address">Socket
+      address</code></a></td>
+    <td>4 bytes</td>
+    <td>Socket address</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Expanded_Socket_Token"><a class="permalink" href="#Expanded_Socket_Token">Expanded
+  Socket Token</a></h2>
+The &#x201C;expanded socket&#x201D; token contains information about IPv4 and
+  IPv6 sockets. A &#x201C;expanded socket&#x201D; token can be created using
+  <a class="Xr">au_to_socket_ex(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Token_ID_3"><code class="Li" id="Token_ID_3">Token
+      ID</code></a></td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Socket_domain"><code class="Li" id="Socket_domain">Socket
+      domain</code></a></td>
+    <td>2 bytes</td>
+    <td>Socket domain</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Socket_type"><code class="Li" id="Socket_type">Socket
+      type</code></a></td>
+    <td>2 bytes</td>
+    <td>Socket type</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Address_type"><code class="Li" id="Address_type">Address
+      type</code></a></td>
+    <td>2 byte</td>
+    <td>Address type (IPv4/IPv6)</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Local_port_2"><code class="Li" id="Local_port_2">Local
+      port</code></a></td>
+    <td>2 bytes</td>
+    <td>Local port</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Local_IP_address"><code class="Li" id="Local_IP_address">Local
+      IP address</code></a></td>
+    <td>4/16 bytes</td>
+    <td>Local IP address</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Remote_port"><code class="Li" id="Remote_port">Remote
+      port</code></a></td>
+    <td>2 bytes</td>
+    <td>Remote port</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#Remote_IP_address"><code class="Li" id="Remote_IP_address">Remote
+      IP address</code></a></td>
+    <td>4/16 bytes</td>
+    <td>Remote IP address</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Seq_Token"><a class="permalink" href="#Seq_Token">Seq
+  Token</a></h2>
+The &#x201C;seq&#x201D; token contains a unique and monotonically increasing
+  audit event sequence ID. Due to the limited range of 32 bits, serial number
+  arithmetic and caution should be used when comparing sequence numbers.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>Sequence Number</td>
+    <td>4 bytes</td>
+    <td>Audit event sequence number</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="privilege_Token"><a class="permalink" href="#privilege_Token">privilege
+  Token</a></h2>
+The &#x201C;privilege&#x201D; token ...
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>XXXXX</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Use_of_auth_Token"><a class="permalink" href="#Use_of_auth_Token">Use-of-auth
+  Token</a></h2>
+The &#x201C;use-of-auth&#x201D; token ...
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>XXXXX</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Command_Token"><a class="permalink" href="#Command_Token">Command
+  Token</a></h2>
+The &#x201C;command&#x201D; token ...
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>XXXXX</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="ACL_Token"><a class="permalink" href="#ACL_Token">ACL
+  Token</a></h2>
+The &#x201C;ACL&#x201D; token ...
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>XXXXX</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Zonename_Token"><a class="permalink" href="#Zonename_Token">Zonename
+  Token</a></h2>
+The &#x201C;zonename&#x201D; token holds a NUL-terminated string with the name
+  of the zone or jail from which the record originated. A token can be created
+  using <a class="Xr">au_to_zonename(3)</a>.
+<table class="Bl-column Bd-indent">
+  <tr>
+    <td><b class="Sy">Field</b></td>
+    <td>Bytes</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td>Token ID</td>
+    <td>1 byte</td>
+    <td>Token ID</td>
+  </tr>
+  <tr>
+    <td>Zonename length</td>
+    <td>2 bytes</td>
+    <td>Length of zonename string including NUL</td>
+  </tr>
+  <tr>
+    <td>Zonename</td>
+    <td>N bytes + 1 NUL</td>
+    <td>Zonename string including NUL</td>
+  </tr>
+</table>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">auditreduce(1)</a>, <a class="Xr">praudit(1)</a>,
+  <a class="Xr">libbsm(3)</a>, <a class="Xr">audit(4)</a>,
+  <a class="Xr">auditpipe(4)</a>, <a class="Xr">audit(8)</a>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+The OpenBSM implementation was created by McAfee Research, the security division
+  of McAfee Inc., under contract to Apple Computer Inc. in 2004. It was
+  subsequently adopted by the TrustedBSD Project as the foundation for the
+  OpenBSM distribution.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+The Basic Security Module (BSM) interface to audit records and audit event
+  stream format were defined by Sun Microsystems.
+<p class="Pp">This manual page was written by <span class="An">Robert
+    Watson</span> &#x27E8;rwatson@FreeBSD.org&#x27E9;.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+The &#x201C;How to print&#x201D; field in the &#x201C;arbitrary data&#x201D;
+  token has undefined values.
+<p class="Pp">The &#x201C;in_addr&#x201D; and &#x201C;in_addr_ex&#x201D; token
+    layout documented here appears to be in conflict with the
+    <a class="Xr">libbsm(3)</a> implementation of
+    <a class="Xr">au_to_in_addr_ex(3)</a>.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">November 5, 2006</td>
+    <td class="foot-os">Mac OS X 10.15</td>
+  </tr>
+</table>
+</body>
+</html>

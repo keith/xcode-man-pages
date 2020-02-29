@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   -*- nroff -*-
+ -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>&lt;MPSHandle&gt;(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">&lt;MPSHandle&gt;(3)</td>
+    <td class="head-vol">MetalPerformanceShaders.framework</td>
+    <td class="head-rtitle">&lt;MPSHandle&gt;(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+&lt;MPSHandle&gt;
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">#include &lt;MPSNNGraphNodes.h&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Detailed_Description"><a class="permalink" href="#Detailed_Description">Detailed
+  Description</a></h1>
+<b>MPSNNGraphNodes.h</b> MetalPerformanceShaders
+<p class="Pp">Created by Ian Ollmann on 10/19/16.</p>
+<p class="Pp"><b>Copyright:</b></p>
+<div class="Bd-indent">Copyright &#x00A9; 2016 Apple. All rights reserved.</div>
+<p class="Pp">This header describes building blocks to prepare a graph of MPS
+    images, kernels and state objects. You should prepare your graph by creating
+    a <b>MPSNNImageNode</b> for each of the graph input textures. These are then
+    used as inputs to <b>MPSNNFilterNode</b> subclasses. These in turn produce
+    more image nodes as results, which can be linked to more MPSNNFilterNodes as
+    inputs. When the graph representation is complete, make a <b>MPSNNGraph</b>
+    object to interpret and optimize the graph. The <b>MPSNNGraph</b> may be
+    used to encode the entire graph on a MTLCommandBuffer.</p>
+<p class="Pp">Objects presented here are generally light weight. They do not
+    have a MTLDevice reference, and so can not create MTLResource objects. In
+    the few cases when data is expected to be large (e.g. convolution weights),
+    the nodes are designed to defer allocation of storage, preferring to leave
+    them on disk or network or other persistent storage to hold the data until
+    it is actually needed to initialize a <b>MPSKernel</b> object. Not until the
+    <b>MPSNNGraph</b> is constructed does the heavy lifting begin. MPSNNGraphs
+    in contrast can be extremely heavy. <b>A</b> large graph may use most of the
+    memory available to your system! Nearly all of this is due to convolution
+    weights. Construct your &lt;MPSCNNConvolutionDataSource&gt; to only load
+    data when it is needed.</p>
+<p class="Pp">MPS resource identification Most of the time, there is only one
+    image and one or fewer states needed as input to a graph, so the order of
+    the images and states passed to [<b>MPSNNGraph</b>
+    encodeToCommandBuffer:sourceImages:] or [<b>MPSNNGraph</b>
+    encodeToCommandBuffer:sourceImages:sourceStates:intermediateImages:destinationStates:]
+    is clear. There is only one order. However, sometimes graphs have more than
+    one input image or state. What order should they appear in the NSArray
+    passed to these methods?</p>
+<p class="Pp">Each <b>MPSNNImageNode</b> or <b>MPSNNStateNode</b> can be tagged
+    with a <b>MPSHandle</b>. <b>MPSNNGraph</b> keeps track of these. You can
+    request that the <b>MPSNNGraph</b> return them to you in an array in the
+    same order as needed to encode the <b>MPSNNGraph</b>, using
+    <b>MPSNNGraph.sourceImageHandles</b> and
+    <b>MPSNNGraph.sourceStateHandles</b>.</p>
+<p class="Pp">Example:</p>
+<p class="Pp"></p>
+<pre>
+@interface MyHandle : NSObject &lt;MPSHandle&gt;
+    // Add a method for my use to get the image needed based on the handle to it.
+    // This isn't part of the MPSHandle protocol, but we need it for MyEncodeGraph
+    // below. Since it is my code calling my object, we can add whatever we want like this.
+    -(MPSImage*__nonnull) image;    // return the MPSImage corresponding to the handle
+    // required by MPSHandle protocol
+    -(NSString * __nullable) label;
+    // MPSHandle implies NSSecureCoding too
+    +(BOOL) supportsSecureCoding;
+    - (void)encodeWithCoder:(NSCoder * __nonnull )aCoder;
+    - (nullable instancetype)initWithCoder:(NSCoder * __nonnull )aDecoder; // NS_DESIGNATED_INITIALIZER
+@end
+// Encode a graph to cmdBuf using handles for images
+// Here we assume that the MPSNNImageNodes that are graph inputs (not produced 
+// by the graph) are tagged with a unique instance of MyHandle that can be used 
+// to get the appropriate image for that node.
+static void MyEncodeGraph( MPSNNGraph * graph, id &lt;MTLCommandBuffer&gt; cmdBuf )
+{
+    @autoreleasepool{
+        // prepare an array of source images, using the handles
+        NSArray&lt;MyHandle*&gt; * handles = graph.sourceImageHandles;
+        unsigned long count = handles.count;
+        NSMutableArray&lt;MPSImage*&gt; * __nonnull images = [NSMutableArray arrayWithCapacity: count];
+        for( unsigned long i = 0; i &lt; count; i++ )
+            images[i] = handles[i].image;
+        // encode the graph using the array
+        [ graph encodeToCommandBuffer: cmdBuf
+                         sourceImages: images ];
+    }
+}
+</pre>
+<p class="Pp"></p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Author"><a class="permalink" href="#Author">Author</a></h1>
+Generated automatically by Doxygen for MetalPerformanceShaders.framework from
+  the source code.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">Mon Jul 9 2018</td>
+    <td class="foot-os">Version MetalPerformanceShaders-119.3</td>
+  </tr>
+</table>
+</body>
+</html>

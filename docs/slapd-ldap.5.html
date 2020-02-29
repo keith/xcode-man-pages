@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>SLAPD-LDAP(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SLAPD-LDAP(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">SLAPD-LDAP(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+slapd-ldap - LDAP backend to slapd
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+/etc/openldap/slapd.conf
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The LDAP backend to <b>slapd</b>(8) is not an actual database; instead it acts
+  as a proxy to forward incoming requests to another LDAP server. While
+  processing requests it will also chase referrals, so that referrals are fully
+  processed instead of being returned to the slapd client.
+<p class="Pp">Sessions that explicitly Bind to the back-ldap database always
+    create their own private connection to the remote LDAP server. Anonymous
+    sessions will share a single anonymous connection to the remote server. For
+    sessions bound through other mechanisms, all sessions with the same DN will
+    share the same connection. This connection pooling strategy can enhance the
+    proxy's efficiency by reducing the overhead of repeatedly making/breaking
+    multiple connections.</p>
+<p class="Pp">The ldap database can also act as an information service, i.e. the
+    identity of locally authenticated clients is asserted to the remote server,
+    possibly in some modified form. For this purpose, the proxy binds to the
+    remote server with some administrative identity, and, if required,
+    authorizes the asserted identity. See the <i>idassert-</i>* rules below. The
+    administrative identity of the proxy, on the remote server, must be allowed
+    to authorize by means of appropriate <b>authzTo</b> rules; see
+    <b>slapd.conf</b>(5) for details.</p>
+<p class="Pp">The proxy instance of <b>slapd</b>(8) must contain schema
+    information for the attributes and objectClasses used in filters, request DN
+    and request-related data in general. It should also contain schema
+    information for the data returned by the proxied server. It is the
+    responsibility of the proxy administrator to keep the schema of the proxy
+    lined up with that of the proxied server.</p>
+<p class="Pp"></p>
+<p class="Pp">Note: When looping back to the same instance of <b>slapd</b>(8),
+    each connection requires a new thread; as a consequence, <b>slapd</b>(8)
+    must be compiled with thread support, and the <b>threads</b> parameter may
+    need some tuning; in those cases, one may consider using
+    <b>slapd-relay</b>(5) instead, which performs the relayed operation
+    internally and thus reuses the same connection.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION"><a class="permalink" href="#CONFIGURATION">CONFIGURATION</a></h1>
+These <b>slapd.conf</b> options apply to the LDAP backend database. That is,
+  they must follow a &quot;database ldap&quot; line and come before any
+  subsequent &quot;backend&quot; or &quot;database&quot; lines. Other database
+  options are described in the <b>slapd.conf</b>(5) manual page.
+<p class="Pp"></p>
+<p class="Pp">Note: In early versions of back-ldap it was recommended to always
+    set</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+lastmod  off
+</pre>
+</div>
+<p class="Pp">for <b>ldap</b> and <b>meta</b> databases. This was required
+    because operational attributes related to entry creation and modification
+    should not be proxied, as they could be mistakenly written to the target
+    server(s), generating an error. The current implementation automatically
+    sets lastmod to <b>off</b>, so its use is redundant and should be
+  omitted.</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>uri &lt;ldapurl&gt;</b></dt>
+  <dd>LDAP server to use. Multiple URIs can be set in a single <b>ldapurl</b>
+      argument, resulting in the underlying library automatically call the first
+      server of the list that responds, e.g.
+    <p class="Pp"><b>uri &quot;ldap://host/ ldap://backup-host/&quot;</b></p>
+    <p class="Pp">The URI list is space- or comma-separated. Whenever the server
+        that responds is not the first one in the list, the list is rearranged
+        and the responsive server is moved to the head, so that it will be first
+        contacted the next time a connection needs be created.</p>
+  </dd>
+</dl>
+<p class="Pp HP"><b>acl-bind</b> <b>bindmethod=simple|sasl [binddn=&lt;simple
+    DN&gt;] [credentials=&lt;simple password&gt;]</b> <b>[saslmech=&lt;SASL
+    mech&gt;] [secprops=&lt;properties&gt;] [realm=&lt;realm&gt;]</b>
+    <b>[authcId=&lt;authentication ID&gt;] [authzId=&lt;authorization
+    ID&gt;]</b> <b>[starttls=no|yes|critical]</b> <b>[tls_cert=&lt;file&gt;]</b>
+    <b>[tls_key=&lt;file&gt;]</b> <b>[tls_cacert=&lt;file&gt;]</b>
+    <b>[tls_cacertdir=&lt;path&gt;]</b> <b>[tls_identity=&lt;name&gt;]</b>
+    <b>[tls_trusted_certs=&lt;list&gt;]</b>
+    <b>[tls_reqcert=never|allow|try|demand]</b>
+    <b>[tls_ciphersuite=&lt;ciphers&gt;]</b>
+    <b>[tls_protocol_min=&lt;version&gt;]</b>
+    <b>[tls_crlcheck=none|peer|all]</b></p>
+<div class="Bd-indent">Allows to define the parameters of the authentication
+  method that is internally used by the proxy to collect info related to access
+  control, and whenever an operation occurs with the identity of the rootdn of
+  the LDAP proxy database. The identity defined by this directive, according to
+  the properties associated to the authentication method, is supposed to have
+  read access on the target server to attributes used on the proxy for ACL
+  checking.
+<p class="Pp">There is no risk of giving away such values; they are only used to
+    check permissions. The default is to use <b>simple</b> bind, with empty
+    <i>binddn</i> and <i>credentials</i>, which means that the related
+    operations will be performed anonymously. If not set, and if
+    <b>idassert-bind</b> is defined, this latter identity is used instead. See
+    <b>idassert-bind</b> for details.</p>
+<p class="Pp">The connection between the proxy database and the remote server
+    associated to this identity is cached regardless of the lifespan of the
+    client-proxy connection that first established it.</p>
+<p class="Pp"><b>This identity is by no means implicitly used by the proxy</b>
+    <b>when the client connects anonymously.</b> The <b>idassert-bind</b>
+    feature, instead, in some cases can be crafted to implement that behavior,
+    which is <i>intrinsically unsafe and should be used with extreme care</i>.
+    This directive obsoletes <b>acl-authcDN</b>, and <b>acl-passwd</b>.</p>
+<p class="Pp">The TLS settings default to the same as the main slapd TLS
+    settings, except for <b>tls_reqcert</b> which defaults to
+    &quot;demand&quot;.</p>
+</div>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>cancel {ABANDON|ignore|exop[-discover]}</b></dt>
+  <dd>Defines how to handle operation cancellation. By default, <b>abandon</b>
+      is invoked, so the operation is abandoned immediately. If set to
+      <b>ignore</b>, no action is taken and any further response is ignored;
+      this may result in further response messages to be queued for that
+      connection, so it is recommended that long lasting connections are timed
+      out either by <i>idle-timeout</i> or <i>conn-ttl</i>, so that resources
+      eventually get released. If set to <b>exop</b>, a <i>cancel</i> operation
+      (RFC 3909) is issued, resulting in the cancellation of the current
+      operation; the <i>cancel</i> operation waits for remote server response,
+      so its use may not be recommended. If set to <b>exop-discover</b>, support
+      of the <i>cancel</i> extended operation is detected by reading the remote
+      server's root DSE.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>chase-referrals {YES|no}</b></dt>
+  <dd>enable/disable automatic referral chasing, which is delegated to the
+      underlying libldap, with rebinding eventually performed if the
+      <b>rebind-as-user</b> directive is used. The default is to chase
+      referrals.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>conn-ttl &lt;time&gt;</b></dt>
+  <dd>This directive causes a cached connection to be dropped an recreated after
+      a given ttl, regardless of being idle or not.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>idassert-authzFrom &lt;authz-regexp&gt;</b></dt>
+  <dd>if defined, selects what <i>local</i> identities are authorized to exploit
+      the identity assertion feature. The string <b>&lt;authz-regexp&gt;</b>
+      follows the rules defined for the <i>authzFrom</i> attribute. See
+      <b>slapd.conf</b>(5), section related to <b>authz-policy</b>, for details
+      on the syntax of this field.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+<p class="Pp HP"><b>idassert-bind</b> <b>bindmethod=none|simple|sasl
+    [binddn=&lt;simple DN&gt;] [credentials=&lt;simple password&gt;]</b>
+    <b>[saslmech=&lt;SASL mech&gt;] [secprops=&lt;properties&gt;]
+    [realm=&lt;realm&gt;]</b> <b>[authcId=&lt;authentication ID&gt;]
+    [authzId=&lt;authorization ID&gt;]</b> <b>[authz={native|proxyauthz}]
+    [mode=&lt;mode&gt;] [flags=&lt;flags&gt;]</b>
+    <b>[starttls=no|yes|critical]</b> <b>[tls_cert=&lt;file&gt;]</b>
+    <b>[tls_key=&lt;file&gt;]</b> <b>[tls_cacert=&lt;file&gt;]</b>
+    <b>[tls_cacertdir=&lt;path&gt;]</b> <b>[tls_identity=&lt;name&gt;]</b>
+    <b>[tls_trusted_certs=&lt;list&gt;]</b>
+    <b>[tls_reqcert=never|allow|try|demand]</b>
+    <b>[tls_ciphersuite=&lt;ciphers&gt;]</b>
+    <b>[tls_protocol_min=&lt;version&gt;]</b>
+    <b>[tls_crlcheck=none|peer|all]</b></p>
+<div class="Bd-indent">Allows to define the parameters of the authentication
+  method that is internally used by the proxy to authorize connections that are
+  authenticated by other databases. The identity defined by this directive,
+  according to the properties associated to the authentication method, is
+  supposed to have auth access on the target server to attributes used on the
+  proxy for authentication and authorization, and to be allowed to authorize the
+  users. This requires to have <b>proxyAuthz</b> privileges on a wide set of
+  DNs, e.g. <b>authzTo=dn.subtree:&quot;&quot;</b>, and the remote server to
+  have <b>authz-policy</b> set to <b>to</b> or <b>both</b>. See
+  <b>slapd.conf</b>(5) for details on these statements and for remarks and
+  drawbacks about their usage. The supported bindmethods are
+<p class="Pp"><b>none|simple|sasl</b></p>
+<p class="Pp">where <b>none</b> is the default, i.e. no <i>identity
+    assertion</i> is performed.</p>
+<p class="Pp">The authz parameter is used to instruct the SASL bind to exploit
+    <b>native</b> SASL authorization, if available; since connections are
+    cached, this should only be used when authorizing with a fixed identity
+    (e.g. by means of the <b>authzDN</b> or <b>authzID</b> parameters).
+    Otherwise, the default <b>proxyauthz</b> is used, i.e. the proxyAuthz
+    control (Proxied Authorization, RFC 4370) is added to all operations.</p>
+<p class="Pp">The supported modes are:</p>
+<p class="Pp"><b>&lt;mode&gt; := {legacy|anonymous|none|self}</b></p>
+<p class="Pp">If <b>&lt;mode&gt;</b> is not present, and <b>authzId</b> is
+    given, the proxy always authorizes that identity. <b>&lt;authorization
+    ID&gt;</b> can be</p>
+<p class="Pp"><b>u:&lt;user&gt;</b></p>
+<p class="Pp"><b>[dn:]&lt;DN&gt;</b></p>
+<p class="Pp">The former is supposed to be expanded by the remote server
+    according to the authz rules; see <b>slapd.conf</b>(5) for details. In the
+    latter case, whether or not the <b>dn:</b> prefix is present, the string
+    must pass DN validation and normalization.</p>
+<p class="Pp">The default mode is <b>legacy</b>, which implies that the proxy
+    will either perform a simple bind as the <i>authcDN</i> or a SASL bind as
+    the <i>authcID</i> and assert the client's identity when it is not
+    anonymous. Direct binds are always proxied. The other modes imply that the
+    proxy will always either perform a simple bind as the <i>authcDN</i> or a
+    SASL bind as the <i>authcID</i>, unless restricted by
+    <b>idassert-authzFrom</b> rules (see below), in which case the operation
+    will fail; eventually, it will assert some other identity according to
+    <b>&lt;mode&gt;</b>. Other identity assertion modes are <b>anonymous</b> and
+    <b>self</b>, which respectively mean that the <i>empty</i> or the
+    <i>client</i>'s identity will be asserted; <b>none</b>, which means that no
+    proxyAuthz control will be used, so the <i>authcDN</i> or the <i>authcID</i>
+    identity will be asserted. For all modes that require the use of the
+    <i>proxyAuthz</i> control, on the remote server the proxy identity must have
+    appropriate <i>authzTo</i> permissions, or the asserted identities must have
+    appropriate <i>authzFrom</i> permissions. Note, however, that the ID
+    assertion feature is mostly useful when the asserted identities do not exist
+    on the remote server.</p>
+<p class="Pp">Flags can be</p>
+<p class="Pp"><b>override,[non-]prescriptive,proxy-authz-[non-]critical</b></p>
+<p class="Pp">When the <b>override</b> flag is used, identity assertion takes
+    place even when the database is authorizing for the identity of the client,
+    i.e. after binding with the provided identity, and thus authenticating it,
+    the proxy performs the identity assertion using the configured identity and
+    authentication method.</p>
+<p class="Pp">When the <b>prescriptive</b> flag is used (the default),
+    operations fail with <i>inappropriateAuthentication</i> for those identities
+    whose assertion is not allowed by the <b>idassert-authzFrom</b> patterns. If
+    the <b>non-prescriptive</b> flag is used, operations are performed
+    anonymously for those identities whose assertion is not allowed by the
+    <b>idassert-authzFrom</b> patterns.</p>
+<p class="Pp">When the <b>proxy-authz-non-critical</b> flag is used (the
+    default), the proxyAuthz control is not marked as critical, in violation of
+    RFC 4370. Use of <b>proxy-authz-critical</b> is recommended.</p>
+<p class="Pp">The TLS settings default to the same as the main slapd TLS
+    settings, except for <b>tls_reqcert</b> which defaults to
+    &quot;demand&quot;.</p>
+<p class="Pp">The identity associated to this directive is also used for
+    privileged operations whenever <b>idassert-bind</b> is defined and
+    <b>acl-bind</b> is not. See <b>acl-bind</b> for details.</p>
+<p class="Pp">This directive obsoletes <b>idassert-authcDN</b>,
+    <b>idassert-passwd</b>, <b>idassert-mode</b>, and
+  <b>idassert-method</b>.</p>
+</div>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>idassert-passthru &lt;authz-regexp&gt;</b></dt>
+  <dd>if defined, selects what <i>local</i> identities bypass the identity
+      assertion feature. Those identities need to be known by the remote host.
+      The string <b>&lt;authz-regexp&gt;</b> follows the rules defined for the
+      <i>authzFrom</i> attribute. See <b>slapd.conf</b>(5), section related to
+      <b>authz-policy</b>, for details on the syntax of this field.
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>idle-timeout &lt;time&gt;</b></dt>
+  <dd>This directive causes a cached connection to be dropped an recreated after
+      it has been idle for the specified time.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>network-timeout &lt;time&gt;</b></dt>
+  <dd>Sets the network timeout value after which <b>poll</b>(2)/<b>select</b>(2)
+      following a <b>connect</b>(2) returns in case of no activity. The value is
+      in seconds, and it can be specified as for <b>idle-timeout</b>.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>norefs &lt;NO|yes&gt;</b></dt>
+  <dd>If <b>yes</b>, do not return search reference responses. By default, they
+      are returned unless request is LDAPv2.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>noundeffilter &lt;NO|yes&gt;</b></dt>
+  <dd>If <b>yes</b>, return success instead of searching if a filter is
+      undefined or contains undefined portions. By default, the search is
+      propagated after replacing undefined portions with
+      <b>(!(objectClass=*))</b>, which corresponds to the empty result set.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>protocol-version {0,2,3}</b></dt>
+  <dd>This directive indicates what protocol version must be used to contact the
+      remote server. If set to 0 (the default), the proxy uses the same protocol
+      version used by the client, otherwise the requested protocol is used. The
+      proxy returns <i>unwillingToPerform</i> if an operation that is
+      incompatible with the requested protocol is attempted.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>proxy-whoami {NO|yes}</b></dt>
+  <dd>Turns on proxying of the WhoAmI extended operation. If this option is
+      given, back-ldap will replace slapd's original WhoAmI routine with its
+      own. On slapd sessions that were authenticated by back-ldap, the WhoAmI
+      request will be forwarded to the remote LDAP server. Other sessions will
+      be handled by the local slapd, as before. This option is mainly useful in
+      conjunction with Proxy Authorization.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>quarantine
+    &lt;interval&gt;,&lt;num&gt;[;&lt;interval&gt;,&lt;num&gt;[...]]</b></dt>
+  <dd>Turns on quarantine of URIs that returned <i>LDAP_UNAVAILABLE</i>, so that
+      an attempt to reconnect only occurs at given intervals instead of any time
+      a client requests an operation. The pattern is: retry only after at least
+      <i>interval</i> seconds elapsed since last attempt, for exactly <i>num</i>
+      times; then use the next pattern. If <i>num</i> for the last pattern is
+      &quot;<b>+</b>&quot;, it retries forever; otherwise, no more retries
+      occur. The process can be restarted by resetting the
+      <i>olcDbQuarantine</i> attribute of the database entry in the
+      configuration backend.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>rebind-as-user {NO|yes}</b></dt>
+  <dd>If this option is given, the client's bind credentials are remembered for
+      rebinds, when trying to re-establish a broken connection, or when chasing
+      a referral, if <b>chase-referrals</b> is set to <i>yes</i>.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>session-tracking-request {NO|yes}</b></dt>
+  <dd>Adds session tracking control for all requests. The client's IP and
+      hostname, and the identity associated to each request, if known, are sent
+      to the remote server for informational purposes. This directive is
+      incompatible with setting <i>protocol-version</i> to 2.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>single-conn {NO|yes}</b></dt>
+  <dd>Discards current cached connection when the client rebinds.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>t-f-support {NO|yes|discover}</b></dt>
+  <dd>enable if the remote server supports absolute filters (see
+      <i>draft-zeilenga-ldap-t-f</i> for details). If set to <b>discover</b>,
+      support is detected by reading the remote server's root DSE.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>timeout [&lt;op&gt;=]&lt;val&gt; [...]</b></dt>
+  <dd>This directive allows to set per-operation timeouts. Operations can be
+    <p class="Pp"><b>&lt;op&gt; ::= bind, add, delete, modrdn, modify, compare,
+        search</b></p>
+    <p class="Pp">The overall duration of the <b>search</b> operation is
+        controlled either by the <b>timelimit</b> parameter or by server-side
+        enforced time limits (see <b>timelimit</b> and <b>limits</b> in
+        <b>slapd.conf</b>(5) for details). This <b>timeout</b> parameter
+        controls how long the target can be irresponsive before the operation is
+        aborted. Timeout is meaningless for the remaining operations,
+        <b>unbind</b> and <b>abandon</b>, which do not imply any response, while
+        it is not yet implemented in currently supported <b>extended</b>
+        operations. If no operation is specified, the timeout <b>val</b> affects
+        all supported operations.</p>
+    <p class="Pp">Note: if the timelimit is exceeded, the operation is cancelled
+        (according to the <b>cancel</b> directive); the protocol does not
+        provide any means to rollback operations, so the client will not be
+        notified about the result of the operation, which may eventually
+        succeeded or not. In case the timeout is exceeded during a bind
+        operation, the connection is destroyed, according to RFC4511.</p>
+    <p class="Pp">Note: in some cases, this backend may issue binds prior to
+        other operations (e.g. to bind anonymously or with some prescribed
+        identity according to the <b>idassert-bind</b> directive). In this case,
+        the timeout of the operation that resulted in the bind is used.</p>
+    <p class="Pp"></p>
+  </dd>
+</dl>
+<p class="Pp HP"><b>tls {[try-]start|[try-]propagate|ldaps}</b>
+    <b>[tls_cert=&lt;file&gt;]</b> <b>[tls_key=&lt;file&gt;]</b>
+    <b>[tls_cacert=&lt;file&gt;]</b> <b>[tls_cacertdir=&lt;path&gt;]</b>
+    <b>[tls_identity=&lt;name&gt;]</b> <b>[tls_trusted_certs=&lt;list&gt;]</b>
+    <b>[tls_reqcert=never|allow|try|demand]</b>
+    <b>[tls_ciphersuite=&lt;ciphers&gt;]</b>
+  <b>[tls_crlcheck=none|peer|all]</b></p>
+<div class="Bd-indent">Specify the use of TLS when a regular connection is
+  initialized. The StartTLS extended operation will be used unless the URI
+  directive protocol scheme is <b>ldaps://</b>. In that case this keyword may
+  only be set to &quot;ldaps&quot; and the StartTLS operation will not be used.
+  <b>propagate</b> issues the StartTLS operation only if the original connection
+  did. The <b>try-</b> prefix instructs the proxy to continue operations if the
+  StartTLS operation failed; its use is <b>not</b> recommended.
+<p class="Pp">The TLS settings default to the same as the main slapd TLS
+    settings, except for <b>tls_reqcert</b> which defaults to
+    &quot;demand&quot;.</p>
+</div>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>use-temporary-conn {NO|yes}</b></dt>
+  <dd>when set to <b>yes</b>, create a temporary connection whenever competing
+      with other threads for a shared one; otherwise, wait until the shared
+      connection is available.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BACKWARD_COMPATIBILITY"><a class="permalink" href="#BACKWARD_COMPATIBILITY">BACKWARD
+  COMPATIBILITY</a></h1>
+The LDAP backend has been heavily reworked between releases 2.2 and 2.3, and
+  subsequently between 2.3 and 2.4. As a side-effect, some of the traditional
+  directives have been deprecated and should be no longer used, as they might
+  disappear in future releases.
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>acl-authcDN &lt;administrative DN for access control
+    purposes&gt;</b></dt>
+  <dd>Formerly known as the <b>binddn</b>, it is the DN that is used to query
+      the target server for acl checking; it is supposed to have read access on
+      the target server to attributes used on the proxy for acl checking. There
+      is no risk of giving away such values; they are only used to check
+      permissions.
+    <p class="Pp"><b>The acl-authcDN identity is by no means implicitly used by
+        the proxy</b> <b>when the client connects anonymously.</b> The
+        <b>idassert-*</b> feature can be used (at own risk) for that purpose
+        instead.</p>
+    <p class="Pp">This directive is obsoleted by the <b>binddn</b> arg of
+        <b>acl-bind</b> when <i>bindmethod</i>=<b>simple</b>, and will be
+        dismissed in the future.</p>
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>acl-passwd &lt;password&gt;</b></dt>
+  <dd>Formerly known as the <b>bindpw</b>, it is the password used with the
+      above <b>acl-authcDN</b> directive. This directive is obsoleted by the
+      <b>credentials</b> arg of <b>acl-bind</b> when
+      <i>bindmethod</i>=<b>simple</b>, and will be dismissed in the future.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>idassert-authcDN &lt;administrative DN for proxyAuthz
+    purposes&gt;</b></dt>
+  <dd>DN which is used to propagate the client's identity to the target by means
+      of the proxyAuthz control when the client does not belong to the DIT
+      fragment that is being proxied by back-ldap. This directive is obsoleted
+      by the <b>binddn</b> arg of <b>idassert-bind</b> when
+      <i>bindmethod</i>=<b>simple</b>, and will be dismissed in the future.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>idassert-passwd &lt;password&gt;</b></dt>
+  <dd>Password used with the <b>idassert-authcDN</b> above. This directive is
+      obsoleted by the <b>crendentials</b> arg of <b>idassert-bind</b> when
+      <i>bindmethod</i>=<b>simple</b>, and will be dismissed in the future.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>idassert-mode &lt;mode&gt; [&lt;flags&gt;]</b></dt>
+  <dd>defines what type of <i>identity assertion</i> is used. This directive is
+      obsoleted by the <b>mode</b> arg of <b>idassert-bind</b>, and will be
+      dismissed in the future.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>idassert-method &lt;method&gt; [&lt;saslargs&gt;]</b></dt>
+  <dd>This directive is obsoleted by the <b>bindmethod</b> arg of
+      <b>idassert-bind</b>, and will be dismissed in the future.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>port &lt;port&gt;</b></dt>
+  <dd>this directive is no longer supported. Use the <b>uri</b> directive as
+      described above.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>server &lt;hostname[:port]&gt;</b></dt>
+  <dd>this directive is no longer supported. Use the <b>uri</b> directive as
+      described above.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>suffixmassage, map, rewrite*</b></dt>
+  <dd>These directives are no longer supported by back-ldap; their functionality
+      is now delegated to the <b>rwm</b> overlay. Essentially, add a statement
+    <p class="Pp"><b>overlay rwm</b></p>
+    <p class="Pp">first, and prefix all rewrite/map statements with <b>rwm-</b>
+        to obtain the original behavior. See <b>slapo-rwm</b>(5) for
+      details.</p>
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACCESS_CONTROL"><a class="permalink" href="#ACCESS_CONTROL">ACCESS
+  CONTROL</a></h1>
+The <b>ldap</b> backend does not honor all ACL semantics as described in
+  <b>slapd.access</b>(5). In general, access checking is delegated to the remote
+  server(s). Only <b>read (=r)</b> access to the <b>entry</b> pseudo-attribute
+  and to the other attribute values of the entries returned by the <b>search</b>
+  operation is honored, which is performed by the frontend.
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OVERLAYS"><a class="permalink" href="#OVERLAYS">OVERLAYS</a></h1>
+The LDAP backend provides basic proxying functionalities to many overlays. The
+  <b>chain</b> overlay, described in <b>slapo-chain</b>(5), and the
+  <b>translucent</b> overlay, described in <b>slapo-translucent</b>(5), deserve
+  a special mention.
+<p class="Pp">Conversely, there are many overlays that are best used in
+    conjunction with the LDAP backend. The <b>proxycache</b> overlay allows
+    caching of LDAP search requests (queries) in a local database. See
+    <b>slapo-pcache</b>(5) for details. The <b>rwm</b> overlay provides DN
+    rewrite and attribute/objectClass mapping capabilities to the underlying
+    database. See <b>slapo-rwm</b>(5) for details.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt>/etc/openldap/slapd.conf</dt>
+  <dd>default slapd configuration file</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>slapd.conf</b>(5), <b>slapd-config</b>(5), <b>slapd-meta</b>(5),
+  <b>slapo-chain</b>(5), <b>slapo-pcache</b>(5), <b>slapo-rwm</b>(5),
+  <b>slapo-translucent</b>(5), <b>slapd</b>(8), <b>ldap</b>(3).
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+Howard Chu, with enhancements by Pierangelo Masarati
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2011/11/24</td>
+    <td class="foot-os">OpenLDAP 2.4.28</td>
+  </tr>
+</table>
+</body>
+</html>

@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>launchctl(1)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">launchctl(1)</td>
+    <td class="head-vol">General Commands Manual</td>
+    <td class="head-rtitle">launchctl(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">launchctl</code> &#x2014;
+<div class="Nd">Interfaces with launchd</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">launchctl</code></td>
+    <td><var class="Ar">subcommand</var> [<var class="Ar">arguments
+      ...</var>]</td>
+  </tr>
+</table>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<code class="Nm">launchctl</code> interfaces with
+  <code class="Nm">launchd</code> to manage and inspect daemons, agents and XPC
+  services.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SUBCOMMANDS"><a class="permalink" href="#SUBCOMMANDS">SUBCOMMANDS</a></h1>
+<code class="Nm">launchctl</code> allows for detailed examination of
+  <code class="Nm">launchd</code> endpoints. A domain manages the execution
+  policy for a collection of services. A service may be thought of as a virtual
+  process that is always available to be spawned in response to demand. Each
+  service has a collection of endpoints, and sending a message to one of those
+  endpoints will cause the service to launch on demand. Domains advertise these
+  endpoints in a shared namespace and may be thought of as synonymous with Mach
+  bootstrap subsets.
+<p class="Pp">Many subcommands in <code class="Nm">launchctl</code> take a
+    specifier which indicates the target domain or service for the subcommand.
+    This specifier may take one of the following forms:</p>
+<dl class="Bl-tag">
+  <dt><var class="Ar">system/[service-name]</var></dt>
+  <dd>Targets the system domain or a service within the system domain. The
+      system domain manages the root Mach bootstrap and is considered a
+      privileged execution context. Anyone may read or query the system domain,
+      but root privileges are required to make modifications.</dd>
+  <dt><var class="Ar">user/&lt;uid&gt;/[service-name]</var></dt>
+  <dd>Targets the user domain for the given UID or a service within that domain.
+      A user domain may exist independently of a logged-in user. User domains do
+      not exist on iOS.</dd>
+  <dt><var class="Ar">login/&lt;asid&gt;/[service-name]</var></dt>
+  <dd>Targets a user-login domain or service within that domain. A user-login
+      domain is created when the user logs in at the GUI and is identified by
+      the audit session identifier associated with that login. If a user domain
+      has an associated login domain, the <code class="Nm">print</code>
+      subcommand will display the ASID of that login domain. User-login domains
+      do not exist on iOS.</dd>
+  <dt><var class="Ar">gui/&lt;uid&gt;/[service-name]</var></dt>
+  <dd>Another form of the <code class="Nm">login</code> specifier. Rather than
+      specifying a user-login domain by its ASID, this specifier targets the
+      domain based on which user it is associated with and is generally more
+      convenient.
+    <p class="Pp"><i class="Em">Note</i>: GUI domains and user domains share
+        many resources. For the purposes of the Mach bootstrap name lookups,
+        they are &quot;flat&quot;, so they share the same set of registered
+        names. But they still have discrete sets of services. So when printing
+        the user domain's contents, you may see many Mach bootstrap name
+        registrations from services that exist in the GUI domain for that user,
+        but you will not see the services themselves in that list.</p>
+  </dd>
+  <dt><var class="Ar">session/&lt;asid&gt;/[service-name]</var></dt>
+  <dd>Targets the session domain for the given audit session ID or a service
+      within that domain. For more information about audit sessions, see
+      <a class="Xr">auditon(2)</a> and <a class="Xr">libbsm(3)</a></dd>
+  <dt><var class="Ar">pid/&lt;pid&gt;/[service-name]</var></dt>
+  <dd>Targets the domain for the given PID or a service within that domain. Each
+      process on the system will have a PID domain associated with it that
+      consists of the XPC services visible to that process which can be reached
+      with <a class="Xr">xpc_connection_create(3)</a>.</dd>
+</dl>
+<p class="Pp">For instance, when referring to a service with the identifier
+    <code class="Nm">com.apple.example</code> loaded into the GUI domain of a
+    user with UID 501, <code class="Nm">domain-target</code> is
+    <code class="Nm">gui/501/</code>, <code class="Nm">service-name</code> is
+    <code class="Nm">com.apple.example</code>, and
+    <code class="Nm">service-target</code> is
+    <code class="Nm">gui/501/com.apple.example</code>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SUBCOMMANDS_2"><a class="permalink" href="#SUBCOMMANDS_2">SUBCOMMANDS</a></h1>
+<dl class="Bl-tag">
+  <dt><var class="Ar">bootstrap</var> | <var class="Ar">bootout</var>
+    <var class="Ar">domain-target</var> [<var class="Ar">service-path
+    service-path2 ...</var>] | <var class="Ar">service-target</var></dt>
+  <dd>Bootstraps or removes domains and services. When service arguments are
+      present, bootstraps and correspondingly removes their definitions into the
+      domain. Services may be specified as a series of paths or a service
+      identifier. Paths may point to XPC service bundles,
+      <a class="Xr">launchd.plist(5)</a> s, or a directories containing a
+      collection of either. If there were one or more errors while bootstrapping
+      or removing a collection of services, the problematic paths will be
+      printed with the errors that occurred.
+    <p class="Pp">If no paths or service target are specified, these commands
+        can either bootstrap or remove a domain specified as a domain target.
+        Some domains will implicitly bootstrap pre-defined paths as part of
+        their creation.</p>
+  </dd>
+  <dt><var class="Ar">enable</var> | <var class="Ar">disable</var>
+    <var class="Ar">service-target</var></dt>
+  <dd>Enables or disables the service in the requested domain. Once a service is
+      disabled, it cannot be loaded in the specified domain until it is once
+      again enabled. This state persists across boots of the device. This
+      subcommand may only target services within the system domain or user and
+      user-login domains.</dd>
+  <dt><var class="Ar">kickstart</var> [<code class="Fl">-kp</code>]
+    <var class="Ar">service-target</var></dt>
+  <dd>Instructs <code class="Nm">launchd</code> to run the specified service
+      immediately, regardless of its configured launch conditions.
+    <dl class="Bl-tag">
+      <dt><a class="permalink" href="#k"><code class="Fl" id="k">-k</code></a></dt>
+      <dd>If the service is already running, kill the running instance before
+          restarting the service.</dd>
+      <dt><a class="permalink" href="#p"><code class="Fl" id="p">-p</code></a></dt>
+      <dd>Upon success, print the PID of the new process or the already-running
+          process to stdout.</dd>
+    </dl>
+  </dd>
+  <dt><var class="Ar">attach</var> [<code class="Fl">-ksx</code>]
+    <var class="Ar">service-target</var></dt>
+  <dd>Attaches the system's debugger to the process currently backing the
+      specified service. By default, if the service is not running, this
+      subcommand will block until the service starts.
+    <dl class="Bl-tag">
+      <dt><a class="permalink" href="#k_2"><code class="Fl" id="k_2">-k</code></a></dt>
+      <dd>If the service is already running, kill the running instance.</dd>
+      <dt><a class="permalink" href="#s"><code class="Fl" id="s">-s</code></a></dt>
+      <dd>Force the service to start.</dd>
+      <dt><a class="permalink" href="#x"><code class="Fl" id="x">-x</code></a></dt>
+      <dd>Attach to <a class="Xr">xpcproxy(3)</a> before it execs and becomes
+          the service process. This flag is generally not useful for anyone but
+          the <code class="Nm">launchd</code> maintainer.</dd>
+    </dl>
+  </dd>
+  <dt><var class="Ar">debug</var> <var class="Ar">service-target</var>
+    [<var class="Ar">--program &lt;program path&gt;</var>]
+    [<var class="Ar">--guard-malloc</var>]
+    [<var class="Ar">--malloc-stack-logging</var>]
+    [<var class="Ar">--debug-libraries</var>]
+    [<var class="Ar">--introspection-libraries</var>]
+    [<var class="Ar">--NSZombie</var>] [<var class="Ar">--32</var>]
+    [<var class="Ar">--stdin</var>] [<var class="Ar">--stdout</var>]
+    [<var class="Ar">--stderr</var>] [<var class="Ar">--environment</var>]
+    [<var class="Ar">--</var>] [<var class="Ar">argv0 argv1 argv2
+    ...</var>]</dt>
+  <dd>Configures the next invocation of a service for debugging. This subcommand
+      allows you to temporarily replace the main executable of the service with
+      one at a different path, enable <a class="Xr">libgmalloc(3)</a>, set
+      environment variables, set the argument vector and more. This is a
+      convenient alternative to editing the <a class="Xr">launchd.plist(5)</a>
+      for the service and then reloading it, as the additional debugging
+      properties are cleared once the service has run once with them.
+    <dl class="Bl-tag">
+      <dt><var class="Ar">--program &lt;program-path&gt;</var></dt>
+      <dd>Instructs <a class="Xr">launchd(8)</a> to use
+          <var class="Ar">program-path as the service's executable.</var></dd>
+      <dt><var class="Ar">--guard-malloc</var></dt>
+      <dd>Turns on <a class="Xr">libgmalloc(3)</a> for the service.</dd>
+      <dt><var class="Ar">--malloc-stack-logging</var></dt>
+      <dd>Turns on <a class="Xr">malloc(3)</a> stack logging for the
+        service.</dd>
+      <dt><var class="Ar">--malloc-nano-allocator</var></dt>
+      <dd>Turns on the <a class="Xr">malloc(3)</a> nano allocator for the
+          service.</dd>
+      <dt><var class="Ar">--debug-libraries</var></dt>
+      <dd>Sets the <var class="Ar">DYLD_IMAGE_SUFFIX</var> for the service to
+          &quot;_debug&quot;, which prefers the debug variants of libraries if
+          they exist. See <a class="Xr">dyld(1)</a> for more information.</dd>
+      <dt><var class="Ar">--introspection-libraries</var></dt>
+      <dd>Adds <var class="Ar">/usr/lib/system/introspection</var> to the
+          <var class="Ar">DYLD_LIBRARY_PATH</var> environment variable for the
+          service. This causes the system to prefer the introspection variants
+          of libraries if they exist.</dd>
+      <dt><var class="Ar">--NSZombie</var></dt>
+      <dd>Enables NSZombie.</dd>
+      <dt><var class="Ar">--32</var></dt>
+      <dd>Runs the service in the appropriate 32-bit architecture. Only
+          available on 64-bit platforms.</dd>
+      <dt><var class="Ar">--stdin [stdin-path]</var></dt>
+      <dd>Sets the service's standard input to be
+          <var class="Ar">stdin-path</var>. If no file is given, uses the
+          current terminal as the service's standard input. If
+          <var class="Ar">stdin-path</var> does not exist, it is created.</dd>
+      <dt><var class="Ar">--stdout [stdout-path]</var></dt>
+      <dd>Sets the service's standard input to be
+          <var class="Ar">stdout-path</var>. If no file is given, uses the
+          current terminal as the service's standard input. If
+          <var class="Ar">stdout-path</var> does not exist, it is created.</dd>
+      <dt><var class="Ar">--stderr [stderr-path]</var></dt>
+      <dd>Sets the service's standard input to be
+          <var class="Ar">stderr-path</var>. If no file is given, uses the
+          current terminal as the service's standard input. If
+          <var class="Ar">stderr-path</var> does not exist, it is created.</dd>
+      <dt><var class="Ar">--environment VARIABLE0=value VARIABLE1=value
+        ...</var></dt>
+      <dd>Sets the given environment variables on the service.</dd>
+      <dt><var class="Ar">-- argv0 argv1 ...</var></dt>
+      <dd>Any arguments following the <var class="Ar">--</var> are given to the
+          service as its argument vector.
+        <p class="Pp"><i class="Em">IMPORTANT</i>: These arguments replace the
+            service's default argument vector; they are not merged in any way.
+            The first argument following <var class="Ar">--</var> is given as
+            the initial (zeroth) element of the service's argument vector. As
+            with the <var class="Ar">ProgramArguments</var>
+            <a class="Xr">launchd.plist(5)</a> key, you should read carefully
+            and understand the <a class="Xr">execve(2)</a> man page.</p>
+      </dd>
+    </dl>
+  </dd>
+  <dt><var class="Ar">kill</var> <var class="Ar">signal-name</var> |
+    <var class="Ar">signal-number</var>
+    <var class="Ar">service-target</var></dt>
+  <dd>Sends the specified signal to the specified service if it is running. The
+      signal number or name (SIGTERM, SIGKILL, etc.) may be specified.</dd>
+  <dt><var class="Ar">blame</var> <var class="Ar">service-target</var></dt>
+  <dd>If the service is running, prints a human-readable string describing why
+      <code class="Nm">launchd</code> launched the service. Note that services
+      may run for many reasons; this subcommand will only show the most
+      proximate reason. So if a service was run due to a timer firing, this
+      subcommand will print that reason, irrespective of whether there were
+      messages waiting on the service's various endpoints. This subcommand is
+      only intended for debugging and profiling use and its output should not be
+      relied upon in production scenarios.</dd>
+  <dt><var class="Ar">print</var> <var class="Ar">domain-target</var> |
+    <var class="Ar">service-target</var></dt>
+  <dd>Prints information about the specified service or domain. Domain output
+      includes various properties about the domain as well as a list of services
+      and endpoints in the domain with state pertaining to each. Service output
+      includes various properties of the service, including information about
+      its origin on-disk, its current state, execution context, and last exit
+      status.
+    <p class="Pp"><i class="Em">IMPORTANT</i>: This output is
+        <i class="Em">NOT</i> API in any sense at all. Do <i class="Em">NOT</i>
+        rely on the structure or information emitted for <i class="Em">ANY</i>
+        reason. It may change from release to release without warning.</p>
+  </dd>
+  <dt><var class="Ar">print-cache</var></dt>
+  <dd>Prints the contents of the <code class="Nm">launchd</code> service
+    cache.</dd>
+  <dt><var class="Ar">print-disabled domain-target</var></dt>
+  <dd>Prints the list of disabled services in the specified domain.</dd>
+  <dt><var class="Ar">plist</var> [<var class="Ar">segment,section</var>]
+    <var class="Ar">Mach-O</var></dt>
+  <dd>Prints the the property list embedded in the __TEXT,__info_plist
+      segment/section of the target Mach-O or the specified
+    segment/section.</dd>
+  <dt><var class="Ar">procinfo</var> <var class="Ar">pid</var></dt>
+  <dd>Prints information about the execution context of the specified PID. This
+      information includes Mach task-special ports and exception ports (and when
+      run against a DEVELOPMENT launchd, what names the ports are advertised as
+      in the Mach bootstrap namespace, if they are known to
+      <code class="Nm">launchd</code>) and audit session context. This
+      subcommand is intended for diagnostic purposes only, and its output should
+      not be relied upon in production scenarios. This command requires root
+      privileges.</dd>
+  <dt><var class="Ar">hostinfo</var></dt>
+  <dd>Prints information about the system's host-special ports, including the
+      host-exception port. This subcommand requires root privileges.</dd>
+  <dt><var class="Ar">resolveport</var> <var class="Ar">owner-pid</var>
+    <var class="Ar">port-name</var></dt>
+  <dd>Given a PID and the name of a Mach port right in that process' port
+      namespace, resolves that port to an endpoint name known to
+      <code class="Nm">launchd</code>. This subcommand requires root
+    privileges.</dd>
+  <dt><var class="Ar">examine</var> [<var class="Ar">tool</var>
+    <var class="Ar">arg0</var> <var class="Ar">arg1</var>
+    <var class="Ar">@PID</var> <var class="Ar">...</var>]</dt>
+  <dd>Causes <code class="Nm">launchd</code> to <a class="Xr">fork(2)</a> itself
+      for examination by a profiling tool and prints the PID of this new
+      instance to stdout. You are responsible for killing this snapshot when it
+      is no longer needed.
+    <p class="Pp">Many profiling tools cannot safely examine
+        <code class="Nm">launchd</code> because they depend on the functionality
+        it provides. This subcommand creates an effective snapshot of
+        <code class="Nm">launchd</code> that can be examined independently. Note
+        that on Darwin platforms, <a class="Xr">fork(2)</a> is implemented such
+        that only the thread which called <a class="Xr">fork(2)</a> is
+        replicated into the new child process, so this subcommand is not useful
+        for examining any thread other than the main event loop.</p>
+    <p class="Pp">This subcommand takes an optional invocation of a tool to be
+        used on the <code class="Nm">launchd</code> snapshot. Where you would
+        normally give the PID of the process to be examined in the tool's
+        invocation, instead specify the argument &quot;@PID&quot;, and
+        <code class="Nm">launchctl</code> will substitute that argument with the
+        PID of the launchd snapshot in its subsequent execution of the tool. If
+        used in this form, <code class="Nm">launchctl</code> will automatically
+        kill the snapshot instance when the examination tool exits.</p>
+    <p class="Pp">This subcommand may only be used against a DEVELOPMENT
+        <code class="Nm">launchd</code>.</p>
+  </dd>
+  <dt><var class="Ar">config</var> <var class="Ar">system</var> |
+    <var class="Ar">user</var> <var class="Ar">parameter</var>
+    <var class="Ar">value</var></dt>
+  <dd>Sets persistent configuration information for <a class="Xr">launchd(8)</a>
+      domains. Only the system domain and user domains may be configured. The
+      location of the persistent storage is an implementation detail, and
+      changes to that storage should <i class="Em">only</i> be made through this
+      subcommand. A reboot is required for changes made through this subcommand
+      to take effect.
+    <p class="Pp">Supported configuration parameters are:</p>
+    <dl class="Bl-tag">
+      <dt>umask</dt>
+      <dd>Sets the <a class="Xr">umask(2)</a> for services within the target
+          domain to the value specified by <var class="Ar">value</var>. Note
+          that this value is parsed by <a class="Xr">strtoul(3)</a> as an
+          octal-encoded number, so there is no need to prefix it with a leading
+          '0'.</dd>
+      <dt>path</dt>
+      <dd>Sets the PATH environment variable for all services within the target
+          domain to the string <var class="Ar">value</var>. The string
+          <var class="Ar">value</var> should conform to the format outlined for
+          the PATH environment variable in <a class="Xr">environ(7)</a>. Note
+          that if a service specifies its own PATH, the service-specific
+          environment variable will take precedence.
+        <p class="Pp"><i class="Em">NOTE</i>: This facility cannot be used to
+            set general environment variables for all services within the
+            domain. It is intentionally scoped to the PATH environment variable
+            and nothing else for security reasons.</p>
+      </dd>
+    </dl>
+  </dd>
+  <dt><var class="Ar">reboot</var>
+    <var class="Ar">[system|userspace|halt|logout|apps]</var></dt>
+  <dd>Instructs <code class="Nm">launchd</code> to begin tearing down userspace.
+      With no argument given or with the <var class="Ar">system</var> argument
+      given, <code class="Nm">launchd</code> will make the
+      <a class="Xr">reboot(2)</a> system call when userspace has been completely
+      torn down. With the <var class="Ar">halt</var> argument given,
+      <code class="Nm">launchd</code> will make the <a class="Xr">reboot(2)</a>
+      system call when userspace has been completely torn down and pass the
+      <var class="Ar">RB_HALT</var> flag, halting the system and not initiating
+      a reboot.
+    <p class="Pp">With the <var class="Ar">userspace</var> argument given,
+        <code class="Nm">launchd</code> will re-exec itself when userspace has
+        been torn down and bring userspace back up. This is useful for rebooting
+        the system quickly under conditions where kernel data structures or
+        hardware do not need to be re-initialized.</p>
+    <p class="Pp">With the <var class="Ar">logout</var> argument given, launchd
+        will tear down the caller's GUI login session in a manner similar to a
+        logout initiated from the Apple menu. The key difference is that a
+        logout initiated through this subcommand will be much faster since it
+        will not give apps a chance to display modal dialogs to block logout
+        indefinitely; therefore there is data corruption risk to using this
+        option. Only use it when you know you have no unsaved data in your
+        running apps.</p>
+    <p class="Pp">With the <var class="Ar">apps</var> argument given, launchd
+        will terminate all apps running in the caller's GUI login session that
+        did not come from a <a class="Xr">launchd.plist(5)</a> on-disk. Apps
+        like Finder, Dock and SystemUIServer will be unaffected. Apps are
+        terminated in the same manner as the <var class="Ar">logout</var>
+        argument, and all the same caveats apply.</p>
+    <dl class="Bl-tag">
+      <dt><a class="permalink" href="#s_2"><code class="Fl" id="s_2">-s</code></a></dt>
+      <dd>When rebooting the machine (either a full reboot or userspace reboot),
+          brings the subsequent boot session up in single-user mode.</dd>
+    </dl>
+  </dd>
+  <dt><var class="Ar">error</var> <var class="Ar">[posix|mach|bootstrap]</var>
+    <var class="Ar">code</var></dt>
+  <dd>Prints a human-readable string of the given error
+      <var class="Ar">code</var>. By default, <code class="Nm">launchctl</code>
+      will attempt to guess which error domain the code given belongs to. The
+      caller may optionally specify which domain (either
+      <var class="Ar">posix</var>, <var class="Ar">mach</var>, or
+      <var class="Ar">bootstrap</var>) to interpret the given code as an error
+      from that subsystem.</dd>
+  <dt><var class="Ar">variant</var></dt>
+  <dd>Prints the <code class="Nm">launchd</code> variant currently active on the
+      system. Possible variants include RELEASE, DEVELOPMENT and DEBUG.</dd>
+  <dt><var class="Ar">version</var></dt>
+  <dd>Prints the <code class="Nm">launchd</code> version string.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LEGACY_SUBCOMMANDS"><a class="permalink" href="#LEGACY_SUBCOMMANDS">LEGACY
+  SUBCOMMANDS</a></h1>
+Subcommands from the previous implementation of <code class="Nm">launchd</code>
+  are generally available, though some may be unimplemented. Unimplemented
+  subcommands are documented as such.
+<dl class="Bl-tag">
+  <dt><var class="Ar">load</var> | <var class="Ar">unload</var>
+    [<code class="Fl">-wF</code>] [<code class="Fl">-S</code>
+    <var class="Ar">sessiontype</var>] [<code class="Fl">-D</code>
+    <var class="Ar">searchpath</var>] <var class="Ar">paths ...</var></dt>
+  <dd>Load the specified configuration files or directories of configuration
+      files. Jobs that are not on-demand will be started as soon as possible.
+      All specified jobs will be loaded before any of them are allowed to start.
+      Note that per-user configuration files (LaunchAgents) must be owned by
+      root (if they are located in
+      <code class="Nm">/Library/LaunchAgents</code>) or the user loading them
+      (if they are located in
+      <code class="Nm">$HOME/Library/LaunchAgents</code>). All system-wide
+      daemons (LaunchDaemons) must be owned by root. Configuration files must
+      disallow group and world writes. These restrictions are in place for
+      security reasons, as allowing writability to a launchd configuration file
+      allows one to specify which executable will be launched.
+    <p class="Pp">Note that allowing non-root write access to the
+        <code class="Nm">/System/Library/LaunchDaemons</code> directory WILL
+        render your system unbootable.</p>
+    <dl class="Bl-tag">
+      <dt><a class="permalink" href="#w"><code class="Fl" id="w">-w</code></a></dt>
+      <dd>Overrides the Disabled key and sets it to false or true for the load
+          and unload subcommands respectively. In previous versions, this option
+          would modify the configuration file. Now the state of the Disabled key
+          is stored elsewhere on- disk in a location that may not be directly
+          manipulated by any process other than
+        <code class="Nm">launchd</code>.</dd>
+      <dt><a class="permalink" href="#F"><code class="Fl" id="F">-F</code></a></dt>
+      <dd>Force the loading or unloading of the plist. Ignore the Disabled
+        key.</dd>
+      <dt><a class="permalink" href="#S"><code class="Fl" id="S">-S</code></a>
+        <var class="Ar">sessiontype</var></dt>
+      <dd>Some jobs only make sense in certain contexts. This flag instructs
+          <code class="Nm">launchctl</code> to look for jobs in a different
+          location when using the -D flag, and allows
+          <code class="Nm">launchctl</code> to restrict which jobs are loaded
+          into which session types. Sessions are only relevant for per-user
+          <code class="Nm">launchd</code> contexts. Relevant sessions are Aqua
+          (the default), Background and LoginWindow. Background agents may be
+          loaded independently of a GUI login. Aqua agents are loaded only when
+          a user has logged in at the GUI. LoginWindow agents are loaded when
+          the LoginWindow UI is displaying and currently run as root.</dd>
+      <dt><a class="permalink" href="#D"><code class="Fl" id="D">-D</code></a>
+        <var class="Ar">searchpath</var></dt>
+      <dd>Load or unload all <a class="Xr">plist(5)</a> files in the search path
+          given. This option may be thought of as expanding into many individual
+          paths depending on the search path given. Valid search paths include
+          &quot;system,&quot; &quot;local,&quot; and &quot;all.&quot; When
+          providing a session type, an additional search path is available for
+          use called &quot;user.&quot; For example, without a session type
+          given, &quot;-D system&quot; would load from or unload all property
+          list files from <code class="Nm">/System/Library/LaunchDaemons</code>.
+          With a session type passed, it would load from
+          <code class="Nm">/System/Library/LaunchAgents</code>. Note that
+          <code class="Nm">launchctl</code> no longer respects the network
+          search path.
+        <p class="Pp">In a previous version of launchd, these search paths were
+            called &quot;domains&quot;, hence -D. The word &quot;domain&quot; is
+            now used for a totally different concept.</p>
+      </dd>
+    </dl>
+    <p class="Pp"><i class="Em">NOTE</i>: Due to bugs in the previous
+        implementation and long-standing client expectations around those bugs,
+        the <var class="Fa">load</var> and <var class="Fa">unload</var>
+        subcommands will only return a non-zero exit code due to improper usage.
+        Otherwise, zero is always returned.</p>
+  </dd>
+  <dt><var class="Ar">submit</var> <code class="Fl">-l</code>
+    <var class="Ar">label</var> [<code class="Fl">-p</code>
+    <var class="Ar">executable</var>] [<code class="Fl">-o</code>
+    <var class="Ar">stdout-path</var>] [<code class="Fl">-e</code>
+    <var class="Ar">stderr-path</var>] <var class="Ar">-- command</var>
+    [<var class="Ar">arg0</var>] [<var class="Ar">arg1</var>]
+    [<var class="Ar">...</var>]</dt>
+  <dd>A simple way of submitting a program to run without a configuration file.
+      This mechanism also tells launchd to keep the program alive in the event
+      of failure.
+    <dl class="Bl-tag">
+      <dt><a class="permalink" href="#l"><code class="Fl" id="l">-l</code></a>
+        <var class="Ar">label</var></dt>
+      <dd>What unique label to assign this job to launchd.</dd>
+      <dt><a class="permalink" href="#p_2"><code class="Fl" id="p_2">-p</code></a>
+        <var class="Ar">program</var></dt>
+      <dd>What program to really execute, regardless of what follows the -- in
+          the submit sub-command.</dd>
+      <dt><a class="permalink" href="#o"><code class="Fl" id="o">-o</code></a>
+        <var class="Ar">stdout-path</var></dt>
+      <dd>Where to send the stdout of the program.</dd>
+      <dt><a class="permalink" href="#e"><code class="Fl" id="e">-e</code></a>
+        <var class="Ar">stderr-path</var></dt>
+      <dd>Where to send the stderr of the program.</dd>
+    </dl>
+  </dd>
+  <dt><var class="Ar">remove</var> <var class="Ar">label</var></dt>
+  <dd>Remove the job from launchd by label. This subcommand will return
+      immediately and not block until the job has been stopped.</dd>
+  <dt><var class="Ar">start</var> <var class="Ar">label</var></dt>
+  <dd>Start the specified job by label. The expected use of this subcommand is
+      for debugging and testing so that one can manually kick-start an on-demand
+      server.</dd>
+  <dt><var class="Ar">stop</var> <var class="Ar">label</var></dt>
+  <dd>Stop the specified job by label. If a job is on-demand, launchd may
+      immediately restart the job if launchd finds any criteria that is
+      satisfied.</dd>
+  <dt><var class="Ar">list</var> [<var class="Ar">-x</var>]
+    [<var class="Ar">label</var>]</dt>
+  <dd>With no arguments, list all of the jobs loaded into
+      <code class="Nm">launchd</code> in three columns. The first column
+      displays the PID of the job if it is running. The second column displays
+      the last exit status of the job. If the number in this column is negative,
+      it represents the negative of the signal which stopped the job. Thus,
+      &quot;-15&quot; would indicate that the job was terminated with SIGTERM.
+      The third column is the job's label. If [<var class="Ar">label</var>] is
+      specified, prints information about the requested job.
+    <dl class="Bl-tag">
+      <dt><a class="permalink" href="#x_2"><code class="Fl" id="x_2">-x</code></a></dt>
+      <dd>This flag is no longer supported.</dd>
+    </dl>
+  </dd>
+  <dt><var class="Ar">setenv</var> <var class="Ar">key</var>
+    <var class="Ar">value</var></dt>
+  <dd>Specify an environment variable to be set on all future processes launched
+      by <code class="Nm">launchd</code> in the caller's context.</dd>
+  <dt><var class="Ar">unsetenv</var> <var class="Ar">key</var></dt>
+  <dd>Specify that an environment variable no longer be set on any future
+      processes launched by <code class="Nm">launchd</code> in the caller's
+      context.</dd>
+  <dt><var class="Ar">getenv</var> <var class="Ar">key</var></dt>
+  <dd>Print the value of an environment variable that
+      <code class="Nm">launchd</code> would set for all processes launched into
+      the caller's context.</dd>
+  <dt><var class="Ar">export</var></dt>
+  <dd>Export all of the environment variables of <code class="Nm">launchd</code>
+      for use in a shell eval statement.</dd>
+  <dt><var class="Ar">getrusage self</var> | <var class="Ar">children</var></dt>
+  <dd>Get the resource utilization statistics for
+      <code class="Nm">launchd</code> or the children of
+      <code class="Nm">launchd</code>. This subcommand is not implemented.</dd>
+  <dt><var class="Ar">limit</var> [<var class="Ar">cpu</var> |
+    <var class="Ar">filesize</var> | <var class="Ar">data</var> |
+    <var class="Ar">stack</var> | <var class="Ar">core</var> |
+    <var class="Ar">rss</var> | <var class="Ar">memlock</var> |
+    <var class="Ar">maxproc</var> | <var class="Ar">maxfiles</var>]
+    [<var class="Ar">both</var> [<var class="Ar">soft</var> |
+    <var class="Ar">hard</var>]]</dt>
+  <dd>With no arguments, this command prints all the resource limits of
+      <code class="Nm">launchd</code> as found via
+      <a class="Xr">getrlimit(2)</a>. When a given resource is specified, it
+      prints the limits for that resource. With a third argument, it sets both
+      the hard and soft limits to that value. With four arguments, the third and
+      forth argument represent the soft and hard limits respectively. See
+      <a class="Xr">setrlimit(2)</a>.</dd>
+  <dt><var class="Ar">shutdown</var></dt>
+  <dd>Tell <code class="Nm">launchd</code> to prepare for shutdown by removing
+      all jobs. This subcommand is not implemented.</dd>
+  <dt><var class="Ar">umask</var> [<var class="Ar">newmask</var>]</dt>
+  <dd>Get or optionally set the <a class="Xr">umask(2)</a> of
+      <code class="Nm">launchd</code>. This subcommand is not implemented.</dd>
+  <dt><var class="Ar">bslist</var> [<var class="Ar">PID</var> |
+    <var class="Ar">..</var>] [<var class="Ar">-j</var>]</dt>
+  <dd>This subcommand is not implemented and has been superseded by the
+      <var class="Ar">print</var> subcommand, which provides much richer
+      information.</dd>
+  <dt><var class="Ar">bsexec</var> <var class="Ar">PID command</var>
+    [<var class="Ar">args</var>]</dt>
+  <dd>This executes the given command in as similar an execution context as
+      possible to the target PID. Adopted attributes include the Mach bootstrap
+      namespace, exception server and security audit session. It does not modify
+      the process' credentials (UID, GID, etc.) or adopt any environment
+      variables from the target process. It affects only the Mach bootstrap
+      context and directly-related attributes.</dd>
+  <dt><var class="Ar">asuser</var> <var class="Ar">UID command</var>
+    [<var class="Ar">args</var>]</dt>
+  <dd>This executes the given command in as similar an execution context as
+      possible to that of the target user's bootstrap. Adopted attributes
+      include the Mach bootstrap namespace, exception server and security audit
+      session. It does not modify the process' credentials (UID, GID, etc.) or
+      adopt any user-specific environment variables. It affects only the Mach
+      bootstrap context and directly- related attributes.</dd>
+  <dt><var class="Ar">bstree</var></dt>
+  <dd>This subcommand is not implemented and has been superseded by the
+      <var class="Ar">print</var> subcommand, which provides much richer
+      information.</dd>
+  <dt><var class="Ar">managerpid</var></dt>
+  <dd>This prints the PID of the launchd which manages the current bootstrap. In
+      prior implementations, there could be multiple
+      <code class="Nm">launchd</code> processes each managing their own Mach
+      bootstrap subsets. In the current implementation, all bootstraps are
+      managed by one process, so this subcommand will always print
+      &quot;1&quot;.</dd>
+  <dt><var class="Ar">manageruid</var></dt>
+  <dd>This prints the UID associated with the caller's launchd context.</dd>
+  <dt><var class="Ar">managername</var></dt>
+  <dd>This prints the name of the launchd job manager which manages the current
+      launchd context. See LimitLoadToSessionType in
+      <a class="Xr">launchd.plist(5)</a> for more details.</dd>
+  <dt><var class="Ar">help</var></dt>
+  <dd>Print out a quick usage statement.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
+The output produced by the &quot;legacy&quot; subcommands (chiefly
+  <var class="Ar">list</var>) should match their output on previous OS X
+  releases. However, the output of newer subcommands does not conform to any
+  particular format and is not guaranteed to remain stable across releases.
+  These commands are intended for use by human developers and system
+  administrators, not for automation by programs or scripts. Their output does
+  not constitute an API and no promises of forward compatibility are offered to
+  programs that attempt to parse it.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DEPRECATED_AND_REMOVED_FUNCTIONALITY"><a class="permalink" href="#DEPRECATED_AND_REMOVED_FUNCTIONALITY">DEPRECATED
+  AND REMOVED FUNCTIONALITY</a></h1>
+<code class="Nm">launchctl</code> no longer has an interactive mode, nor does it
+  accept commands from stdin. The <code class="Nm">/etc/launchd.conf</code> file
+  is no longer consulted for subcommands to run during early boot time; this
+  functionality was removed for security considerations. While it was documented
+  that <code class="Nm">$HOME/.launchd.conf</code> would be consulted prior to
+  setting up a user's session, this functionality was never implemented.
+<p class="Pp">launchd no longer uses Unix domain sockets for communication, so
+    the <code class="Nm">LAUNCHD_SOCKET</code> environment variable is no longer
+    relevant and is not set.</p>
+<p class="Pp"><code class="Nm">launchd</code> no longer loads configuration
+    files from the network</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag Bl-compact">
+  <dt><span class="Pa">~/Library/LaunchAgents</span></dt>
+  <dd>Per-user agents provided by the user.</dd>
+  <dt><span class="Pa">/Library/LaunchAgents</span></dt>
+  <dd>Per-user agents provided by the administrator.</dd>
+  <dt><span class="Pa">/Library/LaunchDaemons</span></dt>
+  <dd>System wide daemons provided by the administrator.</dd>
+  <dt><span class="Pa">/System/Library/LaunchAgents</span></dt>
+  <dd>OS X Per-user agents.</dd>
+  <dt><span class="Pa">/System/Library/LaunchDaemons</span></dt>
+  <dd>OS X System wide daemons.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT
+  STATUS</a></h1>
+<code class="Nm">launchctl</code> will exit with status 0 if the subcommand
+  succeeded. Otherwise, it will exit with an error code that can be given to the
+  <var class="Ar">error</var> subcommand to be decoded into human-readable form.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">launchd.plist(5)</a>, <a class="Xr">launchd(8)</a>,
+  <a class="Xr">audit(8)</a>, <a class="Xr">setaudit_addr(2)</a>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">1 October, 2014</td>
+    <td class="foot-os">Darwin</td>
+  </tr>
+</table>
+</body>
+</html>

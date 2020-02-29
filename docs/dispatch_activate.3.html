@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   Copyright (c) 2008-2012 Apple Inc. All rights reserved.
+ -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>dispatch_object(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">dispatch_object(3)</td>
+    <td class="head-vol">Library Functions Manual</td>
+    <td class="head-rtitle">dispatch_object(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">dispatch_object</code> &#x2014;
+<div class="Nd">General manipulation of dispatch objects</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<code class="In">#include <a class="In">&lt;dispatch/dispatch.h&gt;</a></code>
+<p class="Pp"><var class="Ft">void</var>
+  <br/>
+  <code class="Fn">dispatch_retain</code>(<var class="Fa">dispatch_object_t
+    object</var>);</p>
+<p class="Pp"><var class="Ft">void</var>
+  <br/>
+  <code class="Fn">dispatch_release</code>(<var class="Fa">dispatch_object_t
+    object</var>);</p>
+<p class="Pp"><var class="Ft">void</var>
+  <br/>
+  <code class="Fn">dispatch_suspend</code>(<var class="Fa">dispatch_object_t
+    object</var>);</p>
+<p class="Pp"><var class="Ft">void</var>
+  <br/>
+  <code class="Fn">dispatch_resume</code>(<var class="Fa">dispatch_object_t
+    object</var>);</p>
+<p class="Pp"><var class="Ft">void</var>
+  <br/>
+  <code class="Fn">dispatch_activate</code>(<var class="Fa">dispatch_object_t
+    object</var>);</p>
+<p class="Pp"><var class="Ft">void *</var>
+  <br/>
+  <code class="Fn">dispatch_get_context</code>(<var class="Fa">dispatch_object_t
+    object</var>);</p>
+<p class="Pp"><var class="Ft">void</var>
+  <br/>
+  <code class="Fn">dispatch_set_context</code>(<var class="Fa">dispatch_object_t
+    object</var>, <var class="Fa">void *context</var>);</p>
+<p class="Pp"><var class="Ft">void</var>
+  <br/>
+  <code class="Fn">dispatch_set_finalizer_f</code>(<var class="Fa">dispatch_object_t
+    object</var>, <var class="Fa">dispatch_function_t finalizer</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+Dispatch objects share functions for coordinating memory management, suspension,
+  cancellation and context pointers.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MEMORY_MANAGEMENT"><a class="permalink" href="#MEMORY_MANAGEMENT">MEMORY
+  MANAGEMENT</a></h1>
+Objects returned by creation functions in the dispatch framework may be
+  uniformly retained and released with the functions
+  <code class="Fn">dispatch_retain</code>() and
+  <code class="Fn">dispatch_release</code>() respectively.
+<p class="Pp">The dispatch framework does not guarantee that any given client
+    has the last or only reference to a given object. Objects may be retained
+    internally by the system.</p>
+<section class="Ss">
+<h2 class="Ss" id="INTEGRATION_WITH_OBJECTIVE_C"><a class="permalink" href="#INTEGRATION_WITH_OBJECTIVE_C">INTEGRATION
+  WITH OBJECTIVE-C</a></h2>
+<div class="Bd Bd-indent">When building with an Objective-C or Objective-C++
+  compiler, dispatch objects are declared as Objective-C types. This results in
+  the following differences compared to building as plain C/C++:
+<ul class="Bl-dash">
+  <li>if Objective-C Automated Reference Counting is enabled, dispatch objects
+      are memory managed by the Objective-C runtime and explicit calls to the
+      <code class="Fn">dispatch_retain</code>() and
+      <code class="Fn">dispatch_release</code>() functions will produce build
+      errors.
+    <p class="Pp"><i class="Em">Note</i>: when ARC is enabled, care needs to be
+        taken with dispatch API returning an interior pointer that is only valid
+        as long as an associated object has not been released. If that object is
+        held in a variable with automatic storage, it may need to be annotated
+        with the <code class="Li">objc_precise_lifetime</code> attribute, or
+        stored in a <code class="Li">__strong</code> instance variable instead,
+        to ensure that the object is not prematurely released. The functions
+        returning interior pointers are
+        <a class="Xr">dispatch_data_create_map(3)</a> and
+        <a class="Xr">dispatch_data_apply(3)</a>.</p>
+  </li>
+  <li>the Blocks runtime automatically retains and releases dispatch objects
+      captured by blocks upon <code class="Fn">Block_copy</code>() and
+      <code class="Fn">Block_release</code>(), e.g. as performed during
+      asynchronous execution of a block via <a class="Xr">dispatch_async(3)</a>.
+    <p class="Pp"><i class="Em">Note</i>: retain cycles may be encountered if
+        dispatch source objects are captured by their handler blocks; these
+        cycles can be broken by declaring the captured object
+        <code class="Li">__weak</code> or by calling
+        <a class="Xr">dispatch_source_cancel(3)</a> to cause its handler blocks
+        to be released explicitly.</p>
+  </li>
+  <li>dispatch objects can be added directly to Cocoa collections, and their
+      lifetime is tracked by the Objective-C static analyzer.</li>
+</ul>
+<p class="Pp">Integration of dispatch objects with Objective-C requires
+    targeting Mac&#x00A0;OS&#x00A0;X 10.8 or later, and is disabled when
+    building for the legacy Objective-C runtime. It can also be disabled
+    manually by using compiler options to define the
+    <code class="Dv">OS_OBJECT_USE_OBJC</code> preprocessor macro to
+    <code class="Li">0</code>.</p>
+</div>
+<p class="Pp"><i class="Em">Important</i>: When building with a plain C/C++
+    compiler or when integration with Objective-C is disabled, dispatch objects
+    are <i class="Em">not</i> automatically retained and released when captured
+    by a block. Therefore, when a dispatch object is captured by a block that
+    will be executed asynchronously, the object must be manually retained and
+    released:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+dispatch_retain(object);
+dispatch_async(queue, ^{
+	do_something_with_object(object);
+	dispatch_release(object);
+});
+</pre>
+</div>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACTIVATION"><a class="permalink" href="#ACTIVATION">ACTIVATION</a></h1>
+Dispatch objects such as queues and sources may be created in an inactive state.
+  Objects in this state must be activated before any blocks associated with them
+  will be invoked. Calling <code class="Fn">dispatch_activate</code>() on an
+  active object has no effect.
+<p class="Pp">Changing attributes such as the target queue or a source handler
+    is no longer permitted once the object has been activated (see
+    <a class="Xr">dispatch_set_target_queue(3)</a>,
+    <a class="Xr">dispatch_source_set_event_handler(3)</a> ).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SUSPENSION"><a class="permalink" href="#SUSPENSION">SUSPENSION</a></h1>
+The invocation of blocks on dispatch queues or dispatch sources may be suspended
+  or resumed with the functions <code class="Fn">dispatch_suspend</code>() and
+  <code class="Fn">dispatch_resume</code>() respectively. Other dispatch objects
+  do not support suspension.
+<p class="Pp">The dispatch framework always checks the suspension status before
+    executing a block, but such changes never affect a block during execution
+    (non-preemptive). Therefore the suspension of an object is asynchronous,
+    unless it is performed from the context of the target queue for the given
+    object. The result of suspending or resuming an object that is not a
+    dispatch queue or a dispatch source is undefined.</p>
+<p class="Pp"><i class="Em">Important</i>: suspension applies to all aspects of
+    the dispatch object life cycle, including the finalizer function and
+    cancellation handler. Suspending an object causes it to be retained and
+    resuming an object causes it to be released. Therefore it is important to
+    balance calls to <code class="Fn">dispatch_suspend</code>() and
+    <code class="Fn">dispatch_resume</code>() such that the dispatch object is
+    fully resumed when the last reference is released. The result of releasing
+    all references to a dispatch object while in an inactive or suspended state
+    is undefined.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONTEXT_POINTERS"><a class="permalink" href="#CONTEXT_POINTERS">CONTEXT
+  POINTERS</a></h1>
+Dispatch objects support supplemental context pointers. The value of the context
+  pointer may be retrieved and updated with
+  <code class="Fn">dispatch_get_context</code>() and
+  <code class="Fn">dispatch_set_context</code>() respectively. The
+  <code class="Fn">dispatch_set_finalizer_f</code>() specifies an optional
+  per-object finalizer function that is invoked asynchronously if the context
+  pointer is not NULL when the last reference to the object is released. This
+  gives the application an opportunity to free the context data associated with
+  the object. The finalizer will be run on the object's target queue.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">dispatch(3)</a>, <a class="Xr">dispatch_async(3)</a>,
+  <a class="Xr">dispatch_group_create(3)</a>,
+  <a class="Xr">dispatch_queue_create(3)</a>,
+  <a class="Xr">dispatch_semaphore_create(3)</a>,
+  <a class="Xr">dispatch_set_target_queue(3)</a>,
+  <a class="Xr">dispatch_source_cancel(3)</a>,
+  <a class="Xr">dispatch_source_create(3)</a>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">March 1, 2012</td>
+    <td class="foot-os">Darwin</td>
+  </tr>
+</table>
+</body>
+</html>

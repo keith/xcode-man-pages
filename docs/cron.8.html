@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+  /* Copyright 1988,1990,1993 by Paul Vixie
+   * All rights reserved
+   *
+   * Distribute freely, except: don't remove my name from the source or
+   * documentation (don't take credit for my work), mark your changes (don't
+   * get me blamed for your possible bugs), don't alter or remove this
+   * notice.  May be sold if buildable source is provided to buyer.  No
+   * warrantee of any kind, express or implied, is included with this
+   * software; use at your own risk, responsibility for damages (if any) to
+   * anyone resulting from the use of this software rests entirely with the
+   * user.
+   *
+   * Send bug reports, bug fixes, enhancements, requests, flames, etc., and
+   * I'll try to keep a version up to date.  I can be reached as follows:
+   * Paul Vixie          <paul@vix.com>          uunet!decwrl!vixie!paul
+   */
+  
+   $FreeBSD: src/usr.sbin/cron/cron/cron.8,v 1.25 2007/06/17 17:25:53 yar Exp $
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>CRON(8)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">CRON(8)</td>
+    <td class="head-vol">System Manager's Manual</td>
+    <td class="head-rtitle">CRON(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">cron</code> &#x2014;
+<div class="Nd">daemon to execute scheduled commands (Vixie Cron)</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">cron</code></td>
+    <td>[<code class="Fl">-s</code>] [<code class="Fl">-o</code>]
+      [<code class="Fl">-x</code>
+      <var class="Ar">debugflag</var>[,<var class="Ar">...</var>]]</td>
+  </tr>
+</table>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The <code class="Nm">cron</code> utility is launched by
+  <a class="Xr">launchd(8)</a> when it sees the existence of
+  <span class="Pa">/etc/crontab</span> or files in
+  <span class="Pa">/usr/lib/cron/tabs</span>. There should be no need to start
+  it manually. See
+  <span class="Pa">/System/Library/LaunchDaemons/com.vix.cron.plist</span> for
+  details.
+<p class="Pp">The <code class="Nm">cron</code> utility searches
+    <span class="Pa">/usr/lib/cron/tabs</span> for crontab files which are named
+    after accounts in <span class="Pa">/etc/passwd</span>; crontabs found are
+    loaded into memory. The <code class="Nm">cron</code> utility also searches
+    for <span class="Pa">/etc/crontab</span> which is in a different format (see
+    <a class="Xr">crontab(5)</a>).</p>
+<p class="Pp">The <code class="Nm">cron</code> utility then wakes up every
+    minute, examining all stored crontabs, checking each command to see if it
+    should be run in the current minute. When executing commands, any output is
+    mailed to the owner of the crontab (or to the user named in the
+    <code class="Ev">MAILTO</code> environment variable in the crontab, if such
+    exists).</p>
+<p class="Pp">Additionally, <code class="Nm">cron</code> checks each minute to
+    see if its spool directory's modification time (or the modification time on
+    <span class="Pa">/etc/crontab</span>) has changed, and if it has,
+    <code class="Nm">cron</code> will then examine the modification time on all
+    crontabs and reload those which have changed. Thus
+    <code class="Nm">cron</code> need not be restarted whenever a crontab file
+    is modified. Note that the <a class="Xr">crontab(1)</a> command updates the
+    modification time of the spool directory whenever it changes a crontab.</p>
+<p class="Pp">Available options:</p>
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#s"><code class="Fl" id="s">-s</code></a></dt>
+  <dd>Enable special handling of situations when the GMT offset of the local
+      timezone changes, such as the switches between the standard time and
+      daylight saving time.
+    <p class="Pp">The jobs run during the GMT offset changes time as intuitively
+        expected. If a job falls into a time interval that disappears (for
+        example, during the switch from standard time) to daylight saving time
+        or is duplicated (for example, during the reverse switch), then it is
+        handled in one of two ways:</p>
+    <p class="Pp">The first case is for the jobs that run every at hour of a
+        time interval overlapping with the disappearing or duplicated interval.
+        In other words, if the job had run within one hour before the GMT offset
+        change (and cron was not restarted nor the <a class="Xr">crontab(5)</a>
+        changed after that) or would run after the change at the next hour. They
+        work as always, skip the skipped time or run in the added time as
+      usual.</p>
+    <p class="Pp">The second case is for the jobs that run less frequently. They
+        are executed exactly once, they are not skipped nor executed twice
+        (unless cron is restarted or the user's <a class="Xr">crontab(5)</a> is
+        changed during such a time interval). If an interval disappears due to
+        the GMT offset change, such jobs are executed at the same absolute point
+        of time as they would be in the old time zone. For example, if exactly
+        one hour disappears, this point would be during the next hour at the
+        first minute that is specified for them in
+      <a class="Xr">crontab(5)</a>.</p>
+  </dd>
+  <dt><a class="permalink" href="#o"><code class="Fl" id="o">-o</code></a></dt>
+  <dd>Disable the special handling of situations when the GMT offset of the
+      local timezone changes, to be compatible with the old (default) behavior.
+      If both options <code class="Fl">-o</code> and <code class="Fl">-s</code>
+      are specified, the option specified last wins.</dd>
+  <dt><a class="permalink" href="#x"><code class="Fl" id="x">-x</code></a>
+    <var class="Ar">debugflag</var>[,<var class="Ar">...</var>]</dt>
+  <dd>Enable writing of debugging information to standard output. One or more of
+      the following comma separated <var class="Ar">debugflag</var> identifiers
+      must be specified:
+    <p class="Pp"></p>
+    <dl class="Bl-tag Bl-compact">
+      <dt><a class="permalink" href="#bit"><code class="Cm" id="bit">bit</code></a></dt>
+      <dd>currently not used</dd>
+      <dt><a class="permalink" href="#ext"><code class="Cm" id="ext">ext</code></a></dt>
+      <dd>make the other debug flags more verbose</dd>
+      <dt><a class="permalink" href="#load"><code class="Cm" id="load">load</code></a></dt>
+      <dd>be verbose when loading crontab files</dd>
+      <dt><a class="permalink" href="#misc"><code class="Cm" id="misc">misc</code></a></dt>
+      <dd>be verbose about miscellaneous one-off events</dd>
+      <dt><a class="permalink" href="#pars"><code class="Cm" id="pars">pars</code></a></dt>
+      <dd>be verbose about parsing individual crontab lines</dd>
+      <dt><a class="permalink" href="#proc"><code class="Cm" id="proc">proc</code></a></dt>
+      <dd>be verbose about the state of the process, including all of its
+          offspring</dd>
+      <dt><a class="permalink" href="#sch"><code class="Cm" id="sch">sch</code></a></dt>
+      <dd>be verbose when iterating through the scheduling algorithms</dd>
+      <dt><a class="permalink" href="#test"><code class="Cm" id="test">test</code></a></dt>
+      <dd>trace through the execution, but do not perform any actions</dd>
+    </dl>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag Bl-compact">
+  <dt><span class="Pa">/usr/lib/cron/tabs</span></dt>
+  <dd>Directory for personal crontab files</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">crontab(1)</a>, <a class="Xr">launchctl(1)</a>,
+  <a class="Xr">crontab(5)</a>, <a class="Xr">launchd.plist(5)</a>,
+  <a class="Xr">launchd(8)</a>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<span class="An">Paul Vixie</span> &#x27E8;paul@vix.com&#x27E9;
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">June 17, 2007</td>
+    <td class="foot-os">Mac OS X 10.15</td>
+  </tr>
+</table>
+</body>
+</html>

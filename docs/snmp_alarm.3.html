@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>SNMP_ALARM(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SNMP_ALARM(3)</td>
+    <td class="head-vol">Net-SNMP</td>
+    <td class="head-rtitle">SNMP_ALARM(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+snmp_alarm_register, snmp_alarm_register_hr, snmp_alarm_unregister - alarm
+  functions
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<b>#include &lt;net-snmp/utilities.h&gt;</b>
+<p class="Pp"><b>unsigned int</b>
+  <br/>
+  <b>snmp_alarm_register(unsigned int </b><i>seconds</i><b>,</b>
+  <br/>
+  <b> unsigned int </b><i>flags</i><b>,</b>
+  <br/>
+  <b> SNMPAlarmCallback *</b><i>f_callback</i><b>,</b>
+  <br/>
+  <b> void *</b><i>clientarg</i><b>);</b></p>
+<p class="Pp"><b>unsigned int</b>
+  <br/>
+  <b>snmp_alarm_register_hr(struct timeval </b><i>t</i><b>,</b>
+  <br/>
+  <b> unsigned int </b><i>flags</i><b>,</b>
+  <br/>
+  <b> SNMPAlarmCallback *</b><i>f_callback</i><b>,</b>
+  <br/>
+  <b> void *</b><i>clientarg</i><b>);</b></p>
+<p class="Pp"><b>void</b>
+  <br/>
+  <b>snmp_alarm_unregister(unsigned int </b><i>reg</i><b>);</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+These functions implement support for a generic timer handling mechanism for
+  multiple parts of an application to register function callbacks to happen at a
+  particular time in the future.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="USAGE"><a class="permalink" href="#USAGE">USAGE</a></h1>
+The usage is fairly simple and straight-forward: Simply create a function you
+  want called back at some point in the future. The function definition should
+  be similar to:
+<div class="Bd-indent">
+<p class="Pp"><b>void my_callback(unsigned int </b><i>reg</i><b>, void
+    *</b><i>clientarg</i><b>);</b></p>
+</div>
+<p class="Pp">Then, call <b>snmp_alarm_register()</b> to register your callback
+    to be called <i>seconds</i> from now. The <i>flags</i> field should either
+    be <i>SA_REPEAT</i> or <i>NULL.</i> If flags is set with <i>SA_REPEAT,</i>
+    then the registered callback function will be called every <i>seconds.</i>
+    If <i>flags</i> is <i>NULL</i> then the function will only be called once
+    and then removed from the alarm system registration.</p>
+<p class="Pp">The <i>clientarg</i> parameter in the registration function is
+    used only by the client function and is stored and passed back directly to
+    them on every call to the system.</p>
+<p class="Pp">The <b>snmp_alarm_register()</b> function returns a unique
+    <i>unsigned int</i> (which is also passed as the first argument of each
+    callback), which can then be used to remove the callback from the queue at a
+    later point in the future using the <b>snmp_alarm_unregister()</b> function.
+    If the <b>snmp_alarm_register()</b> call fails it returns zero. In
+    particular, note that it is entirely permissible for an alarm function to
+    unregister itself.</p>
+<p class="Pp">The <b>snmp_alarm_register_hr()</b> function is identical in
+    operation to the <b>snmp_alarm_register()</b> function, but takes a
+    <i>struct timeval</i> as a first parameter, and schedules the callback after
+    the period represented by <i>t</i> (the letters <b>hr</b> stand for
+    &quot;high resolution&quot;). The operation of this function is dependent on
+    the provision of the <b>setitimer</b>(2) system call by the operating
+    system. If this system call is not available, the alarm will be scheduled as
+    if <b>snmp_alarm_register()</b> had been called with a first argument equal
+    to the value of the <i>tv_sec</i> member of <i>t</i>. See, however, the
+    notes below.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INITIALIZATION"><a class="permalink" href="#INITIALIZATION">INITIALIZATION</a></h1>
+The <b>init_snmp()</b> function initialises the snmp_alarm subsystem by calling
+  <b>init_snmp_alarm()</b> and then <b>init_alarm_post_config()</b> to set up
+  the first timer to initialise the callback function. These two functions
+  should not be used directly by applications.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+The default behaviour of the snmp_alarm subsystem is to request <i>SIGALRM</i>
+  signals from the operating system via the <b>alarm</b>(2) or
+  <b>setitimer</b>(2) system calls. This has the disadvantage, however, that no
+  other part of the application can use the <i>SIGLARM</i> functionality (or, if
+  some other part of the application <i>does</i> use the <i>SIGALRM</i>
+  functionality, the snmp_alarm subsystem will not work correctly).
+<p class="Pp">If your application runs a <b>select</b>(2)-based event loop,
+    however, there is no need to use <i>SIGALRM</i> for the snmp_alarm
+    subsystem, leaving it available for other parts of the application. This is
+    done by making the following call:</p>
+<p class="Pp"></p>
+<pre>
+netsnmp_ds_set_boolean(NETSNMP_DS_LIBRARY_ID, 
+                       NETSNMP_DS_LIB_ALARM_DONT_USE_SIG, 1);
+</pre>
+<p class="Pp">before calling <b>init_snmp()</b>. Then, <b>snmp_select_info()</b>
+    takes alarms into account when calculating the timeout value to be used for
+    <b>select</b>(2). All you need to do is call <b>run_alarms()</b> when
+    <b>select</b>(2) times out (return value of zero). This is the approach
+    taken in the agent; see <i>snmpd.c</i>. Furthermore, when using this method,
+    high resolution alarms do not depend on the presence of the
+    <b>setitimer</b>(2) system call, although overall precision is of course
+    still determined by the underlying operating system. Recommended.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>netsnmp_session_api</b>(3), <b>default_store</b>(3), <b>alarm</b>(2),
+  <b>setitimer</b>(2), <b>select</b>(2)
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">01 Aug 2002</td>
+    <td class="foot-os">V5.6.2.1</td>
+  </tr>
+</table>
+</body>
+</html>

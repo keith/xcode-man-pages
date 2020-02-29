@@ -1,0 +1,2792 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>ZSHEXPN(1)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">ZSHEXPN(1)</td>
+    <td class="head-vol">General Commands Manual</td>
+    <td class="head-rtitle">ZSHEXPN(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+zshexpn - zsh expansion and substitution
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The following types of expansions are performed in the indicated order in five
+  steps:
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><i>History Expansion</i></dt>
+  <dd>This is performed only in interactive shells.</dd>
+  <dt><i>Alias Expansion</i></dt>
+  <dd>Aliases are expanded immediately before the command line is parsed as
+      explained under Aliasing in <i>zshmisc</i>(1).</dd>
+  <dt><i>Process Substitution</i></dt>
+  <dd></dd>
+  <dt><i>Parameter Expansion</i></dt>
+  <dd></dd>
+  <dt><i>Command Substitution</i></dt>
+  <dd></dd>
+  <dt><i>Arithmetic Expansion</i></dt>
+  <dd></dd>
+  <dt><i>Brace Expansion</i></dt>
+  <dd>These five are performed in left-to-right fashion. On each argument, any
+      of the five steps that are needed are performed one after the other.
+      Hence, for example, all the parts of parameter expansion are completed
+      before command substitution is started. After these expansions, all
+      unquoted occurrences of the characters `<b>\</b>',`<b>'</b>' and
+      `<b>&quot;</b>' are removed.</dd>
+  <dt><i>Filename Expansion</i></dt>
+  <dd>If the <b>SH_FILE_EXPANSION</b> option is set, the order of expansion is
+      modified for compatibility with <b>sh</b> and <b>ksh</b>. In that case
+      <i>filename expansion</i> is performed immediately after <i>alias
+      expansion</i>, preceding the set of five expansions mentioned above.</dd>
+  <dt><i>Filename Generation</i></dt>
+  <dd>This expansion, commonly referred to as <b>globbing</b>, is always done
+      last.</dd>
+</dl>
+<p class="Pp">The following sections explain the types of expansion in
+  detail.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY_EXPANSION"><a class="permalink" href="#HISTORY_EXPANSION">HISTORY
+  EXPANSION</a></h1>
+History expansion allows you to use words from previous command lines in the
+  command line you are typing. This simplifies spelling corrections and the
+  repetition of complicated commands or arguments.
+<p class="Pp">Immediately before execution, each command is saved in the history
+    list, the size of which is controlled by the <b>HISTSIZE</b> parameter. The
+    one most recent command is always retained in any case. Each saved command
+    in the history list is called a history <i>event</i> and is assigned a
+    number, beginning with 1 (one) when the shell starts up. The history number
+    that you may see in your prompt (see EXPANSION OF PROMPT SEQUENCES in
+    <i>zshmisc</i>(1)) is the number that is to be assigned to the <i>next</i>
+    command.</p>
+<section class="Ss">
+<h2 class="Ss" id="Overview"><a class="permalink" href="#Overview">Overview</a></h2>
+A history expansion begins with the first character of the <b>histchars</b>
+  parameter, which is `<b>!</b>' by default, and may occur anywhere on the
+  command line, including inside double quotes (but not inside single quotes
+  <b>'...'</b> or C-style quotes <b>$'...'</b> nor when escaped with a
+  backslash).
+<p class="Pp">The first character is followed by an optional event designator
+    (see the section `Event Designators') and then an optional word designator
+    (the section `Word Designators'); if neither of these designators is
+    present, no history expansion occurs.</p>
+<p class="Pp">Input lines containing history expansions are echoed after being
+    expanded, but before any other expansions take place and before the command
+    is executed. It is this expanded form that is recorded as the history event
+    for later references.</p>
+<p class="Pp">History expansions do not nest.</p>
+<p class="Pp">By default, a history reference with no event designator refers to
+    the same event as any preceding history reference on that command line; if
+    it is the only history reference in a command, it refers to the previous
+    command. However, if the option <b>CSH_JUNKIE_HISTORY</b> is set, then every
+    history reference with no event specification <i>always</i> refers to the
+    previous command.</p>
+<p class="Pp">For example, `<b>!</b>' is the event designator for the previous
+    command, so `<b>!!:1</b>' always refers to the first word of the previous
+    command, and `<b>!!$</b>' always refers to the last word of the previous
+    command. With <b>CSH_JUNKIE_HISTORY</b> set, then `<b>!:1</b>' and
+    `<b>!$</b>' function in the same manner as `<b>!!:1</b>' and `<b>!!$</b>',
+    respectively. Conversely, if <b>CSH_JUNKIE_HISTORY</b> is unset, then
+    `<b>!:1</b>' and `<b>!$</b>' refer to the first and last words,
+    respectively, of the same event referenced by the nearest other history
+    reference preceding them on the current command line, or to the previous
+    command if there is no preceding reference.</p>
+<p class="Pp">The character sequence `<b>^</b><i>foo</i><b>^</b><i>bar</i>'
+    (where `<b>^</b>' is actually the second character of the <b>histchars</b>
+    parameter) repeats the last command, replacing the string <i>foo</i> with
+    <i>bar</i>. More precisely, the sequence
+    `<b>^</b><i>foo</i><b>^</b><i>bar</i><b>^</b>' is synonymous with
+    `<b>!!:s</b><b>^</b><i>foo</i><b>^</b><i>bar</i><b>^</b>', hence other
+    modifiers (see the section `Modifiers') may follow the final `<b>^</b>'. In
+    particular, `<b>^</b><i>foo</i><b>^</b><i>bar</i><b>^:G</b>' performs a
+    global substitution.</p>
+<p class="Pp">If the shell encounters the character sequence `<b>!&quot;</b>' in
+    the input, the history mechanism is temporarily disabled until the current
+    list (see <i>zshmisc</i>(1)) is fully parsed. The `<b>!&quot;</b>' is
+    removed from the input, and any subsequent `<b>!</b>' characters have no
+    special significance.</p>
+<p class="Pp">A less convenient but more comprehensible form of command history
+    support is provided by the <b>fc</b> builtin.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Event_Designators"><a class="permalink" href="#Event_Designators">Event
+  Designators</a></h2>
+An event designator is a reference to a command-line entry in the history list.
+  In the list below, remember that the initial <b>`!'</b> in each item may be
+  changed to another character by setting the <b>histchars</b> parameter.
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>!</b></dt>
+  <dd>Start a history expansion, except when followed by a blank, newline,
+      `<b>=</b>' or `<b>(</b>'. If followed immediately by a word designator
+      (see the section `Word Designators'), this forms a history reference with
+      no event designator (see the section `Overview').</dd>
+  <dt><b>!!</b></dt>
+  <dd>Refer to the previous command. By itself, this expansion repeats the
+      previous command.</dd>
+  <dt><b>!</b><i>n</i></dt>
+  <dd>Refer to command-line <i>n</i>.</dd>
+  <dt><b>!-</b><i>n</i></dt>
+  <dd>Refer to the current command-line minus <i>n</i>.</dd>
+  <dt><b>!</b><i>str</i></dt>
+  <dd>Refer to the most recent command starting with <i>str</i>.</dd>
+  <dt><b>!?</b><i>str</i>[<b>?</b>]</dt>
+  <dd>Refer to the most recent command containing <i>str</i>. The trailing
+      `<b>?</b>' is necessary if this reference is to be followed by a modifier
+      or followed by any text that is not to be considered part of
+    <i>str</i>.</dd>
+  <dt><b>!#</b></dt>
+  <dd>Refer to the current command line typed in so far. The line is treated as
+      if it were complete up to and including the word before the one with the
+      `<b>!#</b>' reference.</dd>
+  <dt><b>!{</b>...<b>}</b></dt>
+  <dd>Insulate a history reference from adjacent characters (if necessary).</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Word_Designators"><a class="permalink" href="#Word_Designators">Word
+  Designators</a></h2>
+A word designator indicates which word or words of a given command line are to
+  be included in a history reference. A `<b>:</b>' usually separates the event
+  specification from the word designator. It may be omitted only if the word
+  designator begins with a `<b>^</b>', `<b>$</b>', `<b>*</b>', `<b>-</b>' or
+  `<b>%</b>'. Word designators include:
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>0</b></dt>
+  <dd>The first input word (command).</dd>
+  <dt><i>n</i></dt>
+  <dd>The <i>n</i>th argument.</dd>
+  <dt><b>^</b></dt>
+  <dd>The first argument. That is, <b>1</b>.</dd>
+  <dt><b>$</b></dt>
+  <dd>The last argument.</dd>
+  <dt><b>%</b></dt>
+  <dd>The word matched by (the most recent) <b>?</b><i>str</i> search.</dd>
+  <dt><i>x</i><b>-</b><i>y</i></dt>
+  <dd>A range of words; <i>x</i> defaults to <b>0</b>.</dd>
+  <dt><b>*</b></dt>
+  <dd>All the arguments, or a null value if there are none.</dd>
+  <dt><i>x</i><b>*</b></dt>
+  <dd>Abbreviates `<i>x</i><b>-$</b>'.</dd>
+  <dt><i>x</i><b>-</b></dt>
+  <dd>Like `<i>x</i><b>*</b>' but omitting word <b>$</b>.</dd>
+</dl>
+<p class="Pp">Note that a `<b>%</b>' word designator works only when used in one
+    of `<b>!%</b>', `<b>!:%</b>' or `<b>!?</b><i>str</i><b>?:%</b>', and only
+    when used after a <b>!?</b> expansion (possibly in an earlier command).
+    Anything else results in an error, although the error may not be the most
+    obvious one.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Modifiers"><a class="permalink" href="#Modifiers">Modifiers</a></h2>
+After the optional word designator, you can add a sequence of one or more of the
+  following modifiers, each preceded by a `<b>:</b>'. These modifiers also work
+  on the result of <i>filename generation</i> and <i>parameter expansion</i>,
+  except where noted.
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>a</b></dt>
+  <dd>Turn a file name into an absolute path: prepends the current directory, if
+      necessary; remove `<b>.</b>' path segments; and remove `<b>..</b>' path
+      segments and the segments that immediately precede them.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">This transformation is agnostic about what is in the filesystem,
+    i.e. is on the logical, not the physical directory. It takes place in the
+    same manner as when changing directories when neither of the options
+    <b>CHASE_DOTS</b> or <b>CHASE_LINKS</b> is set. For example,
+    `<b>/before/here/../after</b>' is always transformed to
+    `<b>/before/after</b>', regardless of whether `<b>/before/here</b>' exists
+    or what kind of object (dir, file, symlink, etc.) it is.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>A</b></dt>
+  <dd>Turn a file name into an absolute path as the `<b>a</b>' modifier does,
+      and <i>then</i> pass the result through the <b>realpath(3)</b> library
+      function to resolve symbolic links.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Note: on systems that do not have a <b>realpath(3)</b> library
+    function, symbolic links are not resolved, so on those systems `<b>a</b>'
+    and `<b>A</b>' are equivalent.</p>
+<p class="Pp">Note: <b>foo:A</b> and <b>realpath(foo)</b> are different on some
+    inputs. For <b>realpath(foo)</b> semantics, see the `<b>P</b>` modifier.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>c</b></dt>
+  <dd>Resolve a command name into an absolute path by searching the command path
+      given by the <b>PATH</b> variable. This does not work for commands
+      containing directory parts. Note also that this does not usually work as a
+      glob qualifier unless a file of the same name is found in the current
+      directory.</dd>
+  <dt><b>e</b></dt>
+  <dd>Remove all but the part of the filename extension following the
+      `<b>.</b>'; see the definition of the filename extension in the
+      description of the <b>r</b> modifier below. Note that according to that
+      definition the result will be empty if the string ends with a
+    `<b>.</b>'.</dd>
+  <dt><b>h</b></dt>
+  <dd>Remove a trailing pathname component, leaving the head. This works like
+      `<b>dirname</b>'.</dd>
+  <dt><b>l</b></dt>
+  <dd>Convert the words to all lowercase.</dd>
+  <dt><b>p</b></dt>
+  <dd>Print the new command but do not execute it. Only works with history
+      expansion.</dd>
+  <dt><b>P</b></dt>
+  <dd>Turn a file name into an absolute path, like <b>realpath(3)</b>. The
+      resulting path will be absolute, have neither `<b>.</b>' nor `<b>..</b>'
+      components, and refer to the same directory entry as the input
+    filename.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Unlike <b>realpath(3)</b>, non-existent trailing components are
+    permitted and preserved.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>q</b></dt>
+  <dd>Quote the substituted words, escaping further substitutions. Works with
+      history expansion and parameter expansion, though for parameters it is
+      only useful if the resulting text is to be re-evaluated such as by
+      <b>eval</b>.</dd>
+  <dt><b>Q</b></dt>
+  <dd>Remove one level of quotes from the substituted words.</dd>
+  <dt><b>r</b></dt>
+  <dd>Remove a filename extension leaving the root name. Strings with no
+      filename extension are not altered. A filename extension is a `<b>.</b>'
+      followed by any number of characters (including zero) that are neither
+      `<b>.</b>' nor `<b>/</b>' and that continue to the end of the string. For
+      example, the extension of `<b>foo.orig.c</b>' is `<b>.c</b>', and
+      `<b>dir.c/foo</b>' has no extension.</dd>
+  <dt><b>s/</b><i>l</i><b>/</b><i>r</i>[<b>/</b>]</dt>
+  <dd>Substitute <i>r</i> for <i>l</i> as described below. The substitution is
+      done only for the first string that matches <i>l</i>. For arrays and for
+      filename generation, this applies to each word of the expanded text. See
+      below for further notes on substitutions.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">The forms `<b>gs/</b><i>l</i><b>/</b><i>r</i>' and
+    `<b>s/</b><i>l</i><b>/</b><i>r</i><b>/:G</b>' perform global substitution,
+    i.e. substitute every occurrence of <i>r</i> for <i>l</i>. Note that the
+    <b>g</b> or <b>:G</b> must appear in exactly the position shown.</p>
+<p class="Pp">See further notes on this form of substitution below.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>&amp;</b></dt>
+  <dd>Repeat the previous <b>s</b> substitution. Like <b>s</b>, may be preceded
+      immediately by a <b>g</b>. In parameter expansion the <b>&amp;</b> must
+      appear inside braces, and in filename generation it must be quoted with a
+      backslash.</dd>
+  <dt><b>t</b></dt>
+  <dd>Remove all leading pathname components, leaving the tail. This works like
+      `<b>basename</b>'.</dd>
+  <dt><b>u</b></dt>
+  <dd>Convert the words to all uppercase.</dd>
+  <dt><b>x</b></dt>
+  <dd>Like <b>q</b>, but break into words at whitespace. Does not work with
+      parameter expansion.</dd>
+</dl>
+<p class="Pp">The <b>s/</b><i>l</i><b>/</b><i>r</i><b>/</b> substitution works
+    as follows. By default the left-hand side of substitutions are not patterns,
+    but character strings. Any character can be used as the delimiter in place
+    of `<b>/</b>'. A backslash quotes the delimiter character. The character
+    `<b>&amp;</b>', in the right-hand-side <i>r</i>, is replaced by the text
+    from the left-hand-side <i>l</i>. The `<b>&amp;</b>' can be quoted with a
+    backslash. A null <i>l</i> uses the previous string either from the previous
+    <i>l</i> or from the contextual scan string <i>s</i> from
+    `<b>!?</b><i>s</i>'. You can omit the rightmost delimiter if a newline
+    immediately follows <i>r</i>; the rightmost `<b>?</b>' in a context scan can
+    similarly be omitted. Note the same record of the last <i>l</i> and <i>r</i>
+    is maintained across all forms of expansion.</p>
+<p class="Pp">Note that if a `<b>&amp;</b>' is used within glob qualifiers an
+    extra backslash is needed as a <b>&amp;</b> is a special character in this
+    case.</p>
+<p class="Pp">Also note that the order of expansions affects the interpretation
+    of <i>l</i> and <i>r</i>. When used in a history expansion, which occurs
+    before any other expansions, <i>l</i> and <i>r</i> are treated as literal
+    strings (except as explained for <b>HIST_SUBST_PATTERN</b> below). When used
+    in parameter expansion, the replacement of <i>r</i> into the parameter's
+    value is done first, and then any additional process, parameter, command,
+    arithmetic, or brace references are applied, which may evaluate those
+    substitutions and expansions more than once if <i>l</i> appears more than
+    once in the starting value. When used in a glob qualifier, any substitutions
+    or expansions are performed once at the time the qualifier is parsed, even
+    before the `<b>:s</b>' expression itself is divided into <i>l</i> and
+    <i>r</i> sides.</p>
+<p class="Pp">If the option <b>HIST_SUBST_PATTERN</b> is set, <i>l</i> is
+    treated as a pattern of the usual form described in the section FILENAME
+    GENERATION below. This can be used in all the places where modifiers are
+    available; note, however, that in globbing qualifiers parameter substitution
+    has already taken place, so parameters in the replacement string should be
+    quoted to ensure they are replaced at the correct time. Note also that
+    complicated patterns used in globbing qualifiers may need the extended glob
+    qualifier notation <b>(#q:s/</b><i>...</i><b>/</b><i>...</i><b>/)</b> in
+    order for the shell to recognize the expression as a glob qualifier.
+    Further, note that bad patterns in the substitution are not subject to the
+    <b>NO_BAD_PATTERN</b> option so will cause an error.</p>
+<p class="Pp">When <b>HIST_SUBST_PATTERN</b> is set, <i>l</i> may start with a
+    <b>#</b> to indicate that the pattern must match at the start of the string
+    to be substituted, and a <b>%</b> may appear at the start or after an
+    <b>#</b> to indicate that the pattern must match at the end of the string to
+    be substituted. The <b>%</b> or <b>#</b> may be quoted with two
+  backslashes.</p>
+<p class="Pp">For example, the following piece of filename generation code with
+    the <b>EXTENDED_GLOB</b> option:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>print *.c(#q:s/#%(#b)s(*).c/'S${match[1]}.C'/)</b>
+</pre>
+</div>
+<p class="Pp">takes the expansion of <b>*.c</b> and applies the glob qualifiers
+    in the <b>(#q</b><i>...</i><b>)</b> expression, which consists of a
+    substitution modifier anchored to the start and end of each word
+    (<b>#%</b>). This turns on backreferences (<b>(#b)</b>), so that the
+    parenthesised subexpression is available in the replacement string as
+    <b>${match[1]}</b>. The replacement string is quoted so that the parameter
+    is not substituted before the start of filename generation.</p>
+<p class="Pp">The following <b>f</b>, <b>F</b>, <b>w</b> and <b>W</b> modifiers
+    work only with parameter expansion and filename generation. They are listed
+    here to provide a single point of reference for all modifiers.</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>f</b></dt>
+  <dd>Repeats the immediately (without a colon) following modifier until the
+      resulting word doesn't change any more.</dd>
+  <dt><b>F:</b><i>expr</i><b>:</b></dt>
+  <dd>Like <b>f</b>, but repeats only <i>n</i> times if the expression
+      <i>expr</i> evaluates to <i>n</i>. Any character can be used instead of
+      the `<b>:</b>'; if `<b>(</b>', `<b>[</b>', or `<b>{</b>' is used as the
+      opening delimiter, the closing delimiter should be '<b>)</b>', `<b>]</b>',
+      or `<b>}</b>', respectively.</dd>
+  <dt><b>w</b></dt>
+  <dd>Makes the immediately following modifier work on each word in the
+    string.</dd>
+  <dt><b>W:</b><i>sep</i><b>:</b></dt>
+  <dd>Like <b>w</b> but words are considered to be the parts of the string that
+      are separated by <i>sep</i>. Any character can be used instead of the
+      `<b>:</b>'; opening parentheses are handled specially, see above.</dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PROCESS_SUBSTITUTION"><a class="permalink" href="#PROCESS_SUBSTITUTION">PROCESS
+  SUBSTITUTION</a></h1>
+Each part of a command argument that takes the form
+  `<b>&lt;(</b><i>list</i><b>)</b>', `<b>&gt;(</b><i>list</i><b>)</b>' or
+  `<b>=(</b><i>list</i><b>)</b>' is subject to process substitution. The
+  expression may be preceded or followed by other strings except that, to
+  prevent clashes with commonly occurring strings and patterns, the last form
+  must occur at the start of a command argument, and the forms are only expanded
+  when first parsing command or assignment arguments. Process substitutions may
+  be used following redirection operators; in this case, the substitution must
+  appear with no trailing string.
+<p class="Pp">Note that `<b>&lt;&lt;(</b><i>list</i><b>)</b>' is not a special
+    syntax; it is equivalent to `<b>&lt; &lt;(</b><i>list</i><b>)</b>',
+    redirecting standard input from the result of process substitution. Hence
+    all the following documentation applies. The second form (with the space) is
+    recommended for clarity.</p>
+<p class="Pp">In the case of the <b>&lt;</b> or <b>&gt;</b> forms, the shell
+    runs the commands in <i>list</i> as a subprocess of the job executing the
+    shell command line. If the system supports the <b>/dev/fd</b> mechanism, the
+    command argument is the name of the device file corresponding to a file
+    descriptor; otherwise, if the system supports named pipes (FIFOs), the
+    command argument will be a named pipe. If the form with <b>&gt;</b> is
+    selected then writing on this special file will provide input for
+    <i>list</i>. If <b>&lt;</b> is used, then the file passed as an argument
+    will be connected to the output of the <i>list</i> process. For example,</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b></b><b>paste &lt;(cut -f1</b><b> </b><i>file1</i><b></b><b>) &lt;(cut -f3</b><b> </b><i>file2</i><b></b><b>) |</b>
+<b>tee &gt;(</b><b></b><i>process1</i><b></b><b>) &gt;(</b><b></b><i>process2</i><b></b><b>) &gt;/dev/null</b><b></b><b></b>
+</pre>
+</div>
+<p class="Pp">cuts fields 1 and 3 from the files <i>file1</i> and <i>file2</i>
+    respectively, pastes the results together, and sends it to the processes
+    <i>process1</i> and <i>process2</i>.</p>
+<p class="Pp">If <b>=(</b><i>...</i><b>)</b> is used instead of
+    <b>&lt;(</b><i>...</i><b>)</b>, then the file passed as an argument will be
+    the name of a temporary file containing the output of the <i>list</i>
+    process. This may be used instead of the <b>&lt;</b> form for a program that
+    expects to lseek (see <i>lseek</i>(2)) on the input file.</p>
+<p class="Pp">There is an optimisation for substitutions of the form
+    <b>=(&lt;&lt;&lt;</b><i>arg</i><b>)</b>, where <i>arg</i> is a single-word
+    argument to the here-string redirection <b>&lt;&lt;&lt;</b>. This form
+    produces a file name containing the value of <i>arg</i> after any
+    substitutions have been performed. This is handled entirely within the
+    current shell. This is effectively the reverse of the special form
+    <b>$(&lt;</b><i>arg</i><b>)</b> which treats <i>arg</i> as a file name and
+    replaces it with the file's contents.</p>
+<p class="Pp">The <b>=</b> form is useful as both the <b>/dev/fd</b> and the
+    named pipe implementation of <b>&lt;(</b><i>...</i><b>)</b> have drawbacks.
+    In the former case, some programmes may automatically close the file
+    descriptor in question before examining the file on the command line,
+    particularly if this is necessary for security reasons such as when the
+    programme is running setuid. In the second case, if the programme does not
+    actually open the file, the subshell attempting to read from or write to the
+    pipe will (in a typical implementation, different operating systems may have
+    different behaviour) block for ever and have to be killed explicitly. In
+    both cases, the shell actually supplies the information using a pipe, so
+    that programmes that expect to lseek (see <i>lseek</i>(2)) on the file will
+    not work.</p>
+<p class="Pp">Also note that the previous example can be more compactly and
+    efficiently written (provided the <b>MULTIOS</b> option is set) as:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b></b><b>paste &lt;(cut -f1</b><b> </b><i>file1</i><b></b><b>) &lt;(cut -f3</b><b> </b><i>file2</i><b></b><b>)</b><b> \ </b>
+<b></b><b>&gt; &gt;(</b><b></b><i>process1</i><b></b><b>) &gt; &gt;(</b><b></b><i>process2</i><b></b><b>)</b><b></b><b></b>
+</pre>
+</div>
+<p class="Pp">The shell uses pipes instead of FIFOs to implement the latter two
+    process substitutions in the above example.</p>
+<p class="Pp">There is an additional problem with
+    <b>&gt;(</b><i>process</i><b>)</b>; when this is attached to an external
+    command, the parent shell does not wait for <i>process</i> to finish and
+    hence an immediately following command cannot rely on the results being
+    complete. The problem and solution are the same as described in the section
+    <i>MULTIOS</i> in <i>zshmisc</i>(1). Hence in a simplified version of the
+    example above:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b></b><b>paste &lt;(cut -f1</b><b> </b><i>file1</i><b></b><b>) &lt;(cut -f3</b><b> </b><i>file2</i><b></b><b>)</b><b> </b><b>&gt; &gt;(</b><b></b><i>process</i><b></b><b>)</b><b></b><b></b>
+</pre>
+</div>
+<p class="Pp">(note that no <b>MULTIOS</b> are involved), <i>process</i> will be
+    run asynchronously as far as the parent shell is concerned. The workaround
+    is:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b></b><b>{ paste &lt;(cut -f1</b><b> </b><i>file1</i><b></b><b>) &lt;(cut -f3</b><b> </b><i>file2</i><b></b><b>) }</b><b> </b><b>&gt; &gt;(</b><b></b><i>process</i><b></b><b>)</b><b></b><b></b>
+</pre>
+</div>
+<p class="Pp">The extra processes here are spawned from the parent shell which
+    will wait for their completion.</p>
+<p class="Pp">Another problem arises any time a job with a substitution that
+    requires a temporary file is disowned by the shell, including the case where
+    `<b>&amp;!</b>' or `<b>&amp;|</b>' appears at the end of a command
+    containing a substitution. In that case the temporary file will not be
+    cleaned up as the shell no longer has any memory of the job. A workaround is
+    to use a subshell, for example,</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>(mycmd =(myoutput)) &amp;!</b>
+</pre>
+</div>
+<p class="Pp">as the forked subshell will wait for the command to finish then
+    remove the temporary file.</p>
+<p class="Pp">A general workaround to ensure a process substitution endures for
+    an appropriate length of time is to pass it as a parameter to an anonymous
+    shell function (a piece of shell code that is run immediately with function
+    scope). For example, this code:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>() {</b>
+<b>   print File $1:</b>
+<b>   cat $1</b>
+<b>} =(print This be the verse)</b>
+</pre>
+</div>
+<p class="Pp">outputs something resembling the following</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>File /tmp/zsh6nU0kS:</b>
+<b>This be the verse</b>
+</pre>
+</div>
+<p class="Pp">The temporary file created by the process substitution will be
+    deleted when the function exits.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PARAMETER_EXPANSION"><a class="permalink" href="#PARAMETER_EXPANSION">PARAMETER
+  EXPANSION</a></h1>
+The character `<b>$</b>' is used to introduce parameter expansions. See
+  <i>zshparam</i>(1) for a description of parameters, including arrays,
+  associative arrays, and subscript notation to access individual array
+  elements.
+<p class="Pp">Note in particular the fact that words of unquoted parameters are
+    not automatically split on whitespace unless the option <b>SH_WORD_SPLIT</b>
+    is set; see references to this option below for more details. This is an
+    important difference from other shells.</p>
+<p class="Pp">In the expansions discussed below that require a pattern, the form
+    of the pattern is the same as that used for filename generation; see the
+    section `Filename Generation'. Note that these patterns, along with the
+    replacement text of any substitutions, are themselves subject to parameter
+    expansion, command substitution, and arithmetic expansion. In addition to
+    the following operations, the colon modifiers described in the section
+    `Modifiers' in the section `History Expansion' can be applied: for example,
+    <b>${i:s/foo/bar/}</b> performs string substitution on the expansion of
+    parameter <b>$i</b>.</p>
+<p class="Pp">In the following descriptions, `word' refers to a single word
+    substituted on the command line, not necessarily a space delimited word.
+    With default options, after the assignments:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>array=(&quot;first word&quot; &quot;second word&quot;)</b>
+<b>scalar=&quot;only word&quot;</b>
+</pre>
+</div>
+<p class="Pp">then <b>$array</b> substitutes two words, `<b>first word</b>' and
+    `<b>second</b> <b>word</b>', and <b>$scalar</b> substitutes a single word
+    `<b>only word</b>'. This may be modified by explicit or implicit
+    word-splitting, however. The full rules are complicated and are noted at the
+    end.</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>${</b><i>name</i><b>}</b></dt>
+  <dd>The value, if any, of the parameter <i>name</i> is substituted. The braces
+      are required if the expansion is to be followed by a letter, digit, or
+      underscore that is not to be interpreted as part of <i>name</i>. In
+      addition, more complicated forms of substitution usually require the
+      braces to be present; exceptions, which only apply if the option
+      <b>KSH_ARRAYS</b> is not set, are a single subscript or any colon
+      modifiers appearing after the name, or any of the characters `<b>^</b>',
+      `<b>=</b>', `<b>~</b>', `<b>#</b>' or `<b>+</b>' appearing before the
+      name, all of which work with or without braces.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If <i>name</i> is an array parameter, and the <b>KSH_ARRAYS</b>
+    option is not set, then the value of each element of <i>name</i> is
+    substituted, one element per word. Otherwise, the expansion results in one
+    word only; with <b>KSH_ARRAYS</b>, this is the first element of an array. No
+    field splitting is done on the result unless the <b>SH_WORD_SPLIT</b> option
+    is set. See also the flags <b>=</b> and <b>s:</b><i>string</i><b>:</b>.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>${+</b><i>name</i><b>}</b></dt>
+  <dd>If <i>name</i> is the name of a set parameter `<b>1</b>' is substituted,
+      otherwise `<b>0</b>' is substituted.</dd>
+  <dt><b>${</b><i>name</i><b>-</b><i>word</i><b>}</b></dt>
+  <dd></dd>
+  <dt><b>${</b><i>name</i><b>:-</b><i>word</i><b>}</b></dt>
+  <dd>If <i>name</i> is set, or in the second form is non-null, then substitute
+      its value; otherwise substitute <i>word</i>. In the second form
+      <i>name</i> may be omitted, in which case <i>word</i> is always
+      substituted.</dd>
+  <dt><b>${</b><i>name</i><b>+</b><i>word</i><b>}</b></dt>
+  <dd></dd>
+  <dt><b>${</b><i>name</i><b>:+</b><i>word</i><b>}</b></dt>
+  <dd>If <i>name</i> is set, or in the second form is non-null, then substitute
+      <i>word</i>; otherwise substitute nothing.</dd>
+  <dt><b>${</b><i>name</i><b>=</b><i>word</i><b>}</b></dt>
+  <dd></dd>
+  <dt><b>${</b><i>name</i><b>:=</b><i>word</i><b>}</b></dt>
+  <dd></dd>
+  <dt><b>${</b><i>name</i><b>::=</b><i>word</i><b>}</b></dt>
+  <dd>In the first form, if <i>name</i> is unset then set it to <i>word</i>; in
+      the second form, if <i>name</i> is unset or null then set it to
+      <i>word</i>; and in the third form, unconditionally set <i>name</i> to
+      <i>word</i>. In all forms, the value of the parameter is then
+    substituted.</dd>
+  <dt><b>${</b><i>name</i><b>?</b><i>word</i><b>}</b></dt>
+  <dd></dd>
+  <dt><b>${</b><i>name</i><b>:?</b><i>word</i><b>}</b></dt>
+  <dd>In the first form, if <i>name</i> is set, or in the second form if
+      <i>name</i> is both set and non-null, then substitute its value;
+      otherwise, print <i>word</i> and exit from the shell. Interactive shells
+      instead return to the prompt. If <i>word</i> is omitted, then a standard
+      message is printed.</dd>
+</dl>
+<p class="Pp">In any of the above expressions that test a variable and
+    substitute an alternate <i>word</i>, note that you can use standard shell
+    quoting in the <i>word</i> value to selectively override the splitting done
+    by the <b>SH_WORD_SPLIT</b> option and the <b>=</b> flag, but not splitting
+    by the <b>s:</b><i>string</i><b>:</b> flag.</p>
+<p class="Pp">In the following expressions, when <i>name</i> is an array and the
+    substitution is not quoted, or if the `<b>(@)</b>' flag or the
+    <i>name</i><b>[@]</b> syntax is used, matching and replacement is performed
+    on each array element separately.</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>${</b><i>name</i><b>#</b><i>pattern</i><b>}</b></dt>
+  <dd></dd>
+  <dt><b>${</b><i>name</i><b>##</b><i>pattern</i><b>}</b></dt>
+  <dd>If the <i>pattern</i> matches the beginning of the value of <i>name</i>,
+      then substitute the value of <i>name</i> with the matched portion deleted;
+      otherwise, just substitute the value of <i>name</i>. In the first form,
+      the smallest matching pattern is preferred; in the second form, the
+      largest matching pattern is preferred.</dd>
+  <dt><b>${</b><i>name</i><b>%</b><i>pattern</i><b>}</b></dt>
+  <dd></dd>
+  <dt><b>${</b><i>name</i><b>%%</b><i>pattern</i><b>}</b></dt>
+  <dd>If the <i>pattern</i> matches the end of the value of <i>name</i>, then
+      substitute the value of <i>name</i> with the matched portion deleted;
+      otherwise, just substitute the value of <i>name</i>. In the first form,
+      the smallest matching pattern is preferred; in the second form, the
+      largest matching pattern is preferred.</dd>
+  <dt><b>${</b><i>name</i><b>:#</b><i>pattern</i><b>}</b></dt>
+  <dd>If the <i>pattern</i> matches the value of <i>name</i>, then substitute
+      the empty string; otherwise, just substitute the value of <i>name</i>. If
+      <i>name</i> is an array the matching array elements are removed (use the
+      `<b>(M)</b>' flag to remove the non-matched elements).</dd>
+  <dt><b>${</b><i>name</i><b>:|</b><i>arrayname</i><b>}</b></dt>
+  <dd>If <i>arrayname</i> is the name (N.B., not contents) of an array variable,
+      then any elements contained in <i>arrayname</i> are removed from the
+      substitution of <i>name</i>. If the substitution is scalar, either because
+      <i>name</i> is a scalar variable or the expression is quoted, the elements
+      of <i>arrayname</i> are instead tested against the entire expression.</dd>
+  <dt><b>${</b><i>name</i><b>:*</b><i>arrayname</i><b>}</b></dt>
+  <dd>Similar to the preceding substitution, but in the opposite sense, so that
+      entries present in both the original substitution and as elements of
+      <i>arrayname</i> are retained and others removed.</dd>
+  <dt><b>${</b><i>name</i><b>:^</b><i>arrayname</i><b>}</b></dt>
+  <dd></dd>
+  <dt><b>${</b><i>name</i><b>:^^</b><i>arrayname</i><b>}</b></dt>
+  <dd>Zips two arrays, such that the output array is twice as long as the
+      shortest (longest for `<b>:^^</b>') of <b>name</b> and <b>arrayname</b>,
+      with the elements alternatingly being picked from them. For `<b>:^</b>',
+      if one of the input arrays is longer, the output will stop when the end of
+      the shorter array is reached. Thus,</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>a=(1 2 3 4); b=(a b); print ${a:^b}</b>
+</pre>
+</div>
+<p class="Pp">will output `<b>1 a 2 b</b>'. For `<b>:^^</b>', then the input is
+    repeated until all of the longer array has been used up and the above will
+    output `<b>1 a 2 b 3 a 4 b</b>'.</p>
+<p class="Pp">Either or both inputs may be a scalar, they will be treated as an
+    array of length 1 with the scalar as the only element. If either array is
+    empty, the other array is output with no extra elements inserted.</p>
+<p class="Pp">Currently the following code will output `<b>a b</b>' and
+    `<b>1</b>' as two separate elements, which can be unexpected. The second
+    print provides a workaround which should continue to work if this is
+    changed.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>a=(a b); b=(1 2); print -l &quot;${a:^b}&quot;; print -l &quot;${${a:^b}}&quot;</b>
+</pre>
+</div>
+</div>
+<dl class="Bl-tag">
+  <dt><b>${</b><i>name</i><b>:</b><i>offset</i><b>}</b></dt>
+  <dd></dd>
+  <dt><b>${</b><i>name</i><b>:</b><i>offset</i><b>:</b><i>length</i><b>}</b></dt>
+  <dd>This syntax gives effects similar to parameter subscripting in the form
+      <b>$</b><i>name</i><b>[</b><i>start</i><b>,</b><i>end</i><b>]</b>, but is
+      compatible with other shells; note that both <i>offset</i> and
+      <i>length</i> are interpreted differently from the components of a
+      subscript.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If <i>offset</i> is non-negative, then if the variable <i>name</i>
+    is a scalar substitute the contents starting <i>offset</i> characters from
+    the first character of the string, and if <i>name</i> is an array substitute
+    elements starting <i>offset</i> elements from the first element. If
+    <i>length</i> is given, substitute that many characters or elements,
+    otherwise the entire rest of the scalar or array.</p>
+<p class="Pp">A positive <i>offset</i> is always treated as the offset of a
+    character or element in <i>name</i> from the first character or element of
+    the array (this is different from native zsh subscript notation). Hence 0
+    refers to the first character or element regardless of the setting of the
+    option <b>KSH_ARRAYS</b>.</p>
+<p class="Pp">A negative offset counts backwards from the end of the scalar or
+    array, so that -1 corresponds to the last character or element, and so
+  on.</p>
+<p class="Pp">When positive, <i>length</i> counts from the <i>offset</i>
+    position toward the end of the scalar or array. When negative, <i>length</i>
+    counts back from the end. If this results in a position smaller than
+    <i>offset</i>, a diagnostic is printed and nothing is substituted.</p>
+<p class="Pp">The option <b>MULTIBYTE</b> is obeyed, i.e. the offset and length
+    count multibyte characters where appropriate.</p>
+<p class="Pp"><i>offset</i> and <i>length</i> undergo the same set of shell
+    substitutions as for scalar assignment; in addition, they are then subject
+    to arithmetic evaluation. Hence, for example</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>print ${foo:3}</b>
+<b>print ${foo: 1 + 2}</b>
+<b>print ${foo:$(( 1 + 2))}</b>
+<b>print ${foo:$(echo 1 + 2)}</b>
+</pre>
+</div>
+<p class="Pp">all have the same effect, extracting the string starting at the
+    fourth character of <b>$foo</b> if the substitution would otherwise return a
+    scalar, or the array starting at the fourth element if <b>$foo</b> would
+    return an array. Note that with the option <b>KSH_ARRAYS</b> <b>$foo</b>
+    always returns a scalar (regardless of the use of the offset syntax) and a
+    form such as <b>${foo[*]:3}</b> is required to extract elements of an array
+    named <b>foo</b>.</p>
+<p class="Pp">If <i>offset</i> is negative, the <b>-</b> may not appear
+    immediately after the <b>:</b> as this indicates the
+    <b>${</b><i>name</i><b>:-</b><i>word</i><b>}</b> form of substitution.
+    Instead, a space may be inserted before the <b>-</b>. Furthermore, neither
+    <i>offset</i> nor <i>length</i> may begin with an alphabetic character or
+    <b>&amp;</b> as these are used to indicate history-style modifiers. To
+    substitute a value from a variable, the recommended approach is to precede
+    it with a <b>$</b> as this signifies the intention (parameter substitution
+    can easily be rendered unreadable); however, as arithmetic substitution is
+    performed, the expression <b>${var: offs}</b> does work, retrieving the
+    offset from <b>$offs</b>.</p>
+<p class="Pp">For further compatibility with other shells there is a special
+    case for array offset 0. This usually accesses the first element of the
+    array. However, if the substitution refers to the positional parameter
+    array, e.g. <b>$@</b> or <b>$*</b>, then offset 0 instead refers to
+    <b>$0</b>, offset 1 refers to <b>$1</b>, and so on. In other words, the
+    positional parameter array is effectively extended by prepending <b>$0</b>.
+    Hence <b>${*:0:1}</b> substitutes <b>$0</b> and <b>${*:1:1}</b> substitutes
+    <b>$1</b>.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>${</b><i>name</i><b>/</b><i>pattern</i><b>/</b><i>repl</i><b>}</b></dt>
+  <dd></dd>
+  <dt><b>${</b><i>name</i><b>//</b><i>pattern</i><b>/</b><i>repl</i><b>}</b></dt>
+  <dd></dd>
+  <dt><b>${</b><i>name</i><b>:/</b><i>pattern</i><b>/</b><i>repl</i><b>}</b></dt>
+  <dd>Replace the longest possible match of <i>pattern</i> in the expansion of
+      parameter <i>name</i> by string <i>repl</i>. The first form replaces just
+      the first occurrence, the second form all occurrences, and the third form
+      replaces only if <i>pattern</i> matches the entire string. Both
+      <i>pattern</i> and <i>repl</i> are subject to double-quoted substitution,
+      so that expressions like <b>${name/$opat/$npat}</b> will work, but obey
+      the usual rule that pattern characters in <b>$opat</b> are not treated
+      specially unless either the option <b>GLOB_SUBST</b> is set, or
+      <b>$opat</b> is instead substituted as <b>${~opat}</b>.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">The <i>pattern</i> may begin with a `<b>#</b>', in which case the
+    <i>pattern</i> must match at the start of the string, or `<b>%</b>', in
+    which case it must match at the end of the string, or `<b>#%</b>' in which
+    case the <i>pattern</i> must match the entire string. The <i>repl</i> may be
+    an empty string, in which case the final `<b>/</b>' may also be omitted. To
+    quote the final `<b>/</b>' in other cases it should be preceded by a single
+    backslash; this is not necessary if the `<b>/</b>' occurs inside a
+    substituted parameter. Note also that the `<b>#</b>', `<b>%</b>' and
+    `<b>#%</b> are not active if they occur inside a substituted parameter, even
+    at the start.</p>
+<p class="Pp">If, after quoting rules apply, <b>${</b><i>name</i><b>}</b>
+    expands to an array, the replacements act on each element individually. Note
+    also the effect of the <b>I</b> and <b>S</b> parameter expansion flags
+    below; however, the flags <b>M</b>, <b>R</b>, <b>B</b>, <b>E</b> and
+    <b>N</b> are not useful.</p>
+<p class="Pp">For example,</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>foo=&quot;twinkle twinkle little star&quot; sub=&quot;t*e&quot; rep=&quot;spy&quot;</b>
+<b>print ${foo//${~sub}/$rep}</b>
+<b>print ${(S)foo//${~sub}/$rep}</b>
+</pre>
+</div>
+<p class="Pp">Here, the `<b>~</b>' ensures that the text of <b>$sub</b> is
+    treated as a pattern rather than a plain string. In the first case, the
+    longest match for <b>t*e</b> is substituted and the result is `<b>spy
+    star</b>', while in the second case, the shortest matches are taken and the
+    result is `<b>spy spy lispy star</b>'.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>${#</b><i>spec</i><b>}</b></dt>
+  <dd>If <i>spec</i> is one of the above substitutions, substitute the length in
+      characters of the result instead of the result itself. If <i>spec</i> is
+      an array expression, substitute the number of elements of the result. This
+      has the side-effect that joining is skipped even in quoted forms, which
+      may affect other sub-expressions in <i>spec</i>. Note that `<b>^</b>',
+      `<b>=</b>', and `<b>~</b>', below, must appear to the left of `<b>#</b>'
+      when these forms are combined.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If the option <b>POSIX_IDENTIFIERS</b> is not set, and <i>spec</i>
+    is a simple name, then the braces are optional; this is true even for
+    special parameters so e.g. <b>$#-</b> and <b>$#*</b> take the length of the
+    string <b>$-</b> and the array <b>$*</b> respectively. If
+    <b>POSIX_IDENTIFIERS</b> is set, then braces are required for the <b>#</b>
+    to be treated in this fashion.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>${^</b><i>spec</i><b>}</b></dt>
+  <dd>Turn on the <b>RC_EXPAND_PARAM</b> option for the evaluation of
+      <i>spec</i>; if the `<b>^</b>' is doubled, turn it off. When this option
+      is set, array expansions of the form
+      <i>foo</i><b>${</b><i>xx</i><b>}</b><i>bar</i>, where the parameter
+      <i>xx</i> is set to <b>(</b><i>a b c</i><b>)</b>, are substituted with
+      `<i>fooabar foobbar foocbar</i>' instead of the default `<i>fooa b
+      cbar</i>'. Note that an empty array will therefore cause all arguments to
+      be removed.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Internally, each such expansion is converted into the equivalent
+    list for brace expansion. E.g., <b>${^var}</b> becomes
+    <b>{$var[1],$var[2],</b>...<b>}</b>, and is processed as described in the
+    section `Brace Expansion' below: note, however, the expansion happens
+    immediately, with any explicit brace expansion happening later. If word
+    splitting is also in effect the <b>$var[</b><i>N</i><b>]</b> may themselves
+    be split into different list elements.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>${=</b><i>spec</i><b>}</b></dt>
+  <dd>Perform word splitting using the rules for <b>SH_WORD_SPLIT</b> during the
+      evaluation of <i>spec</i>, but regardless of whether the parameter appears
+      in double quotes; if the `<b>=</b>' is doubled, turn it off. This forces
+      parameter expansions to be split into separate words before substitution,
+      using <b>IFS</b> as a delimiter. This is done by default in most other
+      shells.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Note that splitting is applied to <i>word</i> in the assignment
+    forms of <i>spec</i> <i>before</i> the assignment to <i>name</i> is
+    performed. This affects the result of array assignments with the <b>A</b>
+    flag.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>${~</b><i>spec</i><b>}</b></dt>
+  <dd>Turn on the <b>GLOB_SUBST</b> option for the evaluation of <i>spec</i>; if
+      the `<b>~</b>' is doubled, turn it off. When this option is set, the
+      string resulting from the expansion will be interpreted as a pattern
+      anywhere that is possible, such as in filename expansion and filename
+      generation and pattern-matching contexts like the right hand side of the
+      `<b>=</b>' and `<b>!=</b>' operators in conditions.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">In nested substitutions, note that the effect of the <b>~</b>
+    applies to the result of the current level of substitution. A surrounding
+    pattern operation on the result may cancel it. Hence, for example, if the
+    parameter <b>foo</b> is set to <b>*</b>, <b>${~foo//\*/*.c}</b> is
+    substituted by the pattern <b>*.c</b>, which may be expanded by filename
+    generation, but <b>${${~foo}//\*/*.c}</b> substitutes to the string
+    <b>*.c</b>, which will not be further expanded.</p>
+</div>
+<p class="Pp">If a <b>${</b>...<b>}</b> type parameter expression or a
+    <b>$(</b>...<b>)</b> type command substitution is used in place of
+    <i>name</i> above, it is expanded first and the result is used as if it were
+    the value of <i>name</i>. Thus it is possible to perform nested operations:
+    <b>${${foo#head}%tail}</b> substitutes the value of <b>$foo</b> with both
+    `<b>head</b>' and `<b>tail</b>' deleted. The form with <b>$(</b>...<b>)</b>
+    is often useful in combination with the flags described next; see the
+    examples below. Each <i>name</i> or nested <b>${</b>...<b>}</b> in a
+    parameter expansion may also be followed by a subscript expression as
+    described in <i>Array Parameters</i> in <i>zshparam</i>(1).</p>
+<p class="Pp">Note that double quotes may appear around nested expressions, in
+    which case only the part inside is treated as quoted; for example,
+    <b>${(f)&quot;$(foo)&quot;}</b> quotes the result of <b>$(foo)</b>, but the
+    flag `<b>(f)</b>' (see below) is applied using the rules for unquoted
+    expansions. Note further that quotes are themselves nested in this context;
+    for example, in <b>&quot;${(@f)&quot;$(foo)&quot;}&quot;</b>, there are two
+    sets of quotes, one surrounding the whole expression, the other (redundant)
+    surrounding the <b>$(foo)</b> as before.</p>
+<section class="Ss">
+<h2 class="Ss" id="Parameter_Expansion_Flags"><a class="permalink" href="#Parameter_Expansion_Flags">Parameter
+  Expansion Flags</a></h2>
+If the opening brace is directly followed by an opening parenthesis, the string
+  up to the matching closing parenthesis will be taken as a list of flags. In
+  cases where repeating a flag is meaningful, the repetitions need not be
+  consecutive; for example, `(<b>q%q%q</b>)' means the same thing as the more
+  readable `(<b>%%qqq</b>)'. The following flags are supported:
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>#</b></dt>
+  <dd>Evaluate the resulting words as numeric expressions and output the
+      characters corresponding to the resulting integer. Note that this form is
+      entirely distinct from use of the <b>#</b> without parentheses.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If the <b>MULTIBYTE</b> option is set and the number is greater
+    than 127 (i.e. not an ASCII character) it is treated as a Unicode
+  character.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>%</b></dt>
+  <dd>Expand all <b>%</b> escapes in the resulting words in the same way as in
+      prompts (see EXPANSION OF PROMPT SEQUENCES in <i>zshmisc</i>(1)). If this
+      flag is given twice, full prompt expansion is done on the resulting words,
+      depending on the setting of the <b>PROMPT_PERCENT</b>, <b>PROMPT_SUBST</b>
+      and <b>PROMPT_BANG</b> options.</dd>
+  <dt><b>@</b></dt>
+  <dd>In double quotes, array elements are put into separate words. E.g.,
+      `<b>&quot;${(@)foo}&quot;</b>' is equivalent to
+      `<b>&quot;${foo[@]}&quot;</b>' and `<b>&quot;${(@)foo[1,2]}&quot;</b>' is
+      the same as `<b>&quot;$foo[1]&quot; &quot;$foo[2]&quot;</b>'. This is
+      distinct from <i>field splitting</i> by the <b>f</b>, <b>s</b> or <b>z</b>
+      flags, which still applies within each array element.</dd>
+  <dt><b>A</b></dt>
+  <dd>Convert the substitution into an array expression, even if it otherwise
+      would be scalar. This has lower precedence than subscripting, so one level
+      of nested expansion is required in order that subscripts apply to array
+      elements. Thus <b>${${(A</b><b>)</b><i>name</i><b>}[1]}</b> yields the
+      full value of <i>name</i> when <i>name</i> is scalar.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">This assigns an array parameter with
+    `<b>${</b>...<b>=</b>...<b>}</b>', `<b>${</b>...<b>:=</b>...<b>}</b>' or
+    `<b>${</b>...<b>::=</b>...<b>}</b>'. If this flag is repeated (as in
+    `<b>AA</b>'), assigns an associative array parameter. Assignment is made
+    before sorting or padding; if field splitting is active, the <i>word</i>
+    part is split before assignment. The <i>name</i> part may be a subscripted
+    range for ordinary arrays; when assigning an associative array, the
+    <i>word</i> part <i>must</i> be converted to an array, for example by using
+    `<b>${(AA)=</b><i>name</i><b>=</b>...<b>}</b>' to activate field
+  splitting.</p>
+<p class="Pp">Surrounding context such as additional nesting or use of the value
+    in a scalar assignment may cause the array to be joined back into a single
+    string again.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>a</b></dt>
+  <dd>Sort in array index order; when combined with `<b>O</b>' sort in reverse
+      array index order. Note that `<b>a</b>' is therefore equivalent to the
+      default but `<b>Oa</b>' is useful for obtaining an array's elements in
+      reverse order.</dd>
+  <dt><b>b</b></dt>
+  <dd>Quote with backslashes only characters that are special to pattern
+      matching. This is useful when the contents of the variable are to be
+      tested using <b>GLOB_SUBST</b>, including the <b>${~</b><i>...</i><b>}</b>
+      switch.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Quoting using one of the <b>q</b> family of flags does not work
+    for this purpose since quotes are not stripped from non-pattern characters
+    by <b>GLOB_SUBST</b>. In other words,</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>pattern=${(q)str}</b>
+<b>[[ $str = ${~pattern} ]]</b>
+</pre>
+</div>
+<p class="Pp">works if <b>$str</b> is `<b>a*b</b>' but not if it is `<b>a
+    b</b>', whereas</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>pattern=${(b)str}</b>
+<b>[[ $str = ${~pattern} ]]</b>
+</pre>
+</div>
+<p class="Pp">is always true for any possible value of <b>$str</b>.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>c</b></dt>
+  <dd>With <b>${#</b><i>name</i><b>}</b>, count the total number of characters
+      in an array, as if the elements were concatenated with spaces between
+      them. This is not a true join of the array, so other expressions used with
+      this flag may have an effect on the elements of the array before it is
+      counted.</dd>
+  <dt><b>C</b></dt>
+  <dd>Capitalize the resulting words. `Words' in this case refers to sequences
+      of alphanumeric characters separated by non-alphanumerics, <i>not</i> to
+      words that result from field splitting.</dd>
+  <dt><b>D</b></dt>
+  <dd>Assume the string or array elements contain directories and attempt to
+      substitute the leading part of these by names. The remainder of the path
+      (the whole of it if the leading part was not substituted) is then quoted
+      so that the whole string can be used as a shell argument. This is the
+      reverse of `<b>~</b>' substitution: see the section FILENAME EXPANSION
+      below.</dd>
+  <dt><b>e</b></dt>
+  <dd>Perform single word shell expansions, namely <i>parameter expansion</i>,
+      <i>command substitution</i> and <i>arithmetic expansion</i>, on the
+      result. Such expansions can be nested but too deep recursion may have
+      unpredictable effects.</dd>
+  <dt><b>f</b></dt>
+  <dd>Split the result of the expansion at newlines. This is a shorthand for
+      `<b>ps:\n:</b>'.</dd>
+  <dt><b>F</b></dt>
+  <dd>Join the words of arrays together using newline as a separator. This is a
+      shorthand for `<b>pj:\n:</b>'.</dd>
+  <dt><b>g:</b><i>opts</i><b>:</b></dt>
+  <dd>Process escape sequences like the echo builtin when no options are given
+      (<b>g::</b>). With the <b>o</b> option, octal escapes don't take a leading
+      zero. With the <b>c</b> option, sequences like `<b>^X</b>' are also
+      processed. With the <b>e</b> option, processes `<b>\M-t</b>' and similar
+      sequences like the print builtin. With both of the <b>o</b> and <b>e</b>
+      options, behaves like the print builtin except that in none of these modes
+      is `<b>\c</b>' interpreted.</dd>
+  <dt><b>i</b></dt>
+  <dd>Sort case-insensitively. May be combined with `<b>n</b>' or
+    `<b>O</b>'.</dd>
+  <dt><b>k</b></dt>
+  <dd>If <i>name</i> refers to an associative array, substitute the <i>keys</i>
+      (element names) rather than the values of the elements. Used with
+      subscripts (including ordinary arrays), force indices or keys to be
+      substituted even if the subscript form refers to values. However, this
+      flag may not be combined with subscript ranges. With the <b>KSH_ARRAYS</b>
+      option a subscript `<b>[*]</b>' or `<b>[@]</b>' is needed to operate on
+      the whole array, as usual.</dd>
+  <dt><b>L</b></dt>
+  <dd>Convert all letters in the result to lower case.</dd>
+  <dt><b>n</b></dt>
+  <dd>Sort decimal integers numerically; if the first differing characters of
+      two test strings are not digits, sorting is lexical. Integers with more
+      initial zeroes are sorted before those with fewer or none. Hence the array
+      `<b>foo1 foo02</b> <b>foo2 foo3 foo20 foo23</b>' is sorted into the order
+      shown. May be combined with `<b>i</b>' or `<b>O</b>'.</dd>
+  <dt><b>o</b></dt>
+  <dd>Sort the resulting words in ascending order; if this appears on its own
+      the sorting is lexical and case-sensitive (unless the locale renders it
+      case-insensitive). Sorting in ascending order is the default for other
+      forms of sorting, so this is ignored if combined with `<b>a</b>',
+      `<b>i</b>' or `<b>n</b>'.</dd>
+  <dt><b>O</b></dt>
+  <dd>Sort the resulting words in descending order; `<b>O</b>' without
+      `<b>a</b>', `<b>i</b>' or `<b>n</b>' sorts in reverse lexical order. May
+      be combined with `<b>a</b>', `<b>i</b>' or `<b>n</b>' to reverse the order
+      of sorting.</dd>
+  <dt><b>P</b></dt>
+  <dd>This forces the value of the parameter <i>name</i> to be interpreted as a
+      further parameter name, whose value will be used where appropriate. Note
+      that flags set with one of the <b>typeset</b> family of commands (in
+      particular case transformations) are not applied to the value of
+      <i>name</i> used in this fashion.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If used with a nested parameter or command substitution, the
+    result of that will be taken as a parameter name in the same way. For
+    example, if you have `<b>foo=bar</b>' and `<b>bar=baz</b>', the strings
+    <b>${(P)foo}</b>, <b>${(P)${foo}}</b>, and <b>${(P)$(echo bar)}</b> will be
+    expanded to `<b>baz</b>'.</p>
+<p class="Pp">Likewise, if the reference is itself nested, the expression with
+    the flag is treated as if it were directly replaced by the parameter name.
+    It is an error if this nested substitution produces an array with more than
+    one word. For example, if `<b>name=assoc</b>' where the parameter
+    <b>assoc</b> is an associative array, then `<b>${${(P)name}[elt]}</b>'
+    refers to the element of the associative subscripted `<b>elt</b>'.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>q</b></dt>
+  <dd>Quote characters that are special to the shell in the resulting words with
+      backslashes; unprintable or invalid characters are quoted using the
+      <b>$'\</b><i>NNN</i><b>'</b> form, with separate quotes for each
+    octet.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If this flag is given twice, the resulting words are quoted in
+    single quotes and if it is given three times, the words are quoted in double
+    quotes; in these forms no special handling of unprintable or invalid
+    characters is attempted. If the flag is given four times, the words are
+    quoted in single quotes preceded by a <b>$</b>. Note that in all three of
+    these forms quoting is done unconditionally, even if this does not change
+    the way the resulting string would be interpreted by the shell.</p>
+<p class="Pp">If a <b>q-</b> is given (only a single <b>q</b> may appear), a
+    minimal form of single quoting is used that only quotes the string if needed
+    to protect special characters. Typically this form gives the most readable
+    output.</p>
+<p class="Pp">If a <b>q+</b> is given, an extended form of minmal quoting is
+    used that causes unprintable characters to be rendered using
+    <b>$'</b><i>...</i><b>'</b>. This quoting is similar to that used by the
+    output of values by the <b>typeset</b> family of commands.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>Q</b></dt>
+  <dd>Remove one level of quotes from the resulting words.</dd>
+  <dt><b>t</b></dt>
+  <dd>Use a string describing the type of the parameter where the value of the
+      parameter would usually appear. This string consists of keywords separated
+      by hyphens (`<b>-</b>'). The first keyword in the string describes the
+      main type, it can be one of `<b>scalar</b>', `<b>array</b>',
+      `<b>integer</b>', `<b>float</b>' or `<b>association</b>'. The other
+      keywords describe the type in more detail:</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>local</b></dt>
+  <dd>for local parameters</dd>
+  <dt><b>left</b></dt>
+  <dd>for left justified parameters</dd>
+  <dt><b>right_blanks</b></dt>
+  <dd>for right justified parameters with leading blanks</dd>
+  <dt><b>right_zeros</b></dt>
+  <dd>for right justified parameters with leading zeros</dd>
+  <dt><b>lower</b></dt>
+  <dd>for parameters whose value is converted to all lower case when it is
+      expanded</dd>
+  <dt><b>upper</b></dt>
+  <dd>for parameters whose value is converted to all upper case when it is
+      expanded</dd>
+  <dt><b>readonly</b></dt>
+  <dd>for readonly parameters</dd>
+  <dt><b>tag</b></dt>
+  <dd>for tagged parameters</dd>
+  <dt><b>export</b></dt>
+  <dd>for exported parameters</dd>
+  <dt><b>unique</b></dt>
+  <dd>for arrays which keep only the first occurrence of duplicated values</dd>
+  <dt><b>hide</b></dt>
+  <dd>for parameters with the `hide' flag</dd>
+  <dt><b>hideval</b></dt>
+  <dd>for parameters with the `hideval' flag</dd>
+  <dt><b>special</b></dt>
+  <dd>for special parameters defined by the shell</dd>
+</dl>
+</div>
+<dl class="Bl-tag">
+  <dt><b>u</b></dt>
+  <dd>Expand only the first occurrence of each unique word.</dd>
+  <dt><b>U</b></dt>
+  <dd>Convert all letters in the result to upper case.</dd>
+  <dt><b>v</b></dt>
+  <dd>Used with <b>k</b>, substitute (as two consecutive words) both the key and
+      the value of each associative array element. Used with subscripts, force
+      values to be substituted even if the subscript form refers to indices or
+      keys.</dd>
+  <dt><b>V</b></dt>
+  <dd>Make any special characters in the resulting words visible.</dd>
+  <dt><b>w</b></dt>
+  <dd>With <b>${#</b><i>name</i><b>}</b>, count words in arrays or strings; the
+      <b>s</b> flag may be used to set a word delimiter.</dd>
+  <dt><b>W</b></dt>
+  <dd>Similar to <b>w</b> with the difference that empty words between repeated
+      delimiters are also counted.</dd>
+  <dt><b>X</b></dt>
+  <dd>With this flag, parsing errors occurring with the <b>Q</b>, <b>e</b> and
+      <b>#</b> flags or the pattern matching forms such as
+      `<b>${</b><i>name</i><b>#</b><i>pattern</i><b>}</b>' are reported. Without
+      the flag, errors are silently ignored.</dd>
+  <dt><b>z</b></dt>
+  <dd>Split the result of the expansion into words using shell parsing to find
+      the words, i.e. taking into account any quoting in the value. Comments are
+      not treated specially but as ordinary strings, similar to interactive
+      shells with the <b>INTERACTIVE_COMMENTS</b> option unset (however, see the
+      <b>Z</b> flag below for related options)</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Note that this is done very late, even later than the `<b>(s)</b>'
+    flag. So to access single words in the result use nested expansions as in
+    `<b>${${(z)foo}[2]}</b>'. Likewise, to remove the quotes in the resulting
+    words use `<b>${(Q)${(z)foo}}</b>'.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>0</b></dt>
+  <dd>Split the result of the expansion on null bytes. This is a shorthand for
+      `<b>ps:\0:</b>'.</dd>
+</dl>
+<p class="Pp">The following flags (except <b>p</b>) are followed by one or more
+    arguments as shown. Any character, or the matching pairs
+    `<b>(</b>...<b>)</b>', `<b>{</b>...<b>}</b>', `<b>[</b>...<b>]</b>', or
+    `<b>&lt;</b>...<b>&gt;</b>', may be used in place of a colon as delimiters,
+    but note that when a flag takes more than one argument, a matched pair of
+    delimiters must surround each argument.</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>p</b></dt>
+  <dd>Recognize the same escape sequences as the <b>print</b> builtin in string
+      arguments to any of the flags described below that follow this
+    argument.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Alternatively, with this option string arguments may be in the
+    form <b>$</b><i>var</i> in which case the value of the variable is
+    substituted. Note this form is strict; the string argument does not undergo
+    general parameter expansion.</p>
+<p class="Pp">For example,</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>sep=:</b>
+<b>val=a:b:c</b>
+<b>print ${(ps.$sep.)val}</b>
+</pre>
+</div>
+<p class="Pp">splits the variable on a <b>:</b>.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>~</b></dt>
+  <dd>Strings inserted into the expansion by any of the flags below are to be
+      treated as patterns. This applies to the string arguments of flags that
+      follow <b>~</b> within the same set of parentheses. Compare with <b>~</b>
+      outside parentheses, which forces the entire substituted string to be
+      treated as a pattern. Hence, for example,</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>[[ &quot;?&quot; = ${(~j.|.)array} ]]</b>
+</pre>
+</div>
+<p class="Pp">treats `<b>|</b>' as a pattern and succeeds if and only if
+    <b>$array</b> contains the string `<b>?</b>' as an element. The <b>~</b> may
+    be repeated to toggle the behaviour; its effect only lasts to the end of the
+    parenthesised group.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>j:</b><i>string</i><b>:</b></dt>
+  <dd>Join the words of arrays together using <i>string</i> as a separator. Note
+      that this occurs before field splitting by the
+      <b>s:</b><i>string</i><b>:</b> flag or the <b>SH_WORD_SPLIT</b>
+    option.</dd>
+  <dt><b>l:</b><i>expr</i><b>::</b><i>string1</i><b>::</b><i>string2</i><b>:</b></dt>
+  <dd>Pad the resulting words on the left. Each word will be truncated if
+      required and placed in a field <i>expr</i> characters wide.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">The arguments <b>:</b><i>string1</i><b>:</b> and
+    <b>:</b><i>string2</i><b>:</b> are optional; neither, the first, or both may
+    be given. Note that the same pairs of delimiters must be used for each of
+    the three arguments. The space to the left will be filled with
+    <i>string1</i> (concatenated as often as needed) or spaces if <i>string1</i>
+    is not given. If both <i>string1</i> and <i>string2</i> are given,
+    <i>string2</i> is inserted once directly to the left of each word, truncated
+    if necessary, before <i>string1</i> is used to produce any remaining
+    padding.</p>
+<p class="Pp">If either of <i>string1</i> or <i>string2</i> is present but
+    empty, i.e. there are two delimiters together at that point, the first
+    character of <b>$IFS</b> is used instead.</p>
+<p class="Pp">If the <b>MULTIBYTE</b> option is in effect, the flag <b>m</b> may
+    also be given, in which case widths will be used for the calculation of
+    padding; otherwise individual multibyte characters are treated as occupying
+    one unit of width.</p>
+<p class="Pp">If the <b>MULTIBYTE</b> option is not in effect, each byte in the
+    string is treated as occupying one unit of width.</p>
+<p class="Pp">Control characters are always assumed to be one unit wide; this
+    allows the mechanism to be used for generating repetitions of control
+    characters.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>m</b></dt>
+  <dd>Only useful together with one of the flags <b>l</b> or <b>r</b> or with
+      the <b>#</b> length operator when the <b>MULTIBYTE</b> option is in
+      effect. Use the character width reported by the system in calculating how
+      much of the string it occupies or the overall length of the string. Most
+      printable characters have a width of one unit, however certain Asian
+      character sets and certain special effects use wider characters; combining
+      characters have zero width. Non-printable characters are arbitrarily
+      counted as zero width; how they would actually be displayed will
+    vary.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If the <b>m</b> is repeated, the character either counts zero (if
+    it has zero width), else one. For printable character strings this has the
+    effect of counting the number of glyphs (visibly separate characters),
+    except for the case where combining characters themselves have non-zero
+    width (true in certain alphabets).</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>r:</b><i>expr</i><b>::</b><i>string1</i><b>::</b><i>string2</i><b>:</b></dt>
+  <dd>As <b>l</b>, but pad the words on the right and insert <i>string2</i>
+      immediately to the right of the string to be padded.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Left and right padding may be used together. In this case the
+    strategy is to apply left padding to the first half width of each of the
+    resulting words, and right padding to the second half. If the string to be
+    padded has odd width the extra padding is applied on the left.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>s:</b><i>string</i><b>:</b></dt>
+  <dd>Force field splitting at the separator <i>string</i>. Note that a
+      <i>string</i> of two or more characters means that all of them must match
+      in sequence; this differs from the treatment of two or more characters in
+      the <b>IFS</b> parameter. See also the <b>=</b> flag and the
+      <b>SH_WORD_SPLIT</b> option. An empty string may also be given in which
+      case every character will be a separate element.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">For historical reasons, the usual behaviour that empty array
+    elements are retained inside double quotes is disabled for arrays generated
+    by splitting; hence the following:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>line=&quot;one::three&quot;</b>
+<b>print -l &quot;${(s.:.)line}&quot;</b>
+</pre>
+</div>
+<p class="Pp">produces two lines of output for <b>one</b> and <b>three</b> and
+    elides the empty field. To override this behaviour, supply the `<b>(@)</b>'
+    flag as well, i.e. <b>&quot;${(@s.:.)line}&quot;</b>.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>Z:</b><i>opts</i><b>:</b></dt>
+  <dd>As <b>z</b> but takes a combination of option letters between a following
+      pair of delimiter characters. With no options the effect is identical to
+      <b>z</b>. <b>(Z+c+)</b> causes comments to be parsed as a string and
+      retained; any field in the resulting array beginning with an unquoted
+      comment character is a comment. <b>(Z+C+)</b> causes comments to be parsed
+      and removed. The rule for comments is standard: anything between a word
+      starting with the third character of <b>$HISTCHARS</b>, default <b>#</b>,
+      up to the next newline is a comment. <b>(Z+n+)</b> causes unquoted
+      newlines to be treated as ordinary whitespace, else they are treated as if
+      they are shell code delimiters and converted to semicolons. Options are
+      combined within the same set of delimiters, e.g. <b>(Z+Cn+)</b>.</dd>
+  <dt><b>_:</b><i>flags</i><b>:</b></dt>
+  <dd>The underscore (<b>_</b>) flag is reserved for future use. As of this
+      revision of zsh, there are no valid <i>flags</i>; anything following an
+      underscore, other than an empty pair of delimiters, is treated as an
+      error, and the flag itself has no effect.</dd>
+</dl>
+<p class="Pp">The following flags are meaningful with the
+    <b>${</b>...<b>#</b>...<b>}</b> or <b>${</b>...<b>%</b>...<b>}</b> forms.
+    The <b>S</b> and <b>I</b> flags may also be used with the
+    <b>${</b>...<b>/</b>...<b>}</b> forms.</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>S</b></dt>
+  <dd>Search substrings as well as beginnings or ends; with <b>#</b> start from
+      the beginning and with <b>%</b> start from the end of the string. With
+      substitution via <b>${</b>...<b>/</b>...<b>}</b> or
+      <b>${</b>...<b>//</b>...<b>}</b>, specifies non-greedy matching, i.e. that
+      the shortest instead of the longest match should be replaced.</dd>
+  <dt><b>I:</b><i>expr</i><b>:</b></dt>
+  <dd>Search the <i>expr</i>th match (where <i>expr</i> evaluates to a number).
+      This only applies when searching for substrings, either with the <b>S</b>
+      flag, or with <b>${</b>...<b>/</b>...<b>}</b> (only the <i>expr</i>th
+      match is substituted) or <b>${</b>...<b>//</b>...<b>}</b> (all matches
+      from the <i>expr</i>th on are substituted). The default is to take the
+      first match.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">The <i>expr</i>th match is counted such that there is either one
+    or zero matches from each starting position in the string, although for
+    global substitution matches overlapping previous replacements are ignored.
+    With the <b>${</b>...<b>%</b>...<b>}</b> and
+    <b>${</b>...<b>%%</b>...<b>}</b> forms, the starting position for the match
+    moves backwards from the end as the index increases, while with the other
+    forms it moves forward from the start.</p>
+<p class="Pp">Hence with the string</p>
+<div class="Bd-indent">
+<pre>
+<b>which switch is the right switch for Ipswich?</b>
+</pre>
+</div>
+substitutions of the form
+  <b>${</b>(<b>SI:</b><i>N</i><b>:</b>)<b>string#w*ch}</b> as <i>N</i> increases
+  from 1 will match and remove `<b>which</b>', `<b>witch</b>', `<b>witch</b>'
+  and `<b>wich</b>'; the form using `<b>##</b>' will match and remove `<b>which
+  switch</b> <b>is the right switch for Ipswich</b>', `<b>witch is the right
+  switch for</b> <b>Ipswich</b>', `<b>witch for Ipswich</b>' and `<b>wich</b>'.
+  The form using `<b>%</b>' will remove the same matches as for `<b>#</b>', but
+  in reverse order, and the form using `<b>%%</b>' will remove the same matches
+  as for `<b>##</b>' in reverse order.</div>
+<dl class="Bl-tag">
+  <dt><b>B</b></dt>
+  <dd>Include the index of the beginning of the match in the result.</dd>
+  <dt><b>E</b></dt>
+  <dd>Include the index one character past the end of the match in the result
+      (note this is inconsistent with other uses of parameter index).</dd>
+  <dt><b>M</b></dt>
+  <dd>Include the matched portion in the result.</dd>
+  <dt><b>N</b></dt>
+  <dd>Include the length of the match in the result.</dd>
+  <dt><b>R</b></dt>
+  <dd>Include the unmatched portion in the result (the <i>R</i>est).</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Rules"><a class="permalink" href="#Rules">Rules</a></h2>
+Here is a summary of the rules for substitution; this assumes that braces are
+  present around the substitution, i.e. <b>${</b><i>...</i><b>}</b>. Some
+  particular examples are given below. Note that the Zsh Development Group
+  accepts <i>no responsibility</i> for any brain damage which may occur during
+  the reading of the following rules.
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>1.</b> <i>Nested substitution</i></dt>
+  <dd>If multiple nested <b>${</b><i>...</i><b>}</b> forms are present,
+      substitution is performed from the inside outwards. At each level, the
+      substitution takes account of whether the current value is a scalar or an
+      array, whether the whole substitution is in double quotes, and what flags
+      are supplied to the current level of substitution, just as if the nested
+      substitution were the outermost. The flags are not propagated up to
+      enclosing substitutions; the nested substitution will return either a
+      scalar or an array as determined by the flags, possibly adjusted for
+      quoting. All the following steps take place where applicable at all levels
+      of substitution.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Note that, unless the `<b>(P)</b>' flag is present, the flags and
+    any subscripts apply directly to the value of the nested substitution; for
+    example, the expansion <b>${${foo}}</b> behaves exactly the same as
+    <b>${foo}</b>. When the `<b>(P)</b>' flag is present in a nested
+    substitution, the other substitution rules are applied to the value
+    <i>before</i> it is interpreted as a name, so <b>${${(P)foo}}</b> may differ
+    from <b>${(P)foo}</b>.</p>
+<p class="Pp">At each nested level of substitution, the substituted words
+    undergo all forms of single-word substitution (i.e. not filename
+    generation), including command substitution, arithmetic expansion and
+    filename expansion (i.e. leading <b>~</b> and <b>=</b>). Thus, for example,
+    <b>${${:-=cat}:h}</b> expands to the directory where the <b>cat</b> program
+    resides. (Explanation: the internal substitution has no parameter but a
+    default value <b>=cat</b>, which is expanded by filename expansion to a full
+    path; the outer substitution then applies the modifier <b>:h</b> and takes
+    the directory part of the path.)</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>2.</b> <i>Internal parameter flags</i></dt>
+  <dd>Any parameter flags set by one of the <b>typeset</b> family of commands,
+      in particular the <b>-L</b>, <b>-R</b>, <b>-Z</b>, <b>-u</b> and <b>-l</b>
+      options for padding and capitalization, are applied directly to the
+      parameter value. Note these flags are options to the command, e.g.
+      `<b>typeset -Z</b>'; they are not the same as the flags used within
+      parameter substitutions.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">At the outermost level of substitution, the `<b>(P)</b>' flag
+    (rule <b>4.</b>) ignores these transformations and uses the unmodified value
+    of the parameter as the name to be replaced. This is usually the desired
+    behavior because padding may make the value syntactically illegal as a
+    parameter name, but if capitalization changes are desired, use the
+    <b>${${(P)foo}}</b> form (rule <b>25.</b>).</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>3.</b> <i>Parameter subscripting</i></dt>
+  <dd>If the value is a raw parameter reference with a subscript, such as
+      <b>${</b><i>var</i><b>[3]}</b>, the effect of subscripting is applied
+      directly to the parameter. Subscripts are evaluated left to right;
+      subsequent subscripts apply to the scalar or array value yielded by the
+      previous subscript. Thus if <b>var</b> is an array, <b>${var[1][2]}</b> is
+      the second character of the first word, but <b>${var[2,4][2]}</b> is the
+      entire third word (the second word of the range of words two through four
+      of the original array). Any number of subscripts may appear. Flags such as
+      `<b>(k)</b>' and `<b>(v)</b>' which alter the result of subscripting are
+      applied.</dd>
+  <dt><b>4.</b> <i>Parameter name replacement</i></dt>
+  <dd>At the outermost level of nesting only, the `<b>(P)</b>' flag is applied.
+      This treats the value so far as a parameter name (which may include a
+      subscript expression) and replaces that with the corresponding value. This
+      replacement occurs later if the `<b>(P)</b>' flag appears in a nested
+      substitution.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If the value so far names a parameter that has internal flags
+    (rule <b>2.</b>), those internal flags are applied to the new value after
+    replacement.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>5.</b> <i>Double-quoted joining</i></dt>
+  <dd>If the value after this process is an array, and the substitution appears
+      in double quotes, and neither an `<b>(@)</b>' flag nor a `<b>#</b>' length
+      operator is present at the current level, then words of the value are
+      joined with the first character of the parameter <b>$IFS</b>, by default a
+      space, between each word (single word arrays are not modified). If the
+      `<b>(j)</b>' flag is present, that is used for joining instead of
+      <b>$IFS</b>.</dd>
+  <dt><b>6.</b> <i>Nested subscripting</i></dt>
+  <dd>Any remaining subscripts (i.e. of a nested substitution) are evaluated at
+      this point, based on whether the value is an array or a scalar. As with
+      <b>3.</b>, multiple subscripts can appear. Note that <b>${foo[2,4][2]}</b>
+      is thus equivalent to <b>${${foo[2,4]}[2]}</b> and also to
+      <b>&quot;${${(@)foo[2,4]}[2]}&quot;</b> (the nested substitution returns
+      an array in both cases), but not to <b>&quot;${${foo[2,4]}[2]}&quot;</b>
+      (the nested substitution returns a scalar because of the quotes).</dd>
+  <dt><b>7.</b> <i>Modifiers</i></dt>
+  <dd>Any modifiers, as specified by a trailing `<b>#</b>', `<b>%</b>',
+      `<b>/</b>' (possibly doubled) or by a set of modifiers of the form
+      `<b>:...</b>' (see the section `Modifiers' in the section `History
+      Expansion'), are applied to the words of the value at this level.</dd>
+  <dt><b>8.</b> <i>Character evaluation</i></dt>
+  <dd>Any `<b>(#)</b>' flag is applied, evaluating the result so far numerically
+      as a character.</dd>
+  <dt><b>9.</b> <i>Length</i></dt>
+  <dd>Any initial `<b>#</b>' modifier, i.e. in the form
+      <b>${#</b><i>var</i><b>}</b>, is used to evaluate the length of the
+      expression so far.</dd>
+  <dt><b>10.</b> <i>Forced joining</i></dt>
+  <dd>If the `<b>(j)</b>' flag is present, or no `<b>(j)</b>' flag is present
+      but the string is to be split as given by rule <b>11.</b>, and joining did
+      not take place at rule <b>5.</b>, any words in the value are joined
+      together using the given string or the first character of <b>$IFS</b> if
+      none. Note that the `<b>(F)</b>' flag implicitly supplies a string for
+      joining in this manner.</dd>
+  <dt><b>11.</b> <i>Simple word splitting</i></dt>
+  <dd>If one of the `<b>(s)</b>' or `<b>(f)</b>' flags are present, or the
+      `<b>=</b>' specifier was present (e.g. <b>${=</b><i>var</i><b>}</b>), the
+      word is split on occurrences of the specified string, or (for <b>=</b>
+      with neither of the two flags present) any of the characters in
+      <b>$IFS</b>.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If no `<b>(s)</b>', `<b>(f)</b>' or `<b>=</b>' was given, but the
+    word is not quoted and the option <b>SH_WORD_SPLIT</b> is set, the word is
+    split on occurrences of any of the characters in <b>$IFS</b>. Note this
+    step, too, takes place at all levels of a nested substitution.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>12.</b> <i>Case modification</i></dt>
+  <dd>Any case modification from one of the flags `<b>(L)</b>', `<b>(U)</b>' or
+      `<b>(C)</b>' is applied.</dd>
+  <dt><b>13.</b> <i>Escape sequence replacement</i></dt>
+  <dd>First any replacements from the `<b>(g)</b>' flag are performed, then any
+      prompt-style formatting from the `<b>(%)</b>' family of flags is
+    applied.</dd>
+  <dt><b>14.</b> <i>Quote application</i></dt>
+  <dd>Any quoting or unquoting using `<b>(q)</b>' and `<b>(Q)</b>' and related
+      flags is applied.</dd>
+  <dt><b>15.</b> <i>Directory naming</i></dt>
+  <dd>Any directory name substitution using `<b>(D)</b>' flag is applied.</dd>
+  <dt><b>16.</b> <i>Visibility enhancement</i></dt>
+  <dd>Any modifications to make characters visible using the `<b>(V)</b>' flag
+      are applied.</dd>
+  <dt><b>17.</b> <i>Lexical word splitting</i></dt>
+  <dd>If the '<b>(z)</b>' flag or one of the forms of the '<b>(Z)</b>' flag is
+      present, the word is split as if it were a shell command line, so that
+      quotation marks and other metacharacters are used to decide what
+      constitutes a word. Note this form of splitting is entirely distinct from
+      that described by rule <b>11.</b>: it does not use <b>$IFS</b>, and does
+      not cause forced joining.</dd>
+  <dt><b>18.</b> <i>Uniqueness</i></dt>
+  <dd>If the result is an array and the `<b>(u)</b>' flag was present, duplicate
+      elements are removed from the array.</dd>
+  <dt><b>19.</b> <i>Ordering</i></dt>
+  <dd>If the result is still an array and one of the `<b>(o)</b>' or
+      `<b>(O)</b>' flags was present, the array is reordered.</dd>
+  <dt><b>20.</b> <b>RC_EXPAND_PARAM</b></dt>
+  <dd>At this point the decision is made whether any resulting array elements
+      are to be combined element by element with surrounding text, as given by
+      either the <b>RC_EXPAND_PARAM</b> option or the `<b>^</b>' flag.</dd>
+  <dt><b>21.</b> <i>Re-evaluation</i></dt>
+  <dd>Any `<b>(e)</b>' flag is applied to the value, forcing it to be
+      re-examined for new parameter substitutions, but also for command and
+      arithmetic substitutions.</dd>
+  <dt><b>22.</b> <i>Padding</i></dt>
+  <dd>Any padding of the value by the `<b>(l.</b><i>fill</i><b>.)</b>' or
+      `<b>(r.</b><i>fill</i><b>.)</b>' flags is applied.</dd>
+  <dt><b>23.</b> <i>Semantic joining</i></dt>
+  <dd>In contexts where expansion semantics requires a single word to result,
+      all words are rejoined with the first character of <b>IFS</b> between. So
+      in `<b>${(P</b><b>)${(f</b><b>)lines}}</b>' the value of <b>${lines}</b>
+      is split at newlines, but then must be joined again before the
+      `<b>(P)</b>' flag can be applied.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If a single word is not required, this rule is skipped.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>24.</b> <i>Empty argument removal</i></dt>
+  <dd>If the substitution does not appear in double quotes, any resulting
+      zero-length argument, whether from a scalar or an element of an array, is
+      elided from the list of arguments inserted into the command line.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Strictly speaking, the removal happens later as the same happens
+    with other forms of substitution; the point to note here is simply that it
+    occurs after any of the above parameter operations.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>25.</b> <i>Nested parameter name replacement</i></dt>
+  <dd>If the `<b>(P)</b>' flag is present and rule <b>4.</b> has not applied,
+      the value so far is treated as a parameter name (which may include a
+      subscript expression) and replaced with the corresponding value, with
+      internal flags (rule <b>2.</b>) applied to the new value.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Examples"><a class="permalink" href="#Examples">Examples</a></h2>
+The flag <b>f</b> is useful to split a double-quoted substitution line by line.
+  For example, <b>${(f)&quot;$(&lt;</b><i>file</i><b>)&quot;}</b> substitutes
+  the contents of <i>file</i> divided so that each line is an element of the
+  resulting array. Compare this with the effect of
+  <b>$</b><b>(&lt;</b><i>file</i><b>)</b> alone, which divides the file up by
+  words, or the same inside double quotes, which makes the entire content of the
+  file a single string.
+<p class="Pp">The following illustrates the rules for nested parameter
+    expansions. Suppose that <b>$foo</b> contains the array <b>(bar
+    baz</b><b>)</b>:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>&quot;${(@)${foo}[1]}&quot;</b></dt>
+  <dd>This produces the result <b>b</b>. First, the inner substitution
+      <b>&quot;${foo}&quot;</b>, which has no array (<b>@</b>) flag, produces a
+      single word result <b>&quot;bar baz&quot;</b>. The outer substitution
+      <b>&quot;${(@)...[1]}&quot;</b> detects that this is a scalar, so that
+      (despite the `<b>(@)</b>' flag) the subscript picks the first
+    character.</dd>
+  <dt><b>&quot;${${(@)foo}[1]}&quot;</b></dt>
+  <dd>This produces the result `<b>bar</b>'. In this case, the inner
+      substitution <b>&quot;${(@)foo}&quot;</b> produces the array `<b>(bar
+      baz</b><b>)</b>'. The outer substitution <b>&quot;${...[1]}&quot;</b>
+      detects that this is an array and picks the first word. This is similar to
+      the simple case <b>&quot;${foo[1]}&quot;</b>.</dd>
+</dl>
+<p class="Pp">As an example of the rules for word splitting and joining, suppose
+    <b>$foo</b> contains the array `<b>(ax1 bx1</b><b>)</b>'. Then</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>${(s/x/)foo}</b></dt>
+  <dd>produces the words `<b>a</b>', `<b>1 b</b>' and `<b>1</b>'.</dd>
+  <dt><b>${(j/x/s/x/)foo}</b></dt>
+  <dd>produces `<b>a</b>', `<b>1</b>', `<b>b</b>' and `<b>1</b>'.</dd>
+  <dt><b>${(s/x/)foo%%1*}</b></dt>
+  <dd>produces `<b>a</b>' and `<b> b</b>' (note the extra space). As
+      substitution occurs before either joining or splitting, the operation
+      first generates the modified array <b>(ax bx</b><b>)</b>, which is joined
+      to give <b>&quot;ax bx&quot;</b>, and then split to give `<b>a</b>', `<b>
+      b</b>' and `'. The final empty string will then be elided, as it is not in
+      double quotes.</dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMMAND_SUBSTITUTION"><a class="permalink" href="#COMMAND_SUBSTITUTION">COMMAND
+  SUBSTITUTION</a></h1>
+A command enclosed in parentheses preceded by a dollar sign, like
+  `<b>$(</b>...<b>)</b>', or quoted with grave accents, like
+  `<b>`</b>...<b>`</b>', is replaced with its standard output, with any trailing
+  newlines deleted. If the substitution is not enclosed in double quotes, the
+  output is broken into words using the <b>IFS</b> parameter.
+<p class="Pp">The substitution `<b>$(cat</b> <i>foo</i><b>)</b>' may be replaced
+    by the faster `<b>$(&lt;</b><i>foo</i><b>)</b>'. In this case <i>foo</i>
+    undergoes single word shell expansions (<i>parameter expansion</i>,
+    <i>command substitution</i> and <i>arithmetic expansion</i>), but not
+    filename generation.</p>
+<p class="Pp">If the option <b>GLOB_SUBST</b> is set, the result of any unquoted
+    command substitution, including the special form just mentioned, is eligible
+    for filename generation.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ARITHMETIC_EXPANSION"><a class="permalink" href="#ARITHMETIC_EXPANSION">ARITHMETIC
+  EXPANSION</a></h1>
+A string of the form `<b>$[</b><i>exp</i><b>]</b>' or
+  `<b>$((</b><i>exp</i><b>))</b>' is substituted with the value of the
+  arithmetic expression <i>exp</i>. <i>exp</i> is subjected to <i>parameter
+  expansion</i>, <i>command substitution</i> and <i>arithmetic expansion</i>
+  before it is evaluated. See the section `Arithmetic Evaluation'.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BRACE_EXPANSION"><a class="permalink" href="#BRACE_EXPANSION">BRACE
+  EXPANSION</a></h1>
+A string of the form
+  `<i>foo</i><b>{</b><i>xx</i><b>,</b><i>yy</i><b>,</b><i>zz</i><b>}</b><i>bar</i>'
+  is expanded to the individual words `<i>fooxxbar</i>', `<i>fooyybar</i>' and
+  `<i>foozzbar</i>'. Left-to-right order is preserved. This construct may be
+  nested. Commas may be quoted in order to include them literally in a word.
+<p class="Pp">An expression of the form
+    `<b>{</b><i>n1</i><b>..</b><i>n2</i><b>}</b>', where <i>n1</i> and <i>n2</i>
+    are integers, is expanded to every number between <i>n1</i> and <i>n2</i>
+    inclusive. If either number begins with a zero, all the resulting numbers
+    will be padded with leading zeroes to that minimum width, but for negative
+    numbers the <b>-</b> character is also included in the width. If the numbers
+    are in decreasing order the resulting sequence will also be in decreasing
+    order.</p>
+<p class="Pp">An expression of the form
+    `<b>{</b><i>n1</i><b>..</b><i>n2</i><b>..</b><i>n3</i><b>}</b>', where
+    <i>n1</i>, <i>n2</i>, and <i>n3</i> are integers, is expanded as above, but
+    only every <i>n3</i>th number starting from <i>n1</i> is output. If
+    <i>n3</i> is negative the numbers are output in reverse order, this is
+    slightly different from simply swapping <i>n1</i> and <i>n2</i> in the case
+    that the step <i>n3</i> doesn't evenly divide the range. Zero padding can be
+    specified in any of the three numbers, specifying it in the third can be
+    useful to pad for example `<b>{-99..100..01}</b>' which is not possible to
+    specify by putting a 0 on either of the first two numbers (i.e. pad to two
+    characters).</p>
+<p class="Pp">An expression of the form
+    `<b>{</b><i>c1</i><b>..</b><i>c2</i><b>}</b>', where <i>c1</i> and <i>c2</i>
+    are single characters (which may be multibyte characters), is expanded to
+    every character in the range from <i>c1</i> to <i>c2</i> in whatever
+    character sequence is used internally. For characters with code points below
+    128 this is US ASCII (this is the only case most users will need). If any
+    intervening character is not printable, appropriate quotation is used to
+    render it printable. If the character sequence is reversed, the output is in
+    reverse order, e.g. `<b>{d..a}</b>' is substituted as `<b>d c b a</b>'.</p>
+<p class="Pp">If a brace expression matches none of the above forms, it is left
+    unchanged, unless the option <b>BRACE_CCL</b> (an abbreviation for `brace
+    character class') is set. In that case, it is expanded to a list of the
+    individual characters between the braces sorted into the order of the
+    characters in the ASCII character set (multibyte characters are not
+    currently handled). The syntax is similar to a <b>[</b>...<b>]</b>
+    expression in filename generation: `<b>-</b>' is treated specially to denote
+    a range of characters, but `<b>^</b>' or `<b>!</b>' as the first character
+    is treated normally. For example, `<b>{abcdef0-9}</b>' expands to 16 words
+    <b>0 1 2 3 4 5 6 7 8 9 a b c d e f</b>.</p>
+<p class="Pp">Note that brace expansion is not part of filename generation
+    (globbing); an expression such as <b>*/{foo,bar}</b> is split into two
+    separate words <b>*/foo</b> and <b>*/bar</b> before filename generation
+    takes place. In particular, note that this is liable to produce a `no match'
+    error if <i>either</i> of the two expressions does not match; this is to be
+    contrasted with <b>*/(foo|bar)</b>, which is treated as a single pattern but
+    otherwise has similar effects.</p>
+<p class="Pp">To combine brace expansion with array expansion, see the
+    <b>${^</b><i>spec</i><b>}</b> form described in the section Parameter
+    Expansion above.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILENAME_EXPANSION"><a class="permalink" href="#FILENAME_EXPANSION">FILENAME
+  EXPANSION</a></h1>
+Each word is checked to see if it begins with an unquoted `<b>~</b>'. If it
+  does, then the word up to a `<b>/</b>', or the end of the word if there is no
+  `<b>/</b>', is checked to see if it can be substituted in one of the ways
+  described here. If so, then the `<b>~</b>' and the checked portion are
+  replaced with the appropriate substitute value.
+<p class="Pp">A `<b>~</b>' by itself is replaced by the value of <b>$HOME</b>. A
+    `<b>~</b>' followed by a `<b>+</b>' or a `<b>-</b>' is replaced by current
+    or previous working directory, respectively.</p>
+<p class="Pp">A `<b>~</b>' followed by a number is replaced by the directory at
+    that position in the directory stack. `<b>~0</b>' is equivalent to
+    `<b>~+</b>', and `<b>~1</b>' is the top of the stack. `<b>~+</b>' followed
+    by a number is replaced by the directory at that position in the directory
+    stack. `<b>~+0</b>' is equivalent to `<b>~+</b>', and `<b>~+1</b>' is the
+    top of the stack. `<b>~-</b>' followed by a number is replaced by the
+    directory that many positions from the bottom of the stack. `<b>~-0</b>' is
+    the bottom of the stack. The <b>PUSHD_MINUS</b> option exchanges the effects
+    of `<b>~+</b>' and `<b>~-</b>' where they are followed by a number.</p>
+<section class="Ss">
+<h2 class="Ss" id="Dynamic_named_directories"><a class="permalink" href="#Dynamic_named_directories">Dynamic
+  named directories</a></h2>
+If the function <b>zsh_directory_name</b> exists, or the shell variable
+  <b>zsh_directory_name_functions</b> exists and contains an array of function
+  names, then the functions are used to implement dynamic directory naming. The
+  functions are tried in order until one returns status zero, so it is important
+  that functions test whether they can handle the case in question and return an
+  appropriate status.
+<p class="Pp">A `<b>~</b>' followed by a string <i>namstr</i> in unquoted square
+    brackets is treated specially as a dynamic directory name. Note that the
+    first unquoted closing square bracket always terminates <i>namstr</i>. The
+    shell function is passed two arguments: the string <b>n</b> (for name) and
+    <i>namstr</i>. It should either set the array <b>reply</b> to a single
+    element which is the directory corresponding to the name and return status
+    zero (executing an assignment as the last statement is usually sufficient),
+    or it should return status non-zero. In the former case the element of reply
+    is used as the directory; in the latter case the substitution is deemed to
+    have failed. If all functions fail and the option <b>NOMATCH</b> is set, an
+    error results.</p>
+<p class="Pp">The functions defined as above are also used to see if a directory
+    can be turned into a name, for example when printing the directory stack or
+    when expanding <b>%~</b> in prompts. In this case each function is passed
+    two arguments: the string <b>d</b> (for directory) and the candidate for
+    dynamic naming. The function should either return non-zero status, if the
+    directory cannot be named by the function, or it should set the array reply
+    to consist of two elements: the first is the dynamic name for the directory
+    (as would appear within `<b>~[</b><i>...</i><b>]</b>'), and the second is
+    the prefix length of the directory to be replaced. For example, if the trial
+    directory is <b>/home/myname/src/zsh</b> and the dynamic name for
+    <b>/home/myname/src</b> (which has 16 characters) is <b>s</b>, then the
+    function sets</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>reply=(s 16)</b>
+</pre>
+</div>
+<p class="Pp">The directory name so returned is compared with possible static
+    names for parts of the directory path, as described below; it is used if the
+    prefix length matched (16 in the example) is longer than that matched by any
+    static name.</p>
+<p class="Pp">It is not a requirement that a function implements both <b>n</b>
+    and <b>d</b> calls; for example, it might be appropriate for certain dynamic
+    forms of expansion not to be contracted to names. In that case any call with
+    the first argument <b>d</b> should cause a non-zero status to be
+  returned.</p>
+<p class="Pp">The completion system calls `<b>zsh_directory_name c</b>' followed
+    by equivalent calls to elements of the array
+    <b>zsh_directory_name_functions</b>, if it exists, in order to complete
+    dynamic names for directories. The code for this should be as for any other
+    completion function as described in <i>zshcompsys</i>(1).</p>
+<p class="Pp">As a working example, here is a function that expands any dynamic
+    names beginning with the string <b>p:</b> to directories below
+    <b>/home/pws/perforce</b>. In this simple case a static name for the
+    directory would be just as effective.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>zsh_directory_name() {</b>
+<b>  emulate -L zsh</b>
+<b>  setopt extendedglob</b>
+<b>  local -a match mbegin mend</b>
+<b>  if [[ $1 = d ]]; then</b>
+<b>    # turn the directory into a name</b>
+<b>    if [[ $2 = (#b)(/home/pws/perforce/)([^/]##)* ]]; then</b>
+<b>      typeset -ga reply</b>
+<b>      reply=(p:$match[2] $(( ${#match[1]} + ${#match[2]} )) )</b>
+<b>    else</b>
+<b>      return 1</b>
+<b>    fi</b>
+<b>  elif [[ $1 = n ]]; then</b>
+<b>    # turn the name into a directory</b>
+<b>    [[ $2 != (#b)p:(?*) ]] &amp;&amp; return 1</b>
+<b>    typeset -ga reply</b>
+<b>    reply=(/home/pws/perforce/$match[1])</b>
+<b>  elif [[ $1 = c ]]; then</b>
+<b>    # complete names</b>
+<b>    local expl</b>
+<b>    local -a dirs</b>
+<b>    dirs=(/home/pws/perforce/*(/:t))</b>
+<b>    dirs=(p:${^dirs})</b>
+<b>    _wanted dynamic-dirs expl 'dynamic directory' compadd -S\] -a dirs</b>
+<b>    return</b>
+<b>  else</b>
+<b>    return 1</b>
+<b>  fi</b>
+<b>  return 0</b>
+<b>}</b>
+</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Static_named_directories"><a class="permalink" href="#Static_named_directories">Static
+  named directories</a></h2>
+A `<b>~</b>' followed by anything not already covered consisting of any number
+  of alphanumeric characters or underscore (`<b>_</b>'), hyphen (`<b>-</b>'), or
+  dot (`<b>.</b>') is looked up as a named directory, and replaced by the value
+  of that named directory if found. Named directories are typically home
+  directories for users on the system. They may also be defined if the text
+  after the `<b>~</b>' is the name of a string shell parameter whose value
+  begins with a `<b>/</b>'. Note that trailing slashes will be removed from the
+  path to the directory (though the original parameter is not modified).
+<p class="Pp">It is also possible to define directory names using the <b>-d</b>
+    option to the <b>hash</b> builtin.</p>
+<p class="Pp">When the shell prints a path (e.g. when expanding <b>%~</b> in
+    prompts or when printing the directory stack), the path is checked to see if
+    it has a named directory as its prefix. If so, then the prefix portion is
+    replaced with a `<b>~</b>' followed by the name of the directory. The
+    shorter of the two ways of referring to the directory is used, i.e. either
+    the directory name or the full path; the name is used if they are the same
+    length. The parameters <b>$PWD</b> and <b>$OLDPWD</b> are never abbreviated
+    in this fashion.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_=_&amp;'_expansion"><a class="permalink" href="#_=_&amp;'_expansion">`='
+  expansion</a></h2>
+If a word begins with an unquoted `<b>=</b>' and the <b>EQUALS</b> option is
+  set, the remainder of the word is taken as the name of a command. If a command
+  exists by that name, the word is replaced by the full pathname of the command.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Notes"><a class="permalink" href="#Notes">Notes</a></h2>
+Filename expansion is performed on the right hand side of a parameter
+  assignment, including those appearing after commands of the <b>typeset</b>
+  family. In this case, the right hand side will be treated as a colon-separated
+  list in the manner of the <b>PATH</b> parameter, so that a `<b>~</b>' or an
+  `<b>=</b>' following a `<b>:</b>' is eligible for expansion. All such
+  behaviour can be disabled by quoting the `<b>~</b>', the `<b>=</b>', or the
+  whole expression (but not simply the colon); the <b>EQUALS</b> option is also
+  respected.
+<p class="Pp">If the option <b>MAGIC_EQUAL_SUBST</b> is set, any unquoted shell
+    argument in the form `<i>identifier</i><b>=</b><i>expression</i>' becomes
+    eligible for file expansion as described in the previous paragraph. Quoting
+    the first `<b>=</b>' also inhibits this.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILENAME_GENERATION"><a class="permalink" href="#FILENAME_GENERATION">FILENAME
+  GENERATION</a></h1>
+If a word contains an unquoted instance of one of the characters `<b>*</b>',
+  `<b>(</b>', `<b>|</b>', `<b>&lt;</b>', `<b>[</b>', or `<b>?</b>', it is
+  regarded as a pattern for filename generation, unless the <b>GLOB</b> option
+  is unset. If the <b>EXTENDED_GLOB</b> option is set, the `<b>^</b>' and
+  `<b>#</b>' characters also denote a pattern; otherwise they are not treated
+  specially by the shell.
+<p class="Pp">The word is replaced with a list of sorted filenames that match
+    the pattern. If no matching pattern is found, the shell gives an error
+    message, unless the <b>NULL_GLOB</b> option is set, in which case the word
+    is deleted; or unless the <b>NOMATCH</b> option is unset, in which case the
+    word is left unchanged.</p>
+<p class="Pp">In filename generation, the character `<b>/</b>' must be matched
+    explicitly; also, a `<b>.</b>' must be matched explicitly at the beginning
+    of a pattern or after a `<b>/</b>', unless the <b>GLOB_DOTS</b> option is
+    set. No filename generation pattern matches the files `<b>.</b>' or
+    `<b>..</b>'. In other instances of pattern matching, the `<b>/</b>' and
+    `<b>.</b>' are not treated specially.</p>
+<section class="Ss">
+<h2 class="Ss" id="Glob_Operators"><a class="permalink" href="#Glob_Operators">Glob
+  Operators</a></h2>
+<dl class="Bl-tag">
+  <dt><b>*</b></dt>
+  <dd>Matches any string, including the null string.</dd>
+  <dt><b>?</b></dt>
+  <dd>Matches any character.</dd>
+  <dt><b>[</b>...<b>]</b></dt>
+  <dd>Matches any of the enclosed characters. Ranges of characters can be
+      specified by separating two characters by a `<b>-</b>'. A `<b>-</b>' or
+      `<b>]</b>' may be matched by including it as the first character in the
+      list. There are also several named classes of characters, in the form
+      `<b>[:</b><i>name</i><b>:]</b>' with the following meanings. The first set
+      use the macros provided by the operating system to test for the given
+      character combinations, including any modifications due to local language
+      settings, see <i>ctype</i>(3):</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>[:alnum:]</b></dt>
+  <dd>The character is alphanumeric</dd>
+  <dt><b>[:alpha:]</b></dt>
+  <dd>The character is alphabetic</dd>
+  <dt><b>[:ascii:]</b></dt>
+  <dd>The character is 7-bit, i.e. is a single-byte character without the top
+      bit set.</dd>
+  <dt><b>[:blank:]</b></dt>
+  <dd>The character is a blank character</dd>
+  <dt><b>[:cntrl:]</b></dt>
+  <dd>The character is a control character</dd>
+  <dt><b>[:digit:]</b></dt>
+  <dd>The character is a decimal digit</dd>
+  <dt><b>[:graph:]</b></dt>
+  <dd>The character is a printable character other than whitespace</dd>
+  <dt><b>[:lower:]</b></dt>
+  <dd>The character is a lowercase letter</dd>
+  <dt><b>[:print:]</b></dt>
+  <dd>The character is printable</dd>
+  <dt><b>[:punct:]</b></dt>
+  <dd>The character is printable but neither alphanumeric nor whitespace</dd>
+  <dt><b>[:space:]</b></dt>
+  <dd>The character is whitespace</dd>
+  <dt><b>[:upper:]</b></dt>
+  <dd>The character is an uppercase letter</dd>
+  <dt><b>[:xdigit:]</b></dt>
+  <dd>The character is a hexadecimal digit</dd>
+</dl>
+<p class="Pp">Another set of named classes is handled internally by the shell
+    and is not sensitive to the locale:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>[:IDENT:]</b></dt>
+  <dd>The character is allowed to form part of a shell identifier, such as a
+      parameter name</dd>
+  <dt><b>[:IFS:]</b></dt>
+  <dd>The character is used as an input field separator, i.e. is contained in
+      the <b>IFS</b> parameter</dd>
+  <dt><b>[:IFSSPACE:]</b></dt>
+  <dd>The character is an IFS white space character; see the documentation for
+      <b>IFS</b> in the <i>zshparam</i>(1) manual page.</dd>
+  <dt><b>[:INCOMPLETE:]</b></dt>
+  <dd>Matches a byte that starts an incomplete multibyte character. Note that
+      there may be a sequence of more than one bytes that taken together form
+      the prefix of a multibyte character. To test for a potentially incomplete
+      byte sequence, use the pattern `<b>[[:INCOMPLETE:]]*</b>'. This will never
+      match a sequence starting with a valid multibyte character.</dd>
+  <dt><b>[:INVALID:]</b></dt>
+  <dd>Matches a byte that does not start a valid multibyte character. Note this
+      may be a continuation byte of an incomplete multibyte character as any
+      part of a multibyte string consisting of invalid and incomplete multibyte
+      characters is treated as single bytes.</dd>
+  <dt><b>[:WORD:]</b></dt>
+  <dd>The character is treated as part of a word; this test is sensitive to the
+      value of the <b>WORDCHARS</b> parameter</dd>
+</dl>
+<p class="Pp">Note that the square brackets are additional to those enclosing
+    the whole set of characters, so to test for a single alphanumeric character
+    you need `<b>[[:alnum:]]</b>'. Named character sets can be used alongside
+    other types, e.g. `<b>[[:alpha:]0-9]</b>'.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>[^</b>...<b>]</b></dt>
+  <dd></dd>
+  <dt><b>[!</b>...<b>]</b></dt>
+  <dd>Like <b>[</b>...<b>]</b>, except that it matches any character which is
+      not in the given set.</dd>
+  <dt><b>&lt;</b>[<i>x</i>]<b>-</b>[<i>y</i>]<b>&gt;</b></dt>
+  <dd>Matches any number in the range <i>x</i> to <i>y</i>, inclusive. Either of
+      the numbers may be omitted to make the range open-ended; hence
+      `<b>&lt;-&gt;</b>' matches any number. To match individual digits, the
+      <b>[</b>...<b>]</b> form is more efficient.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Be careful when using other wildcards adjacent to patterns of this
+    form; for example, <b>&lt;0-9&gt;*</b> will actually match any number
+    whatsoever at the start of the string, since the `<b>&lt;0-9&gt;</b>' will
+    match the first digit, and the `<b>*</b>' will match any others. This is a
+    trap for the unwary, but is in fact an inevitable consequence of the rule
+    that the longest possible match always succeeds. Expressions such as
+    `<b>&lt;0-9&gt;[^[:digit:]]*</b>' can be used instead.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>(</b>...<b>)</b></dt>
+  <dd>Matches the enclosed pattern. This is used for grouping. If the
+      <b>KSH_GLOB</b> option is set, then a `<b>@</b>', `<b>*</b>', `<b>+</b>',
+      `<b>?</b>' or `<b>!</b>' immediately preceding the `<b>(</b>' is treated
+      specially, as detailed below. The option <b>SH_GLOB</b> prevents bare
+      parentheses from being used in this way, though the <b>KSH_GLOB</b> option
+      is still available.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Note that grouping cannot extend over multiple directories: it is
+    an error to have a `<b>/</b>' within a group (this only applies for patterns
+    used in filename generation). There is one exception: a group of the form
+    <b>(</b><i>pat</i><b>/)#</b> appearing as a complete path segment can match
+    a sequence of directories. For example, <b>foo/(a*/)#bar</b> matches
+    <b>foo/bar</b>, <b>foo/any/bar</b>, <b>foo/any/anyother/bar</b>, and so
+  on.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><i>x</i><b>|</b><i>y</i></dt>
+  <dd>Matches either <i>x</i> or <i>y</i>. This operator has lower precedence
+      than any other. The `<b>|</b>' character must be within parentheses, to
+      avoid interpretation as a pipeline. The alternatives are tried in order
+      from left to right.</dd>
+  <dt><b>^</b><i>x</i></dt>
+  <dd>(Requires <b>EXTENDED_GLOB</b> to be set.) Matches anything except the
+      pattern <i>x</i>. This has a higher precedence than `<b>/</b>', so
+      `<b>^foo/bar</b>' will search directories in `<b>.</b>' except
+      `<b>./foo</b>' for a file named `<b>bar</b>'.</dd>
+  <dt><i>x</i><b>~</b><i>y</i></dt>
+  <dd>(Requires <b>EXTENDED_GLOB</b> to be set.) Match anything that matches the
+      pattern <i>x</i> but does not match <i>y</i>. This has lower precedence
+      than any operator except `<b>|</b>', so `<b>*/*~foo/bar</b>' will search
+      for all files in all directories in `<b>.</b>' and then exclude
+      `<b>foo/bar</b>' if there was such a match. Multiple patterns can be
+      excluded by `<i>foo</i><b>~</b><i>bar</i><b>~</b><i>baz</i>'. In the
+      exclusion pattern (<i>y</i>), `<b>/</b>' and `<b>.</b>' are not treated
+      specially the way they usually are in globbing.</dd>
+  <dt><i>x</i><b>#</b></dt>
+  <dd>(Requires <b>EXTENDED_GLOB</b> to be set.) Matches zero or more
+      occurrences of the pattern <i>x</i>. This operator has high precedence;
+      `<b>12#</b>' is equivalent to `<b>1(2#)</b>', rather than `<b>(12)#</b>'.
+      It is an error for an unquoted `<b>#</b>' to follow something which cannot
+      be repeated; this includes an empty string, a pattern already followed by
+      `<b>##</b>', or parentheses when part of a <b>KSH_GLOB</b> pattern (for
+      example, `<b>!(</b><i>foo</i><b>)#</b>' is invalid and must be replaced by
+      `<b>*(!(</b><i>foo</i><b>))</b>').</dd>
+  <dt><i>x</i><b>##</b></dt>
+  <dd>(Requires <b>EXTENDED_GLOB</b> to be set.) Matches one or more occurrences
+      of the pattern <i>x</i>. This operator has high precedence; `<b>12##</b>'
+      is equivalent to `<b>1(2##)</b>', rather than `<b>(12)##</b>'. No more
+      than two active `<b>#</b>' characters may appear together. (Note the
+      potential clash with glob qualifiers in the form `<b>1(2##)</b>' which
+      should therefore be avoided.)</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="ksh_-like_Glob_Operators"><a class="permalink" href="#ksh_-like_Glob_Operators">ksh-like
+  Glob Operators</a></h2>
+If the <b>KSH_GLOB</b> option is set, the effects of parentheses can be modified
+  by a preceding `<b>@</b>', `<b>*</b>', `<b>+</b>', `<b>?</b>' or `<b>!</b>'.
+  This character need not be unquoted to have special effects, but the
+  `<b>(</b>' must be.
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>@(</b>...<b>)</b></dt>
+  <dd>Match the pattern in the parentheses. (Like `<b>(</b>...<b>)</b>'.)</dd>
+  <dt><b>*(</b>...<b>)</b></dt>
+  <dd>Match any number of occurrences. (Like `<b>(</b>...<b>)#</b>', except that
+      recursive directory searching is not supported.)</dd>
+  <dt><b>+(</b>...<b>)</b></dt>
+  <dd>Match at least one occurrence. (Like `<b>(</b>...<b>)##</b>', except that
+      recursive directory searching is not supported.)</dd>
+  <dt><b>?(</b>...<b>)</b></dt>
+  <dd>Match zero or one occurrence. (Like `<b>(|</b>...<b>)</b>'.)</dd>
+  <dt><b>!(</b>...<b>)</b></dt>
+  <dd>Match anything but the expression in parentheses. (Like
+      `<b>(^(</b>...<b>))</b>'.)</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Precedence"><a class="permalink" href="#Precedence">Precedence</a></h2>
+The precedence of the operators given above is (highest) `<b>^</b>', `<b>/</b>',
+  `<b>~</b>', `<b>|</b>' (lowest); the remaining operators are simply treated
+  from left to right as part of a string, with `<b>#</b>' and `<b>##</b>'
+  applying to the shortest possible preceding unit (i.e. a character,
+  `<b>?</b>', `<b>[</b>...<b>]</b>', `<b>&lt;</b>...<b>&gt;</b>', or a
+  parenthesised expression). As mentioned above, a `<b>/</b>' used as a
+  directory separator may not appear inside parentheses, while a `<b>|</b>' must
+  do so; in patterns used in other contexts than filename generation (for
+  example, in <b>case</b> statements and tests within `<b>[[</b>...<b>]]</b>'),
+  a `<b>/</b>' is not special; and `<b>/</b>' is also not special after a
+  `<b>~</b>' appearing outside parentheses in a filename pattern.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Globbing_Flags"><a class="permalink" href="#Globbing_Flags">Globbing
+  Flags</a></h2>
+There are various flags which affect any text to their right up to the end of
+  the enclosing group or to the end of the pattern; they require the
+  <b>EXTENDED_GLOB</b> option. All take the form <b>(#</b><i>X</i><b>)</b> where
+  <i>X</i> may have one of the following forms:
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>i</b></dt>
+  <dd>Case insensitive: upper or lower case characters in the pattern match
+      upper or lower case characters.</dd>
+  <dt><b>l</b></dt>
+  <dd>Lower case characters in the pattern match upper or lower case characters;
+      upper case characters in the pattern still only match upper case
+      characters.</dd>
+  <dt><b>I</b></dt>
+  <dd>Case sensitive: locally negates the effect of <b>i</b> or <b>l</b> from
+      that point on.</dd>
+  <dt><b>b</b></dt>
+  <dd>Activate backreferences for parenthesised groups in the pattern; this does
+      not work in filename generation. When a pattern with a set of active
+      parentheses is matched, the strings matched by the groups are stored in
+      the array <b>$match</b>, the indices of the beginning of the matched
+      parentheses in the array <b>$mbegin</b>, and the indices of the end in the
+      array <b>$mend</b>, with the first element of each array corresponding to
+      the first parenthesised group, and so on. These arrays are not otherwise
+      special to the shell. The indices use the same convention as does
+      parameter substitution, so that elements of <b>$mend</b> and
+      <b>$mbegin</b> may be used in subscripts; the <b>KSH_ARRAYS</b> option is
+      respected. Sets of globbing flags are not considered parenthesised groups;
+      only the first nine active parentheses can be referenced.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">For example,</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>foo=&quot;a string with a message&quot;</b>
+<b>if [[ $foo = (a|an)' '(#b)(*)' '* ]]; then</b>
+<b>  print ${foo[$mbegin[1],$mend[1]]}</b>
+<b>fi</b>
+</pre>
+</div>
+<p class="Pp">prints `<b>string with a</b>'. Note that the first parenthesis is
+    before the <b>(#b)</b> and does not create a backreference.</p>
+<p class="Pp">Backreferences work with all forms of pattern matching other than
+    filename generation, but note that when performing matches on an entire
+    array, such as <b>${</b><i>array</i><b>#</b><i>pattern</i><b>}</b>, or a
+    global substitution, such as
+    <b>${</b><i>param</i><b>//</b><i>pat</i><b>/</b><i>repl</i><b>}</b>, only
+    the data for the last match remains available. In the case of global
+    replacements this may still be useful. See the example for the <b>m</b> flag
+    below.</p>
+<p class="Pp">The numbering of backreferences strictly follows the order of the
+    opening parentheses from left to right in the pattern string, although sets
+    of parentheses may be nested. There are special rules for parentheses
+    followed by `<b>#</b>' or `<b>##</b>'. Only the last match of the
+    parenthesis is remembered: for example, in `<b>[[ abab = (#b)([ab])#
+    ]]</b>', only the final `<b>b</b>' is stored in <b>match[1]</b>. Thus extra
+    parentheses may be necessary to match the complete segment: for example, use
+    `<b>X((ab|cd)#)Y</b>' to match a whole string of either `<b>ab</b>' or
+    `<b>cd</b>' between `<b>X</b>' and `<b>Y</b>', using the value of
+    <b>$match[1]</b> rather than <b>$match[2]</b>.</p>
+<p class="Pp">If the match fails none of the parameters is altered, so in some
+    cases it may be necessary to initialise them beforehand. If some of the
+    backreferences fail to match -- which happens if they are in an alternate
+    branch which fails to match, or if they are followed by <b>#</b> and matched
+    zero times -- then the matched string is set to the empty string, and the
+    start and end indices are set to -1.</p>
+<p class="Pp">Pattern matching with backreferences is slightly slower than
+    without.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>B</b></dt>
+  <dd>Deactivate backreferences, negating the effect of the <b>b</b> flag from
+      that point on.</dd>
+  <dt><b>c</b><i>N</i><b>,</b><i>M</i></dt>
+  <dd>The flag <b>(#c</b><i>N</i><b>,</b><i>M</i><b>)</b> can be used anywhere
+      that the <b>#</b> or <b>##</b> operators can be used except in the
+      expressions `<b>(*/)#</b>' and `<b>(*/)##</b>' in filename generation,
+      where `<b>/</b>' has special meaning; it cannot be combined with other
+      globbing flags and a bad pattern error occurs if it is misplaced. It is
+      equivalent to the form <b>{</b><i>N</i><b>,</b><i>M</i><b>}</b> in regular
+      expressions. The previous character or group is required to match between
+      <i>N</i> and <i>M</i> times, inclusive. The form
+      <b>(#c</b><i>N</i><b>)</b> requires exactly <b>N</b> matches;
+      <b>(#c,</b><i>M</i><b>)</b> is equivalent to specifying <i>N</i> as 0;
+      <b>(#c</b><i>N</i><b>,)</b> specifies that there is no maximum limit on
+      the number of matches.</dd>
+  <dt><b>m</b></dt>
+  <dd>Set references to the match data for the entire string matched; this is
+      similar to backreferencing and does not work in filename generation. The
+      flag must be in effect at the end of the pattern, i.e. not local to a
+      group. The parameters <b>$MATCH</b>, <b>$MBEGIN</b> and <b>$MEND</b> will
+      be set to the string matched and to the indices of the beginning and end
+      of the string, respectively. This is most useful in parameter
+      substitutions, as otherwise the string matched is obvious.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">For example,</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>arr=(veldt jynx grimps waqf zho buck)</b>
+<b>print ${arr//(#m)[aeiou]/${(U)MATCH}}</b>
+</pre>
+</div>
+<p class="Pp">forces all the matches (i.e. all vowels) into uppercase, printing
+    `<b>vEldt jynx grImps wAqf zhO bUck</b>'.</p>
+<p class="Pp">Unlike backreferences, there is no speed penalty for using match
+    references, other than the extra substitutions required for the replacement
+    strings in cases such as the example shown.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>M</b></dt>
+  <dd>Deactivate the <b>m</b> flag, hence no references to match data will be
+      created.</dd>
+  <dt><b>a</b><i>num</i></dt>
+  <dd>Approximate matching: <i>num</i> errors are allowed in the string matched
+      by the pattern. The rules for this are described in the next
+    subsection.</dd>
+  <dt><b>s</b>, <b>e</b></dt>
+  <dd>Unlike the other flags, these have only a local effect, and each must
+      appear on its own: `<b>(#s)</b>' and `<b>(#e)</b>' are the only valid
+      forms. The `<b>(#s)</b>' flag succeeds only at the start of the test
+      string, and the `<b>(#e)</b>' flag succeeds only at the end of the test
+      string; they correspond to `<b>^</b>' and `<b>$</b>' in standard regular
+      expressions. They are useful for matching path segments in patterns other
+      than those in filename generation (where path segments are in any case
+      treated separately). For example, `<b>*((#s)|/)test((#e)|/)*</b>' matches
+      a path segment `<b>test</b>' in any of the following strings: <b>test</b>,
+      <b>test/at/start</b>, <b>at/end/test</b>, <b>in/test/middle</b>.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Another use is in parameter substitution; for example
+    `<b>${array/(#s)A*Z(#e)}</b>' will remove only elements of an array which
+    match the complete pattern `<b>A*Z</b>'. There are other ways of performing
+    many operations of this type, however the combination of the substitution
+    operations `<b>/</b>' and `<b>//</b>' with the `<b>(#s)</b>' and
+    `<b>(#e)</b>' flags provides a single simple and memorable method.</p>
+<p class="Pp">Note that assertions of the form `<b>(^(#s))</b>' also work, i.e.
+    match anywhere except at the start of the string, although this actually
+    means `anything except a zero-length portion at the start of the string';
+    you need to use `<b>(&quot;&quot;~(#s))</b>' to match a zero-length portion
+    of the string not at the start.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>q</b></dt>
+  <dd>A `<b>q</b>' and everything up to the closing parenthesis of the globbing
+      flags are ignored by the pattern matching code. This is intended to
+      support the use of glob qualifiers, see below. The result is that the
+      pattern `<b>(#b)(*).c(#q.)</b>' can be used both for globbing and for
+      matching against a string. In the former case, the `<b>(#q.)</b>' will be
+      treated as a glob qualifier and the `<b>(#b)</b>' will not be useful,
+      while in the latter case the `<b>(#b)</b>' is useful for backreferences
+      and the `<b>(#q.)</b>' will be ignored. Note that colon modifiers in the
+      glob qualifiers are also not applied in ordinary pattern matching.</dd>
+  <dt><b>u</b></dt>
+  <dd>Respect the current locale in determining the presence of multibyte
+      characters in a pattern, provided the shell was compiled with
+      <b>MULTIBYTE_SUPPORT</b>. This overrides the <b>MULTIBYTE</b> option; the
+      default behaviour is taken from the option. Compare <b>U</b>. (Mnemonic:
+      typically multibyte characters are from Unicode in the UTF-8 encoding,
+      although any extension of ASCII supported by the system library may be
+      used.)</dd>
+  <dt><b>U</b></dt>
+  <dd>All characters are considered to be a single byte long. The opposite of
+      <b>u</b>. This overrides the <b>MULTIBYTE</b> option.</dd>
+</dl>
+<p class="Pp">For example, the test string <b>fooxx</b> can be matched by the
+    pattern <b>(#i</b><b>)FOOXX</b>, but not by <b>(#l</b><b>)FOOXX</b>,
+    <b>(#i</b><b>)FOO</b><b>(#I</b><b>)XX</b> or
+    <b>((#i</b><b>)FOOX</b><b>)X</b>. The string <b>(#ia2</b><b>)readme</b>
+    specifies case-insensitive matching of <b>readme</b> with up to two
+  errors.</p>
+<p class="Pp">When using the ksh syntax for grouping both <b>KSH_GLOB</b> and
+    <b>EXTENDED_GLOB</b> must be set and the left parenthesis should be preceded
+    by <b>@</b>. Note also that the flags do not affect letters inside
+    <b>[</b>...<b>]</b> groups, in other words <b>(#i</b><b>)[a-z]</b> still
+    matches only lowercase letters. Finally, note that when examining whole
+    paths case-insensitively every directory must be searched for all files
+    which match, so that a pattern of the form <b>(#i</b><b>)/foo/bar/...</b> is
+    potentially slow.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Approximate_Matching"><a class="permalink" href="#Approximate_Matching">Approximate
+  Matching</a></h2>
+When matching approximately, the shell keeps a count of the errors found, which
+  cannot exceed the number specified in the <b>(#a</b><i>num</i><b>)</b> flags.
+  Four types of error are recognised:
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>Different characters, as in <b>fooxbar</b> and <b>fooybar</b>.</dd>
+  <dt>2.</dt>
+  <dd>Transposition of characters, as in <b>banana</b> and <b>abnana</b>.</dd>
+  <dt>3.</dt>
+  <dd>A character missing in the target string, as with the pattern <b>road</b>
+      and target string <b>rod</b>.</dd>
+  <dt>4.</dt>
+  <dd>An extra character appearing in the target string, as with <b>stove</b>
+      and <b>strove</b>.</dd>
+</dl>
+<p class="Pp">Thus, the pattern <b>(#a3</b><b>)abcd</b> matches <b>dcba</b>,
+    with the errors occurring by using the first rule twice and the second once,
+    grouping the string as <b>[d][cb][a]</b> and <b>[a][bc][d]</b>.</p>
+<p class="Pp">Non-literal parts of the pattern must match exactly, including
+    characters in character ranges: hence <b>(#a1</b><b>)???</b> matches strings
+    of length four, by applying rule 4 to an empty part of the pattern, but not
+    strings of length two, since all the <b>?</b> must match. Other characters
+    which must match exactly are initial dots in filenames (unless the
+    <b>GLOB_DOTS</b> option is set), and all slashes in filenames, so that
+    <b>a/bc</b> is two errors from <b>ab/c</b> (the slash cannot be transposed
+    with another character). Similarly, errors are counted separately for
+    non-contiguous strings in the pattern, so that <b>(ab|cd</b><b>)ef</b> is
+    two errors from <b>aebf</b>.</p>
+<p class="Pp">When using exclusion via the <b>~</b> operator, approximate
+    matching is treated entirely separately for the excluded part and must be
+    activated separately. Thus, <b>(#a1</b><b>)README~READ_ME</b> matches
+    <b>READ.ME</b> but not <b>READ_ME</b>, as the trailing <b>READ_ME</b> is
+    matched without approximation. However,
+    <b>(#a1</b><b>)README~(#a1</b><b>)READ_ME</b> does not match any pattern of
+    the form <b>READ</b><i>?</i><b>ME</b> as all such forms are now
+  excluded.</p>
+<p class="Pp">Apart from exclusions, there is only one overall error count;
+    however, the maximum errors allowed may be altered locally, and this can be
+    delimited by grouping. For example,
+    <b>(#a1</b><b>)cat</b><b>((#a0</b><b>)dog</b><b>)fox</b> allows one error in
+    total, which may not occur in the <b>dog</b> section, and the pattern
+    <b>(#a1</b><b>)cat</b><b>(#a0</b><b>)dog</b><b>(#a1</b><b>)fox</b> is
+    equivalent. Note that the point at which an error is first found is the
+    crucial one for establishing whether to use approximation; for example,
+    <b>(#a1)abc(#a0)xyz</b> will not match <b>abcdxyz</b>, because the error
+    occurs at the `<b>x</b>', where approximation is turned off.</p>
+<p class="Pp">Entire path segments may be matched approximately, so that
+    `<b>(#a1)/foo/d/is/available/at/the/bar</b>' allows one error in any path
+    segment. This is much less efficient than without the <b>(#a1)</b>, however,
+    since every directory in the path must be scanned for a possible approximate
+    match. It is best to place the <b>(#a1)</b> after any path segments which
+    are known to be correct.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Recursive_Globbing"><a class="permalink" href="#Recursive_Globbing">Recursive
+  Globbing</a></h2>
+A pathname component of the form `<b>(</b><i>foo</i><b>/)#</b>' matches a path
+  consisting of zero or more directories matching the pattern <i>foo</i>.
+<p class="Pp">As a shorthand, `<b>**/</b>' is equivalent to `<b>(*/)#</b>'; note
+    that this therefore matches files in the current directory as well as
+    subdirectories. Thus:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>ls (*/)#bar</b>
+</pre>
+</div>
+<p class="Pp">or</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>ls **/bar</b>
+</pre>
+</div>
+<p class="Pp">does a recursive directory search for files named `<b>bar</b>'
+    (potentially including the file `<b>bar</b>' in the current directory). This
+    form does not follow symbolic links; the alternative form `<b>***/</b>'
+    does, but is otherwise identical. Neither of these can be combined with
+    other forms of globbing within the same path segment; in that case, the
+    `<b>*</b>' operators revert to their usual effect.</p>
+<p class="Pp">Even shorter forms are available when the option
+    <b>GLOB_STAR_SHORT</b> is set. In that case if no <b>/</b> immediately
+    follows a <b>**</b> or <b>***</b> they are treated as if both a <b>/</b>
+    plus a further <b>*</b> are present. Hence:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>setopt GLOBSTARSHORT</b>
+<b>ls **.c</b>
+</pre>
+</div>
+<p class="Pp">is equivalent to</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>ls **/*.c</b>
+</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Glob_Qualifiers"><a class="permalink" href="#Glob_Qualifiers">Glob
+  Qualifiers</a></h2>
+Patterns used for filename generation may end in a list of qualifiers enclosed
+  in parentheses. The qualifiers specify which filenames that otherwise match
+  the given pattern will be inserted in the argument list.
+<p class="Pp">If the option <b>BARE_GLOB_QUAL</b> is set, then a trailing set of
+    parentheses containing no `<b>|</b>' or `<b>(</b>' characters (or `<b>~</b>'
+    if it is special) is taken as a set of glob qualifiers. A glob subexpression
+    that would normally be taken as glob qualifiers, for example `<b>(^x)</b>',
+    can be forced to be treated as part of the glob pattern by doubling the
+    parentheses, in this case producing `<b>((^x))</b>'.</p>
+<p class="Pp">If the option <b>EXTENDED_GLOB</b> is set, a different syntax for
+    glob qualifiers is available, namely `<b>(#q</b><i>x</i><b>)</b>' where
+    <i>x</i> is any of the same glob qualifiers used in the other format. The
+    qualifiers must still appear at the end of the pattern. However, with this
+    syntax multiple glob qualifiers may be chained together. They are treated as
+    a logical AND of the individual sets of flags. Also, as the syntax is
+    unambiguous, the expression will be treated as glob qualifiers just as long
+    any parentheses contained within it are balanced; appearance of `<b>|</b>',
+    `<b>(</b>' or `<b>~</b>' does not negate the effect. Note that qualifiers
+    will be recognised in this form even if a bare glob qualifier exists at the
+    end of the pattern, for example `<b>*(#q*)(.)</b>' will recognise executable
+    regular files if both options are set; however, mixed syntax should probably
+    be avoided for the sake of clarity. Note that within conditions using the
+    `<b>[[</b>' form the presence of a parenthesised expression
+    <b>(#q</b><i>...</i><b>)</b> at the end of a string indicates that globbing
+    should be performed; the expression may include glob qualifiers, but it is
+    also valid if it is simply <b>(#q)</b>. This does not apply to the right
+    hand side of pattern match operators as the syntax already has special
+    significance.</p>
+<p class="Pp">A qualifier may be any one of the following:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>/</b></dt>
+  <dd>directories</dd>
+  <dt><b>F</b></dt>
+  <dd>`full' (i.e. non-empty) directories. Note that the opposite sense
+      <b>(^F</b><b>)</b> expands to empty directories and all non-directories.
+      Use <b>(/^F</b><b>)</b> for empty directories.</dd>
+  <dt><b>.</b></dt>
+  <dd>plain files</dd>
+  <dt><b>@</b></dt>
+  <dd>symbolic links</dd>
+  <dt><b>=</b></dt>
+  <dd>sockets</dd>
+  <dt><b>p</b></dt>
+  <dd>named pipes (FIFOs)</dd>
+  <dt><b>*</b></dt>
+  <dd>executable plain files (0100 or 0010 or 0001)</dd>
+  <dt><b>%</b></dt>
+  <dd>device files (character or block special)</dd>
+  <dt><b>%b</b></dt>
+  <dd>block special files</dd>
+  <dt><b>%c</b></dt>
+  <dd>character special files</dd>
+  <dt><b>r</b></dt>
+  <dd>owner-readable files (0400)</dd>
+  <dt><b>w</b></dt>
+  <dd>owner-writable files (0200)</dd>
+  <dt><b>x</b></dt>
+  <dd>owner-executable files (0100)</dd>
+  <dt><b>A</b></dt>
+  <dd>group-readable files (0040)</dd>
+  <dt><b>I</b></dt>
+  <dd>group-writable files (0020)</dd>
+  <dt><b>E</b></dt>
+  <dd>group-executable files (0010)</dd>
+  <dt><b>R</b></dt>
+  <dd>world-readable files (0004)</dd>
+  <dt><b>W</b></dt>
+  <dd>world-writable files (0002)</dd>
+  <dt><b>X</b></dt>
+  <dd>world-executable files (0001)</dd>
+  <dt><b>s</b></dt>
+  <dd>setuid files (04000)</dd>
+  <dt><b>S</b></dt>
+  <dd>setgid files (02000)</dd>
+  <dt><b>t</b></dt>
+  <dd>files with the sticky bit (01000)</dd>
+  <dt><b>f</b><i>spec</i></dt>
+  <dd>files with access rights matching <i>spec</i>. This <i>spec</i> may be a
+      octal number optionally preceded by a `<b>=</b>', a `<b>+</b>', or a
+      `<b>-</b>'. If none of these characters is given, the behavior is the same
+      as for `<b>=</b>'. The octal number describes the mode bits to be
+      expected, if combined with a `<b>=</b>', the value given must match the
+      file-modes exactly, with a `<b>+</b>', at least the bits in the given
+      number must be set in the file-modes, and with a `<b>-</b>', the bits in
+      the number must not be set. Giving a `<b>?</b>' instead of a octal digit
+      anywhere in the number ensures that the corresponding bits in the
+      file-modes are not checked, this is only useful in combination with
+      `<b>=</b>'.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If the qualifier `<b>f</b>' is followed by any other character
+    anything up to the next matching character (`<b>[</b>', `<b>{</b>', and
+    `<b>&lt;</b>' match `<b>]</b>', `<b>}</b>', and `<b>&gt;</b>' respectively,
+    any other character matches itself) is taken as a list of comma-separated
+    <i>sub-spec</i>s. Each <i>sub-spec</i> may be either an octal number as
+    described above or a list of any of the characters `<b>u</b>', `<b>g</b>',
+    `<b>o</b>', and `<b>a</b>', followed by a `<b>=</b>', a `<b>+</b>', or a
+    `<b>-</b>', followed by a list of any of the characters `<b>r</b>',
+    `<b>w</b>', `<b>x</b>', `<b>s</b>', and `<b>t</b>', or an octal digit. The
+    first list of characters specify which access rights are to be checked. If a
+    `<b>u</b>' is given, those for the owner of the file are used, if a
+    `<b>g</b>' is given, those of the group are checked, a `<b>o</b>' means to
+    test those of other users, and the `<b>a</b>' says to test all three groups.
+    The `<b>=</b>', `<b>+</b>', and `<b>-</b>' again says how the modes are to
+    be checked and have the same meaning as described for the first form above.
+    The second list of characters finally says which access rights are to be
+    expected: `<b>r</b>' for read access, `<b>w</b>' for write access,
+    `<b>x</b>' for the right to execute the file (or to search a directory),
+    `<b>s</b>' for the setuid and setgid bits, and `<b>t</b>' for the sticky
+    bit.</p>
+<p class="Pp">Thus, `<b>*(f70?)</b>' gives the files for which the owner has
+    read, write, and execute permission, and for which other group members have
+    no rights, independent of the permissions for other users. The pattern
+    `<b>*(f-100)</b>' gives all files for which the owner does not have execute
+    permission, and `<b>*(f:gu+w,o-rx:)</b>' gives the files for which the owner
+    and the other members of the group have at least write permission, and for
+    which other users don't have read or execute permission.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>e</b><i>string</i></dt>
+  <dd></dd>
+  <dt><b>+</b><i>cmd</i></dt>
+  <dd>The <i>string</i> will be executed as shell code. The filename will be
+      included in the list if and only if the code returns a zero status
+      (usually the status of the last command).</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">In the first form, the first character after the `<b>e</b>' will
+    be used as a separator and anything up to the next matching separator will
+    be taken as the <i>string</i>; `<b>[</b>', `<b>{</b>', and `<b>&lt;</b>'
+    match `<b>]</b>', `<b>}</b>', and `<b>&gt;</b>', respectively, while any
+    other character matches itself. Note that expansions must be quoted in the
+    <i>string</i> to prevent them from being expanded before globbing is done.
+    <i>string</i> is then executed as shell code. The string <b>globqual</b> is
+    appended to the array <b>zsh_eval_context</b> the duration of execution.</p>
+<p class="Pp">During the execution of <i>string</i> the filename currently being
+    tested is available in the parameter <b>REPLY</b>; the parameter may be
+    altered to a string to be inserted into the list instead of the original
+    filename. In addition, the parameter <b>reply</b> may be set to an array or
+    a string, which overrides the value of <b>REPLY</b>. If set to an array, the
+    latter is inserted into the command line word by word.</p>
+<p class="Pp">For example, suppose a directory contains a single file
+    `<b>lonely</b>'. Then the expression `<b>*(e:'reply=(${REPLY}{1,2})':)</b>'
+    will cause the words `<b>lonely1</b>' and `<b>lonely2</b>' to be inserted
+    into the command line. Note the quoting of <i>string</i>.</p>
+<p class="Pp">The form <b>+</b><i>cmd</i> has the same effect, but no delimiters
+    appear around <i>cmd</i>. Instead, <i>cmd</i> is taken as the longest
+    sequence of characters following the <b>+</b> that are alphanumeric or
+    underscore. Typically <i>cmd</i> will be the name of a shell function that
+    contains the appropriate test. For example,</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>nt() { [[ $REPLY -nt $NTREF ]] }</b>
+<b>NTREF=reffile</b>
+<b>ls -l *(+nt)</b>
+</pre>
+</div>
+<p class="Pp">lists all files in the directory that have been modified more
+    recently than <b>reffile</b>.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>d</b><i>dev</i></dt>
+  <dd>files on the device <i>dev</i></dd>
+  <dt><b>l</b>[<b>-</b>|<b>+</b>]<i>ct</i></dt>
+  <dd>files having a link count less than <i>ct</i> (<b>-</b>), greater than
+      <i>ct</i> (<b>+</b>), or equal to <i>ct</i></dd>
+  <dt><b>U</b></dt>
+  <dd>files owned by the effective user ID</dd>
+  <dt><b>G</b></dt>
+  <dd>files owned by the effective group ID</dd>
+  <dt><b>u</b><i>id</i></dt>
+  <dd>files owned by user ID <i>id</i> if that is a number. Otherwise, <i>id</i>
+      specifies a user name: the character after the `<b>u</b>' will be taken as
+      a separator and the string between it and the next matching separator will
+      be taken as a user name. The starting separators `<b>[</b>', `<b>{</b>',
+      and `<b>&lt;</b>' match the final separators `<b>]</b>', `<b>}</b>', and
+      `<b>&gt;</b>', respectively; any other character matches itself. The
+      selected files are those owned by this user. For example, `<b>u:foo:</b>'
+      or `<b>u[foo]</b>' selects files owned by user `<b>foo</b>'.</dd>
+  <dt><b>g</b><i>id</i></dt>
+  <dd>like <b>u</b><i>id</i> but with group IDs or names</dd>
+  <dt><b>a</b>[<b>Mwhms</b>][<b>-</b>|<b>+</b>]<i>n</i></dt>
+  <dd>files accessed exactly <i>n</i> days ago. Files accessed within the last
+      <i>n</i> days are selected using a negative value for <i>n</i>
+      (<b>-</b><i>n</i>). Files accessed more than <i>n</i> days ago are
+      selected by a positive <i>n</i> value (<b>+</b><i>n</i>). Optional unit
+      specifiers `<b>M</b>', `<b>w</b>', `<b>h</b>', `<b>m</b>' or `<b>s</b>'
+      (e.g. `<b>ah5</b>') cause the check to be performed with months (of 30
+      days), weeks, hours, minutes or seconds instead of days, respectively. An
+      explicit `<b>d</b>' for days is also allowed.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Any fractional part of the difference between the access time and
+    the current part in the appropriate units is ignored in the comparison. For
+    instance, `<b>echo *(ah-5)</b>' would echo files accessed within the last
+    five hours, while `<b>echo *(ah+5)</b>' would echo files accessed at least
+    six hours ago, as times strictly between five and six hours are treated as
+    five hours.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>m</b>[<b>Mwhms</b>][<b>-</b>|<b>+</b>]<i>n</i></dt>
+  <dd>like the file access qualifier, except that it uses the file modification
+      time.</dd>
+  <dt><b>c</b>[<b>Mwhms</b>][<b>-</b>|<b>+</b>]<i>n</i></dt>
+  <dd>like the file access qualifier, except that it uses the file inode change
+      time.</dd>
+  <dt><b>L</b>[<b>+</b>|<b>-</b>]<i>n</i></dt>
+  <dd>files less than <i>n</i> bytes (<b>-</b>), more than <i>n</i> bytes
+      (<b>+</b>), or exactly <i>n</i> bytes in length.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If this flag is directly followed by a <i>size specifier</i>
+    `<b>k</b>' (`<b>K</b>'), `<b>m</b>' (`<b>M</b>'), or `<b>p</b>' (`<b>P</b>')
+    (e.g. `<b>Lk-50</b>') the check is performed with kilobytes, megabytes, or
+    blocks (of 512 bytes) instead. (On some systems additional specifiers are
+    available for gigabytes, `<b>g</b>' or `<b>G</b>', and terabytes, `<b>t</b>'
+    or `<b>T</b>'.) If a size specifier is used a file is regarded as
+    &quot;exactly&quot; the size if the file size rounded up to the next unit is
+    equal to the test size. Hence `<b>*(Lm1)</b>' matches files from 1 byte up
+    to 1 Megabyte inclusive. Note also that the set of files &quot;less
+    than&quot; the test size only includes files that would not match the
+    equality test; hence `<b>*(Lm-1)</b>' only matches files of zero size.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>^</b></dt>
+  <dd>negates all qualifiers following it</dd>
+  <dt><b>-</b></dt>
+  <dd>toggles between making the qualifiers work on symbolic links (the default)
+      and the files they point to</dd>
+  <dt><b>M</b></dt>
+  <dd>sets the <b>MARK_DIRS</b> option for the current pattern</dd>
+  <dt><b>T</b></dt>
+  <dd>appends a trailing qualifier mark to the filenames, analogous to the
+      <b>LIST_TYPES</b> option, for the current pattern (overrides
+    <b>M</b>)</dd>
+  <dt><b>N</b></dt>
+  <dd>sets the <b>NULL_GLOB</b> option for the current pattern</dd>
+  <dt><b>D</b></dt>
+  <dd>sets the <b>GLOB_DOTS</b> option for the current pattern</dd>
+  <dt><b>n</b></dt>
+  <dd>sets the <b>NUMERIC_GLOB_SORT</b> option for the current pattern</dd>
+  <dt><b>Y</b><i>n</i></dt>
+  <dd>enables short-circuit mode: the pattern will expand to at most <i>n</i>
+      filenames. If more than <i>n</i> matches exist, only the first <i>n</i>
+      matches in directory traversal order will be considered.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Implies <b>oN</b> when no <b>o</b><i>c</i> qualifier is used.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>o</b><i>c</i></dt>
+  <dd>specifies how the names of the files should be sorted. If <i>c</i> is
+      <b>n</b> they are sorted by name; if it is <b>L</b> they are sorted
+      depending on the size (length) of the files; if <b>l</b> they are sorted
+      by the number of links; if <b>a</b>, <b>m</b>, or <b>c</b> they are sorted
+      by the time of the last access, modification, or inode change
+      respectively; if <b>d</b>, files in subdirectories appear before those in
+      the current directory at each level of the search -- this is best combined
+      with other criteria, for example `<b>odon</b>' to sort on names for files
+      within the same directory; if <b>N</b>, no sorting is performed. Note that
+      <b>a</b>, <b>m</b>, and <b>c</b> compare the age against the current time,
+      hence the first name in the list is the youngest file. Also note that the
+      modifiers <b>^</b> and <b>-</b> are used, so `<b>*(^-oL)</b>' gives a list
+      of all files sorted by file size in descending order, following any
+      symbolic links. Unless <b>oN</b> is used, multiple order specifiers may
+      occur to resolve ties.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">The default sorting is <b>n</b> (by name) unless the <b>Y</b> glob
+    qualifier is used, in which case it is <b>N</b> (unsorted).</p>
+<p class="Pp"><b>oe</b> and <b>o+</b> are special cases; they are each followed
+    by shell code, delimited as for the <b>e</b> glob qualifier and the <b>+</b>
+    glob qualifier respectively (see above). The code is executed for each
+    matched file with the parameter <b>REPLY</b> set to the name of the file on
+    entry and <b>globsort</b> appended to <b>zsh_eval_context</b>. The code
+    should modify the parameter <b>REPLY</b> in some fashion. On return, the
+    value of the parameter is used instead of the file name as the string on
+    which to sort. Unlike other sort operators, <b>oe</b> and <b>o+</b> may be
+    repeated, but note that the maximum number of sort operators of any kind
+    that may appear in any glob expression is 12.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>O</b><i>c</i></dt>
+  <dd>like `<b>o</b>', but sorts in descending order; i.e. `<b>*(^oc)</b>' is
+      the same as `<b>*(Oc)</b>' and `<b>*(^Oc)</b>' is the same as
+      `<b>*(oc)</b>'; `<b>Od</b>' puts files in the current directory before
+      those in subdirectories at each level of the search.</dd>
+  <dt><b>[</b><i>beg</i>[<b>,</b><i>end</i>]<b>]</b></dt>
+  <dd>specifies which of the matched filenames should be included in the
+      returned list. The syntax is the same as for array subscripts. <i>beg</i>
+      and the optional <i>end</i> may be mathematical expressions. As in
+      parameter subscripting they may be negative to make them count from the
+      last match backward. E.g.: `<b>*(-OL[1,3])</b>' gives a list of the names
+      of the three largest files.</dd>
+  <dt><b>P</b><i>string</i></dt>
+  <dd>The <i>string</i> will be prepended to each glob match as a separate word.
+      <i>string</i> is delimited in the same way as arguments to the <b>e</b>
+      glob qualifier described above. The qualifier can be repeated; the words
+      are prepended separately so that the resulting command line contains the
+      words in the same order they were given in the list of glob
+    qualifiers.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">A typical use for this is to prepend an option before all
+    occurrences of a file name; for example, the pattern `<b>*(P:-f:)</b>'
+    produces the command line arguments `<b>-f</b> <i>file1</i> <b>-f</b>
+    <i>file2</i> ...'</p>
+<p class="Pp">If the modifier <b>^</b> is active, then <i>string</i> will be
+    appended instead of prepended. Prepending and appending is done
+    independently so both can be used on the same glob expression; for example
+    by writing `<b>*(P:foo:^P:bar:^P:baz:)</b>' which produces the command line
+    arguments `<b>foo</b> <b>baz</b> <i>file1</i> <b>bar</b> ...'</p>
+</div>
+<p class="Pp">More than one of these lists can be combined, separated by commas.
+    The whole list matches if at least one of the sublists matches (they are
+    `or'ed, the qualifiers in the sublists are `and'ed). Some qualifiers,
+    however, affect all matches generated, independent of the sublist in which
+    they are given. These are the qualifiers `<b>M</b>', `<b>T</b>', `<b>N</b>',
+    `<b>D</b>', `<b>n</b>', `<b>o</b>', `<b>O</b>' and the subscripts given in
+    brackets (`<b>[</b><i>...</i><b>]</b>').</p>
+<p class="Pp">If a `<b>:</b>' appears in a qualifier list, the remainder of the
+    expression in parenthesis is interpreted as a modifier (see the section
+    `Modifiers' in the section `History Expansion'). Each modifier must be
+    introduced by a separate `<b>:</b>'. Note also that the result after
+    modification does not have to be an existing file. The name of any existing
+    file can be followed by a modifier of the form `<b>(:</b><i>...</i><b>)</b>'
+    even if no actual filename generation is performed, although note that the
+    presence of the parentheses causes the entire expression to be subjected to
+    any global pattern matching options such as <b>NULL_GLOB</b>. Thus:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>ls *(-/)</b>
+</pre>
+</div>
+<p class="Pp">lists all directories and symbolic links that point to
+    directories, and</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>ls *(-@)</b>
+</pre>
+</div>
+<p class="Pp">lists all broken symbolic links, and</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>ls *(%W)</b>
+</pre>
+</div>
+<p class="Pp">lists all world-writable device files in the current directory,
+    and</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>ls *(W,X)</b>
+</pre>
+</div>
+<p class="Pp">lists all files in the current directory that are world-writable
+    or world-executable, and</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>echo /tmp/foo*(u0^@:t)</b>
+</pre>
+</div>
+<p class="Pp">outputs the basename of all root-owned files beginning with the
+    string `<b>foo</b>' in <b>/tmp</b>, ignoring symlinks, and</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>ls *.*~(lex|parse).[ch](^D^l1)</b>
+</pre>
+</div>
+<p class="Pp">lists all files having a link count of one whose names contain a
+    dot (but not those starting with a dot, since <b>GLOB_DOTS</b> is explicitly
+    switched off) except for <b>lex.c</b>, <b>lex.h</b>, <b>parse.c</b> and
+    <b>parse.h</b>.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>print b*.pro(#q:s/pro/shmo/)(#q.:s/builtin/shmiltin/)</b>
+</pre>
+</div>
+<p class="Pp">demonstrates how colon modifiers and other qualifiers may be
+    chained together. The ordinary qualifier `<b>.</b>' is applied first, then
+    the colon modifiers in order from left to right. So if <b>EXTENDED_GLOB</b>
+    is set and the base pattern matches the regular file <b>builtin.pro</b>, the
+    shell will print `<b>shmiltin.shmo</b>'.</p>
+</section>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">February 3, 2019</td>
+    <td class="foot-os">zsh 5.7.1</td>
+  </tr>
+</table>
+</body>
+</html>

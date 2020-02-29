@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   t
+       Title: git-rerere
+      Author: [FIXME: author] [see http://docbook.sf.net/el/author]
+   Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+        Date: 02/24/2019
+      Manual: Git Manual
+      Source: Git 2.21.0
+    Language: English
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>GIT-RERERE(1)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">GIT-RERERE(1)</td>
+    <td class="head-vol">Git Manual</td>
+    <td class="head-rtitle">GIT-RERERE(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+git-rerere - Reuse recorded resolution of conflicted merges
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>
+<i>git rerere</i> [<i>clear</i>|<i>forget</i> &lt;pathspec&gt;|<i>diff</i>|<i>remaining</i>|<i>status</i>|<i>gc</i>]
+</pre>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+In a workflow employing relatively long lived topic branches, the developer
+  sometimes needs to resolve the same conflicts over and over again until the
+  topic branches are done (either merged to the &quot;release&quot; branch, or
+  sent out and accepted upstream).
+<p class="Pp">This command assists the developer in this process by recording
+    conflicted automerge results and corresponding hand resolve results on the
+    initial manual merge, and applying previously recorded hand resolutions to
+    their corresponding automerge results.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp">You need to set the configuration variable rerere.enabled in order
+    to enable this command.</p>
+<p class="Pp"></p>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMMANDS"><a class="permalink" href="#COMMANDS">COMMANDS</a></h1>
+Normally, <i>git rerere</i> is run without arguments or user-intervention.
+  However, it has several commands that allow it to interact with its working
+  state.
+<p class="Pp"><i>clear</i></p>
+<div class="Bd-indent">Reset the metadata used by rerere if a merge resolution
+  is to be aborted. Calling <i>git am [--skip|--abort]</i> or <i>git rebase
+  [--skip|--abort]</i> will automatically invoke this command.</div>
+<p class="Pp"><i>forget</i> &lt;pathspec&gt;</p>
+<div class="Bd-indent">Reset the conflict resolutions which rerere has recorded
+  for the current conflict in &lt;pathspec&gt;.</div>
+<p class="Pp"><i>diff</i></p>
+<div class="Bd-indent">Display diffs for the current state of the resolution. It
+  is useful for tracking what has changed while the user is resolving conflicts.
+  Additional arguments are passed directly to the system <i>diff</i> command
+  installed in PATH.</div>
+<p class="Pp"><i>status</i></p>
+<div class="Bd-indent">Print paths with conflicts whose merge resolution rerere
+  will record.</div>
+<p class="Pp"><i>remaining</i></p>
+<div class="Bd-indent">Print paths with conflicts that have not been
+  autoresolved by rerere. This includes paths whose resolutions cannot be
+  tracked by rerere, such as conflicting submodules.</div>
+<p class="Pp"><i>gc</i></p>
+<div class="Bd-indent">Prune records of conflicted merges that occurred a long
+  time ago. By default, unresolved conflicts older than 15 days and resolved
+  conflicts older than 60 days are pruned. These defaults are controlled via the
+  <b>gc.rerereUnresolved</b> and <b>gc.rerereResolved</b> configuration
+  variables respectively.</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DISCUSSION"><a class="permalink" href="#DISCUSSION">DISCUSSION</a></h1>
+When your topic branch modifies an overlapping area that your master branch (or
+  upstream) touched since your topic branch forked from it, you may want to test
+  it with the latest master, even before your topic branch is ready to be pushed
+  upstream:
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+              o---*---o topic
+             /
+    o---o---o---*---o---o master
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">For such a test, you need to merge master and topic somehow. One
+    way to do it is to pull master into the topic branch:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+        $ git checkout topic
+        $ git merge master
+              o---*---o---+ topic
+             /           /
+    o---o---o---*---o---o master
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">The commits marked with <b>*</b> touch the same area in the same
+    file; you need to resolve the conflicts when creating the commit marked with
+    <b>+</b>. Then you can test the result to make sure your work-in-progress
+    still works with what is in the latest master.</p>
+<p class="Pp">After this test merge, there are two ways to continue your work on
+    the topic. The easiest is to build on top of the test merge commit <b>+</b>,
+    and when your work in the topic branch is finally ready, pull the topic
+    branch into master, and/or ask the upstream to pull from you. By that time,
+    however, the master or the upstream might have been advanced since the test
+    merge <b>+</b>, in which case the final commit graph would look like
+  this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+        $ git checkout topic
+        $ git merge master
+        $ ... work on both topic and master branches
+        $ git checkout master
+        $ git merge topic
+              o---*---o---+---o---o topic
+             /           /         \
+    o---o---o---*---o---o---o---o---+ master
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">When your topic branch is long-lived, however, your topic branch
+    would end up having many such &quot;Merge from master&quot; commits on it,
+    which would unnecessarily clutter the development history. Readers of the
+    Linux kernel mailing list may remember that Linus complained about such too
+    frequent test merges when a subsystem maintainer asked to pull from a branch
+    full of &quot;useless merges&quot;.</p>
+<p class="Pp">As an alternative, to keep the topic branch clean of test merges,
+    you could blow away the test merge, and keep building on top of the tip
+    before the test merge:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+        $ git checkout topic
+        $ git merge master
+        $ git reset --hard HEAD^ ;# rewind the test merge
+        $ ... work on both topic and master branches
+        $ git checkout master
+        $ git merge topic
+              o---*---o-------o---o topic
+             /                     \
+    o---o---o---*---o---o---o---o---+ master
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">This would leave only one merge commit when your topic branch is
+    finally ready and merged into the master branch. This merge would require
+    you to resolve the conflict, introduced by the commits marked with <b>*</b>.
+    However, this conflict is often the same conflict you resolved when you
+    created the test merge you blew away. <i>git rerere</i> helps you resolve
+    this final conflicted merge using the information from your earlier hand
+    resolve.</p>
+<p class="Pp">Running the <i>git rerere</i> command immediately after a
+    conflicted automerge records the conflicted working tree files, with the
+    usual conflict markers <b>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</b>, <b>=======</b>,
+    and <b>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</b> in them. Later, after you are done
+    resolving the conflicts, running <i>git rerere</i> again will record the
+    resolved state of these files. Suppose you did this when you created the
+    test merge of master into the topic branch.</p>
+<p class="Pp">Next time, after seeing the same conflicted automerge, running
+    <i>git rerere</i> will perform a three-way merge between the earlier
+    conflicted automerge, the earlier manual resolution, and the current
+    conflicted automerge. If this three-way merge resolves cleanly, the result
+    is written out to your working tree file, so you do not have to manually
+    resolve it. Note that <i>git rerere</i> leaves the index file alone, so you
+    still need to do the final sanity checks with <b>git diff</b> (or <b>git
+    diff -c</b>) and <i>git add</i> when you are satisfied.</p>
+<p class="Pp">As a convenience measure, <i>git merge</i> automatically invokes
+    <i>git rerere</i> upon exiting with a failed automerge and <i>git rerere</i>
+    records the hand resolve when it is a new conflict, or reuses the earlier
+    hand resolve when it is not. <i>git commit</i> also invokes <i>git
+    rerere</i> when committing a merge result. What this means is that you do
+    not have to do anything special yourself (besides enabling the
+    rerere.enabled config variable).</p>
+<p class="Pp">In our example, when you do the test merge, the manual resolution
+    is recorded, and it will be reused when you do the actual merge later with
+    the updated master and topic branch, as long as the recorded resolution is
+    still applicable.</p>
+<p class="Pp">The information <i>git rerere</i> records is also used when
+    running <i>git rebase</i>. After blowing away the test merge and continuing
+    development on the topic branch:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+              o---*---o-------o---o topic
+             /
+    o---o---o---*---o---o---o---o   master
+        $ git rebase master topic
+                                  o---*---o-------o---o topic
+                                 /
+    o---o---o---*---o---o---o---o   master
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">you could run <b>git rebase master topic</b>, to bring yourself up
+    to date before your topic is ready to be sent upstream. This would result in
+    falling back to a three-way merge, and it would conflict the same way as the
+    test merge you resolved earlier. <i>git rerere</i> will be run by <i>git
+    rebase</i> to help you resolve this conflict.</p>
+<p class="Pp">[NOTE] <i>git rerere</i> relies on the conflict markers in the
+    file to detect the conflict. If the file already contains lines that look
+    the same as lines with conflict markers, <i>git rerere</i> may fail to
+    record a conflict resolution. To work around this, the
+    <b>conflict-marker-size</b> setting in <b>gitattributes</b>(5) can be
+  used.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="GIT"><a class="permalink" href="#GIT">GIT</a></h1>
+Part of the <b>git</b>(1) suite
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">02/24/2019</td>
+    <td class="foot-os">Git 2.21.0</td>
+  </tr>
+</table>
+</body>
+</html>

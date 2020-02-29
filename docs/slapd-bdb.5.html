@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>SLAPD-BDB(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SLAPD-BDB(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">SLAPD-BDB(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+slapd-bdb, slapd-hdb - Berkeley DB backends to slapd
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<b>/etc/openldap/slapd.conf</b>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The <b>bdb</b> backend to <b>slapd</b>(8) uses the Oracle Berkeley DB (BDB)
+  package to store data. It makes extensive use of indexing and caching to speed
+  data access.
+<p class="Pp"><b>hdb</b> is the recommended primary database backend. It is a
+    variant of the <b>bdb</b> backend that uses a hierarchical database layout
+    which supports subtree renames. It is both more space-efficient and more
+    execution-efficient than the <b>bdb</b> backend. It is otherwise identical
+    to the <b>bdb</b> behavior, and all the same configuration options
+  apply.</p>
+<p class="Pp">It is noted that these options are intended to complement Berkeley
+    DB configuration options set in the environment's <b>DB_CONFIG</b> file. See
+    Berkeley DB documentation for details on <b>DB_CONFIG</b> configuration
+    options. Where there is overlap, settings in <b>DB_CONFIG</b> take
+    precedence.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION"><a class="permalink" href="#CONFIGURATION">CONFIGURATION</a></h1>
+These <b>slapd.conf</b> options apply to the <b>bdb</b> and <b>hdb</b> backend
+  database. That is, they must follow a &quot;database bdb&quot; or
+  &quot;database hdb&quot; line and come before any subsequent
+  &quot;backend&quot; or &quot;database&quot; lines. Other database options are
+  described in the <b>slapd.conf</b>(5) manual page.
+<dl class="Bl-tag">
+  <dt><b>cachesize</b><i>&#x00A0;&lt;integer&gt;</i></dt>
+  <dd>Specify the size in entries of the in-memory entry cache maintained by the
+      <b>bdb</b> or <b>hdb</b> backend database instance. The default is 1000
+      entries.</dd>
+  <dt><b>cachefree</b><i>&#x00A0;&lt;integer&gt;</i></dt>
+  <dd>Specify the number of entries to free from the entry cache when the cache
+      reaches the <b>cachesize</b> limit. The default is 1 entry.</dd>
+  <dt><b>checkpoint</b><i>&#x00A0;&lt;kbyte&gt;&#x00A0;&lt;min&gt;</i></dt>
+  <dd>Specify the frequency for checkpointing the database transaction log. A
+      checkpoint operation flushes the database buffers to disk and writes a
+      checkpoint record in the log. The checkpoint will occur if either
+      <i>&lt;kbyte&gt;</i> data has been written or <i>&lt;min&gt;</i> minutes
+      have passed since the last checkpoint. Both arguments default to zero, in
+      which case they are ignored. When the <i>&lt;min&gt;</i> argument is
+      non-zero, an internal task will run every <i>&lt;min&gt;</i> minutes to
+      perform the checkpoint. See the Berkeley DB reference guide for more
+      details.</dd>
+  <dt><b>checksum</b></dt>
+  <dd>Enable checksum validation of DB pages whenever they are read from disk.
+      This setting can only be configured before any database files are
+    created.</dd>
+  <dt><b>cryptfile</b><i>&#x00A0;&lt;file&gt;</i></dt>
+  <dd>Specify the pathname of a file containing an encryption key to use for
+      encrypting the database. Encryption is performed using Berkeley DB's
+      implementation of AES. Note that encryption can only be configured before
+      any database files are created, and changing the key can only be done
+      after destroying the current database and recreating it. Encryption is not
+      enabled by default, and some distributions of Berkeley DB do not support
+      encryption.</dd>
+  <dt><b>cryptkey</b><i>&#x00A0;&lt;key&gt;</i></dt>
+  <dd>Specify an encryption key to use for encrypting the database. This option
+      may be used when a separate <i>cryptfile</i> is not desired. Only one of
+      <b>cryptkey</b> or <b>cryptfile</b> may be configured.</dd>
+  <dt><b>dbconfig</b><i>&#x00A0;&lt;Berkeley-DB-setting&gt;</i></dt>
+  <dd>Specify a configuration directive to be placed in the <b>DB_CONFIG</b>
+      file of the database directory. The <b>dbconfig</b> directive is just a
+      convenience to allow all necessary configuration to be set in the
+      <b>slapd.conf</b> file. The options set using this directive will only be
+      written to the <b>DB_CONFIG</b> file if no such file existed at server
+      startup time, otherwise they are completely ignored. This allows one to
+      set initial values without overwriting/destroying a <b>DB_CONFIG</b> file
+      that was already customized through other means. This directive may be
+      specified multiple times, as needed. For example:</dd>
+</dl>
+<div class="Bd-indent">
+<pre>
+	dbconfig set_cachesize 0 1048576 0
+	dbconfig set_lg_bsize 2097152
+</pre>
+</div>
+<dl class="Bl-tag">
+  <dt><b>dbnosync</b></dt>
+  <dd>Specify that on-disk database contents should not be immediately
+      synchronized with in memory changes. Enabling this option may improve
+      performance at the expense of data security. See the Berkeley DB reference
+      guide for more details.</dd>
+  <dt><b>dbpagesize </b> <i>&lt;dbfile&gt; &lt;size&gt;</i></dt>
+  <dd>Specify the page size to use for a particular database file, in units of
+      1024 bytes. The default for the <b>id2entry</b> file is 16, the default
+      for all other files depends on the size of the underlying filesystem's
+      block size (typically 4 or 8). The maximum that BerkeleyDB supports is 64.
+      This setting usually should not need to be changed, but if BerkeleyDB's
+      &quot;db_stat -d&quot; shows a large amount of overflow pages in use in a
+      file, setting a larger size may increase performance at the expense of
+      data integrity. This setting only takes effect when a database is being
+      newly created. See the Berkeley DB reference guide for more details.</dd>
+  <dt><b>directory</b><i>&#x00A0;&lt;directory&gt;</i></dt>
+  <dd>Specify the directory where the BDB files containing this database and
+      associated indexes live. A separate directory must be specified for each
+      database. The default is <b>/var/db/openldap/openldap-data</b>.</dd>
+  <dt><b>dirtyread</b></dt>
+  <dd>Allow reads of modified but not yet committed data. Usually transactions
+      are isolated to prevent other operations from accessing uncommitted data.
+      This option may improve performance, but may also return inconsistent
+      results if the data comes from a transaction that is later aborted. In
+      this case, the modified data is discarded and a subsequent search will
+      return a different result.</dd>
+  <dt><b>dncachesize</b><i>&#x00A0;&lt;integer&gt;</i></dt>
+  <dd>Specify the maximum number of DNs in the in-memory DN cache. Ideally this
+      cache should be large enough to contain the DNs of every entry in the
+      database. If set to a smaller value than the <b>cachesize</b> it will be
+      silently increased to equal the <b>cachesize</b>. The default value is 0
+      which means unlimited, i.e. the DN cache will grow without bound.
+    <p class="Pp">It should be noted that the <b>DN cache</b> is allowed to
+        temporarily grow beyond the configured size. It does this if many
+        entries are locked when it tries to do a purge, because that means
+        they're legitimately in use. Also, the <b>DN cache</b> never purges
+        entries that have cached children, so depending on the shape of the DIT,
+        it could have lots of cached DNs over the defined limit.</p>
+  </dd>
+  <dt><b>idlcachesize</b><i>&#x00A0;&lt;integer&gt;</i></dt>
+  <dd>Specify the size of the in-memory index cache, in index slots. The default
+      is zero. A larger value will speed up frequent searches of indexed
+      entries. An <b>hdb</b> database needs a large <b>idlcachesize</b> for good
+      search performance, typically three times the <b>cachesize</b> (entry
+      cache size) or larger.</dd>
+  <dt><b>index </b>{<i>&lt;attrlist&gt;</i>|<b>default</b>}
+    [<b>pres</b>,<b>eq</b>,<b>approx</b>,<b>sub</b>,<i>&lt;special&gt;</i>]</dt>
+  <dd>Specify the indexes to maintain for the given attribute (or list of
+      attributes). Some attributes only support a subset of indexes. If only an
+      <i>&lt;attr&gt;</i> is given, the indices specified for <b>default</b> are
+      maintained. Note that setting a default does not imply that all attributes
+      will be indexed. Also, for best performance, an <b>eq</b> index should
+      always be configured for the <b>objectClass</b> attribute.
+    <p class="Pp">A number of special index parameters may be specified. The
+        index type <b>sub</b> can be decomposed into <b>subinitial</b>,
+        <b>subany</b>,&#x00A0;and <b>subfinal</b> indices. The special type
+        <b>nolang</b> may be specified to disallow use of this index by language
+        subtypes. The special type <b>nosubtypes</b> may be specified to
+        disallow use of this index by named subtypes. Note: changing
+        <b>index</b> settings in <b>slapd.conf</b>(5) requires rebuilding
+        indices, see <b>slapindex</b>(8); changing <b>index</b> settings
+        dynamically by LDAPModifying &quot;cn=config&quot; automatically causes
+        rebuilding of the indices online in a background task.</p>
+  </dd>
+  <dt><b>linearindex</b></dt>
+  <dd>Tell <b>slapindex</b> to index one attribute at a time. By default, all
+      indexed attributes in an entry are processed at the same time. With this
+      option, each indexed attribute is processed individually, using multiple
+      passes through the entire database. This option improves <b>slapindex</b>
+      performance when the database size exceeds the <b>dbcache</b> size. When
+      the <b>dbcache</b> is large enough, this option is not needed and will
+      decrease performance. Also by default, <b>slapadd</b> performs full
+      indexing and so a separate <b>slapindex</b> run is not needed. With this
+      option, <b>slapadd</b> does no indexing and <b>slapindex</b> must be
+    used.</dd>
+  <dt><b>lockdetect</b>&#x00A0;{<b>oldest</b>|<b>youngest</b>|<b>fewest</b>|<b>random</b>|<b>default</b>}</dt>
+  <dd>Specify which transaction to abort when a deadlock is detected. The
+      default is <b>random</b>.</dd>
+  <dt><b>mode</b><i>&#x00A0;&lt;integer&gt;</i></dt>
+  <dd>Specify the file protection mode that newly created database index files
+      should have. The default is 0600.</dd>
+  <dt><b>searchstack</b><i>&#x00A0;&lt;depth&gt;</i></dt>
+  <dd>Specify the depth of the stack used for search filter evaluation. Search
+      filters are evaluated on a stack to accommodate nested AND / OR clauses.
+      An individual stack is assigned to each server thread. The depth of the
+      stack determines how complex a filter can be evaluated without requiring
+      any additional memory allocation. Filters that are nested deeper than the
+      search stack depth will cause a separate stack to be allocated for that
+      particular search operation. These allocations can have a major negative
+      impact on server performance, but specifying too much stack will also
+      consume a great deal of memory. Each search stack uses 512K bytes per
+      level. The default stack depth is 16, thus 8MB per thread is used.</dd>
+  <dt><b>shm_key</b><i>&#x00A0;&lt;integer&gt;</i></dt>
+  <dd>Specify a key for a shared memory BDB environment. By default the BDB
+      environment uses memory mapped files. If a non-zero value is specified, it
+      will be used as the key to identify a shared memory region that will house
+      the environment.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACCESS_CONTROL"><a class="permalink" href="#ACCESS_CONTROL">ACCESS
+  CONTROL</a></h1>
+The <b>bdb</b> and <b>hdb</b> backends honor access control semantics as
+  indicated in <b>slapd.access</b>(5).
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt><b>/etc/openldap/slapd.conf</b></dt>
+  <dd>default <b>slapd</b> configuration file</dd>
+  <dt><b>DB_CONFIG</b></dt>
+  <dd>Berkeley DB configuration file</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>slapd.conf</b>(5), <b>slapd-config</b>(5), <b>slapd</b>(8),
+  <b>slapadd</b>(8), <b>slapcat</b>(8), <b>slapindex</b>(8), Berkeley DB
+  documentation.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACKNOWLEDGEMENTS"><a class="permalink" href="#ACKNOWLEDGEMENTS">ACKNOWLEDGEMENTS</a></h1>
+<b>OpenLDAP Software</b> is developed and maintained by The OpenLDAP Project
+  &lt;http://www.openldap.org/&gt;. <b>OpenLDAP Software</b> is derived from
+  University of Michigan LDAP 3.3 Release. Originally begun by Kurt Zeilenga.
+  Caching mechanisms originally designed by Jong-Hyuk Choi. Completion and
+  subsequent work, as well as back-hdb, by Howard Chu.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2011/11/24</td>
+    <td class="foot-os">OpenLDAP 2.4.28</td>
+  </tr>
+</table>
+</body>
+</html>

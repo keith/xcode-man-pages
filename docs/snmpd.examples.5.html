@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>SNMPD.EXAMPLES(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SNMPD.EXAMPLES(5)</td>
+    <td class="head-vol">Net-SNMP</td>
+    <td class="head-rtitle">SNMPD.EXAMPLES(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+snmpd.examples - example configuration for the Net-SNMP agent
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The <i>snmpd.conf(5)</i> man page defines the syntax and behaviour of the
+  various configuration directives that can be used to control the operation of
+  the Net-SNMP agent, and the management information it provides.
+<p class="Pp">This companion man page illustrates these directives, showing some
+    practical examples of how they might be used.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AGENT_BEHAVIOUR"><a class="permalink" href="#AGENT_BEHAVIOUR">AGENT
+  BEHAVIOUR</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Listening_addresses"><a class="permalink" href="#Listening_addresses">Listening
+  addresses</a></h2>
+The default agent behaviour (listing on the standard SNMP UDP port on all
+  interfaces) is equivalent to the directive:
+<div class="Bd-indent">agentaddress udp:161</div>
+or simply
+<div class="Bd-indent">agentaddress 161</div>
+The agent can be configured to <i>only</i> accept requests sent to the local
+  loopback interface (again listening on the SNMP UDP port), using:
+<div class="Bd-indent">agentaddress localhost:161 <i># (udp implicit)</i></div>
+or
+<div class="Bd-indent">agentaddress 127.0.0.1 <i># (udp and standard port
+  implicit)</i></div>
+It can be configured to accept both UDP and TCP requests (over both IPv4 and
+  IPv6), using:
+<div class="Bd-indent">agentaddress udp:161,tcp:161,udp6:161,tcp6:161</div>
+Other combinations are also valid.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Run-time_privileges"><a class="permalink" href="#Run-time_privileges">Run-time
+  privileges</a></h2>
+The agent can be configured to relinquish any privileged access once it has
+  opened the initial listening ports. Given a suitable &quot;snmp&quot; group
+  (defined in <i>/etc/group</i>), this could be done using the directives:
+<div class="Bd-indent">
+<pre>
+agentuser  nobody
+agentgroup snmp
+</pre>
+</div>
+A similar effect could be achieved using numeric UID and/or GID values:
+<div class="Bd-indent">
+<pre>
+agentuser  #10
+agentgroup #10
+</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="SNMPv3_Configuration"><a class="permalink" href="#SNMPv3_Configuration">SNMPv3
+  Configuration</a></h2>
+Rather than being generated pseudo-randomly, the engine ID for the agent could
+  be calculated based on the MAC address of the second network interface
+  (<i>eth1</i>), using the directives:
+<div class="Bd-indent">engineIDType 3 engineIDNic eth1</div>
+or it could be calculated from the (first) IP address, using:
+<div class="Bd-indent">engineIDType 1</div>
+or it could be specified explicitly, using:
+<div class="Bd-indent">engineID &quot;XXX - WHAT FORMAT&quot;</div>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACCESS_CONTROL"><a class="permalink" href="#ACCESS_CONTROL">ACCESS
+  CONTROL</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="SNMPv3_Users"><a class="permalink" href="#SNMPv3_Users">SNMPv3
+  Users</a></h2>
+The following directives will create three users, all using exactly the same
+  authentication and encryption settings:
+<div class="Bd-indent">
+<pre>
+createUser me     MD5 &quot;single pass phrase&quot;
+createUser myself MD5 &quot;single pass phrase&quot; DES
+createUser andI   MD5 &quot;single pass phrase&quot; DES &quot;single pass phrase&quot;
+</pre>
+</div>
+Note that this defines three <i>distinct</i> users, who could be granted
+  different levels of access. Changing the passphrase for any one of these would
+  not affect the other two.
+<p class="Pp">Separate pass phrases can be specified for authentication and
+    encryption:</p>
+<div class="Bd-indent">createUser onering SHA &quot;to rule them all&quot; AES
+  &quot;to bind them&quot;</div>
+Remember that these <i>createUser</i> directives should be defined in the
+  /var/db/net-snmp/snmpd.conf file, rather than the usual location.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Traditional_Access_Control"><a class="permalink" href="#Traditional_Access_Control">Traditional
+  Access Control</a></h2>
+The SNMPv3 users defined above can be granted access to the full MIB tree using
+  the directives:
+<div class="Bd-indent">
+<pre>
+rouser me
+rwuser onering
+</pre>
+</div>
+Or selective access to individual subtrees using:
+<div class="Bd-indent">
+<pre>
+rouser myself   .1.3.6.1.2
+rwuser andI     system
+</pre>
+</div>
+<p class="Pp">Note that a combination repeating the same user, such as:</p>
+<div class="Bd-indent">
+<pre>
+rouser onering
+rwuser onering
+</pre>
+</div>
+should <b>not</b> be used. This would configure the user <i>onering</i> with
+  read-only access (and ignore the <i>rwuser</i> entry altogether). The same
+  holds for the community-based directives.
+<p class="Pp">The directives:</p>
+<div class="Bd-indent">
+<pre>
+rocommunity public
+rwcommunity private
+</pre>
+</div>
+would define the commonly-expected read and write community strings for SNMPv1
+  and SNMPv2c requests. This behaviour is <b>not</b> configured by default, and
+  would need to be set up explicitly.
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>Note:</dt>
+  <dd>It would also be a very good idea to change <i>private</i> to something a
+      little less predictable!</dd>
+</dl>
+</div>
+<p class="Pp">A slightly less vulnerable configuration might restrict what
+    information could be retrieved:</p>
+<div class="Bd-indent">rocommunity public default system</div>
+or the management systems that settings could be manipulated from:
+<div class="Bd-indent">rwcommunity private 10.10.10.0/24</div>
+or a combination of the two.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="VACM_Configuration"><a class="permalink" href="#VACM_Configuration">VACM
+  Configuration</a></h2>
+This last pair of settings are equivalent to the full VACM definitions:
+<div class="Bd-indent">
+<pre>
+<i>#         sec.name  source        community</i>
+com2sec   public    default       public
+com2sec   mynet     10.10.10.0/24 private
+com2sec6  mynet     fec0::/64     private
+<i>#                  sec.model  sec.name</i>
+group  worldGroup  v1         public
+group  worldGroup  v2c        public
+group  myGroup     v1         mynet
+group  myGroup     v2c        mynet
+<i>#              incl/excl   subtree     [mask]</i>
+view   all     included    .1
+view   sysView included    system
+<i>#              context model level   prefix  read    write  notify (unused)</i>
+access  worldGroup  &quot;&quot;  any  noauth  exact   system  none   none
+access  myGroup     &quot;&quot;  any  noauth  exact   all     all    none
+</pre>
+</div>
+<p class="Pp">There are several points to note in this example:</p>
+<p class="Pp">The <i>group</i> directives must be repeated for both SNMPv1 and
+    SNMPv2c requests.</p>
+<p class="Pp">The <i>com2sec</i> security name is distinct from the community
+    string that is mapped to it. They can be the same (&quot;public&quot;) or
+    different (&quot;mynet&quot;/&quot;private&quot;) - but what appears in the
+    <i>group</i> directive is the security name, regardless of the original
+    community string.</p>
+<p class="Pp">Both of the <i>view</i> directives are defining simple OID
+    subtrees, so neither of these require an explicit mask. The same holds for
+    the &quot;combined subtree2 view defined below. In fact, a mask field is
+    only needed when defining row slices across a table (or similar views), and
+    can almost always be omitted.</p>
+<p class="Pp">In general, it is advisible not to mix traditional and VACM-based
+    access configuration settings, as these can sometimes interfere with each
+    other in unexpected ways. Choose a particular style of access configuration,
+    and stick to it.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Typed-View_Configuration"><a class="permalink" href="#Typed-View_Configuration">Typed-View
+  Configuration</a></h2>
+A similar configuration could also be configured as follows:
+<div class="Bd-indent">
+<pre>
+view   sys2View included    system
+view   sys2View included    .1.3.6.1.2.1.25.1
+authcommunity read       public  default      -v sys2View
+authcommunity read,write private 10.10.10.0/8
+</pre>
+</div>
+<p class="Pp">This mechanism allows multi-subtree (or other non-simple) views to
+    be used with the one-line <i>rocommunity</i> style of configuration.</p>
+<p class="Pp">It would also support configuring &quot;write-only&quot; access,
+    should this be required.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYSTEM_INFORMATION"><a class="permalink" href="#SYSTEM_INFORMATION">SYSTEM
+  INFORMATION</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="System_Group"><a class="permalink" href="#System_Group">System
+  Group</a></h2>
+The full contents of the 'system' group (with the exception of sysUpTime) can be
+  explicitly configured using:
+<div class="Bd-indent">
+<pre>
+<i># Override 'uname -a' and hardcoded system OID - inherently read-only values</i>
+sysDescr     Universal Turing Machine mk I
+sysObjectID  .1.3.6.1.4.1.8072.3.2.1066
+<i># Override default values from 'configure' - makes these objects read-only</i>
+sysContact   Alan.Turing@pre-cs.man.ac.uk
+sysName      tortoise.turing.com
+sysLocation  An idea in the mind of AT
+<i># Standard end-host behaviour</i>
+sysServices  72
+</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Host_Resources_Group"><a class="permalink" href="#Host_Resources_Group">Host
+  Resources Group</a></h2>
+The list of devices probed for potential inclusion in the hrDiskStorageTable
+  (and hrDeviceTable) can be amended using any of the following directives:
+<div class="Bd-indent">ignoredisk /dev/rdsk/c0t2d0</div>
+which prevents the device <i>/dev/rdsk/c0t2d0</i> from being scanned,
+<div class="Bd-indent">
+<pre>
+ignoredisk /dev/rdsk/c0t[!6]d0
+ignoredisk /dev/rdsk/c0t[0-57-9a-f]d0
+</pre>
+</div>
+either of which prevents all devices <i>/dev/rdsk/c0t</i>X<i>d0</i> (except
+  .../<i>c0t6d0</i>) from being scanned,
+<div class="Bd-indent">ignoredisk /dev/rdsk/c1*</div>
+which prevents all devices whose device names start with <i>/dev/rdsk/c1</i>
+  from being scanned, or
+<div class="Bd-indent">ignoredisk /dev/rdsk/c?t0d0</div>
+which prevents all devices <i>/dev/rdsk/c</i>X<i>t0d0</i> (where 'X' is any
+  single character) from being scanned.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Process_Monitoring"><a class="permalink" href="#Process_Monitoring">Process
+  Monitoring</a></h2>
+The list of services running on a system can be monitored (and provision made
+  for correcting any problems), using:
+<div class="Bd-indent">
+<pre>
+<i># At least one web server process must be running at all times</i>
+proc    httpd
+procfix httpd  /etc/rc.d/init.d/httpd restart
+<i># There should never be more than 10 mail processes running</i>
+<i>#    (more implies a probable mail storm, so shut down the mail system)</i>
+proc    sendmail   10
+procfix sendmail  /etc/rc.d/init.d/sendmail stop
+<i># There should be a single network management agent running</i>
+<i>#   (&quot;There can be only one&quot;)</i>
+proc    snmpd    1  1
+</pre>
+</div>
+Also see the &quot;DisMan Event MIB&quot; section later on.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Disk_Usage_Monitoring"><a class="permalink" href="#Disk_Usage_Monitoring">Disk
+  Usage Monitoring</a></h2>
+The state of disk storage can be monitored using:
+<div class="Bd-indent">
+<pre>
+includeAllDisks 10%
+disk /var 20%
+disk /usr  3%
+<i>#  Keep 100 MB free for crash dumps</i>
+disk /mnt/crash  100000
+</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="System_Load_Monitoring"><a class="permalink" href="#System_Load_Monitoring">System
+  Load Monitoring</a></h2>
+A simple check for an overloaded system might be:
+<div class="Bd-indent">load 10</div>
+A more refined check (to allow brief periods of heavy use, but recognise
+  sustained medium-heavy load) might be:
+<div class="Bd-indent">load 30 10 5</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Log_File_Monitoring"><a class="permalink" href="#Log_File_Monitoring">Log
+  File Monitoring</a></h2>
+<i>TODO</i>
+<div class="Bd-indent">file FILE [MAXSIZE]</div>
+<div class="Bd-indent">logmatch NAME PATH CYCLETIME REGEX</div>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACTIVE_MONITORING"><a class="permalink" href="#ACTIVE_MONITORING">ACTIVE
+  MONITORING</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Notification_Handling"><a class="permalink" href="#Notification_Handling">Notification
+  Handling</a></h2>
+Configuring the agent to report invalid access attempts might be done by:
+<div class="Bd-indent">
+<pre>
+authtrapenable 1
+trapcommunity  public
+trap2sink      localhost
+</pre>
+</div>
+Alternatively, the second and third directives could be combined (and an
+  acknowledgement requested) using:
+<div class="Bd-indent">informsink localhost public</div>
+A configuration with repeated sink destinations, such as:
+<div class="Bd-indent">
+<pre>
+trapsink       localhost
+trap2sink      localhost
+informsink     localhost
+</pre>
+</div>
+should <b>NOT</b> be used, as this will cause multiple copies of each trap to be
+  sent to the same trap receiver.
+<p class="Pp"><i>TODO - discuss SNMPv3 traps</i></p>
+<div class="Bd-indent">trapsess <i>snmpv3 options</i> localhost:162</div>
+<p class="Pp"><i>TODO - mention trapd access configuration</i></p>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="DisMan_Event_MIB"><a class="permalink" href="#DisMan_Event_MIB">DisMan
+  Event MIB</a></h2>
+The simplest configuration for active self-monitoring of the agent, by the
+  agent, for the agent, is probably:
+<div class="Bd-indent">
+<pre>
+<i># Set up the credentials to retrieve monitored values</i>
+createUser    _internal MD5 &quot;the first sign of madness&quot;
+iquerySecName _internal
+rouser        _internal
+<i># Active the standard monitoring entries</i>
+defaultMonitors         yes
+linkUpDownNotifications yes
+<i># If there's a problem, then tell someone!</i>
+trap2sink localhost
+</pre>
+</div>
+<p class="Pp">The first block sets up a suitable user for retrieving the
+    information to by monitored, while the following pair of directives
+    activates various built-in monitoring entries.</p>
+<p class="Pp">Note that the DisMan directives are not themselves sufficient to
+    actively report problems - there also needs to be a suitable destination
+    configured to actually send the resulting notifications to.</p>
+<p class="Pp">A more detailed monitor example is given by:</p>
+<div class="Bd-indent">monitor -u me -o hrSWRunName &quot;high process
+  memory&quot; hrSWRunPerfMem &gt; 10000</div>
+<p class="Pp">This defines an explicit boolean monitor entry, looking for any
+    process using more than 10MB of active memory. Such processes will be
+    reported using the (standard) DisMan trap mteTriggerFired, but adding an
+    extra (wildcarded) varbind hrSWRunName.</p>
+<p class="Pp">This entry also specifies an explicit user (<i>me</i>, as defined
+    earlier) for retrieving the monitored values, and building the trap.</p>
+<p class="Pp">Objects that could potentially fluctuate around the specified
+    level are better monitored using a threshold monitor entry:</p>
+<div class="Bd-indent">monitor -D -r 10 &quot;network traffic&quot; ifInOctets
+  1000000 5000000</div>
+<p class="Pp">This will send a mteTriggerRising trap whenever the incoming
+    traffic rises above (roughly) 500 kB/s on any network interface, and a
+    corresponding mteTriggerFalling trap when it falls below 100 kB/s again.</p>
+<p class="Pp">Note that this monitors the deltas between successive samples
+    (<i>-D</i>) rather than the actual sample values themselves. The same effect
+    could be obtained using:</p>
+<div class="Bd-indent">monitor -r 10 &quot;network traffic&quot; ifInOctets - -
+  1000000 5000000</div>
+<p class="Pp">The <i>linkUpDownNotifications</i> directive above is broadly
+    equivalent to:</p>
+<div class="Bd-indent">
+<pre>
+notificationEvent  linkUpTrap    linkUp   ifIndex ifAdminStatus ifOperStatus
+notificationEvent  linkDownTrap  linkDown ifIndex ifAdminStatus ifOperStatus
+monitor  -r 60 -e linkUpTrap   &quot;Generate linkUp&quot;   ifOperStatus != 2
+monitor  -r 60 -e linkDownTrap &quot;Generate linkDown&quot; ifOperStatus == 2
+</pre>
+</div>
+<p class="Pp">This defines the traps to be sent (using
+    <i>notificationEvent</i>), and explicitly references the relevant
+    notification in the corresponding monitor entry (rather than using the
+    default DisMan traps).</p>
+<p class="Pp">The <i>defaultMonitors</i> directive above is equivalent to a
+    series of (boolean) monitor entries:</p>
+<div class="Bd-indent">
+<pre>
+monitor	-o prNames      -o prErrMessage  &quot;procTable&quot; prErrorFlag   != 0
+monitor	-o memErrorName -o memSwapErrorMsg &quot;memory&quot;  memSwapError  != 0
+monitor	-o extNames     -o extOutput     &quot;extTable&quot;  extResult     != 0
+monitor	-o dskPath      -o dskErrorMsg   &quot;dskTable&quot;  dskErrorFlag  != 0
+monitor	-o laNames      -o laErrMessage  &quot;laTable&quot;   laErrorFlag   != 0
+monitor	-o fileName     -o fileErrorMsg  &quot;fileTable&quot; fileErrorFlag != 0
+</pre>
+</div>
+and will send a trap whenever any of these entries indicate a problem.
+<p class="Pp">An alternative approach would be to automatically invoke the
+    corresponding &quot;fix&quot; action:</p>
+<div class="Bd-indent">
+<pre>
+setEvent   prFixIt  prErrFix = 1
+monitor -e prFixIt &quot;procTable&quot; prErrorFlag   != 0
+</pre>
+</div>
+(and similarly for any of the other <i>defaultMonitor</i> entries).
+</section>
+<section class="Ss">
+<h2 class="Ss" id="DisMan_Schedule_MIB"><a class="permalink" href="#DisMan_Schedule_MIB">DisMan
+  Schedule MIB</a></h2>
+The agent could be configured to reload its configuration once an hour, using:
+<div class="Bd-indent">repeat 3600 versionUpdateConfig.0 = 1</div>
+<p class="Pp">Alternatively this could be configured to be run at specific times
+    of day (perhaps following rotation of the logs):</p>
+<div class="Bd-indent">cron 10 0 * * * versionUpdateConfig.0 = 1</div>
+<p class="Pp">The one-shot style of scheduling is rather less common, but the
+    secret SNMP virus could be activated on the next occurance of Friday 13th
+    using:</p>
+<div class="Bd-indent">at 13 13 13 * 5 snmpVirus.0 = 1</div>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXTENDING_AGENT_FUNCTIONALITY"><a class="permalink" href="#EXTENDING_AGENT_FUNCTIONALITY">EXTENDING
+  AGENT FUNCTIONALITY</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Arbitrary_Extension_Commands"><a class="permalink" href="#Arbitrary_Extension_Commands">Arbitrary
+  Extension Commands</a></h2>
+<i>Old Style</i>
+<div class="Bd-indent">
+<pre>
+exec [MIBOID] NAME PROG ARGS&quot;
+sh   [MIBOID] NAME PROG ARGS&quot;
+execfix NAME PROG ARGS&quot;
+</pre>
+</div>
+<i>New Style</i>
+<div class="Bd-indent">
+<pre>
+extend [MIBOID] NAME PROG ARGS&quot;
+extendfix [MIBOID] NAME PROG ARGS&quot;
+</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="MIB-Specific_Extension_Commands"><a class="permalink" href="#MIB-Specific_Extension_Commands">MIB-Specific
+  Extension Commands</a></h2>
+<i>One-Shot</i>
+<div class="Bd-indent">&quot;pass [-p priority] MIBOID PROG&quot;</div>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd><i>Persistent</i></dd>
+</dl>
+<div class="Bd-indent">&quot;pass_persist [-p priority] MIBOID PROG&quot;</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Embedded_Perl_Support"><a class="permalink" href="#Embedded_Perl_Support">Embedded
+  Perl Support</a></h2>
+If embedded perl support is enabled in the agent, the default initialisation is
+  equivalent to the directives:
+<div class="Bd-indent">
+<pre>
+disablePerl  false
+perlInitFile /usr/share/snmp/snmp_perl.pl
+</pre>
+</div>
+The main mechanism for defining embedded perl scripts is the <i>perl</i>
+  directive. A very simple (if somewhat pointless) MIB handler could be
+  registered using:
+<div class="Bd-indent">
+<pre>
+perl use Data::Dumper;
+perl sub myroutine  { print &quot;got called: &quot;,Dumper(@_),&quot;\n&quot;; }
+perl $agent-&gt;register('mylink', '.1.3.6.1.8765', \&amp;myroutine);
+</pre>
+</div>
+<p class="Pp">This relies on the <i>$agent</i> object, defined in the example
+    snmp_perl.pl file.</p>
+<p class="Pp">A more realistic MIB handler might be:</p>
+<div class="Bd-indent">
+<pre>
+<i>XXX - WHAT ???</i>
+</pre>
+</div>
+Alternatively, this code could be stored in an external file, and loaded using:
+<div class="Bd-indent">perl 'do /usr/share/snmp/perl_example.pl';</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Dynamically_Loadable_Modules"><a class="permalink" href="#Dynamically_Loadable_Modules">Dynamically
+  Loadable Modules</a></h2>
+<i>TODO</i>
+<div class="Bd-indent">dlmod NAME PATH&quot;</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Proxy_Support"><a class="permalink" href="#Proxy_Support">Proxy
+  Support</a></h2>
+A configuration for acting as a simple proxy for two other SNMP agents (running
+  on remote systems) might be:
+<div class="Bd-indent">
+<pre>
+com2sec -Cn rem1context  rem1user default  remotehost1
+com2sec -Cn rem2context  rem2user default  remotehost2
+proxy -Cn rem1context  -v 1 -c public  remotehost1  .1.3
+proxy -Cn rem2context  -v 1 -c public  remotehost2  .1.3
+</pre>
+</div>
+(plus suitable access control entries).
+<p class="Pp">The same <i>proxy</i> directives would also work with (incoming)
+    SNMPv3 requests, which can specify a context directly. It would probably be
+    more sensible to use contexts of <i>remotehost1</i> and <i>remotehost2</i> -
+    the names above were chosen to indicate how these directives work
+  together.</p>
+<p class="Pp">Note that the administrative settings for the proxied request are
+    specified explicitly, and are independent of the settings from the incoming
+    request.</p>
+<p class="Pp">An alternative use for the proxy directive is to pass part of the
+    OID tree to another agent (either on a remote host or listening on a
+    different port on the same system), while handling the rest internally:</p>
+<div class="Bd-indent">proxy -v 1 -c public localhost:6161 .1.3.6.1.4.1.99</div>
+This mechanism can be used to link together two separate SNMP agents.
+<p class="Pp">A less usual approach is to map one subtree into a different area
+    of the overall MIB tree (either locally or on a remote system):</p>
+<div class="Bd-indent">
+<pre>
+<i># uses SNMPv3 to access the MIB tree .1.3.6.1.2.1.1 on 'remotehost'</i>
+<i># and maps this to the local tree .1.3.6.1.3.10</i>
+proxy -v 3 -l noAuthNoPriv -u user remotehost .1.3.6.1.3.10 .1.3.6.1.2.1.1
+</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="SMUX_Sub-Agents"><a class="permalink" href="#SMUX_Sub-Agents">SMUX
+  Sub-Agents</a></h2>
+<div class="Bd-indent">
+<pre>
+smuxsocket 127.0.0.1
+smuxpeer .1.3.6.1.2.1.14 ospf_pass
+</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="AgentX_Sub-Agents"><a class="permalink" href="#AgentX_Sub-Agents">AgentX
+  Sub-Agents</a></h2>
+The Net-SNMP agent could be configured to operate as an AgentX master agent
+  (listening on a non-standard named socket, and running using the access
+  privileges defined earlier), using:
+<div class="Bd-indent">
+<pre>
+master agentx
+agentXSocket /tmp/agentx/master
+agentXPerms  0660 0550 nobody snmp
+</pre>
+</div>
+A sub-agent wishing to connect to this master agent would need the same
+  <i>agentXSocket</i> directive, or the equivalent code:
+<div class="Bd-indent">
+<pre>
+netsnmp_ds_set_string(NETSNMP_DS_APPLICATION_ID, NETSNMP_DS_AGENT_X_SOCKET, 
+                      &quot;/tmp/agentx/master&quot;);
+</pre>
+</div>
+<p class="Pp">A loopback networked AgentX configuration could be set up
+  using:</p>
+<div class="Bd-indent">
+<pre>
+agentXSocket   tcp:localhost:705
+agentXTimeout  5
+agentXRetries  2
+</pre>
+</div>
+on the master side, and:
+<div class="Bd-indent">
+<pre>
+agentXSocket   tcp:localhost:705
+agentXTimeout  10
+agentXRetries  1
+agentXPingInterval 600
+</pre>
+</div>
+on the client.
+<p class="Pp">Note that the timeout and retry settings can be asymmetric for the
+    two directions, and the sub-agent can poll the master agent at regular
+    intervals (600s = every 10 minutes), to ensure the connection is still
+    working.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OTHER_CONFIGURATION"><a class="permalink" href="#OTHER_CONFIGURATION">OTHER
+  CONFIGURATION</a></h1>
+<div class="Bd-indent">override sysDescr.0 octet_str &quot;my own
+  sysDescr&quot;</div>
+<div class="Bd-indent">injectHandler stash_cache NAME table_iterator</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+/etc/snmp/snmpd.conf
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+snmpconf(1), snmpd.conf(5), snmp.conf(5), snmp_config(5), snmpd(8),
+  EXAMPLE.conf, netsnmp_config_api(3).
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">13 Oct 2006</td>
+    <td class="foot-os">V5.6.2.1</td>
+  </tr>
+</table>
+</body>
+</html>

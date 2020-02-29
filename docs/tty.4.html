@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   Copyright (c) 1991, 1992, 1993
+  	The Regents of the University of California.  All rights reserved.
+  
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions
+   are met:
+   1. Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+   2. Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+   3. All advertising materials mentioning features or use of this software
+      must display the following acknowledgement:
+  	This product includes software developed by the University of
+  	California, Berkeley and its contributors.
+   4. Neither the name of the University nor the names of its contributors
+      may be used to endorse or promote products derived from this software
+      without specific prior written permission.
+  
+   THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+   ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+   ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+   FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+   OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+   OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+   SUCH DAMAGE.
+  
+       @(#)tty.4	8.3 (Berkeley) 4/19/94
+  	$FreeBSD$
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>TTY(4)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">TTY(4)</td>
+    <td class="head-vol">Device Drivers Manual</td>
+    <td class="head-rtitle">TTY(4)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">tty</code> &#x2014;
+<div class="Nd">general terminal interface</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<code class="In">#include <a class="In">&lt;sys/ioctl.h&gt;</a></code>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+This section describes the interface to the terminal drivers in the system.
+<section class="Ss">
+<h2 class="Ss" id="Terminal_Special_Files"><a class="permalink" href="#Terminal_Special_Files">Terminal
+  Special Files</a></h2>
+Each hardware terminal port on the system usually has a terminal special device
+  file associated with it in the directory ``/dev/'' (for example,
+  ``/dev/tty03''). When a user logs into the system on one of these hardware
+  terminal ports, the system has already opened the associated device and
+  prepared the line for normal interactive use (see <a class="Xr">getty(8)</a>
+  .) There is also a special case of a terminal file that connects not to a
+  hardware terminal port, but to another program on the other side. These
+  special terminal devices are called <i class="Em">ptys</i> and provide the
+  mechanism necessary to give users the same interface to the system when
+  logging in over a network (using <a class="Xr">rlogin(1)</a>, or
+  <a class="Xr">telnet(1)</a> for example). Even in these cases the details of
+  how the terminal file was opened and set up is already handled by special
+  software in the system. Thus, users do not normally need to worry about the
+  details of how these lines are opened or used. Also, these lines are often
+  used for dialing out of a system (through an out-calling modem), but again the
+  system provides programs that hide the details of accessing these terminal
+  special files (see <a class="Xr">tip(1)</a> ).
+<p class="Pp">When an interactive user logs in, the system prepares the line to
+    behave in a certain way (called a <i class="Em">line discipline</i>), the
+    particular details of which is described in <a class="Xr">stty(1)</a> at the
+    command level, and in <a class="Xr">termios(4)</a> at the programming level.
+    A user may be concerned with changing settings associated with his
+    particular login terminal and should refer to the preceding man pages for
+    the common cases. The remainder of this man page is concerned with
+    describing details of using and controlling terminal devices at a low level,
+    such as that possibly required by a program wishing to provide features
+    similar to those provided by the system.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Line_disciplines"><a class="permalink" href="#Line_disciplines">Line
+  disciplines</a></h2>
+A terminal file is used like any other file in the system in that it can be
+  opened, read, and written to using standard system calls. For each existing
+  terminal file, there is a software processing module called a
+  <i class="Em">line discipline</i> is associated with it. The
+  <i class="Em">line discipline</i> essentially glues the low level device
+  driver code with the high level generic interface routines (such as
+  <a class="Xr">read(2)</a> and <a class="Xr">write(2)</a> ), and is responsible
+  for implementing the semantics associated with the device. When a terminal
+  file is first opened by a program, the default <i class="Em">line
+  discipline</i> called the <code class="Dv">termios</code> line discipline is
+  associated with the file. This is the primary line discipline that is used in
+  most cases and provides the semantics that users normally associate with a
+  terminal. When the <code class="Dv">termios</code> line discipline is in
+  effect, the terminal file behaves and is operated according to the rules
+  described in <a class="Xr">termios(4)</a>. Please refer to that man page for a
+  full description of the terminal semantics. The operations described here
+  generally represent features common across all <i class="Em">line
+  disciplines</i>, however some of these calls may not make sense in conjunction
+  with a line discipline other than <code class="Dv">termios</code>, and some
+  may not be supported by the underlying hardware (or lack thereof, as in the
+  case of ptys).
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Terminal_File_Operations"><a class="permalink" href="#Terminal_File_Operations">Terminal
+  File Operations</a></h2>
+All of the following operations are invoked using the <a class="Xr">ioctl(2)</a>
+  system call. Refer to that man page for a description of the
+  <i class="Em">request</i> and <i class="Em">argp</i> parameters. In addition
+  to the ioctl <i class="Em">requests</i> defined here, the specific line
+  discipline in effect will define other <i class="Em">requests</i> specific to
+  it (actually <a class="Xr">termios(4)</a> defines them as function calls, not
+  ioctl <i class="Em">requests</i>.) The following section lists the available
+  ioctl requests. The name of the request, a description of its purpose, and the
+  typed <i class="Em">argp</i> parameter (if any) are listed. For example, the
+  first entry says
+<p class="Pp"></p>
+<div class="Bd Bd-indent"><i class="Em">TIOCSETD int *ldisc</i></div>
+<p class="Pp">and would be called on the terminal associated with file
+    descriptor zero by the following code fragment:</p>
+<div class="Bd Pp">
+<pre>
+	int ldisc;
+
+	ldisc = TTYDISC;
+	ioctl(0, TIOCSETD, &amp;ldisc);
+</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Terminal_File_Request_Descriptions"><a class="permalink" href="#Terminal_File_Request_Descriptions">Terminal
+  File Request Descriptions</a></h2>
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#TIOCSETD"><code class="Dv" id="TIOCSETD">TIOCSETD</code></a>
+    <var class="Fa">int *ldisc</var></dt>
+  <dd>Change to the new line discipline pointed to by
+      <var class="Fa">ldisc</var>. The available line disciplines are listed in
+      <span class="Pa">~</span> &#x27E8;sys/ttycom.h&#x27E9; and currently are:
+    <p class="Pp"></p>
+    <dl class="Bl-tag Bl-compact">
+      <dt>TTYDISC</dt>
+      <dd>Termios interactive line discipline.</dd>
+      <dt>TABLDISC</dt>
+      <dd>Tablet line discipline.</dd>
+      <dt>SLIPDISC</dt>
+      <dd>Serial IP line discipline.</dd>
+      <dt>PPPDISC</dt>
+      <dd>PPP line discipline.</dd>
+    </dl>
+  </dd>
+  <dt><a class="permalink" href="#TIOCGETD"><code class="Dv" id="TIOCGETD">TIOCGETD</code></a>
+    <var class="Fa">int *ldisc</var></dt>
+  <dd>Return the current line discipline in the integer pointed to by
+      <var class="Fa">ldisc</var>.</dd>
+  <dt><a class="permalink" href="#TIOCSBRK"><code class="Dv" id="TIOCSBRK">TIOCSBRK</code></a>
+    <var class="Fa">void</var></dt>
+  <dd>Set the terminal hardware into BREAK condition.</dd>
+  <dt><a class="permalink" href="#TIOCCBRK"><code class="Dv" id="TIOCCBRK">TIOCCBRK</code></a>
+    <var class="Fa">void</var></dt>
+  <dd>Clear the terminal hardware BREAK condition.</dd>
+  <dt><a class="permalink" href="#TIOCSDTR"><code class="Dv" id="TIOCSDTR">TIOCSDTR</code></a>
+    <var class="Fa">void</var></dt>
+  <dd>Assert data terminal ready (DTR).</dd>
+  <dt><a class="permalink" href="#TIOCCDTR"><code class="Dv" id="TIOCCDTR">TIOCCDTR</code></a>
+    <var class="Fa">void</var></dt>
+  <dd>Clear data terminal ready (DTR).</dd>
+  <dt><a class="permalink" href="#TIOCGPGRP"><code class="Dv" id="TIOCGPGRP">TIOCGPGRP</code></a>
+    <var class="Fa">int *tpgrp</var></dt>
+  <dd>Return the current process group the terminal is associated with in the
+      integer pointed to by <var class="Fa">tpgrp</var>. This is the underlying
+      call that implements the <a class="Xr">termios(4)</a>
+      <code class="Fn">tcgetattr</code>() call.</dd>
+  <dt><a class="permalink" href="#TIOCSPGRP"><code class="Dv" id="TIOCSPGRP">TIOCSPGRP</code></a>
+    <var class="Fa">int *tpgrp</var></dt>
+  <dd>Associate the terminal with the process group (as an integer) pointed to
+      by <var class="Fa">tpgrp</var>. This is the underlying call that
+      implements the <a class="Xr">termios(4)</a>
+      <code class="Fn">tcsetattr</code>() call.</dd>
+  <dt><a class="permalink" href="#TIOCGETA"><code class="Dv" id="TIOCGETA">TIOCGETA</code></a>
+    <var class="Fa">struct termios *term</var></dt>
+  <dd>Place the current value of the termios state associated with the device in
+      the termios structure pointed to by <var class="Fa">term</var>. This is
+      the underlying call that implements the <a class="Xr">termios(4)</a>
+      <code class="Fn">tcgetattr</code>() call.</dd>
+  <dt><a class="permalink" href="#TIOCSETA"><code class="Dv" id="TIOCSETA">TIOCSETA</code></a>
+    <var class="Fa">struct termios *term</var></dt>
+  <dd>Set the termios state associated with the device immediately. This is the
+      underlying call that implements the <a class="Xr">termios(4)</a>
+      <code class="Fn">tcsetattr</code>() call with the
+      <code class="Dv">TCSANOW</code> option.</dd>
+  <dt><a class="permalink" href="#TIOCSETAW"><code class="Dv" id="TIOCSETAW">TIOCSETAW</code></a>
+    <var class="Fa">struct termios *term</var></dt>
+  <dd>First wait for any output to complete, then set the termios state
+      associated with the device. This is the underlying call that implements
+      the <a class="Xr">termios(4)</a> <code class="Fn">tcsetattr</code>() call
+      with the <code class="Dv">TCSADRAIN</code> option.</dd>
+  <dt><a class="permalink" href="#TIOCSETAF"><code class="Dv" id="TIOCSETAF">TIOCSETAF</code></a>
+    <var class="Fa">struct termios *term</var></dt>
+  <dd>First wait for any output to complete, clear any pending input, then set
+      the termios state associated with the device. This is the underlying call
+      that implements the <a class="Xr">termios(4)</a>
+      <code class="Fn">tcsetattr</code>() call with the
+      <code class="Dv">TCSAFLUSH</code> option.</dd>
+  <dt><a class="permalink" href="#TIOCOUTQ"><code class="Dv" id="TIOCOUTQ">TIOCOUTQ</code></a>
+    <var class="Fa">int *num</var></dt>
+  <dd>Place the current number of characters in the output queue in the integer
+      pointed to by <var class="Fa">num</var>.</dd>
+  <dt><a class="permalink" href="#TIOCSTI"><code class="Dv" id="TIOCSTI">TIOCSTI</code></a>
+    <var class="Fa">char *cp</var></dt>
+  <dd>Simulate typed input. Pretend as if the terminal received the character
+      pointed to by <var class="Fa">cp</var>.</dd>
+  <dt><a class="permalink" href="#TIOCNOTTY"><code class="Dv" id="TIOCNOTTY">TIOCNOTTY</code></a>
+    <var class="Fa">void</var></dt>
+  <dd>This call is obsolete but left for compatibility. In the past, when a
+      process that didn't have a controlling terminal (see <i class="Em">The
+      Controlling Terminal</i> in <a class="Xr">termios(4)</a>) first opened a
+      terminal device, it acquired that terminal as its controlling terminal.
+      For some programs this was a hazard as they didn't want a controlling
+      terminal in the first place, and this provided a mechanism to disassociate
+      the controlling terminal from the calling process. It
+      <i class="Em">must</i> be called by opening the file
+      <span class="Pa">/dev/tty</span> and calling
+      <code class="Dv">TIOCNOTTY</code> on that file descriptor.
+    <p class="Pp">The current system does not allocate a controlling terminal to
+        a process on an <code class="Fn">open</code>() call: there is a specific
+        ioctl called <code class="Dv">TIOSCTTY</code> to make a terminal the
+        controlling terminal. In addition, a program can
+        <code class="Fn">fork</code>() and call the
+        <code class="Fn">setsid</code>() system call which will place the
+        process into its own session - which has the effect of disassociating it
+        from the controlling terminal. This is the new and preferred method for
+        programs to lose their controlling terminal.</p>
+  </dd>
+  <dt><a class="permalink" href="#TIOCSTOP"><code class="Dv" id="TIOCSTOP">TIOCSTOP</code></a>
+    <var class="Fa">void</var></dt>
+  <dd>Stop output on the terminal (like typing ^S at the keyboard).</dd>
+  <dt><a class="permalink" href="#TIOCSTART"><code class="Dv" id="TIOCSTART">TIOCSTART</code></a>
+    <var class="Fa">void</var></dt>
+  <dd>Start output on the terminal (like typing ^Q at the keyboard).</dd>
+  <dt><a class="permalink" href="#TIOCSCTTY"><code class="Dv" id="TIOCSCTTY">TIOCSCTTY</code></a>
+    <var class="Fa">void</var></dt>
+  <dd>Make the terminal the controlling terminal for the process (the process
+      must not currently have a controlling terminal).</dd>
+  <dt><a class="permalink" href="#TIOCDRAIN"><code class="Dv" id="TIOCDRAIN">TIOCDRAIN</code></a>
+    <var class="Fa">void</var></dt>
+  <dd>Wait until all output is drained.</dd>
+  <dt><a class="permalink" href="#TIOCEXCL"><code class="Dv" id="TIOCEXCL">TIOCEXCL</code></a>
+    <var class="Fa">void</var></dt>
+  <dd>Set exclusive use on the terminal. No further opens are permitted except
+      by root. Of course, this means that programs that are run by root (or
+      setuid) will not obey the exclusive setting - which limits the usefulness
+      of this feature.</dd>
+  <dt><a class="permalink" href="#TIOCNXCL"><code class="Dv" id="TIOCNXCL">TIOCNXCL</code></a>
+    <var class="Fa">void</var></dt>
+  <dd>Clear exclusive use of the terminal. Further opens are permitted.</dd>
+  <dt><a class="permalink" href="#TIOCFLUSH"><code class="Dv" id="TIOCFLUSH">TIOCFLUSH</code></a>
+    <var class="Fa">int *what</var></dt>
+  <dd>If the value of the int pointed to by <var class="Fa">what</var> contains
+      the <code class="Dv">FREAD</code> bit as defined in
+      <span class="Pa">~</span> &#x27E8;sys/file.h&#x27E9;, then all characters
+      in the input queue are cleared. If it contains the
+      <code class="Dv">FWRITE</code> bit, then all characters in the output
+      queue are cleared. If the value of the integer is zero, then it behaves as
+      if both the <code class="Dv">FREAD</code> and
+      <code class="Dv">FWRITE</code> bits were set (i.e. clears both
+    queues).</dd>
+  <dt><a class="permalink" href="#TIOCGWINSZ"><code class="Dv" id="TIOCGWINSZ">TIOCGWINSZ</code></a>
+    <var class="Fa">struct winsize *ws</var></dt>
+  <dd>Put the window size information associated with the terminal in the
+      <var class="Va">winsize</var> structure pointed to by
+      <var class="Fa">ws</var>. The window size structure contains the number of
+      rows and columns (and pixels if appropriate) of the devices attached to
+      the terminal. It is set by user software and is the means by which most
+      full-screen oriented programs determine the screen size. The
+      <var class="Va">winsize</var> structure is defined in
+      <span class="Pa">~</span> &#x27E8;sys/ioctl.h&#x27E9;.</dd>
+  <dt><a class="permalink" href="#TIOCSWINSZ"><code class="Dv" id="TIOCSWINSZ">TIOCSWINSZ</code></a>
+    <var class="Fa">struct winsize *ws</var></dt>
+  <dd>Set the window size associated with the terminal to be the value in the
+      <var class="Va">winsize</var> structure pointed to by
+      <var class="Fa">ws</var> (see above).</dd>
+  <dt><a class="permalink" href="#TIOCCONS"><code class="Dv" id="TIOCCONS">TIOCCONS</code></a>
+    <var class="Fa">int *on</var></dt>
+  <dd>If <var class="Fa">on</var> points to a non-zero integer, redirect kernel
+      console output (kernel printf's) to this terminal. If
+      <var class="Fa">on</var> points to a zero integer, redirect kernel console
+      output back to the normal console. This is usually used on workstations to
+      redirect kernel messages to a particular window.</dd>
+  <dt><a class="permalink" href="#TIOCMSET"><code class="Dv" id="TIOCMSET">TIOCMSET</code></a>
+    <var class="Fa">int *state</var></dt>
+  <dd>The integer pointed to by <var class="Fa">state</var> contains bits that
+      correspond to modem state. Following is a list of defined variables and
+      the modem state they represent:
+    <p class="Pp"></p>
+    <dl class="Bl-tag Bl-compact">
+      <dt>TIOCM_LE</dt>
+      <dd>Line Enable.</dd>
+      <dt>TIOCM_DTR</dt>
+      <dd>Data Terminal Ready.</dd>
+      <dt>TIOCM_RTS</dt>
+      <dd>Request To Send.</dd>
+      <dt>TIOCM_ST</dt>
+      <dd>Secondary Transmit.</dd>
+      <dt>TIOCM_SR</dt>
+      <dd>Secondary Receive.</dd>
+      <dt>TIOCM_CTS</dt>
+      <dd>Clear To Send.</dd>
+      <dt>TIOCM_CAR</dt>
+      <dd>Carrier Detect.</dd>
+      <dt>TIOCM_CD</dt>
+      <dd>Carrier Detect (synonym).</dd>
+      <dt>TIOCM_RNG</dt>
+      <dd>Ring Indication.</dd>
+      <dt>TIOCM_RI</dt>
+      <dd>Ring Indication (synonym).</dd>
+      <dt>TIOCM_DSR</dt>
+      <dd>Data Set Ready.</dd>
+    </dl>
+    <p class="Pp">This call sets the terminal modem state to that represented by
+        <var class="Fa">state</var>. Not all terminals may support this.</p>
+  </dd>
+  <dt><a class="permalink" href="#TIOCMGET"><code class="Dv" id="TIOCMGET">TIOCMGET</code></a>
+    <var class="Fa">int *state</var></dt>
+  <dd>Return the current state of the terminal modem lines as represented above
+      in the integer pointed to by <var class="Fa">state</var>.</dd>
+  <dt><a class="permalink" href="#TIOCMBIS"><code class="Dv" id="TIOCMBIS">TIOCMBIS</code></a>
+    <var class="Fa">int *state</var></dt>
+  <dd>The bits in the integer pointed to by <var class="Fa">state</var>
+      represent modem state as described above, however the state is OR-ed in
+      with the current state.</dd>
+  <dt><a class="permalink" href="#TIOCMBIC"><code class="Dv" id="TIOCMBIC">TIOCMBIC</code></a>
+    <var class="Fa">int *state</var></dt>
+  <dd>The bits in the integer pointed to by <var class="Fa">state</var>
+      represent modem state as described above, however each bit which is on in
+      <var class="Fa">state</var> is cleared in the terminal.</dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">stty(1)</a>, <a class="Xr">ioctl(2)</a>, <a class="Xr">pty(4)</a>,
+  <a class="Xr">termios(4)</a>, <a class="Xr">getty(8)</a>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">August 14, 1992</td>
+    <td class="foot-os">BSD 4</td>
+  </tr>
+</table>
+</body>
+</html>

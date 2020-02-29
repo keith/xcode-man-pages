@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   **************************************************************************
+   *                                  _   _ ____  _
+   *  Project                     ___| | | |  _ \| |
+   *                             / __| | | | |_) | |
+   *                            | (__| |_| |  _ <| |___
+   *                             \___|\___/|_| \_\_____|
+   *
+   * Copyright (C) 1998 - 2016, Daniel Stenberg, <daniel@haxx.se>, et al.
+   *
+   * This software is licensed as described in the file COPYING, which
+   * you should have received as part of this distribution. The terms
+   * are also available at https://curl.haxx.se/docs/copyright.html.
+   *
+   * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+   * copies of the Software, and permit persons to whom the Software is
+   * furnished to do so, under the terms of the COPYING file.
+   *
+   * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+   * KIND, either express or implied.
+   *
+   **************************************************************************
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>CURLOPT_COOKIELIST(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">CURLOPT_COOKIELIST(3)</td>
+    <td class="head-vol">curl_easy_setopt options</td>
+    <td class="head-rtitle">CURLOPT_COOKIELIST(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<p class="Pp"></p>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+CURLOPT_COOKIELIST - add to or manipulate cookies held in memory
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>
+#include &lt;curl/curl.h&gt;
+CURLcode curl_easy_setopt(CURL *handle, CURLOPT_COOKIELIST,
+                          char *cookie);
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+Pass a char * to a <i>cookie</i> string.
+<p class="Pp">Such a cookie can be either a single line in Netscape / Mozilla
+    format or just regular HTTP-style header (Set-Cookie: ...) format. This will
+    also enable the cookie engine. This adds that single cookie to the internal
+    cookie store.</p>
+<p class="Pp">Exercise caution if you are using this option and multiple
+    transfers may occur. If you use the Set-Cookie format and don't specify a
+    domain then the cookie is sent for any domain (even after redirects are
+    followed) and cannot be modified by a server-set cookie. If a server sets a
+    cookie of the same name (or maybe you've imported one) then both will be
+    sent on a future transfer to that server, likely not what you intended. To
+    address these issues set a domain in Set-Cookie (doing that will include
+    sub-domains) or use the Netscape format as shown in EXAMPLE.</p>
+<p class="Pp">Additionally, there are commands available that perform actions if
+    you pass in these exact strings:</p>
+<dl class="Bl-tag">
+  <dt>ALL</dt>
+  <dd>erases all cookies held in memory
+    <p class="Pp"></p>
+  </dd>
+  <dt>SESS</dt>
+  <dd>erases all session cookies held in memory
+    <p class="Pp"></p>
+  </dd>
+  <dt>FLUSH</dt>
+  <dd>writes all known cookies to the file specified by
+      <i>CURLOPT_COOKIEJAR(3)</i>
+    <p class="Pp"></p>
+  </dd>
+  <dt>RELOAD</dt>
+  <dd>loads all cookies from the files specified by <i>CURLOPT_COOKIEFILE(3)</i>
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DEFAULT"><a class="permalink" href="#DEFAULT">DEFAULT</a></h1>
+NULL
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PROTOCOLS"><a class="permalink" href="#PROTOCOLS">PROTOCOLS</a></h1>
+HTTP
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<pre>
+/* This example shows an inline import of a cookie in Netscape format.
+You can set the cookie as HttpOnly to prevent XSS attacks by prepending
+#HttpOnly_ to the hostname. That may be useful if the cookie will later
+be imported by a browser.
+*/
+#define SEP  &quot;\t&quot;  /* Tab separates the fields */
+char *my_cookie =
+  &quot;example.com&quot;    /* Hostname */
+  SEP &quot;FALSE&quot;      /* Include subdomains */
+  SEP &quot;/&quot;          /* Path */
+  SEP &quot;FALSE&quot;      /* Secure */
+  SEP &quot;0&quot;          /* Expiry in epoch time format. 0 == Session */
+  SEP &quot;foo&quot;        /* Name */
+  SEP &quot;bar&quot;;       /* Value */
+/* my_cookie is imported immediately via CURLOPT_COOKIELIST.
+*/
+curl_easy_setopt(curl, CURLOPT_COOKIELIST, my_cookie);
+/* The list of cookies in cookies.txt will not be imported until right
+before a transfer is performed. Cookies in the list that have the same
+hostname, path and name as in my_cookie are skipped. That is because
+libcurl has already imported my_cookie and it's considered a &quot;live&quot;
+cookie. A live cookie won't be replaced by one read from a file.
+*/
+curl_easy_setopt(curl, CURLOPT_COOKIEFILE, &quot;cookies.txt&quot;);  /* import */
+/* Cookies are exported after curl_easy_cleanup is called. The server
+may have added, deleted or modified cookies by then. The cookies that
+were skipped on import are not exported.
+*/
+curl_easy_setopt(curl, CURLOPT_COOKIEJAR, &quot;cookies.txt&quot;);  /* export */
+curl_easy_perform(curl);  /* cookies imported from cookies.txt */
+curl_easy_cleanup(curl);  /* cookies exported to cookies.txt */
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
+ALL was added in 7.14.1
+<p class="Pp">SESS was added in 7.15.4</p>
+<p class="Pp">FLUSH was added in 7.17.1</p>
+<p class="Pp">RELOAD was added in 7.39.0</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+Returns CURLE_OK if the option is supported, CURLE_UNKNOWN_OPTION if not, or
+  CURLE_OUT_OF_MEMORY if there was insufficient heap space.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>CURLOPT_COOKIEFILE</b>(3), <b>CURLOPT_COOKIEJAR</b>(3),
+  <b>CURLOPT_COOKIE</b>(3), <b>CURLINFO_COOKIELIST</b>(3),
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">April 26, 2016</td>
+    <td class="foot-os">libcurl 7.64.1</td>
+  </tr>
+</table>
+</body>
+</html>

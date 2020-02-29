@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>SLAPD-MDB(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SLAPD-MDB(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">SLAPD-MDB(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+slapd-mdb - Memory-Mapped DB backend to slapd
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<b>/etc/openldap/slapd.conf</b>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The <b>mdb</b> backend to <b>slapd</b>(8) uses OpenLDAP's own Memory-Mapped DB
+  (MDB) library to store data. It relies completely on the underlying operating
+  system for memory management and does no caching of its own.
+<p class="Pp">The <b>mdb</b> backend is similar to the <b>hdb</b> backend in
+    that it uses a hierarchical database layout which supports subtree renames.
+    It is both more space-efficient and more execution-efficient than the
+    <b>bdb</b> backend, while being overall much simpler to manage.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION"><a class="permalink" href="#CONFIGURATION">CONFIGURATION</a></h1>
+These <b>slapd.conf</b> options apply to the <b>mdb</b> backend database. That
+  is, they must follow a &quot;database mdb&quot; line and come before any
+  subsequent &quot;backend&quot; or &quot;database&quot; lines. Other database
+  options are described in the <b>slapd.conf</b>(5) manual page.
+<dl class="Bl-tag">
+  <dt><b>checkpoint</b><i>&#x00A0;&lt;kbyte&gt;&#x00A0;&lt;min&gt;</i></dt>
+  <dd>Specify the frequency for flushing the database disk buffers. This setting
+      is only needed if the <b>dbnosync</b> option is used. The checkpoint will
+      occur if either <i>&lt;kbyte&gt;</i> data has been written or
+      <i>&lt;min&gt;</i> minutes have passed since the last checkpoint. Both
+      arguments default to zero, in which case they are ignored. When the
+      <i>&lt;min&gt;</i> argument is non-zero, an internal task will run every
+      <i>&lt;min&gt;</i> minutes to perform the checkpoint. Note: currently the
+      <i>&lt;kbyte&gt;</i> setting is unimplemented.</dd>
+  <dt><b>dbnosync</b></dt>
+  <dd>Specify that on-disk database contents should not be immediately
+      synchronized with in memory changes. Enabling this option may improve
+      performance at the expense of data security. In particular, if the
+      operating system crashes before changes are flushed, some number of
+      transactions may be lost. By default, a full data flush/sync is performed
+      when each transaction is committed.</dd>
+  <dt><b>directory</b><i>&#x00A0;&lt;directory&gt;</i></dt>
+  <dd>Specify the directory where the MDB files containing this database and
+      associated indexes live. A separate directory must be specified for each
+      database. The default is <b>/var/db/openldap/openldap-data</b>.</dd>
+  <dt><b>index </b>{<i>&lt;attrlist&gt;</i>|<b>default</b>}
+    [<b>pres</b>,<b>eq</b>,<b>approx</b>,<b>sub</b>,<i>&lt;special&gt;</i>]</dt>
+  <dd>Specify the indexes to maintain for the given attribute (or list of
+      attributes). Some attributes only support a subset of indexes. If only an
+      <i>&lt;attr&gt;</i> is given, the indices specified for <b>default</b> are
+      maintained. Note that setting a default does not imply that all attributes
+      will be indexed. Also, for best performance, an <b>eq</b> index should
+      always be configured for the <b>objectClass</b> attribute.
+    <p class="Pp">A number of special index parameters may be specified. The
+        index type <b>sub</b> can be decomposed into <b>subinitial</b>,
+        <b>subany</b>,&#x00A0;and <b>subfinal</b> indices. The special type
+        <b>nolang</b> may be specified to disallow use of this index by language
+        subtypes. The special type <b>nosubtypes</b> may be specified to
+        disallow use of this index by named subtypes. Note: changing
+        <b>index</b> settings in <b>slapd.conf</b>(5) requires rebuilding
+        indices, see <b>slapindex</b>(8); changing <b>index</b> settings
+        dynamically by LDAPModifying &quot;cn=config&quot; automatically causes
+        rebuilding of the indices online in a background task.</p>
+  </dd>
+  <dt><b>maxreaders</b><i>&#x00A0;&lt;integer&gt;</i></dt>
+  <dd>Specify the maximum number of threads that may have concurrent read access
+      to the database. Tools such as slapcat count as a single thread, in
+      addition to threads in any active slapd processes. The default is
+    126.</dd>
+  <dt><b>maxsize</b><i>&#x00A0;&lt;bytes&gt;</i></dt>
+  <dd>Specify the maximum size of the database in bytes. A memory map of this
+      size is allocated at startup time and the database will not be allowed to
+      grow beyond this size. The default is 10485760 bytes. This setting may be
+      changed upward if the configured limit needs to be increased.
+    <p class="Pp">Note: It is important to set this to as large a value as
+        possible, (relative to anticipated growth of the actual data over time)
+        since growing the size later may not be practical when the system is
+        under heavy load.</p>
+  </dd>
+  <dt><b>mode</b><i>&#x00A0;&lt;integer&gt;</i></dt>
+  <dd>Specify the file protection mode that newly created database files should
+      have. The default is 0600.</dd>
+  <dt><b>searchstack</b><i>&#x00A0;&lt;depth&gt;</i></dt>
+  <dd>Specify the depth of the stack used for search filter evaluation. Search
+      filters are evaluated on a stack to accommodate nested AND / OR clauses.
+      An individual stack is assigned to each server thread. The depth of the
+      stack determines how complex a filter can be evaluated without requiring
+      any additional memory allocation. Filters that are nested deeper than the
+      search stack depth will cause a separate stack to be allocated for that
+      particular search operation. These allocations can have a major negative
+      impact on server performance, but specifying too much stack will also
+      consume a great deal of memory. Each search stack uses 512K bytes per
+      level. The default stack depth is 16, thus 8MB per thread is used.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACCESS_CONTROL"><a class="permalink" href="#ACCESS_CONTROL">ACCESS
+  CONTROL</a></h1>
+The <b>mdb</b> backend honors access control semantics as indicated in
+  <b>slapd.access</b>(5).
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+This is an early release; the database file format or other characteristics may
+  change incompatibly in future releases.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt><b>/etc/openldap/slapd.conf</b></dt>
+  <dd>default <b>slapd</b> configuration file</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>slapd.conf</b>(5), <b>slapd-config</b>(5), <b>slapd</b>(8),
+  <b>slapadd</b>(8), <b>slapcat</b>(8), <b>slapindex</b>(8), OpenLDAP MDB
+  documentation.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACKNOWLEDGEMENTS"><a class="permalink" href="#ACKNOWLEDGEMENTS">ACKNOWLEDGEMENTS</a></h1>
+<b>OpenLDAP Software</b> is developed and maintained by The OpenLDAP Project
+  &lt;http://www.openldap.org/&gt;. <b>OpenLDAP Software</b> is derived from
+  University of Michigan LDAP 3.3 Release. Written by Howard Chu.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2011/11/24</td>
+    <td class="foot-os">OpenLDAP 2.4.28</td>
+  </tr>
+</table>
+</body>
+</html>

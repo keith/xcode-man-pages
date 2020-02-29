@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   Copyright (c) 1980, 1990, 1993
+  	The Regents of the University of California.  All rights reserved.
+  
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions
+   are met:
+   1. Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+   2. Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+   3. All advertising materials mentioning features or use of this software
+      must display the following acknowledgement:
+  	This product includes software developed by the University of
+  	California, Berkeley and its contributors.
+   4. Neither the name of the University nor the names of its contributors
+      may be used to endorse or promote products derived from this software
+      without specific prior written permission.
+  
+   THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+   ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+   ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+   FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+   OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+   OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+   SUCH DAMAGE.
+  
+  	From: @(#)sigaction.2	8.2 (Berkeley) 4/3/94
+   $FreeBSD: src/lib/libc/sys/sigaction.2,v 1.48 2003/03/24 16:07:19 charnier Exp $
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>SIGACTION(2)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SIGACTION(2)</td>
+    <td class="head-vol">System Calls Manual</td>
+    <td class="head-rtitle">SIGACTION(2)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">sigaction</code> &#x2014;
+<div class="Nd">software signal facilities</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+<span class="Lb">Standard C&#x00A0;Library (libc, -lc)</span>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<code class="In">#include &lt;<a class="In">signal.h</a>&gt;</code>
+<div class="Bd Pp">
+<pre>
+
+struct  sigaction {
+        union __sigaction_u __sigaction_u;  /* signal handler */
+        sigset_t sa_mask;               /* signal mask to apply */
+        int     sa_flags;               /* see signal options below */
+};
+
+union __sigaction_u {
+	void    (*__sa_handler)(int);
+	void    (*__sa_sigaction)(int, siginfo_t *,
+		       void *);
+};
+
+#define	sa_handler	__sigaction_u.__sa_handler
+#define	sa_sigaction	__sigaction_u.__sa_sigaction
+
+</pre>
+</div>
+<br/>
+<var class="Ft">int</var>
+<br/>
+<code class="Fn">sigaction</code>(<var class="Fa">int sig</var>,
+  <var class="Fa">const struct sigaction *restrict act</var>,
+  <var class="Fa">struct sigaction *restrict oact</var>);
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The system defines a set of signals that may be delivered to a process. Signal
+  delivery resembles the occurrence of a hardware interrupt: the signal is
+  normally blocked from further occurrence, the current process context is
+  saved, and a new one is built. A process may specify a
+  <i class="Em">handler</i> to which a signal is delivered, or specify that a
+  signal is to be <i class="Em">ignored</i>. A process may also specify that a
+  default action is to be taken by the system when a signal occurs. A signal may
+  also be <i class="Em">blocked</i>, in which case its delivery is postponed
+  until it is <i class="Em">unblocked</i>. The action to be taken on delivery is
+  determined at the time of delivery. Normally, signal handlers execute on the
+  current stack of the process. This may be changed, on a per-handler basis, so
+  that signals are taken on a special <i class="Em">signal stack</i>.
+<p class="Pp">Signal routines normally execute with the signal that caused their
+    invocation <i class="Em">blocked</i>, but other signals may yet occur. A
+    global <i class="Em">signal mask</i> defines the set of signals currently
+    blocked from delivery to a process. The signal mask for a process is
+    initialized from that of its parent (normally empty). It may be changed with
+    a <a class="Xr">sigprocmask(2)</a> call, or when a signal is delivered to
+    the process.</p>
+<p class="Pp">When a signal condition arises for a process, the signal is added
+    to a set of signals pending for the process. If the signal is not currently
+    <i class="Em">blocked</i> by the process then it is delivered to the
+    process. Signals may be delivered any time a process enters the operating
+    system (e.g., during a system call, page fault or trap, or clock interrupt).
+    If multiple signals are ready to be delivered at the same time, any signals
+    that could be caused by traps are delivered first. Additional signals may be
+    processed at the same time, with each appearing to interrupt the handlers
+    for the previous signals before their first instructions. The set of pending
+    signals is returned by the <a class="Xr">sigpending(2)</a> system call. When
+    a caught signal is delivered, the current state of the process is saved, a
+    new signal mask is calculated (as described below), and the signal handler
+    is invoked. The call to the handler is arranged so that if the signal
+    handling routine returns normally the process will resume execution in the
+    context from before the signal's delivery. If the process wishes to resume
+    in a different context, then it must arrange to restore the previous context
+    itself.</p>
+<p class="Pp">When a signal is delivered to a process a new signal mask is
+    installed for the duration of the process' signal handler (or until a
+    <a class="Xr">sigprocmask(2)</a> system call is made). This mask is formed
+    by taking the union of the current signal mask set, the signal to be
+    delivered, and the signal mask associated with the handler to be
+  invoked.</p>
+<p class="Pp">The <code class="Fn">sigaction</code>() system call assigns an
+    action for a signal specified by <var class="Fa">sig</var>. If
+    <var class="Fa">act</var> is non-zero, it specifies an action
+    (<code class="Dv">SIG_DFL</code>, <code class="Dv">SIG_IGN</code>, or a
+    handler routine) and mask to be used when delivering the specified signal.
+    If <var class="Fa">oact</var> is non-zero, the previous handling information
+    for the signal is returned to the user.</p>
+<p class="Pp">Once a signal handler is installed, it normally remains installed
+    until another <code class="Fn">sigaction</code>() system call is made, or an
+    <a class="Xr">execve(2)</a> is performed. A signal-specific default action
+    may be reset by setting <var class="Fa">sa_handler</var> to
+    <code class="Dv">SIG_DFL</code>. The defaults are process termination,
+    possibly with core dump; no action; stopping the process; or continuing the
+    process. See the signal list below for each signal's default action. If
+    <var class="Fa">sa_handler</var> is <code class="Dv">SIG_DFL</code>, the
+    default action for the signal is to discard the signal, and if a signal is
+    pending, the pending signal is discarded even if the signal is masked. If
+    <var class="Fa">sa_handler</var> is set to <code class="Dv">SIG_IGN</code>
+    current and pending instances of the signal are ignored and discarded.</p>
+<p class="Pp">Options may be specified by setting
+    <var class="Va">sa_flags</var>. The meaning of the various bits is as
+    follows:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#SA_NOCLDSTOP"><code class="Dv" id="SA_NOCLDSTOP">SA_NOCLDSTOP</code></a></dt>
+  <dd>If this bit is set when installing a catching function for the
+      <code class="Dv">SIGCHLD</code> signal, the
+      <code class="Dv">SIGCHLD</code> signal will be generated only when a child
+      process exits, not when a child process stops.</dd>
+  <dt><a class="permalink" href="#SA_NOCLDWAIT"><code class="Dv" id="SA_NOCLDWAIT">SA_NOCLDWAIT</code></a></dt>
+  <dd>If this bit is set when calling <code class="Fn">sigaction</code>() for
+      the <code class="Dv">SIGCHLD</code> signal, the system will not create
+      zombie processes when children of the calling process exit. If the calling
+      process subsequently issues a <a class="Xr">wait(2)</a> (or equivalent),
+      it blocks until all of the calling process's child processes terminate,
+      and then returns a value of -1 with errno set to
+      <code class="Er">ECHILD</code>.</dd>
+  <dt><a class="permalink" href="#SA_ONSTACK"><code class="Dv" id="SA_ONSTACK">SA_ONSTACK</code></a></dt>
+  <dd>If this bit is set, the system will deliver the signal to the process on a
+      <i class="Em">signal stack</i>, specified with
+      <a class="Xr">sigaltstack(2)</a>.</dd>
+  <dt><a class="permalink" href="#SA_NODEFER"><code class="Dv" id="SA_NODEFER">SA_NODEFER</code></a></dt>
+  <dd>If this bit is set, further occurrences of the delivered signal are not
+      masked during the execution of the handler.</dd>
+  <dt><a class="permalink" href="#SA_RESETHAND"><code class="Dv" id="SA_RESETHAND">SA_RESETHAND</code></a></dt>
+  <dd>If this bit is set, the handler is reset back to
+      <code class="Dv">SIG_DFL</code> at the moment the signal is
+    delivered.</dd>
+  <dt><a class="permalink" href="#SA_RESTART"><code class="Dv" id="SA_RESTART">SA_RESTART</code></a></dt>
+  <dd>See paragraph below.</dd>
+  <dt><a class="permalink" href="#SA_SIGINFO"><code class="Dv" id="SA_SIGINFO">SA_SIGINFO</code></a></dt>
+  <dd>If this bit is set, the handler function is assumed to be pointed to by
+      the <code class="Dv">sa_sigaction</code> member of struct sigaction and
+      should match the prototype shown above or as below in
+      <a class="Sx" href="#EXAMPLES">EXAMPLES</a>. This bit should not be set
+      when assigning <code class="Dv">SIG_DFL</code> or
+      <code class="Dv">SIG_IGN</code>.</dd>
+</dl>
+</div>
+<p class="Pp">If a signal is caught during the system calls listed below, the
+    call may be forced to terminate with the error
+    <code class="Er">EINTR</code>, the call may return with a data transfer
+    shorter than requested, or the call may be restarted. Restart of pending
+    calls is requested by setting the <code class="Dv">SA_RESTART</code> bit in
+    <var class="Va">sa_flags</var>. The affected system calls include
+    <a class="Xr">open(2)</a>, <a class="Xr">read(2)</a>,
+    <a class="Xr">write(2)</a>, <a class="Xr">sendto(2)</a>,
+    <a class="Xr">recvfrom(2)</a>, <a class="Xr">sendmsg(2)</a> and
+    <a class="Xr">recvmsg(2)</a> on a communications channel or a slow device
+    (such as a terminal, but not a regular file) and during a
+    <a class="Xr">wait(2)</a> or <a class="Xr">ioctl(2)</a>. However, calls that
+    have already committed are not restarted, but instead return a partial
+    success (for example, a short read count).</p>
+<p class="Pp">After a <a class="Xr">fork(2)</a> or <a class="Xr">vfork(2)</a>
+    all signals, the signal mask, the signal stack, and the restart/interrupt
+    flags are inherited by the child.</p>
+<p class="Pp">The <a class="Xr">execve(2)</a> system call reinstates the default
+    action for all signals which were caught and resets all signals to be caught
+    on the user stack. Ignored signals remain ignored; the signal mask remains
+    the same; signals that restart pending system calls continue to do so.</p>
+<p class="Pp">The following is a list of all signals with names as in the
+    include file &#x27E8;<span class="Pa">signal.h</span>&#x27E9;:</p>
+<table class="Bl-column">
+  <tr>
+    <td><b class="Sy">NAME</b></td>
+    <td>Default Action</td>
+    <td>Description</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGHUP"><code class="Dv" id="SIGHUP">SIGHUP</code></a>
+      <span class="No"></span></td>
+    <td>terminate process </td>
+    <td>terminal line hangup</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGINT"><code class="Dv" id="SIGINT">SIGINT</code></a>
+      <span class="No"></span></td>
+    <td>terminate process </td>
+    <td>interrupt program</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGQUIT"><code class="Dv" id="SIGQUIT">SIGQUIT</code></a>
+      <span class="No"></span></td>
+    <td>create core image </td>
+    <td>quit program</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGILL"><code class="Dv" id="SIGILL">SIGILL</code></a>
+      <span class="No"></span></td>
+    <td>create core image </td>
+    <td>illegal instruction</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGTRAP"><code class="Dv" id="SIGTRAP">SIGTRAP</code></a>
+      <span class="No"></span></td>
+    <td>create core image </td>
+    <td>trace trap</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGABRT"><code class="Dv" id="SIGABRT">SIGABRT</code></a>
+      <span class="No"></span></td>
+    <td>create core image</td>
+    <td><a class="Xr">abort(3)</a> call (formerly
+      <code class="Dv">SIGIOT</code>)</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGEMT"><code class="Dv" id="SIGEMT">SIGEMT</code></a>
+      <span class="No"></span></td>
+    <td>create core image </td>
+    <td>emulate instruction executed</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGFPE"><code class="Dv" id="SIGFPE">SIGFPE</code></a>
+      <span class="No"></span></td>
+    <td>create core image </td>
+    <td>floating-point exception</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGKILL"><code class="Dv" id="SIGKILL">SIGKILL</code></a>
+      <span class="No"></span></td>
+    <td>terminate process </td>
+    <td>kill program</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGBUS"><code class="Dv" id="SIGBUS">SIGBUS</code></a>
+      <span class="No"></span></td>
+    <td>create core image </td>
+    <td>bus error</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGSEGV"><code class="Dv" id="SIGSEGV">SIGSEGV</code></a>
+      <span class="No"></span></td>
+    <td>create core image </td>
+    <td>segmentation violation</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGSYS"><code class="Dv" id="SIGSYS">SIGSYS</code></a>
+      <span class="No"></span></td>
+    <td>create core image </td>
+    <td>non-existent system call invoked</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGPIPE"><code class="Dv" id="SIGPIPE">SIGPIPE</code></a>
+      <span class="No"></span></td>
+    <td>terminate process </td>
+    <td>write on a pipe with no reader</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGALRM"><code class="Dv" id="SIGALRM">SIGALRM</code></a>
+      <span class="No"></span></td>
+    <td>terminate process </td>
+    <td>real-time timer expired</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGTERM"><code class="Dv" id="SIGTERM">SIGTERM</code></a>
+      <span class="No"></span></td>
+    <td>terminate process </td>
+    <td>software termination signal</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGURG"><code class="Dv" id="SIGURG">SIGURG</code></a>
+      <span class="No"></span></td>
+    <td>discard signal </td>
+    <td>urgent condition present on socket</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGSTOP"><code class="Dv" id="SIGSTOP">SIGSTOP</code></a>
+      <span class="No"></span></td>
+    <td>stop process </td>
+    <td>stop (cannot be caught or ignored)</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGTSTP"><code class="Dv" id="SIGTSTP">SIGTSTP</code></a>
+      <span class="No"></span></td>
+    <td>stop process </td>
+    <td>stop signal generated from keyboard</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGCONT"><code class="Dv" id="SIGCONT">SIGCONT</code></a>
+      <span class="No"></span></td>
+    <td>discard signal </td>
+    <td>continue after stop</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGCHLD"><code class="Dv" id="SIGCHLD">SIGCHLD</code></a>
+      <span class="No"></span></td>
+    <td>discard signal </td>
+    <td>child status has changed</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGTTIN"><code class="Dv" id="SIGTTIN">SIGTTIN</code></a>
+      <span class="No"></span></td>
+    <td>stop process </td>
+    <td>background read attempted from control terminal</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGTTOU"><code class="Dv" id="SIGTTOU">SIGTTOU</code></a>
+      <span class="No"></span></td>
+    <td>stop process </td>
+    <td>background write attempted to control terminal</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGIO"><code class="Dv" id="SIGIO">SIGIO</code></a>
+      <span class="No"></span></td>
+    <td>discard signal </td>
+    <td>I/O is possible on a descriptor (see <a class="Xr">fcntl(2)</a>)</td>
+  </tr>
+  <tr>
+    <td>Dv SIGXCPU <span class="No"></span></td>
+    <td>terminate process </td>
+    <td>cpu time limit exceeded (see <a class="Xr">setrlimit(2)</a>)</td>
+  </tr>
+  <tr>
+    <td>Dv SIGXFSZ <span class="No"></span></td>
+    <td>terminate process </td>
+    <td>file size limit exceeded (see <a class="Xr">setrlimit(2)</a>)</td>
+  </tr>
+  <tr>
+    <td>Dv SIGVTALRM <span class="No"></span></td>
+    <td>terminate process </td>
+    <td>virtual time alarm (see <a class="Xr">setitimer(2)</a>)</td>
+  </tr>
+  <tr>
+    <td>Dv SIGPROF <span class="No"></span></td>
+    <td>terminate process </td>
+    <td>profiling timer alarm (see <a class="Xr">setitimer(2)</a>)</td>
+  </tr>
+  <tr>
+    <td>Dv SIGWINCH <span class="No"></span></td>
+    <td>discard signal </td>
+    <td>Window size change</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGINFO"><code class="Dv" id="SIGINFO">SIGINFO</code></a>
+      <span class="No"></span></td>
+    <td>discard signal </td>
+    <td>status request from keyboard</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGUSR1"><code class="Dv" id="SIGUSR1">SIGUSR1</code></a>
+      <span class="No"></span></td>
+    <td>terminate process </td>
+    <td>User defined signal 1</td>
+  </tr>
+  <tr>
+    <td><a class="permalink" href="#SIGUSR2"><code class="Dv" id="SIGUSR2">SIGUSR2</code></a>
+      <span class="No"></span></td>
+    <td>terminate process </td>
+    <td>User defined signal 2</td>
+  </tr>
+</table>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTE"><a class="permalink" href="#NOTE">NOTE</a></h1>
+The <var class="Fa">sa_mask</var> field specified in <var class="Fa">act</var>
+  is not allowed to block <code class="Dv">SIGKILL</code> or
+  <code class="Dv">SIGSTOP</code>. Any attempt to do so will be silently
+  ignored.
+<p class="Pp">The following functions are either reentrant or not interruptible
+    by signals and are async-signal safe. Therefore applications may invoke
+    them, without restriction, from signal-catching functions:</p>
+<p class="Pp">Base Interfaces:</p>
+<p class="Pp"><code class="Fn">_exit</code>(), <code class="Fn">access</code>(),
+    <code class="Fn">alarm</code>(), <code class="Fn">cfgetispeed</code>(),
+    <code class="Fn">cfgetospeed</code>(),
+    <code class="Fn">cfsetispeed</code>(),
+    <code class="Fn">cfsetospeed</code>(), <code class="Fn">chdir</code>(),
+    <code class="Fn">chmod</code>(), <code class="Fn">chown</code>(),
+    <code class="Fn">close</code>(), <code class="Fn">creat</code>(),
+    <code class="Fn">dup</code>(), <code class="Fn">dup2</code>(),
+    <code class="Fn">execle</code>(), <code class="Fn">execve</code>(),
+    <code class="Fn">fcntl</code>(), <code class="Fn">fork</code>(),
+    <code class="Fn">fpathconf</code>(), <code class="Fn">fstat</code>(),
+    <code class="Fn">fsync</code>(), <code class="Fn">getegid</code>(),
+    <code class="Fn">geteuid</code>(), <code class="Fn">getgid</code>(),
+    <code class="Fn">getgroups</code>(), <code class="Fn">getpgrp</code>(),
+    <code class="Fn">getpid</code>(), <code class="Fn">getppid</code>(),
+    <code class="Fn">getuid</code>(), <code class="Fn">kill</code>(),
+    <code class="Fn">link</code>(), <code class="Fn">lseek</code>(),
+    <code class="Fn">mkdir</code>(), <code class="Fn">mkfifo</code>(),
+    <code class="Fn">open</code>(), <code class="Fn">pathconf</code>(),
+    <code class="Fn">pause</code>(), <code class="Fn">pipe</code>(),
+    <code class="Fn">raise</code>(), <code class="Fn">read</code>(),
+    <code class="Fn">rename</code>(), <code class="Fn">rmdir</code>(),
+    <code class="Fn">setgid</code>(), <code class="Fn">setpgid</code>(),
+    <code class="Fn">setsid</code>(), <code class="Fn">setuid</code>(),
+    <code class="Fn">sigaction</code>(), <code class="Fn">sigaddset</code>(),
+    <code class="Fn">sigdelset</code>(), <code class="Fn">sigemptyset</code>(),
+    <code class="Fn">sigfillset</code>(), <code class="Fn">sigismember</code>(),
+    <code class="Fn">signal</code>(), <code class="Fn">sigpending</code>(),
+    <code class="Fn">sigprocmask</code>(), <code class="Fn">sigsuspend</code>(),
+    <code class="Fn">sleep</code>(), <code class="Fn">stat</code>(),
+    <code class="Fn">sysconf</code>(), <code class="Fn">tcdrain</code>(),
+    <code class="Fn">tcflow</code>(), <code class="Fn">tcflush</code>(),
+    <code class="Fn">tcgetattr</code>(), <code class="Fn">tcgetpgrp</code>(),
+    <code class="Fn">tcsendbreak</code>(), <code class="Fn">tcsetattr</code>(),
+    <code class="Fn">tcsetpgrp</code>(), <code class="Fn">time</code>(),
+    <code class="Fn">times</code>(), <code class="Fn">umask</code>(),
+    <code class="Fn">uname</code>(), <code class="Fn">unlink</code>(),
+    <code class="Fn">utime</code>(), <code class="Fn">wait</code>(),
+    <code class="Fn">waitpid</code>(), <code class="Fn">write</code>().</p>
+<p class="Pp">Realtime Interfaces:</p>
+<p class="Pp"><code class="Fn">aio_error</code>(),
+    <code class="Fn">sigpause</code>(), <code class="Fn">aio_return</code>(),
+    <code class="Fn">aio_suspend</code>(), <code class="Fn">sem_post</code>(),
+    <code class="Fn">sigset</code>().</p>
+<p class="Pp">ANSI C Interfaces:</p>
+<p class="Pp"><code class="Fn">strcpy</code>(),
+    <code class="Fn">strcat</code>(), <code class="Fn">strncpy</code>(),
+    <code class="Fn">strncat</code>(), and perhaps some others.</p>
+<p class="Pp">Extension Interfaces:</p>
+<p class="Pp"><code class="Fn">strlcpy</code>(),
+    <code class="Fn">strlcat</code>().</p>
+<p class="Pp">All functions not in the above lists are considered to be unsafe
+    with respect to signals. That is to say, the behaviour of such functions
+    when called from a signal handler is undefined. In general though, signal
+    handlers should do little more than set a flag; most other actions are not
+    safe.</p>
+<p class="Pp">Also, it is good practice to make a copy of the global variable
+    <var class="Va">errno</var> and restore it before returning from the signal
+    handler. This protects against the side effect of
+    <var class="Va">errno</var> being set by functions called from inside the
+    signal handler.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+The <code class="Fn">sigaction</code>() function returns the value&#x00A0;0 if
+  successful; otherwise the value&#x00A0;-1 is returned and the global variable
+  <var class="Va">errno</var> is set to indicate the error.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+There are three possible prototypes the handler may match:
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>ANSI C:</dt>
+  <dd><var class="Ft">void</var>
+      <code class="Fn">handler</code>(<var class="Fa">int</var>);</dd>
+  <dt>POSIX SA_SIGINFO:</dt>
+  <dd><var class="Ft">void</var>
+      <code class="Fn">handler</code>(<var class="Fa">int</var>,
+      <var class="Fa">siginfo_t *info</var>, <var class="Fa">ucontext_t
+      *uap</var>);</dd>
+</dl>
+</div>
+<p class="Pp">The handler function should match the SA_SIGINFO prototype if the
+    SA_SIGINFO bit is set in flags. It then should be pointed to by the
+    <code class="Dv">sa_sigaction</code> member of <code class="Dv">struct
+    sigaction</code>. Note that you should not assign SIG_DFL or SIG_IGN this
+    way.</p>
+<p class="Pp">If the SA_SIGINFO flag is not set, the handler function should
+    match either the ANSI C or traditional <span class="Ux">BSD</span> prototype
+    and be pointed to by the <code class="Dv">sa_handler</code> member of
+    <code class="Dv">struct sigaction</code>. In practice,
+    <span class="Ux">FreeBSD</span> always sends the three arguments of the
+    latter and since the ANSI C prototype is a subset, both will work. The
+    <code class="Dv">sa_handler</code> member declaration in
+    <span class="Ux">FreeBSD</span> include files is that of ANSI C (as required
+    by POSIX), so a function pointer of a <span class="Ux">BSD</span>-style
+    function needs to be casted to compile without warning. The traditional
+    <span class="Ux">BSD</span> style is not portable and since its capabilities
+    are a full subset of a SA_SIGINFO handler, its use is deprecated.</p>
+<p class="Pp">The <var class="Fa">sig</var> argument is the signal number, one
+    of the <code class="Dv">SIG...</code> values from &lt;signal.h&gt;.</p>
+<p class="Pp">The <var class="Fa">code</var> argument of the
+    <span class="Ux">BSD</span>-style handler and the
+    <code class="Dv">si_code</code> member of the <code class="Dv">info</code>
+    argument to a SA_SIGINFO handler contain a numeric code explaining the cause
+    of the signal, usually one of the <code class="Dv">SI_...</code> values from
+    &lt;sys/signal.h&gt; or codes specific to a signal, i.e. one of the
+    <code class="Dv">FPE_...</code> values for SIGFPE.</p>
+<p class="Pp">The <var class="Fa">uap</var> argument to a POSIX SA_SIGINFO
+    handler points to an instance of ucontext_t.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ERRORS"><a class="permalink" href="#ERRORS">ERRORS</a></h1>
+The <code class="Fn">sigaction</code>() system call will fail and no new signal
+  handler will be installed if one of the following occurs:
+<dl class="Bl-tag">
+  <dt>[<a class="permalink" href="#EFAULT"><code class="Er" id="EFAULT">EFAULT</code></a>]</dt>
+  <dd>Either <var class="Fa">act</var> or <var class="Fa">oact</var> points to
+      memory that is not a valid part of the process address space.</dd>
+  <dt>[<a class="permalink" href="#EINVAL"><code class="Er" id="EINVAL">EINVAL</code></a>]</dt>
+  <dd>The <var class="Fa">sig</var> argument is not a valid signal number.</dd>
+  <dt>[<a class="permalink" href="#EINVAL_2"><code class="Er" id="EINVAL_2">EINVAL</code></a>]</dt>
+  <dd>An attempt is made to ignore or supply a handler for
+      <code class="Dv">SIGKILL</code> or <code class="Dv">SIGSTOP</code>.</dd>
+  <dt>[<a class="permalink" href="#EINVAL_3"><code class="Er" id="EINVAL_3">EINVAL</code></a>]</dt>
+  <dd>An attempt was made to set the action to SIG_DFL for a signal that cannot
+      be caught or ignored (or both).</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
+The <code class="Fn">sigaction</code>() system call is expected to conform to
+  <span class="St">IEEE Std 1003.1-1990 (&#x201C;POSIX.1&#x201D;)</span>. The
+  <code class="Dv">SA_ONSTACK</code> and <code class="Dv">SA_RESTART</code>
+  flags are Berkeley extensions, as are the signals,
+  <code class="Dv">SIGTRAP</code>, <code class="Dv">SIGEMT</code>,
+  <code class="Dv">SIGBUS</code>, <code class="Dv">SIGSYS</code>,
+  <code class="Dv">SIGURG</code>, <code class="Dv">SIGIO</code>,
+  <code class="Dv">SIGXCPU</code>, <code class="Dv">SIGXFSZ</code>,
+  <code class="Dv">SIGVTALRM</code>, <code class="Dv">SIGPROF</code>,
+  <code class="Dv">SIGWINCH</code>, and <code class="Dv">SIGINFO</code>. Those
+  signals are available on most <span class="Ux">BSD</span>-derived systems. The
+  <code class="Dv">SA_NODEFER</code> and <code class="Dv">SA_RESETHAND</code>
+  flags are intended for backwards compatibility with other operating systems.
+  The <code class="Dv">SA_NOCLDSTOP</code>, and
+  <code class="Dv">SA_NOCLDWAIT</code> flags are featuring options commonly
+  found in other operating systems.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">kill(1)</a>, <a class="Xr">kill(2)</a>,
+  <a class="Xr">ptrace(2)</a>, <a class="Xr">sigaltstack(2)</a>,
+  <a class="Xr">sigblock(2)</a>, <a class="Xr">sigpause(2)</a>,
+  <a class="Xr">sigpending(2)</a>, <a class="Xr">sigprocmask(2)</a>,
+  <a class="Xr">sigsetmask(2)</a>, <a class="Xr">sigsuspend(2)</a>,
+  <a class="Xr">sigvec(2)</a>, <a class="Xr">wait(2)</a>,
+  <a class="Xr">fpsetmask(3)</a>, <a class="Xr">setjmp(3)</a>,
+  <a class="Xr">siginterrupt(3)</a>, <a class="Xr">sigsetops(3)</a>,
+  <a class="Xr">ucontext(3)</a>, <a class="Xr">tty(4)</a>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">September 18, 2008</td>
+    <td class="foot-os">Mac OS X 10.15</td>
+  </tr>
+</table>
+</body>
+</html>

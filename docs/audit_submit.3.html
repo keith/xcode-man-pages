@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   Copyright (c) 2006 Christian S.J. Peron
+   All rights reserved.
+  
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions
+   are met:
+  
+   1.  Redistributions of source code must retain the above copyright
+       notice, this list of conditions and the following disclaimer.
+   2.  Redistributions in binary form must reproduce the above copyright
+       notice, this list of conditions and the following disclaimer in the
+       documentation and/or other materials provided with the distribution.
+   3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+       its contributors may be used to endorse or promote products derived
+       from this software without specific prior written permission.
+  
+   THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND
+   ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+   ARE DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR
+   ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+   OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+   STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+   IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+   POSSIBILITY OF SUCH DAMAGE.
+  
+   $P4: //depot/projects/trustedbsd/openbsm/libbsm/audit_submit.3#17 $
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>audit_submit(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">audit_submit(3)</td>
+    <td class="head-vol">Library Functions Manual</td>
+    <td class="head-rtitle">audit_submit(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">audit_submit</code> &#x2014;
+<div class="Nd">general purpose audit record submission</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+<span class="Lb">Basic Security Module Library (libbsm, -lbsm)</span>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<code class="In">#include &lt;<a class="In">bsm/libbsm.h</a>&gt;</code>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">audit_submit</code>(<var class="Fa">short au_event</var>,
+    <var class="Fa">au_id_t auid</var>, <var class="Fa">char status</var>,
+    <var class="Fa">int reterr</var>, <var class="Fa">const char * restrict
+    format</var>, <var class="Fa">...</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The <code class="Fn">audit_submit</code>() function provides a generic
+  programming interface for audit record submission. This audit record will
+  contain a header, subject token, an optional text token, return token, and a
+  trailer. The header will contain the event class specified by
+  <var class="Fa">au_event</var>. The subject token will be generated based on
+  <var class="Fa">auid</var>. The return token is dependent on the
+  <var class="Fa">status</var> and <var class="Fa">reterr</var> arguments;
+  unlike the argument to <a class="Xr">au_to_return</a>,
+  <var class="Fa">reterr</var> should be a local rather than BSM error number.
+  Optionally, a text token will be created as a part of this record.
+<p class="Pp">Text token output is under the control of a
+    <var class="Fa">format</var> string that specifies how subsequent arguments
+    (or arguments accessed via the variable-length argument facilities of
+    <a class="Xr">stdarg(3)</a>) are converted for output. If
+    <var class="Fa">format</var> is <code class="Dv">NULL</code>, then no text
+    token is created in the audit record.</p>
+<p class="Pp">It should be noted that <code class="Fn">audit_submit</code>()
+    assumes that <a class="Xr">setaudit(2)</a>, or
+    <a class="Xr">setaudit_addr(2)</a> has already been called. As a direct
+    result, the terminal ID for the subject will be retrieved from the kernel
+    via <a class="Xr">getaudit(2)</a>, or
+  <a class="Xr">getaudit_addr(2)</a>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<div class="Bd Bd-indent">
+<pre>
+#include &lt;bsm/audit.h&gt;
+#include &lt;bsm/libbsm.h&gt;
+#include &lt;bsm/audit_uevents.h&gt;
+
+#include &lt;stdio.h&gt;
+#include &lt;stdarg.h&gt;
+#include &lt;errno.h&gt;
+
+void
+audit_bad_su(char *from_login, char *to_login)
+{
+	struct auditinfo_addr aia;
+	struct auditinfo ai;
+	au_id_t aid;
+	int error;
+
+	error = getaudit_addr(&amp;aia, sizeof(aia));
+	if (error &lt; 0 &amp;&amp; errno == ENOSYS) {
+		error = getaudit(&amp;ai);
+		if (error &lt; 0)
+			err(1, &quot;getaudit&quot;);
+		aid = ai.ai_auid;
+	} else if (error &lt; 0)
+		err(1, &quot;getaudit_addr&quot;);
+	else
+		aid = aia.ai_auid;
+	error = audit_submit(AUE_su, aid, EPERM, 1,
+	    &quot;bad su from %s to %s&quot;, from_login, to_login);
+	if (error != 0)
+		err(1, &quot;audit_submit&quot;);
+}
+</pre>
+</div>
+<p class="Pp">Will generate the following audit record:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+header,94,1,su(1),0,Mon Apr 17 23:23:59 2006, + 271 msec
+subject,root,root,wheel,root,wheel,652,652,0,0.0.0.0
+text,bad su from from csjp to root
+return,failure : Operation not permitted,1
+trailer,94
+</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+If successful, <code class="Nm">audit_submit</code> will return zero. Otherwise
+  a -1 is returned and the global variable <var class="Va">errno</var> is set to
+  indicate the error.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">auditon(2)</a>, <a class="Xr">getaudit(2)</a>,
+  <a class="Xr">libbsm(3)</a>, <a class="Xr">stdarg(3)</a>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+The <code class="Fn">audit_submit</code>() function first appeared in OpenBSM
+  version 1.0. OpenBSM 1.0 was introduced in <span class="Ux">FreeBSD
+  7.0</span>.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+The <code class="Fn">audit_submit</code>() function was written by
+  <span class="An">Christian S.J. Peron</span> &#x27E8;csjp@FreeBSD.org&#x27E9;.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">January 18, 2008</td>
+    <td class="foot-os">Mac OS X 10.15</td>
+  </tr>
+</table>
+</body>
+</html>

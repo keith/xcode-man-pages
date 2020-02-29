@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>SLAPO-CONSTRAINT(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SLAPO-CONSTRAINT(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">SLAPO-CONSTRAINT(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+slapo-constraint - Attribute Constraint Overlay to slapd
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+/etc/openldap/slapd.conf
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The constraint overlay is used to ensure that attribute values match some
+  constraints beyond basic LDAP syntax. Attributes can have multiple constraints
+  placed upon them, and all must be satisfied when modifying an attribute value
+  under constraint.
+<p class="Pp">This overlay is intended to be used to force syntactic regularity
+    upon certain string represented data which have well known canonical forms,
+    like telephone numbers, post codes, FQDNs, etc.</p>
+<p class="Pp">It constrains only LDAP <i>add</i>, <i>modify</i> and
+    <i>rename</i> commands and only seeks to control the <i>add</i> and
+    <i>replace</i> values of <i>modify</i> and <i>rename</i> requests.</p>
+<p class="Pp">No constraints are applied for operations performed with the
+    <i>relax</i> control set.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION"><a class="permalink" href="#CONFIGURATION">CONFIGURATION</a></h1>
+This <b>slapd.conf</b> option applies to the constraint overlay. It should
+  appear after the <b>overlay</b> directive.
+<dl class="Bl-tag">
+  <dt><b>constraint_attribute &lt;attribute_name&gt;[,...] &lt;type&gt;
+    &lt;value&gt; [&lt;extra&gt; [...]]</b></dt>
+  <dd>Specifies the constraint which should apply to the comma-separated
+      attribute list named as the first parameter. Five types of constraint are
+      currently supported - <b>regex</b>, <b>size</b>, <b>count</b>, <b>uri</b>,
+      and <b>set</b>.
+    <p class="Pp">The parameter following the <b>regex</b> type is a Unix style
+        regular expression (See <b>regex</b>(7) ). The parameter following the
+        <b>uri</b> type is an LDAP URI. The URI will be evaluated using an
+        internal search. It must not include a hostname, and it must include a
+        list of attributes to evaluate.</p>
+    <p class="Pp">The parameter following the <b>set</b> type is a string that
+        is interpreted according to the syntax in use for ACL sets. This allows
+        to construct constraints based on the contents of the entry.</p>
+    <p class="Pp">The <b>size</b> type can be used to enforce a limit on an
+        attribute length, and the <b>count</b> type limits the number of values
+        of an attribute.</p>
+    <p class="Pp">Extra parameters can occur in any order after those described
+        above.</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>&lt;extra&gt; : restrict=&lt;uri&gt;</b></dt>
+  <dd></dd>
+</dl>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">This extra parameter allows to restrict the application
+  of the corresponding constraint only to entries that match the <i>base</i>,
+  <i>scope</i> and <i>filter</i> portions of the LDAP URI. The <i>base</i>, if
+  present, must be within the naming context of the database. The <i>scope</i>
+  is only used when the <i>base</i> is present; it defaults to <b>base</b>. The
+  other parameters of the URI are not allowed.</div>
+<p class="Pp"></p>
+<p class="Pp">Any attempt to add or modify an attribute named as part of the
+    constraint overlay specification which does not fit the constraint listed
+    will fail with a LDAP_CONSTRAINT_VIOLATION error.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<div class="Bd-indent">
+<pre>
+overlay constraint
+constraint_attribute jpegPhoto size 131072
+constraint_attribute userPassword count 3
+constraint_attribute mail regex ^[[:alnum:]]+@mydomain.com$
+constraint_attribute title uri
+  ldap:///dc=catalog,dc=example,dc=com?title?sub?(objectClass=titleCatalog)
+constraint_attribute cn,sn,givenName set
+  &quot;(this/givenName + [ ] + this/sn) &amp; this/cn&quot;
+  restrict=&quot;ldap:///ou=People,dc=example,dc=com??sub?(objectClass=inetOrgPerson)&quot;
+</pre>
+<p class="Pp"></p>
+</div>
+A specification like the above would reject any <b>mail</b> attribute which did
+  not look like <b>&lt;alpha-numeric string&gt;@mydomain.com</b>. It would also
+  reject any <b>title</b> attribute whose values were not listed in the
+  <b>title</b> attribute of any <b>titleCatalog</b> entries in the given scope.
+  (Note that the &quot;dc=catalog,dc=example,dc=com&quot; subtree ought to
+  reside in a separate database, otherwise the initial set of titleCatalog
+  entries could not be populated while the constraint is in effect.) Finally, it
+  requires the values of the attribute <b>cn</b> to be constructed by pairing
+  values of the attributes <b>sn</b> and <b>givenName</b>, separated by a space,
+  but only for entries derived from the objectClass <b>inetOrgPerson</b>.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt>/etc/openldap/slapd.conf</dt>
+  <dd>default slapd configuration file</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>slapd.conf</b>(5), <b>slapd-config</b>(5),
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACKNOWLEDGEMENTS"><a class="permalink" href="#ACKNOWLEDGEMENTS">ACKNOWLEDGEMENTS</a></h1>
+This module was written in 2005 by Neil Dunbar of Hewlett-Packard and
+  subsequently extended by Howard Chu and Emmanuel Dreyfus. <b>OpenLDAP
+  Software</b> is developed and maintained by The OpenLDAP Project
+  &lt;http://www.openldap.org/&gt;. <b>OpenLDAP Software</b> is derived from
+  University of Michigan LDAP 3.3 Release.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2011/11/24</td>
+    <td class="foot-os">OpenLDAP 2.4.28</td>
+  </tr>
+</table>
+</body>
+</html>

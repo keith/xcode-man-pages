@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   Copyright (c) 2011-2012 Apple Inc. All rights reserved.
+ -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>xpc_object(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">xpc_object(3)</td>
+    <td class="head-vol">Library Functions Manual</td>
+    <td class="head-rtitle">xpc_object(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">xpc_object</code> &#x2014;
+<div class="Nd">XPC object protocol</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<code class="In">#include <a class="In">&lt;xpc/xpc.h&gt;</a></code>
+<p class="Pp"><var class="Ft">xpc_object_t</var>
+  <br/>
+  <code class="Fn">xpc_retain</code>(<var class="Fa">xpc_object_t
+  object</var>);</p>
+<p class="Pp"><var class="Ft">void</var>
+  <br/>
+  <code class="Fn">xpc_release</code>(<var class="Fa">xpc_object_t
+    object</var>);</p>
+<p class="Pp"><var class="Ft">xpc_type_t</var>
+  <br/>
+  <code class="Fn">xpc_get_type</code>(<var class="Fa">xpc_object_t
+    object</var>);</p>
+<p class="Pp"><var class="Ft">xpc_object_t</var>
+  <br/>
+  <code class="Fn">xpc_copy</code>(<var class="Fa">xpc_object_t
+  object</var>);</p>
+<p class="Pp"><var class="Ft">bool</var>
+  <br/>
+  <code class="Fn">xpc_equal</code>(<var class="Fa">xpc_object_t object1</var>,
+    <var class="Fa">xpc_object_t object2</var>);</p>
+<p class="Pp"><var class="Ft">size_t</var>
+  <br/>
+  <code class="Fn">xpc_hash</code>(<var class="Fa">xpc_object_t
+  object</var>);</p>
+<p class="Pp"><var class="Ft">char *</var>
+  <br/>
+  <code class="Fn">xpc_copy_description</code>(<var class="Fa">xpc_object_t
+    object</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+XPC objects share functions for coordinating memory management, type checking,
+  comparing for equality, and hashing.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MEMORY_MANAGEMENT"><a class="permalink" href="#MEMORY_MANAGEMENT">MEMORY
+  MANAGEMENT</a></h1>
+Objects returned by creation functions in the XPC framework may be uniformly
+  retained and released with the functions <code class="Fn">xpc_retain</code>()
+  and <code class="Fn">xpc_release</code>() respectively.
+<p class="Pp">The XPC framework does not guarantee that any given client has the
+    last or only reference to a given object. Objects may be retained internally
+    by the system.</p>
+<p class="Pp">Functions which return objects follow the conventional create,
+    copy and get naming rules:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag Bl-compact">
+  <dt>&#x2022; create</dt>
+  <dd>A new object with a single reference is returned. This reference should be
+      released by the caller.</dd>
+  <dt>&#x2022; copy</dt>
+  <dd>A copy or retained object reference is returned. This reference should be
+      released by the caller.</dd>
+  <dt>&#x2022; get</dt>
+  <dd>An unretained reference to an existing object is returned. The caller
+      <i class="Em">must not</i> release this reference, and is responsible for
+      retaining the object for later use if necessary.</dd>
+</dl>
+</div>
+<section class="Ss">
+<h2 class="Ss" id="INTEGRATION_WITH_OBJECTIVE_C"><a class="permalink" href="#INTEGRATION_WITH_OBJECTIVE_C">INTEGRATION
+  WITH OBJECTIVE-C</a></h2>
+<div class="Bd Bd-indent">When building with an Objective-C or Objective-C++
+  compiler, XPC objects are declared as Objective-C types. This results in the
+  following differences compared to building as plain C/C++:
+<ul class="Bl-dash">
+  <li>if Objective-C Automated Reference Counting is enabled, XPC objects are
+      memory managed by the Objective-C runtime and explicit calls to the
+      <code class="Fn">xpc_retain</code>() and
+      <code class="Fn">xpc_release</code>() functions will produce build errors.
+    <p class="Pp"><i class="Em">Note</i>: when ARC is enabled, care needs to be
+        taken with XPC API returning an interior pointer that is only valid as
+        long as an associated object has not been released. If that object is
+        held in a variable with automatic storage, it may need to be annotated
+        with the <code class="Li">objc_precise_lifetime</code> attribute, or
+        stored in a <code class="Li">__strong</code> instance variable instead,
+        to ensure that the object is not prematurely released. The functions
+        returning interior pointers are:</p>
+    <ul class="Bl-bullet Bd-indent Bl-compact">
+      <li><a class="Xr">xpc_data_get_bytes_ptr(3)</a>,
+          <a class="Xr">xpc_string_get_string_ptr(3)</a>,
+          <a class="Xr">xpc_uuid_get_bytes(3)</a></li>
+      <li><a class="Xr">xpc_array_get_data(3)</a>,
+          <a class="Xr">xpc_array_get_string(3)</a>,
+          <a class="Xr">xpc_array_get_uuid(3)</a></li>
+      <li><a class="Xr">xpc_dictionary_get_data(3)</a>,
+          <a class="Xr">xpc_dictionary_get_string(3)</a>,
+          <a class="Xr">xpc_dictionary_get_uuid(3)</a></li>
+    </ul>
+  </li>
+  <li>the Blocks runtime automatically retains and releases XPC objects captured
+      by blocks upon <code class="Fn">Block_copy</code>() and
+      <code class="Fn">Block_release</code>(), e.g. as performed during
+      asynchronous execution of a block via <a class="Xr">dispatch_async(3)</a>.
+    <p class="Pp"><i class="Em">Note</i>: retain cycles may be encountered if
+        XPC connection objects are captured by their handler blocks; these
+        cycles can be broken by declaring the captured object
+        <code class="Li">__weak</code> or by calling
+        <a class="Xr">xpc_connection_cancel(3)</a> to cause its handler blocks
+        to be released explicitly.</p>
+  </li>
+  <li>XPC objects can be added directly to Cocoa collections, and their lifetime
+      is tracked by the Objective-C static analyzer.</li>
+</ul>
+<p class="Pp">Integration of XPC objects with Objective-C requires targeting
+    Mac&#x00A0;OS&#x00A0;X 10.8 or later, and is disabled when building for the
+    legacy Objective-C runtime. It can also be disabled manually by using
+    compiler options to define the <code class="Dv">OS_OBJECT_USE_OBJC</code>
+    preprocessor macro to <code class="Li">0</code>.</p>
+</div>
+<p class="Pp"><i class="Em">Important</i>: When building with a plain C/C++
+    compiler or when integration with Objective-C is disabled, XPC objects are
+    <i class="Em">not</i> automatically retained and released when captured by a
+    block. Therefore, when a XPC object is captured by a block that will be
+    executed asynchronously, the object must be manually retained and
+  released:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+xpc_retain(object);
+dispatch_async(queue, ^{
+	do_something_with_object(object);
+	xpc_release(object);
+});
+</pre>
+</div>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TYPES"><a class="permalink" href="#TYPES">TYPES</a></h1>
+The <code class="Fn">xpc_get_type</code>() function returns the type of an XPC
+  object as a pointer of type <var class="Ft">xpc_type t</var>. The returned
+  type may be compared against the type constants defined by the XPC framework
+  with simple pointer equality.
+<p class="Pp">Type constants:</p>
+<ul class="Bl-bullet Bd-indent Bl-compact">
+  <li>XPC_TYPE_CONNECTION</li>
+  <li>XPC_TYPE_ENDPOINT</li>
+  <li>XPC_TYPE_NULL</li>
+  <li>XPC_TYPE_BOOL</li>
+  <li>XPC_TYPE_INT64</li>
+  <li>XPC_TYPE_UINT64</li>
+  <li>XPC_TYPE_DOUBLE</li>
+  <li>XPC_TYPE_DATE</li>
+  <li>XPC_TYPE_DATA</li>
+  <li>XPC_TYPE_STRING</li>
+  <li>XPC_TYPE_UUID</li>
+  <li>XPC_TYPE_FD</li>
+  <li>XPC_TYPE_SHMEM</li>
+  <li>XPC_TYPE_ARRAY</li>
+  <li>XPC_TYPE_DICTIONARY</li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BOXED_OBJECTS_AND_COLLECTIONS"><a class="permalink" href="#BOXED_OBJECTS_AND_COLLECTIONS">BOXED
+  OBJECTS AND COLLECTIONS</a></h1>
+Most XPC object types are boxed representations of primitive C language types or
+  low-level operating system handles. These boxed objects are immutable.
+<p class="Pp">The XPC framework provides two collection types: dictionaries and
+    arrays. These types are mutable and may have boxed objects added or removed
+    from the collection.</p>
+<p class="Pp">A suite of primitive get and set functions are available for the
+    dictionary and array types. These functions allow for the insertion and
+    extraction of primitive values from the collection directly, without the
+    need for intermediate boxed objects.</p>
+<p class="Pp">The following is a list of primitive get and set functions for the
+    dictionary collection type:</p>
+<p class="Pp"></p>
+<ul class="Bl-bullet Bd-indent Bl-compact">
+  <li><a class="Xr">xpc_dictionary_set_bool(3)</a>,
+      <a class="Xr">xpc_dictionary_get_bool(3)</a>,
+      <a class="Xr">xpc_array_set_bool(3)</a>,
+      <a class="Xr">xpc_array_get_bool(3)</a></li>
+  <li><a class="Xr">xpc_dictionary_set_int64(3)</a>,
+      <a class="Xr">xpc_dictionary_get_int64(3)</a>,
+      <a class="Xr">xpc_array_set_int64(3)</a>,
+      <a class="Xr">xpc_array_get_int64(3)</a></li>
+  <li><a class="Xr">xpc_dictionary_set_uint64(3)</a>,
+      <a class="Xr">xpc_dictionary_set_uint64(3)</a>,
+      <a class="Xr">xpc_array_set_uint64(3)</a>,
+      <a class="Xr">xpc_array_get_uint64(3)</a></li>
+  <li><a class="Xr">xpc_dictionary_set_double(3)</a>,
+      <a class="Xr">xpc_dictionary_set_double(3)</a>,
+      <a class="Xr">xpc_array_set_double(3)</a>,
+      <a class="Xr">xpc_array_get_double(3)</a></li>
+  <li><a class="Xr">xpc_dictionary_set_date(3)</a>,
+      <a class="Xr">xpc_dictionary_set_date(3)</a>,
+      <a class="Xr">xpc_array_set_date(3)</a>,
+      <a class="Xr">xpc_array_get_date(3)</a></li>
+  <li><a class="Xr">xpc_dictionary_set_data(3)</a>,
+      <a class="Xr">xpc_dictionary_get_data(3)</a>,
+      <a class="Xr">xpc_array_set_data(3)</a>,
+      <a class="Xr">xpc_array_get_data(3)</a></li>
+  <li><a class="Xr">xpc_dictionary_set_string(3)</a>,
+      <a class="Xr">xpc_dictionary_get_string(3)</a>,
+      <a class="Xr">xpc_array_set_string(3)</a>,
+      <a class="Xr">xpc_array_get_string(3)</a></li>
+  <li><a class="Xr">xpc_dictionary_set_uuid(3)</a>,
+      <a class="Xr">xpc_dictionary_get_uuid(3)</a>,
+      <a class="Xr">xpc_array_set_uuid(3)</a>,
+      <a class="Xr">xpc_array_get_uuid(3)</a></li>
+  <li><a class="Xr">xpc_dictionary_set_fd(3)</a>,
+      <a class="Xr">xpc_dictionary_dup_fd(3)</a>,
+      <a class="Xr">xpc_array_set_fd(3)</a>,
+      <a class="Xr">xpc_array_dup_fd(3)</a></li>
+  <li><a class="Xr">xpc_dictionary_set_connection(3)</a>,
+      <a class="Xr">xpc_array_set_connection(3)</a></li>
+</ul>
+<p class="Pp">When the requested key or index is not present in the collection,
+    or if the value for the requested key or index is not of the expected type,
+    these functions will return sensible default values:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag Bl-compact">
+  <dt>&#x2022; bool</dt>
+  <dd>false</dd>
+  <dt>&#x2022; int64</dt>
+  <dd>0</dd>
+  <dt>&#x2022; uint64</dt>
+  <dd>0</dd>
+  <dt>&#x2022; double</dt>
+  <dd>NAN</dd>
+  <dt>&#x2022; date</dt>
+  <dd>0</dd>
+  <dt>&#x2022; data</dt>
+  <dd>NULL</dd>
+  <dt>&#x2022; uuid</dt>
+  <dd>NULL</dd>
+  <dt>&#x2022; string</dt>
+  <dd>NULL</dd>
+  <dt>&#x2022; fd</dt>
+  <dd>-1</dd>
+  <dt>&#x2022; connection</dt>
+  <dd>NULL</dd>
+</dl>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYING"><a class="permalink" href="#COPYING">COPYING</a></h1>
+Objects may be copied using the <code class="Fn">xpc_copy</code>() function. The
+  result of <code class="Fn">xpc_copy</code>() may or may not be a brand new
+  object (i.e. a different pointer). The system may choose to return the same
+  object with an additional reference rather than doing a complete copy for
+  efficiency reasons.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EQUALITY"><a class="permalink" href="#EQUALITY">EQUALITY</a></h1>
+Two objects may be compared for equality using the
+  <code class="Fn">xpc_equal</code>() function. Objects must be of the same type
+  as returned by <code class="Fn">xpc_get_type</code>() in order to be
+  considered equal. No casting or transformation is performed on the underlying
+  value in order to determine equality.
+<p class="Pp">Collection types are compared for deep equality, that is to say,
+    two arrays are equal only if they contain the same values in the same order,
+    and two dictionaries are equal only if they contain the same values for the
+    same keys.</p>
+<p class="Pp"><i class="Em">Important</i>: File descriptors and shared memory
+    objects cannot be reliably compared for equality, and therefore the
+    <code class="Fn">xpc_equal</code>() function will only perform a simple
+    pointer-equality check for these objects.</p>
+<p class="Pp">Objects may be hashed using the <code class="Fn">xpc_hash</code>()
+    function. The result of the hash function is guaranteed to be identical for
+    objects which compare to be equal using
+  <code class="Fn">xpc_equal</code>().</p>
+<p class="Pp"><i class="Em">Important</i>: The hash value for a given object
+    should not be considered portable across multiple processes or releases of
+    the operating system and as a result should not be stored in a permanent
+    fashion.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OBJECT_DESCRIPTIONS"><a class="permalink" href="#OBJECT_DESCRIPTIONS">OBJECT
+  DESCRIPTIONS</a></h1>
+The <code class="Fn">xpc_copy_description</code>() function may be used to
+  produce a human-readable description of an object. The returned C-string must
+  be freed by the caller using <a class="Xr">free(3)</a>.
+<p class="Pp"><i class="Em">Important</i>: The format of this description is not
+    guaranteed to remain consistent across releases, and the output should only
+    be used for debugging purposes.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">dispatch_async(3)</a>, <a class="Xr">xpc_abort(3)</a>,
+  <a class="Xr">xpc_array_create(3)</a>,
+  <a class="Xr">xpc_connection_cancel(3)</a>,
+  <a class="Xr">xpc_connection_create(3)</a>,
+  <a class="Xr">xpc_dictionary_create(3)</a>,
+  <a class="Xr">xpc_endpoint_create(3)</a>, <a class="Xr">xpc_objects(3)</a>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">1 March, 2012</td>
+    <td class="foot-os">Darwin</td>
+  </tr>
+</table>
+</body>
+</html>

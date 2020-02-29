@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>KEXT_LOGGING(8)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">KEXT_LOGGING(8)</td>
+    <td class="head-vol">System Manager's Manual</td>
+    <td class="head-rtitle">KEXT_LOGGING(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">kext logging</code> &#x2014;
+<div class="Nd">verbose/logging flags for kernel extensions (kexts) in the
+  kernel and command-line utilities</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The kext management facilities of macOS allow for logging of kext activity at
+  all system levels, from the kernel to the user-space kext daemon and most
+  command-line kext tools. The <code class="Fl">-verbose</code>
+  (<code class="Fl">-v</code>) flag of the tools provides a simple system of
+  levels that apply a set of lower level binary logging flags appropriate to
+  each tool, for maximally useful verbose output. The binary log specification
+  is used for kernel logging and is also available for use with the
+  <code class="Fl">-verbose</code> option when you need precise control over
+  logging.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENABLING_LOGGING"><a class="permalink" href="#ENABLING_LOGGING">ENABLING
+  LOGGING</a></h1>
+For command-line tools the <code class="Fl">-verbose</code>
+  (<code class="Fl">-v</code>) and <code class="Fl">-quiet</code>
+  (<code class="Fl">-q</code>) flags control verbose output. The
+  <code class="Fl">-verbose</code> flag accepts a decimal level from 0-6 or a
+  hexadecimal log specification, both described below. The
+  <code class="Fl">-verbose</code> flag temporarily sets the log spec within the
+  kernel, and captures any log messages from the kernel to print along with the
+  tool's own log messages.
+<p class="Pp">If you wish to alter the logging behavior of
+    <a class="Xr">kextd(8)</a>, you will need to edit its
+    <a class="Xr">launchd.plist(5)</a> file in
+    <span class="Pa">/System/Library/LaunchDaemons/com.apple.kextd.plist</span>.</p>
+<p class="Pp">To enable kernel kext logging (in
+    <span class="Pa">/var/log/kernel.log</span>) on a long-term basis, use the
+    <b class="Sy">kextlog</b> boot arg or <a class="Xr">sysctl(8)</a> parameter.
+    You can set it as root using <a class="Xr">nvram(8)</a> like so:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+<code class="Li">nvram boot-args=
+</code>&#x201C;kextlog=0x<var class="Ar">logspec
+</var> <var class="Ar">other_boot_args
+</var>
+&#x201D;
+
+</pre>
+</div>
+<p class="Pp">where <var class="Ar">logspec</var> is a hexadecimal log
+    specification, as described below under &#x201C;BINARY LOG
+    SPECIFICATION&#x201D;.</p>
+<p class="Pp"><i class="Em">Caution:</i> Enabling logging at a high level via
+    boot arg can greatly slow down system startup time.</p>
+<p class="Pp">To change the <b class="Sy">kextlog</b> setting at any time use
+    <a class="Xr">sysctl(8)</a>:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+<code class="Li">sysctl -w debug.kextlog=0x
+</code><var class="Ar">logspec
+</var>
+</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="VERBOSE_LEVELS"><a class="permalink" href="#VERBOSE_LEVELS">VERBOSE
+  LEVELS</a></h1>
+As mentioned, for the command-line kext tools you use the
+  <code class="Fl">-verbose</code> (<code class="Fl">-v</code>) flag, which
+  takes an optional argument that is either a decimal level from 0-6, or a
+  hexadecimal log specification (described under &#x201C;BINARY LOG
+  SPECIFICATION&#x201D;). The details of each level vary by tool, but in general
+  they are:
+<dl class="Bl-tag">
+  <dt>0</dt>
+  <dd>Errors only (that is, suppress warnings). Tools with a
+      <code class="Fl">-verbose</code> flag also support a
+      <code class="Fl">-quiet</code> flag to suppress all output.</dd>
+  <dt>1 (or none)</dt>
+  <dd>Basic information about program operation.</dd>
+  <dt>2</dt>
+  <dd>Basic information about program progress, including files created.</dd>
+  <dt>3</dt>
+  <dd>Information about individual kexts, link/load operation, and processing of
+      I/O Kit personalities.</dd>
+  <dt>4</dt>
+  <dd>Detailed information about kext operations, including C++ class
+      construction/destruction, and for archives, about compression and
+      architectures processed.</dd>
+  <dt>5</dt>
+  <dd>Debug-level information about internal operations.</dd>
+  <dt>6</dt>
+  <dd>Identical to level 5 but with bit 0x8 turned on (see the hexadecimal log
+      specification for details).</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BINARY_LOG_SPECIFICATION"><a class="permalink" href="#BINARY_LOG_SPECIFICATION">BINARY
+  LOG SPECIFICATION</a></h1>
+The binary log specification is a 32-bit value comprising a log level with a
+  bitmask divided into several regions from the least-significant nibble
+  (corresponding to digits from right to left in a hexadecimal representation).
+  This table describes the regions and bits used; unlisted regions and bits are
+  reserved for future use:
+<dl class="Bl-tag">
+  <dt>Nibble 0</dt>
+  <dd>The log level, from 0-7. Each level includes all levels below it. This is
+      generally two higher than the decimal level specified with
+      <code class="Fl">-verbose</code>.
+    <dl class="Bl-inset">
+      <dt><i class="Em">Log level 0 -</i></dt>
+      <dd>Silent.</dd>
+      <dt><i class="Em">Log level 1 -</i></dt>
+      <dd>Errors.</dd>
+      <dt><i class="Em">Log level 2 -</i></dt>
+      <dd>Warnings.</dd>
+      <dt><i class="Em">Log level 3 -</i></dt>
+      <dd>Basic outcome/result.</dd>
+      <dt><i class="Em">Log level 4 -</i></dt>
+      <dd>Operation progress.</dd>
+      <dt><i class="Em">Log level 5 -</i></dt>
+      <dd>Steps in a given operation.</dd>
+      <dt><i class="Em">Log level 6 -</i></dt>
+      <dd>Detailed logging.</dd>
+      <dt><i class="Em">Log level 7 -</i></dt>
+      <dd>Debug level logging.</dd>
+    </dl>
+    <p class="Pp">In addition, bit 0x8 of this nibble controls whether
+        kext-specific log messages are always printed.
+        <a class="Xr">kextcache(8)</a> and <a class="Xr">kextunload(8)</a> turn
+        this bit on with their <code class="Fl">-verbose</code> flag. See
+        &#x201C;PER-KEXT LOGGING&#x201D; for more information.</p>
+  </dd>
+  <dt>Nibbles 1-2</dt>
+  <dd>Activity flags relevant to general tool use, as in development scenarios.
+      The <code class="Fl">-verbose</code> flag always includes these. 8 bits
+      total.
+    <dl class="Bl-inset">
+      <dt><i class="Em">Nibble 1, Bit 0 (0x10) -</i></dt>
+      <dd>General activity.</dd>
+      <dt><i class="Em">Nibble 1, Bit 1 (0x20) -</i></dt>
+      <dd>Load activity.</dd>
+      <dt><i class="Em">Nibble 1, Bit 2 (0x40) -</i></dt>
+      <dd>IPC and load settings.</dd>
+      <dt><i class="Em">Nibble 1, Bit 3 (0x80) -</i></dt>
+      <dd>Archive processing.</dd>
+      <dt><i class="Em">Nibble 2 -</i></dt>
+      <dd>Reserved.</dd>
+    </dl>
+  </dd>
+  <dt>Nibbles 3-7</dt>
+  <dd>Activity flags for internal operations, for debugging the kext management
+      system itself. These are available only when using a hexadecimal log
+      specification; the <code class="Fl">-verbose</code> flag never includes
+      these. 20 bits total.
+    <dl class="Bl-inset">
+      <dt><i class="Em">Nibble 3, Bit 0 (0x1000) -</i></dt>
+      <dd>Kext validation.</dd>
+      <dt><i class="Em">Nibble 3, Bit 1 (0x2000) -</i></dt>
+      <dd>Kext authentication.</dd>
+      <dt><i class="Em">Nibble 3, Bit 2 (0x4000) -</i></dt>
+      <dd>Kext dependency resolution.</dd>
+      <dt><i class="Em">Nibble 4, Bit 0 (0x10000) -</i></dt>
+      <dd>Directory scan (booter data scan in the kernel).</dd>
+      <dt><i class="Em">Nibble 4, Bit 1 (0x20000) -</i></dt>
+      <dd>File I/O.</dd>
+      <dt><i class="Em">Nibble 4, Bit 2 (0x40000) -</i></dt>
+      <dd>Kext bookkeeping.</dd>
+      <dt><i class="Em">Nibble 5, Bit 0 (0x100000) -</i></dt>
+      <dd>Link activity.</dd>
+      <dt><i class="Em">Nibble 5, Bit 1 (0x200000) -</i></dt>
+      <dd>C++ patching activity.</dd>
+      <dt><i class="Em">Nibbles 6-7 -</i></dt>
+      <dd>Reserved.</dd>
+    </dl>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PER_KEXT_LOGGING"><a class="permalink" href="#PER_KEXT_LOGGING">PER-KEXT
+  LOGGING</a></h1>
+Many log messages apply to the kext being processed. The kernel and most of the
+  command-line kext tools do not log these messages by default. You can enable
+  these messages for an individual kext by specifying an
+  OSBundleEnableKextLogging property in its <span class="Pa">Info.plist</span>
+  file with a boolean value of true. For convenience,
+  <a class="Xr">kextutil(8)</a> automatically sets this property for the kexts
+  it is loading.
+<p class="Pp">You can activate all per-kext log messages using level 6 with the
+    <code class="Fl">-verbose</code> flag or by turning on bit 0x8 in a
+    hexadecimal log specification. For convenience,
+    <a class="Xr">kextcache(8)</a> and <a class="Xr">kextunload(8)</a> do this
+    for all verbose levels of their <code class="Fl">-verbose</code> flag.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MAPPING_VERBOSE_LEVELS_TO_LOG_SPECIFICATIONS"><a class="permalink" href="#MAPPING_VERBOSE_LEVELS_TO_LOG_SPECIFICATIONS">MAPPING
+  VERBOSE LEVELS TO LOG SPECIFICATIONS</a></h1>
+Here is a list of the exact hexadecimal log specifications applied by each of
+  the <code class="Fl">-verbose</code> levels:
+<dl class="Bl-tag">
+  <dt>0</dt>
+  <dd>equivalent to 0x0 for all tools.</dd>
+  <dt>(default level)</dt>
+  <dd>equivalent to 0xff2, 0xff9 for <a class="Xr">kextcache(8)</a> and
+      <a class="Xr">kextunload(8)</a>, 0xff3 for <a class="Xr">kextd(8)</a> and
+      for <a class="Xr">kextcache(8)</a> spawned by
+    <a class="Xr">kextd(8)</a>.</dd>
+  <dt>1 (or none)</dt>
+  <dd>equivalent to 0xff3, or 0xffa for <a class="Xr">kextcache(8)</a> and
+      <a class="Xr">kextunload(8)</a>.</dd>
+  <dt>2</dt>
+  <dd>equivalent to 0xff4, or 0xffb for <a class="Xr">kextcache(8)</a> and
+      <a class="Xr">kextunload(8)</a>.</dd>
+  <dt>3</dt>
+  <dd>equivalent to 0xff5, or 0xffc for <a class="Xr">kextcache(8)</a> and
+      <a class="Xr">kextunload(8)</a>.</dd>
+  <dt>4</dt>
+  <dd>equivalent to 0xff6, or 0xffd for <a class="Xr">kextcache(8)</a> and
+      <a class="Xr">kextunload(8)</a>.</dd>
+  <dt>5</dt>
+  <dd>equivalent to 0xff7, or 0xffe for <a class="Xr">kextcache(8)</a> and
+      <a class="Xr">kextunload(8)</a>.</dd>
+  <dt>6</dt>
+  <dd>equivalent to 0xfff for all tools.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt><span class="Pa">/var/log/kernel.log</span></dt>
+  <dd>The kernel log file, where kernel kext activity is logged.</dd>
+  <dt><span class="Pa">/var/log/system.log</span></dt>
+  <dd>The system log file, where <a class="Xr">kextd(8)</a> activity is
+    logged.</dd>
+  <dt><span class="Pa">/System/Library/LaunchDaemons/com.apple.kextd.plist</span></dt>
+  <dd>Edit this <a class="Xr">launchd.plist(5)</a> file to specify verbose
+      logging for <a class="Xr">kextd(8)</a>.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">syslog(1)</a>, <a class="Xr">kextcache(8)</a>,
+  <a class="Xr">kextd(8)</a>, <a class="Xr">kextlibs(8)</a>,
+  <a class="Xr">kextload(8)</a>, <a class="Xr">kextunload(8)</a>,
+  <a class="Xr">kextutil(8)</a>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">March 6, 2009</td>
+    <td class="foot-os">Darwin</td>
+  </tr>
+</table>
+</body>
+</html>

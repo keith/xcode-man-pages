@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>OQMGR(8)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">OQMGR(8)</td>
+    <td class="head-vol">System Manager's Manual</td>
+    <td class="head-rtitle">OQMGR(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+oqmgr - old Postfix queue manager
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>
+<b>oqmgr</b> [generic Postfix daemon options]
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<br/>
+The <b>oqmgr</b>(8) daemon awaits the arrival of incoming mail and arranges for
+  its delivery via Postfix delivery processes. The actual mail routing strategy
+  is delegated to the <b>trivial-rewrite</b>(8) daemon. This program expects to
+  be run from the <b>master</b>(8) process manager.
+<p class="Pp">Mail addressed to the local <b>double-bounce</b> address is logged
+    and discarded. This stops potential loops caused by undeliverable bounce
+    notifications.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MAIL_QUEUES"><a class="permalink" href="#MAIL_QUEUES">MAIL
+  QUEUES</a></h1>
+<pre>
+</pre>
+The <b>oqmgr</b>(8) daemon maintains the following queues:
+<dl class="Bl-tag">
+  <dt><b>incoming</b></dt>
+  <dd>Inbound mail from the network, or mail picked up by the local
+      <b>pickup</b>(8) agent from the <b>maildrop</b> directory.</dd>
+  <dt><b>active</b></dt>
+  <dd>Messages that the queue manager has opened for delivery. Only a limited
+      number of messages is allowed to enter the <b>active</b> queue (leaky
+      bucket strategy, for a fixed delivery rate).</dd>
+  <dt><b>deferred</b></dt>
+  <dd>Mail that could not be delivered upon the first attempt. The queue manager
+      implements exponential backoff by doubling the time between delivery
+      attempts.</dd>
+  <dt><b>corrupt</b></dt>
+  <dd>Unreadable or damaged queue files are moved here for inspection.</dd>
+  <dt><b>hold</b></dt>
+  <dd>Messages that are kept &quot;on hold&quot; are kept here until someone
+      sets them free.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DELIVERY_STATUS_REPORTS"><a class="permalink" href="#DELIVERY_STATUS_REPORTS">DELIVERY
+  STATUS REPORTS</a></h1>
+<pre>
+</pre>
+The <b>oqmgr</b>(8) daemon keeps an eye on per-message delivery status reports
+  in the following directories. Each status report file has the same name as the
+  corresponding message file:
+<dl class="Bl-tag">
+  <dt><b>bounce</b></dt>
+  <dd>Per-recipient status information about why mail is bounced. These files
+      are maintained by the <b>bounce</b>(8) daemon.</dd>
+  <dt><b>defer</b></dt>
+  <dd>Per-recipient status information about why mail is delayed. These files
+      are maintained by the <b>defer</b>(8) daemon.</dd>
+  <dt><b>trace</b></dt>
+  <dd>Per-recipient status information as requested with the Postfix
+      &quot;<b>sendmail -v</b>&quot; or &quot;<b>sendmail -bv</b>&quot; command.
+      These files are maintained by the <b>trace</b>(8) daemon.</dd>
+</dl>
+<p class="Pp">The <b>oqmgr</b>(8) daemon is responsible for asking the
+    <b>bounce</b>(8), <b>defer</b>(8) or <b>trace</b>(8) daemons to send
+    delivery reports.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STRATEGIES"><a class="permalink" href="#STRATEGIES">STRATEGIES</a></h1>
+<pre>
+</pre>
+The queue manager implements a variety of strategies for either opening queue
+  files (input) or for message delivery (output).
+<dl class="Bl-tag">
+  <dt><b>leaky bucket</b></dt>
+  <dd>This strategy limits the number of messages in the <b>active</b> queue and
+      prevents the queue manager from running out of memory under heavy
+    load.</dd>
+  <dt><b>fairness</b></dt>
+  <dd>When the <b>active</b> queue has room, the queue manager takes one message
+      from the <b>incoming</b> queue and one from the <b>deferred</b> queue.
+      This prevents a large mail backlog from blocking the delivery of new
+    mail.</dd>
+  <dt><b>slow start</b></dt>
+  <dd>This strategy eliminates &quot;thundering herd&quot; problems by slowly
+      adjusting the number of parallel deliveries to the same destination.</dd>
+  <dt><b>round robin</b></dt>
+  <dd>The queue manager sorts delivery requests by destination. Round-robin
+      selection prevents one destination from dominating deliveries to other
+      destinations.</dd>
+  <dt><b>exponential backoff</b></dt>
+  <dd>Mail that cannot be delivered upon the first attempt is deferred. The time
+      interval between delivery attempts is doubled after each attempt.</dd>
+  <dt><b>destination status cache</b></dt>
+  <dd>The queue manager avoids unnecessary delivery attempts by maintaining a
+      short-term, in-memory list of unreachable destinations.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TRIGGERS"><a class="permalink" href="#TRIGGERS">TRIGGERS</a></h1>
+<pre>
+</pre>
+On an idle system, the queue manager waits for the arrival of trigger events, or
+  it waits for a timer to go off. A trigger is a one-byte message. Depending on
+  the message received, the queue manager performs one of the following actions
+  (the message is followed by the symbolic constant used internally by the
+  software):
+<dl class="Bl-tag">
+  <dt><b>D (QMGR_REQ_SCAN_DEFERRED)</b></dt>
+  <dd>Start a deferred queue scan. If a deferred queue scan is already in
+      progress, that scan will be restarted as soon as it finishes.</dd>
+  <dt><b>I (QMGR_REQ_SCAN_INCOMING)</b></dt>
+  <dd>Start an incoming queue scan. If an incoming queue scan is already in
+      progress, that scan will be restarted as soon as it finishes.</dd>
+  <dt><b>A (QMGR_REQ_SCAN_ALL)</b></dt>
+  <dd>Ignore deferred queue file time stamps. The request affects the next
+      deferred queue scan.</dd>
+  <dt><b>F (QMGR_REQ_FLUSH_DEAD)</b></dt>
+  <dd>Purge all information about dead transports and destinations.</dd>
+  <dt><b>W (TRIGGER_REQ_WAKEUP)</b></dt>
+  <dd>Wakeup call, This is used by the master server to instantiate servers that
+      should not go away forever. The action is to start an incoming queue
+    scan.</dd>
+</dl>
+<p class="Pp">The <b>oqmgr</b>(8) daemon reads an entire buffer worth of
+    triggers. Multiple identical trigger requests are collapsed into one, and
+    trigger requests are sorted so that <b>A</b> and <b>F</b> precede <b>D</b>
+    and <b>I</b>. Thus, in order to force a deferred queue run, one would
+    request <b>A F D</b>; in order to notify the queue manager of the arrival of
+    new mail one would request <b>I</b>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
+<pre>
+RFC 3463 (Enhanced status codes)
+RFC 3464 (Delivery status notifications)
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SECURITY"><a class="permalink" href="#SECURITY">SECURITY</a></h1>
+<pre>
+</pre>
+The <b>oqmgr</b>(8) daemon is not security sensitive. It reads single-character
+  messages from untrusted local users, and thus may be susceptible to denial of
+  service attacks. The <b>oqmgr</b>(8) daemon does not talk to the outside
+  world, and it can be run at fixed low privilege in a chrooted environment.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DIAGNOSTICS"><a class="permalink" href="#DIAGNOSTICS">DIAGNOSTICS</a></h1>
+<br/>
+Problems and transactions are logged to the <b>syslog</b>(8) daemon. Corrupted
+  message files are saved to the <b>corrupt</b> queue for further inspection.
+<p class="Pp">Depending on the setting of the <b>notify_classes</b> parameter,
+    the postmaster is notified of bounces and of other trouble.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<br/>
+A single queue manager process has to compete for disk access with multiple
+  front-end processes such as <b>cleanup</b>(8). A sudden burst of inbound mail
+  can negatively impact outbound delivery rates.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION_PARAMETERS"><a class="permalink" href="#CONFIGURATION_PARAMETERS">CONFIGURATION
+  PARAMETERS</a></h1>
+<pre>
+</pre>
+Changes to <b>main.cf</b> are not picked up automatically, as <b>oqmgr</b>(8) is
+  a persistent process. Use the command &quot;<b>postfix reload</b>&quot; after
+  a configuration change.
+<p class="Pp">The text below provides only a parameter summary. See
+    <b>postconf</b>(5) for more details including examples.</p>
+<p class="Pp">In the text below, <i>transport</i> is the first field in a
+    <b>master.cf</b> entry.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMPATIBILITY_CONTROLS"><a class="permalink" href="#COMPATIBILITY_CONTROLS">COMPATIBILITY
+  CONTROLS</a></h1>
+<pre>
+</pre>
+Available before Postfix version 2.5:
+<dl class="Bl-tag">
+  <dt><b>allow_min_user (no)</b></dt>
+  <dd>Allow a sender or recipient address to have `-' as the first
+    character.</dd>
+</dl>
+<p class="Pp">Available with Postfix version 2.7 and later:</p>
+<dl class="Bl-tag">
+  <dt><b>default_filter_nexthop (empty)</b></dt>
+  <dd>When a content_filter or FILTER request specifies no explicit next-hop
+      destination, use $default_filter_nexthop instead; when that value is
+      empty, use the domain in the recipient address.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACTIVE_QUEUE_CONTROLS"><a class="permalink" href="#ACTIVE_QUEUE_CONTROLS">ACTIVE
+  QUEUE CONTROLS</a></h1>
+<pre>
+</pre>
+<dl class="Bl-tag">
+  <dt><b>qmgr_clog_warn_time (300s)</b></dt>
+  <dd>The minimal delay between warnings that a specific destination is clogging
+      up the Postfix active queue.</dd>
+  <dt><b>qmgr_message_active_limit (20000)</b></dt>
+  <dd>The maximal number of messages in the active queue.</dd>
+  <dt><b>qmgr_message_recipient_limit (20000)</b></dt>
+  <dd>The maximal number of recipients held in memory by the Postfix queue
+      manager, and the maximal size of the short-term, in-memory
+      &quot;dead&quot; destination status cache.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DELIVERY_CONCURRENCY_CONTROLS"><a class="permalink" href="#DELIVERY_CONCURRENCY_CONTROLS">DELIVERY
+  CONCURRENCY CONTROLS</a></h1>
+<pre>
+</pre>
+<dl class="Bl-tag">
+  <dt><b>qmgr_fudge_factor (100)</b></dt>
+  <dd>Obsolete feature: the percentage of delivery resources that a busy mail
+      system will use up for delivery of a large mailing list message.</dd>
+  <dt><b>initial_destination_concurrency (5)</b></dt>
+  <dd>The initial per-destination concurrency level for parallel delivery to the
+      same destination.</dd>
+  <dt><b>default_destination_concurrency_limit (20)</b></dt>
+  <dd>The default maximal number of parallel deliveries to the same
+    destination.</dd>
+  <dt><i>transport</i><b>_destination_concurrency_limit
+    ($default_destination_concurrency_limit)</b></dt>
+  <dd>Idem, for delivery via the named message <i>transport</i>.</dd>
+</dl>
+<p class="Pp">Available in Postfix version 2.5 and later:</p>
+<dl class="Bl-tag">
+  <dt><i>transport</i><b>_initial_destination_concurrency
+    ($initial_destination_concurrency)</b></dt>
+  <dd>Initial concurrency for delivery via the named message
+    <i>transport</i>.</dd>
+  <dt><b>default_destination_concurrency_failed_cohort_limit (1)</b></dt>
+  <dd>How many pseudo-cohorts must suffer connection or handshake failure before
+      a specific destination is considered unavailable (and further delivery is
+      suspended).</dd>
+  <dt><i>transport</i><b>_destination_concurrency_failed_cohort_limit
+    ($default_destination_concurrency_failed_cohort_limit)</b></dt>
+  <dd>Idem, for delivery via the named message <i>transport</i>.</dd>
+  <dt><b>default_destination_concurrency_negative_feedback (1)</b></dt>
+  <dd>The per-destination amount of delivery concurrency negative feedback,
+      after a delivery completes with a connection or handshake failure.</dd>
+  <dt><i>transport</i><b>_destination_concurrency_negative_feedback
+    ($default_destination_concurrency_negative_feedback)</b></dt>
+  <dd>Idem, for delivery via the named message <i>transport</i>.</dd>
+  <dt><b>default_destination_concurrency_positive_feedback (1)</b></dt>
+  <dd>The per-destination amount of delivery concurrency positive feedback,
+      after a delivery completes without connection or handshake failure.</dd>
+  <dt><i>transport</i><b>_destination_concurrency_positive_feedback
+    ($default_destination_concurrency_positive_feedback)</b></dt>
+  <dd>Idem, for delivery via the named message <i>transport</i>.</dd>
+  <dt><b>destination_concurrency_feedback_debug (no)</b></dt>
+  <dd>Make the queue manager's feedback algorithm verbose for performance
+      analysis purposes.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RECIPIENT_SCHEDULING_CONTROLS"><a class="permalink" href="#RECIPIENT_SCHEDULING_CONTROLS">RECIPIENT
+  SCHEDULING CONTROLS</a></h1>
+<pre>
+</pre>
+<dl class="Bl-tag">
+  <dt><b>default_destination_recipient_limit (50)</b></dt>
+  <dd>The default maximal number of recipients per message delivery.</dd>
+  <dt><i>transport</i><b>_destination_recipient_limit</b></dt>
+  <dd>Idem, for delivery via the named message <i>transport</i>.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OTHER_RESOURCE_AND_RATE_CONTROLS"><a class="permalink" href="#OTHER_RESOURCE_AND_RATE_CONTROLS">OTHER
+  RESOURCE AND RATE CONTROLS</a></h1>
+<pre>
+</pre>
+<dl class="Bl-tag">
+  <dt><b>minimal_backoff_time (300s)</b></dt>
+  <dd>The minimal time between attempts to deliver a deferred message; prior to
+      Postfix 2.4 the default value was 1000s.</dd>
+  <dt><b>maximal_backoff_time (4000s)</b></dt>
+  <dd>The maximal time between attempts to deliver a deferred message.</dd>
+  <dt><b>maximal_queue_lifetime (5d)</b></dt>
+  <dd>Consider a message as undeliverable, when delivery fails with a temporary
+      error, and the time in the queue has reached the maximal_queue_lifetime
+      limit.</dd>
+  <dt><b>queue_run_delay (300s)</b></dt>
+  <dd>The time between deferred queue scans by the queue manager; prior to
+      Postfix 2.4 the default value was 1000s.</dd>
+  <dt><b>transport_retry_time (60s)</b></dt>
+  <dd>The time between attempts by the Postfix queue manager to contact a
+      malfunctioning message delivery transport.</dd>
+</dl>
+<p class="Pp">Available in Postfix version 2.1 and later:</p>
+<dl class="Bl-tag">
+  <dt><b>bounce_queue_lifetime (5d)</b></dt>
+  <dd>Consider a bounce message as undeliverable, when delivery fails with a
+      temporary error, and the time in the queue has reached the
+      bounce_queue_lifetime limit.</dd>
+</dl>
+<p class="Pp">Available in Postfix version 2.5 and later:</p>
+<dl class="Bl-tag">
+  <dt><b>default_destination_rate_delay (0s)</b></dt>
+  <dd>The default amount of delay that is inserted between individual deliveries
+      to the same destination; the resulting behavior depends on the value of
+      the corresponding per-destination recipient limit.</dd>
+  <dt><i>transport</i><b>_destination_rate_delay
+    $default_destination_rate_delay</b></dt>
+  <dd>Idem, for delivery via the named message <i>transport</i>.</dd>
+</dl>
+<p class="Pp">Available in Postfix version 3.1 and later:</p>
+<dl class="Bl-tag">
+  <dt><b>default_transport_rate_delay (0s)</b></dt>
+  <dd>The default amount of delay that is inserted between individual deliveries
+      over the same message delivery transport, regardless of destination.</dd>
+  <dt><i>transport</i><b>_transport_rate_delay
+    $default_transport_rate_delay</b></dt>
+  <dd>Idem, for delivery via the named message <i>transport</i>.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SAFETY_CONTROLS"><a class="permalink" href="#SAFETY_CONTROLS">SAFETY
+  CONTROLS</a></h1>
+<pre>
+</pre>
+<dl class="Bl-tag">
+  <dt><b>qmgr_daemon_timeout (1000s)</b></dt>
+  <dd>How much time a Postfix queue manager process may take to handle a request
+      before it is terminated by a built-in watchdog timer.</dd>
+  <dt><b>qmgr_ipc_timeout (60s)</b></dt>
+  <dd>The time limit for the queue manager to send or receive information over
+      an internal communication channel.</dd>
+</dl>
+<p class="Pp">Available in Postfix version 3.1 and later:</p>
+<dl class="Bl-tag">
+  <dt><b>address_verify_pending_request_limit (see 'postconf -d'
+    output)</b></dt>
+  <dd>A safety limit that prevents address verification requests from
+      overwhelming the Postfix queue.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MISCELLANEOUS_CONTROLS"><a class="permalink" href="#MISCELLANEOUS_CONTROLS">MISCELLANEOUS
+  CONTROLS</a></h1>
+<pre>
+</pre>
+<dl class="Bl-tag">
+  <dt><b>config_directory (see 'postconf -d' output)</b></dt>
+  <dd>The default location of the Postfix main.cf and master.cf configuration
+      files.</dd>
+  <dt><b>defer_transports (empty)</b></dt>
+  <dd>The names of message delivery transports that should not deliver mail
+      unless someone issues &quot;<b>sendmail -q</b>&quot; or equivalent.</dd>
+  <dt><b>delay_logging_resolution_limit (2)</b></dt>
+  <dd>The maximal number of digits after the decimal point when logging
+      sub-second delay values.</dd>
+  <dt><b>helpful_warnings (yes)</b></dt>
+  <dd>Log warnings about problematic configuration settings, and provide helpful
+      suggestions.</dd>
+  <dt><b>process_id (read-only)</b></dt>
+  <dd>The process ID of a Postfix command or daemon process.</dd>
+  <dt><b>process_name (read-only)</b></dt>
+  <dd>The process name of a Postfix command or daemon process.</dd>
+  <dt><b>queue_directory (see 'postconf -d' output)</b></dt>
+  <dd>The location of the Postfix top-level queue directory.</dd>
+  <dt><b>syslog_facility (mail)</b></dt>
+  <dd>The syslog facility of Postfix logging.</dd>
+  <dt><b>syslog_name (see 'postconf -d' output)</b></dt>
+  <dd>A prefix that is prepended to the process name in syslog records, so that,
+      for example, &quot;smtpd&quot; becomes &quot;prefix/smtpd&quot;.</dd>
+</dl>
+<p class="Pp">Available in Postfix version 3.0 and later:</p>
+<dl class="Bl-tag">
+  <dt><b>confirm_delay_cleared (no)</b></dt>
+  <dd>After sending a &quot;your message is delayed&quot; notification, inform
+      the sender when the delay clears up.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<pre>
+/var/spool/postfix/incoming, incoming queue
+/var/spool/postfix/active, active queue
+/var/spool/postfix/deferred, deferred queue
+/var/spool/postfix/bounce, non-delivery status
+/var/spool/postfix/defer, non-delivery status
+/var/spool/postfix/trace, delivery status
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<pre>
+trivial-rewrite(8), address routing
+bounce(8), delivery status reports
+postconf(5), configuration parameters
+master(5), generic daemon options
+master(8), process manager
+syslogd(8), system logging
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="README_FILES"><a class="permalink" href="#README_FILES">README
+  FILES</a></h1>
+<pre>
+</pre>
+Use &quot;<b>postconf readme_directory</b>&quot; or &quot;<b>postconf
+  html_directory</b>&quot; to locate this information.
+<pre>
+QSHAPE_README, Postfix queue analysis
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LICENSE"><a class="permalink" href="#LICENSE">LICENSE</a></h1>
+<pre>
+</pre>
+The Secure Mailer license must be distributed with this software.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR(S)"><a class="permalink" href="#AUTHOR(S)">AUTHOR(S)</a></h1>
+<pre>
+Wietse Venema
+IBM T.J. Watson Research
+P.O. Box 704
+Yorktown Heights, NY 10598, USA
+Wietse Venema
+Google, Inc.
+111 8th Avenue
+New York, NY 10011, USA
+</pre>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date"></td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+</body>
+</html>

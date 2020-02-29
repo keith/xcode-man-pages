@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   Copyright (c) 1990, 1993
+  	The Regents of the University of California.  All rights reserved.
+  
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions
+   are met:
+   1. Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+   2. Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+   4. Neither the name of the University nor the names of its contributors
+      may be used to endorse or promote products derived from this software
+      without specific prior written permission.
+  
+   THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+   ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+   ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+   FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+   OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+   OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+   SUCH DAMAGE.
+  
+  	@(#)btree.3	8.4 (Berkeley) 8/18/94
+   $FreeBSD: src/lib/libc/db/man/btree.3,v 1.9 2007/01/09 00:27:51 imp Exp $
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>BTREE(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">BTREE(3)</td>
+    <td class="head-vol">Library Functions Manual</td>
+    <td class="head-rtitle">BTREE(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">btree</code> &#x2014;
+<div class="Nd">btree database access method</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<code class="In">#include &lt;<a class="In">sys/types.h</a>&gt;</code>
+<br/>
+<code class="In">#include &lt;<a class="In">db.h</a>&gt;</code>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The routine <code class="Fn">dbopen</code>() is the library interface to
+  database files. One of the supported file formats is
+  <code class="Nm">btree</code> files. The general description of the database
+  access methods is in <a class="Xr">dbopen(3)</a>, this manual page describes
+  only the <code class="Nm">btree</code> specific information.
+<p class="Pp">The <code class="Nm">btree</code> data structure is a sorted,
+    balanced tree structure storing associated key/data pairs.</p>
+<p class="Pp">The <code class="Nm">btree</code> access method specific data
+    structure provided to <code class="Fn">dbopen</code>() is defined in the
+    <code class="In">&lt;<a class="In">db.h</a>&gt;</code> include file as
+    follows:</p>
+<div class="Bd Pp">
+<pre>
+typedef struct {
+	u_long flags;
+	u_int cachesize;
+	int maxkeypage;
+	int minkeypage;
+	u_int psize;
+	int (*compare)(const DBT *key1, const DBT *key2);
+	size_t (*prefix)(const DBT *key1, const DBT *key2);
+	int lorder;
+} BTREEINFO;
+</pre>
+</div>
+<p class="Pp">The elements of this structure are as follows:</p>
+<dl class="Bl-tag">
+  <dt><var class="Va">flags</var></dt>
+  <dd>The flag value is specified by <i class="Em">or</i>'ing any of the
+      following values:
+    <dl class="Bl-tag">
+      <dt><a class="permalink" href="#R_DUP"><code class="Dv" id="R_DUP">R_DUP</code></a></dt>
+      <dd>Permit duplicate keys in the tree, i.e., permit insertion if the key
+          to be inserted already exists in the tree. The default behavior, as
+          described in <a class="Xr">dbopen(3)</a>, is to overwrite a matching
+          key when inserting a new key or to fail if the
+          <code class="Dv">R_NOOVERWRITE</code> flag is specified. The
+          <code class="Dv">R_DUP</code> flag is overridden by the
+          <code class="Dv">R_NOOVERWRITE</code> flag, and if the
+          <code class="Dv">R_NOOVERWRITE</code> flag is specified, attempts to
+          insert duplicate keys into the tree will fail.
+        <p class="Pp">If the database contains duplicate keys, the order of
+            retrieval of key/data pairs is undefined if the
+            <var class="Va">get</var> routine is used, however,
+            <var class="Va">seq</var> routine calls with the
+            <code class="Dv">R_CURSOR</code> flag set will always return the
+            logical &#x201C;first&#x201D; of any group of duplicate keys.</p>
+      </dd>
+    </dl>
+  </dd>
+  <dt><var class="Va">cachesize</var></dt>
+  <dd>A suggested maximum size (in bytes) of the memory cache. This value is
+      <i class="Em">only</i> advisory, and the access method will allocate more
+      memory rather than fail. Since every search examines the root page of the
+      tree, caching the most recently used pages substantially improves access
+      time. In addition, physical writes are delayed as long as possible, so a
+      moderate cache can reduce the number of I/O operations significantly.
+      Obviously, using a cache increases (but only increases) the likelihood of
+      corruption or lost data if the system crashes while a tree is being
+      modified. If <var class="Va">cachesize</var> is 0 (no size is specified) a
+      default cache is used.</dd>
+  <dt><var class="Va">maxkeypage</var></dt>
+  <dd>The maximum number of keys which will be stored on any single page. Not
+      currently implemented.</dd>
+  <dt><var class="Va">minkeypage</var></dt>
+  <dd>The minimum number of keys which will be stored on any single page. This
+      value is used to determine which keys will be stored on overflow pages,
+      i.e., if a key or data item is longer than the pagesize divided by the
+      minkeypage value, it will be stored on overflow pages instead of in the
+      page itself. If <var class="Va">minkeypage</var> is 0 (no minimum number
+      of keys is specified) a value of 2 is used.</dd>
+  <dt><var class="Va">psize</var></dt>
+  <dd>Page size is the size (in bytes) of the pages used for nodes in the tree.
+      The minimum page size is 512 bytes and the maximum page size is 64K. If
+      <var class="Va">psize</var> is 0 (no page size is specified) a page size
+      is chosen based on the underlying file system I/O block size.</dd>
+  <dt><var class="Va">compare</var></dt>
+  <dd>Compare is the key comparison function. It must return an integer less
+      than, equal to, or greater than zero if the first key argument is
+      considered to be respectively less than, equal to, or greater than the
+      second key argument. The same comparison function must be used on a given
+      tree every time it is opened. If <var class="Va">compare</var> is
+      <code class="Dv">NULL</code> (no comparison function is specified), the
+      keys are compared lexically, with shorter keys considered less than longer
+      keys.</dd>
+  <dt><var class="Va">prefix</var></dt>
+  <dd>The <var class="Va">prefix</var> element is the prefix comparison
+      function. If specified, this routine must return the number of bytes of
+      the second key argument which are necessary to determine that it is
+      greater than the first key argument. If the keys are equal, the key length
+      should be returned. Note, the usefulness of this routine is very data
+      dependent, but, in some data sets can produce significantly reduced tree
+      sizes and search times. If <var class="Va">prefix</var> is
+      <code class="Dv">NULL</code> (no prefix function is specified),
+      <i class="Em">and</i> no comparison function is specified, a default
+      lexical comparison routine is used. If <var class="Va">prefix</var> is
+      <code class="Dv">NULL</code> and a comparison routine is specified, no
+      prefix comparison is done.</dd>
+  <dt><var class="Va">lorder</var></dt>
+  <dd>The byte order for integers in the stored database metadata. The number
+      should represent the order as an integer; for example, big endian order
+      would be the number 4,321. If <var class="Va">lorder</var> is 0 (no order
+      is specified) the current host order is used.</dd>
+</dl>
+<p class="Pp">If the file already exists (and the
+    <code class="Dv">O_TRUNC</code> flag is not specified), the values specified
+    for the <var class="Va">flags</var>, <var class="Va">lorder</var> and
+    <var class="Va">psize</var> arguments are ignored in favor of the values
+    used when the tree was created.</p>
+<p class="Pp">Forward sequential scans of a tree are from the least key to the
+    greatest.</p>
+<p class="Pp">Space freed up by deleting key/data pairs from the tree is never
+    reclaimed, although it is normally made available for reuse. This means that
+    the <code class="Nm">btree</code> storage structure is grow-only. The only
+    solutions are to avoid excessive deletions, or to create a fresh tree
+    periodically from a scan of an existing one.</p>
+<p class="Pp">Searches, insertions, and deletions in a
+    <code class="Nm">btree</code> will all complete in O lg base N where base is
+    the average fill factor. Often, inserting ordered data into
+    <code class="Nm">btree</code>s results in a low fill factor. This
+    implementation has been modified to make ordered insertion the best case,
+    resulting in a much better than normal page fill factor.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ERRORS"><a class="permalink" href="#ERRORS">ERRORS</a></h1>
+The <code class="Nm">btree</code> access method routines may fail and set
+  <var class="Va">errno</var> for any of the errors specified for the library
+  routine <a class="Xr">dbopen(3)</a>.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">dbopen(3)</a>, <a class="Xr">hash(3)</a>,
+  <a class="Xr">mpool(3)</a>, <a class="Xr">recno(3)</a>
+<p class="Pp"><cite class="Rs"><span class="RsA">Douglas Comer</span>,
+    <span class="RsT">The Ubiquitous B-tree</span>, <i class="RsJ">ACM Comput.
+    Surv. 11</i>, <span class="RsN">2</span>, <span class="RsP">121-138</span>,
+    <span class="RsD">June 1979</span>.</cite></p>
+<p class="Pp"><cite class="Rs"><span class="RsA">Bayer</span> and
+    <span class="RsA">Unterauer</span>, <span class="RsT">Prefix B-trees</span>,
+    <i class="RsJ">ACM Transactions on Database Systems</i>,
+    <span class="RsN">1</span>, <span class="RsV">Vol. 2</span>,
+    <span class="RsP">11-26</span>, <span class="RsD">March
+  1977</span>.</cite></p>
+<p class="Pp"><cite class="Rs"><span class="RsA">D. E. Knuth</span>,
+    <i class="RsB">The Art of Computer Programming Vol. 3: Sorting and
+    Searching</i>, <span class="RsP">471-480</span>,
+    <span class="RsD">1968</span>.</cite></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+Only big and little endian byte order is supported.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">August 18, 1994</td>
+    <td class="foot-os">Mac OS X 10.15</td>
+  </tr>
+</table>
+</body>
+</html>

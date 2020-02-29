@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   -*- nroff -*-
+ -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>MPSCNNLocalContrastNormalizationGradient(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">MPSCNNLocalContrastNormalizationGradient(3)</td>
+    <td class="head-vol">MetalPerformanceShaders.framework</td>
+    <td class="head-rtitle">MPSCNNLocalContrastNormalizationGradient(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+MPSCNNLocalContrastNormalizationGradient
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">#import &lt;MPSCNNNormalization.h&gt;</p>
+<p class="Pp">Inherits <b>MPSCNNGradientKernel</b>.</p>
+<section class="Ss">
+<h2 class="Ss" id="Instance_Methods"><a class="permalink" href="#Instance_Methods">Instance
+  Methods</a></h2>
+<br/>
+(nonnull instancetype) - <b>initWithDevice:kernelWidth:kernelHeight:</b>
+<br/>
+(nullable instancetype) - <b>initWithCoder:device:</b>
+<br/>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Properties"><a class="permalink" href="#Properties">Properties</a></h2>
+<br/>
+float <b>alpha</b>
+<br/>
+float <b>beta</b>
+<br/>
+float <b>delta</b>
+<br/>
+float <b>p0</b>
+<br/>
+float <b>pm</b>
+<br/>
+float <b>ps</b>
+<br/>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Additional_Inherited_Members"><a class="permalink" href="#Additional_Inherited_Members">Additional
+  Inherited Members</a></h2>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Detailed_Description"><a class="permalink" href="#Detailed_Description">Detailed
+  Description</a></h1>
+This depends on Metal.framework Specifies the local contrast normalization
+  gradient filter. The local contrast normalization is quite similar to spatial
+  normalization (see <b>MPSCNNSpatialNormalization</b>) in that it applies the
+  filter over local regions which extend spatially, but are in separate feature
+  channels (i.e., they have shape 1 x kernelWidth x kernelHeight), but instead
+  of dividing by the local 'energy' of the feature, the denominator uses the
+  local variance of the feature - effectively the mean value of the feature is
+  subtracted from the signal. For each feature channel, the function computes
+  the variance VAR(i,j) and mean M(i,j) of X(i,j) inside each rectangle around
+  the spatial point (i,j).
+<p class="Pp">Then the result is computed for each element of X as follows:</p>
+<p class="Pp"></p>
+<pre>
+Y(i,j) = pm + ps * ( X(i,j) - p0 * M(i,j)) / (delta + alpha * VAR(i,j))^beta,
+</pre>
+<p class="Pp">where kw and kh are the kernelWidth and the kernelHeight and pm,
+    ps and p0 are parameters that can be used to offset and scale the result in
+    various ways. For example setting pm=0, ps=1, p0=1, delta=0, alpha=1.0 and
+    beta=0.5 scales input data so that the result has unit variance and zero
+    mean, provided that input variance is positive. It is the end-users
+    responsibility to ensure that the combination of the parameters delta and
+    alpha does not result in a situation where the denominator becomes zero - in
+    such situations the resulting pixel-value is undefined. <b>A</b> good way to
+    guard against tiny variances is to regulate the expression with a small
+    value for delta, for example delta = 1/1024 = 0.0009765625.</p>
+<p class="Pp">T(i,j) = (delta + alpha * VAR(i,j)) N = kw * kh</p>
+<p class="Pp">OutputGradient: dZ/dX(i,j) = ps * T(i,j)^(-beta) * ( dZ/dY(i,j) -
+    (sum_{l,k in L(i),K(j)} dZ/dY(l,k) * (((p0/N) +
+    (2*alpha*beta/N)*(X(k,l)-1)*(X(i,j)-M(i,j)*p0)/T(i,j)))) ) N is the kernel
+    size. The window L(i) and K(j) itself is defined as: L(i) =
+    [i-floor((kw-1)/2), i+floor(kw/2] K(j) = [j-floor((kh-1)/2),
+  j+floor(kh/2]</p>
+<p class="Pp">For correct gradient computation all parameters must be the same
+    as the original normalization filter.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Method_Documentation"><a class="permalink" href="#Method_Documentation">Method
+  Documentation</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="_-_(nullable_instancetype)__fBinitWithCoder:_fP_(NSCoder_*__nonnull)_aDecoder(nonnull_id__MTLDevice__)_device"><a class="permalink" href="#_-_(nullable_instancetype)__fBinitWithCoder:_fP_(NSCoder_*__nonnull)_aDecoder(nonnull_id__MTLDevice__)_device">-
+  (nullable instancetype) <b>initWithCoder:</b> (NSCoder *__nonnull)
+  aDecoder(nonnull id&lt; MTLDevice &gt;) device</a></h2>
+<b>NSSecureCoding</b> compatability While the standard NSSecureCoding/NSCoding
+  method -initWithCoder: should work, since the file can't know which device
+  your data is allocated on, we have to guess and may guess incorrectly. To
+  avoid that problem, use initWithCoder:device instead.
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>aDecoder</i> The NSCoder subclass with your serialized
+  <b>MPSKernel</b>
+<br/>
+<i>device</i> The MTLDevice on which to make the <b>MPSKernel</b></div>
+<p class="Pp"><b>Returns:</b></p>
+<div class="Bd-indent"><b>A</b> new <b>MPSKernel</b> object, or nil if
+  failure.</div>
+<p class="Pp">Reimplemented from <b>MPSCNNGradientKernel</b>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(nonnull_instancetype)__fBinitWithDevice:_fP_(nonnull_id__MTLDevice__)_device(NSUInteger)_kernelWidth(NSUInteger)_kernelHeight"><a class="permalink" href="#_-_(nonnull_instancetype)__fBinitWithDevice:_fP_(nonnull_id__MTLDevice__)_device(NSUInteger)_kernelWidth(NSUInteger)_kernelHeight">-
+  (nonnull instancetype) <b>initWithDevice:</b> (nonnull id&lt; MTLDevice &gt;)
+  device(NSUInteger) kernelWidth(NSUInteger) kernelHeight</a></h2>
+Initialize a local contrast normalization filter
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>device</i> The device the filter will run on
+<br/>
+<i>kernelWidth</i> The width of the kernel
+<br/>
+<i>kernelHeight</i> The height of the kernel</div>
+<p class="Pp"><b>Returns:</b></p>
+<div class="Bd-indent"><b>A</b> valid <b>MPSCNNLocalContrastNormalization</b>
+  object or nil, if failure.</div>
+<p class="Pp">NOTE: For now, kernelWidth must be equal to kernelHeight</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Property_Documentation"><a class="permalink" href="#Property_Documentation">Property
+  Documentation</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="_-_alpha_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_alpha_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  alpha [read]<b>, [write]</b>, [nonatomic]<b>, [assign]</b></a></h2>
+The value of alpha. Default is 0.0 The default value 0.0 is not recommended and
+  is preserved for backwards compatibility. With alpha 0, it performs a local
+  mean subtraction. The <b>MPSCNNLocalContrastNormalizationNode</b> used with
+  the <b>MPSNNGraph</b> uses 1.0 as a default.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_beta_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_beta_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  beta [read]<b>, [write]</b>, [nonatomic]<b>, [assign]</b></a></h2>
+The value of beta. Default is 0.5
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_delta_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_delta_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  delta [read]<b>, [write]</b>, [nonatomic]<b>, [assign]</b></a></h2>
+The value of delta. Default is 1/1024
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_p0_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_p0_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  p0 [read]<b>, [write]</b>, [nonatomic]<b>, [assign]</b></a></h2>
+The value of p0. Default is 1.0
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_pm_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_pm_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  pm [read]<b>, [write]</b>, [nonatomic]<b>, [assign]</b></a></h2>
+The value of pm. Default is 0.0
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_ps_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_ps_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  ps [read]<b>, [write]</b>, [nonatomic]<b>, [assign]</b></a></h2>
+The value of ps. Default is 1.0
+<p class="Pp"></p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Author"><a class="permalink" href="#Author">Author</a></h1>
+Generated automatically by Doxygen for MetalPerformanceShaders.framework from
+  the source code.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">Mon Jul 9 2018</td>
+    <td class="foot-os">Version MetalPerformanceShaders-119.3</td>
+  </tr>
+</table>
+</body>
+</html>

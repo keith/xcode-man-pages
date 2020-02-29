@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   Copyright (c) 2004-2015, Apple Inc. All rights reserved.
+ -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>libgmalloc(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">libgmalloc(3)</td>
+    <td class="head-vol">Library Functions Manual</td>
+    <td class="head-rtitle">libgmalloc(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">libgmalloc</code> &#x2014;
+<div class="Nd">(Guard Malloc), an aggressive debugging malloc library</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<code class="Nm">libgmalloc</code> is a debugging malloc library that can track
+  down insidious bugs in your code or library. If your application crashes when
+  using libgmalloc, then you've found a bug.
+<p class="Pp">libgmalloc is used in place of the standard system malloc, and
+    uses the virtual memory system to identify memory access bugs. Each malloc
+    allocation is placed on its own virtual memory page (or pages). By default,
+    the returned address for the allocation is positioned such that the end of
+    the allocated buffer is at the end of the last page, and the next page after
+    that is kept unallocated. Thus, accesses beyond the end of the buffer cause
+    a bad access error immediately. When memory is freed, libgmalloc deallocates
+    its virtual memory, so reads or writes to the freed buffer cause a bad
+    access error. Bugs which had been difficult to isolate become immediately
+    obvious, and you'll know exactly which code is causing the problem.</p>
+<p class="Pp">Guard Malloc is thread-safe and works for all uses of malloc(),
+    Objective-C's alloc method, C++'s new operator, and other functions which
+    result in allocation in the malloc heap.</p>
+<p class="Pp">As of Mac OS X 10.11, Guard Malloc works with purgeable memory.
+    Allocations of *any* size that are allocated through
+    malloc_zone_malloc(malloc_default_purgeable_zone(), &lt;size&gt;) are
+    handled as purgeable memory. When malloc_make_purgeable() is called for a
+    purgeable allocation, the memory is immediately purged. Attempting to access
+    that memory will then cause a crash. To access that memory successfully,
+    first call malloc_make_nonpurgeable() then recreate the data.</p>
+<p class="Pp">As of Mac OS X 10.5, libgmalloc aligns the start of allocated
+    buffers on 16-byte boundaries by default, to allow proper use of vector
+    instructions (e.g., SSE). (The use of vector instructions is common,
+    including in some Mac OS X system libraries. The regular system malloc also
+    uses 16-byte alignment.) Because of this 16-byte alignment, up to 15 bytes
+    at the end of an allocated block may be excess at the end of the page, and
+    libgmalloc will not detect buffer overruns into that area by default. This
+    default alignment can be changed with environment variables.</p>
+<p class="Pp">libgmalloc is available in /usr/lib/libgmalloc.dylib. To use it,
+    set this environment variable:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+set DYLD_INSERT_LIBRARIES to /usr/lib/libgmalloc.dylib
+</pre>
+</div>
+<p class="Pp">Note: it is no longer necessary to set
+  DYLD_FORCE_FLAT_NAMESPACE.</p>
+<p class="Pp">This tells dyld to use Guard Malloc instead of the standard
+    version of malloc. Run the program, and wait for the crash indicating the
+    bad access. When the program crashes, examine it in the debugger to identify
+    the cause.</p>
+<p class="Pp">As of Mac OS X 10.6, libgmalloc can be used with the standard
+    malloc stack logging by setting the MallocStackLogging environment variable.
+    The <a class="Xr">malloc_history(1)</a> command can then be used to show
+    backtraces of all malloc and free events made when using libgmalloc.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="USING_libgmalloc_WITH_THE_XCODE_DEBUGGER_OR_LLDB"><a class="permalink" href="#USING_libgmalloc_WITH_THE_XCODE_DEBUGGER_OR_LLDB">USING
+  libgmalloc WITH THE XCODE DEBUGGER OR LLDB</a></h1>
+Because the goal of libgmalloc is to &quot;encourage&quot; your application to
+  crash if memory access errors occur, it is best to run your application under
+  a debugger such as the Xcode IDE's debugger, or lldb at the command line.
+<p class="Pp">To use Guard Malloc with the Xcode debugger, choose Edit Scheme...
+    from the Scheme popup. Click on the Diagnostics tab then turn on the Enable
+    Guard Malloc check box. Then when launching the target application, Xcode
+    automatically sets the DYLD_INSERT_LIBRARIES environment variable properly.
+    Xcode retains that setting with that executable. To set any of the
+    additional environment variables described below, click on the Arguments tab
+    in the Scheme editor and add them in the Environment Variables section.</p>
+<p class="Pp">If you're using lldb from the command line, use lldb's
+    &quot;settings set target.env-vars VAR=VALUE&quot; command to set the
+    environment variables. Or simply use the &quot;env VAR=VALUE&quot; command
+    alias.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<div class="Bd">
+<pre>
+% cat gmalloctest.c
+#include &lt;stdlib.h&gt;
+#include &lt;stdio.h&gt;
+
+int main(int argc, char **argv) {
+  unsigned *buffer = (unsigned *)malloc(sizeof(unsigned) * 100);
+  unsigned i;
+
+  for (i = 0; i &lt; 200; i++) {
+    buffer[i] = i;
+  }
+
+  for (i = 0; i &lt; 200; i++) {
+    printf (&quot;%d  &quot;, buffer[i]);
+  }
+}
+
+% cc -g -o gmalloctest gmalloctest.c
+% lldb gmalloctest
+Current executable set to 'gmalloctest' (x86_64).
+(lldb) env DYLD_INSERT_LIBRARIES=/usr/lib/libgmalloc.dylib
+(lldb) process launch
+Process 7895 launched: '/private/tmp/testit/gmalloctest' (x86_64)
+GuardMalloc[gmalloctest-7895]: Allocations will be placed on 16 byte boundaries.
+GuardMalloc[gmalloctest-7895]:  - Some buffer overruns may not be noticed.
+GuardMalloc[gmalloctest-7895]:  - Applications using vector instructions (e.g., SSE) should work.
+GuardMalloc[gmalloctest-7895]: version 105
+Process 7895 stopped
+* thread #1: tid = 0x6880e, 0x0000000100000eda gmalloctest`main(argc=1, argv=0x00007fff5fbffa00) + 74 at gmalloctest.c:9, stop reason = EXC_BAD_ACCESS (code=1, address=0x100342000)
+    frame #0: 0x0000000100000eda gmalloctest`main(argc=1, argv=0x00007fff5fbffa00) + 74 at gmalloctest.c:9
+   6   	  unsigned i;
+   7
+   8   	  for (i = 0; i &lt; 200; i++) {
+-&gt; 9   	    buffer[i] = i;
+   10  	  }
+   11
+   12  	  for (i = 0; i &lt; 200; i++) {
+(lldb) print i
+(unsigned int) $0 = 100
+(lldb) print &amp;buffer[i]
+(unsigned int *) $1 = 0x0000000100342000
+</pre>
+</div>
+<p class="Pp">Once you have the backtrace, you can examine that line of source
+    code to see what variable was accessed, and determine why that address was
+    invalid memory. In the example above, notice that it crashes when it tries
+    to write one character beyond the end of the malloc'ed buffer it's operating
+    on, causing a bad access error when accessing the protected page following
+    the string.</p>
+<p class="Pp">These sorts of problems may seem minor, especially when the
+    application normally behaves correctly. However, they're usually the
+    hallmark of intermittent bugs or unexplained crashes in long running
+    programs. In normal use, the bug in the example program might have caused no
+    problems at all... or it might have trashed the following buffer, leading
+    occasionally to corrupted data. If the application had been referencing
+    freed memory, the program might have worked fine until the one time where
+    the freed memory was immediately reused and modified.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
+libgmalloc's behavior can be changed with several additional environment
+  variables:
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#MALLOC_LOG_FILE__f_"><code class="Ev" id="MALLOC_LOG_FILE__f_">MALLOC_LOG_FILE
+    &lt;f&gt;</code></a></dt>
+  <dd>Create or append messages to the given file path
+      <var class="Fa">&lt;f&gt;</var> instead of writing to the standard error.
+      This can be set to /dev/null to completely suppress all output if
+      necessary.</dd>
+  <dt><a class="permalink" href="#MALLOC_PROTECT_BEFORE"><code class="Ev" id="MALLOC_PROTECT_BEFORE">MALLOC_PROTECT_BEFORE</code></a></dt>
+  <dd>If this flag is set, then libgmalloc tries harder to detect buffer
+      underruns. Specifically, libgmalloc places the start of the allocated
+      buffer at the beginning of a virtual memory page, then protects the page
+      before. Buffer underruns then cause an error. The behavior without this
+      variable set is to place the end of the buffer at the end of the last page
+      of the allocation, and protect the page after.</dd>
+  <dt><a class="permalink" href="#MALLOC_FILL_SPACE"><code class="Ev" id="MALLOC_FILL_SPACE">MALLOC_FILL_SPACE</code></a></dt>
+  <dd>This flag causes libgmalloc to fill the buffer with 0x55 upon creation.
+      This can help catch uninitialized memory problems.</dd>
+  <dt><a class="permalink" href="#MALLOC_ALLOW_READS"><code class="Ev" id="MALLOC_ALLOW_READS">MALLOC_ALLOW_READS</code></a></dt>
+  <dd>This flag allows the guard page after the buffer to be readable so that
+      reads past the ends of buffers do not cause the program to crash. With the
+      MALLOC_PROTECT_BEFORE flag set, this command instead sets the guard page
+      before the buffer to be readable.</dd>
+  <dt><a class="permalink" href="#MALLOC_VECTOR_SIZE"><code class="Ev" id="MALLOC_VECTOR_SIZE">MALLOC_VECTOR_SIZE</code></a></dt>
+  <dd>This option is the default alignment, as of Mac OS X 10.5. With this
+      option, Guard Malloc places allocations on 16 byte boundaries, because
+      vector instructions (e.g., SSE) require buffers to be on 16 byte
+      boundaries. (The use of vector instructions is becoming more common in
+      some Mac OS X system libraries.)</dd>
+  <dt><a class="permalink" href="#MALLOC_WORD_SIZE"><code class="Ev" id="MALLOC_WORD_SIZE">MALLOC_WORD_SIZE</code></a></dt>
+  <dd>This flag specifies that Guard Malloc should place allocations on word
+      (4-byte) boundaries, with the end of the buffer on the last 4 bytes of the
+      page. This option is useful because Carbon assumes that pointers are word
+      aligned, and without the word alignment, any program relying on Cocoa or
+      Carbon would immediately crash.</dd>
+  <dt><a class="permalink" href="#MALLOC_STRICT_SIZE"><code class="Ev" id="MALLOC_STRICT_SIZE">MALLOC_STRICT_SIZE</code></a></dt>
+  <dd>This flag specifies that Guard Malloc should always align all allocations
+      on single-byte boundaries such that the last byte of the buffer is at the
+      end of the page. This will immediately catch even one-byte buffer
+      overruns, but applications that use Carbon or Cocoa, or vector
+      instructions, may not run properly with this option.</dd>
+  <dt><a class="permalink" href="#MALLOC_PERMIT_INSANE_REQUESTS"><code class="Ev" id="MALLOC_PERMIT_INSANE_REQUESTS">MALLOC_PERMIT_INSANE_REQUESTS</code></a></dt>
+  <dd>GuardMalloc tries to protect against requests for insane amounts of memory
+      by instructing the program to trap (if running under the debugger) if more
+      than 100MB is requested. If this environment variable is set, then the
+      check is disabled.</dd>
+  <dt><a class="permalink" href="#MALLOC_MAXIMUM_VM"><code class="Ev" id="MALLOC_MAXIMUM_VM">MALLOC_MAXIMUM_VM</code></a></dt>
+  <dd>To test how a process handles running out of memory, set this variable to
+      the maximum size, in bytes, of the allocations for the process (including
+      the extra overhead from rounding allocations up to a full page size). When
+      this limit is hit, attempts to allocate additional memory return NULL. If
+      MALLOC_PERMIT_INSANE_REQUESTS is not set it will also trap (if running
+      under the debugger).</dd>
+  <dt><a class="permalink" href="#MALLOC_CHECK_HEADER"><code class="Ev" id="MALLOC_CHECK_HEADER">MALLOC_CHECK_HEADER</code></a></dt>
+  <dd>This flag is enabled by default, which causes Guard Malloc to check the
+      validity of a magic number in the malloc block header when a block is
+      freed or reallocated. To turn off this checking, set this environment
+      variable to NO or 0.</dd>
+  <dt><a class="permalink" href="#MallocStackLogging"><code class="Ev" id="MallocStackLogging">MallocStackLogging</code></a></dt>
+  <dd>If this flag is set, then standard system malloc stack logging is enabled.
+      The <a class="Xr">malloc_history(1)</a> command can then be used to show
+      backtraces of all malloc and free events made when using libgmalloc.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MEMORY_VALUES_USED_BY_GUARD_MALLOC"><a class="permalink" href="#MEMORY_VALUES_USED_BY_GUARD_MALLOC">MEMORY
+  VALUES USED BY GUARD MALLOC</a></h1>
+It's often useful to understand how Guard Malloc uses memory when debugging.
+  Guard Malloc writes strange byte sequences to catch certain problems. If the
+  MALLOC_FILL_SPACE environment variable is set, newly allocated buffers will be
+  filled with the value 0x55 in hopes of catching references to uninitialized
+  memory.
+<p class="Pp">The space right before the buffer is dedicated to header
+    information. If MALLOC_PROTECT_BEFORE was set, the header immediately
+    follows the buffer. The header is 16 bytes in 32-bit processes and 32 bytes
+    in 64-bit processes and is organized as:</p>
+<p class="Pp">magic number (0xdeadbeef in 32-bit, or 0xdeadbeefdeadbeef in
+    64-bit)
+  <br/>
+  size of buffer + size of header
+  <br/>
+  thread id
+  <br/>
+  magic number again</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
+Because each allocation requires at least two pages of virtual memory, in 32-bit
+  processes only about 500,000 malloc allocations could exist before the process
+  runs out of virtual memory.
+<p class="Pp">Processes using Guard Malloc may run more slowly. In addition, the
+    extra pressure on the virtual memory system when running a process with
+    Guard Malloc can cause <a class="Xr">top(1)</a> to update its output more
+    slowly.</p>
+<p class="Pp">Don't forget -- if there's a memory bug in your program, the
+    program will crash in Guard Malloc. This is a feature!</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">malloc_history(1)</a>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">Mar. 18, 2015</td>
+    <td class="foot-os">Mac OS X</td>
+  </tr>
+</table>
+</body>
+</html>

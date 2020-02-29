@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>launchd.plist(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">launchd.plist(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">launchd.plist(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">launchd.plist</code> &#x2014;
+<div class="Nd">System wide and per-user daemon/agent configuration files</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+This document details the parameters that can be given to an XML property list
+  that can be loaded into <code class="Nm">launchd</code> with
+  <code class="Nm">launchctl</code>.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXPECTATIONS"><a class="permalink" href="#EXPECTATIONS">EXPECTATIONS</a></h1>
+Daemons or agents managed by <code class="Nm">launchd</code> are expected to
+  behave certain ways.
+<p class="Pp">A daemon or agent launched by <code class="Nm">launchd</code> MUST
+    NOT do the following in the process directly launched by
+    <code class="Nm">launchd</code>:</p>
+<p class="Pp"></p>
+<ul class="Bl-bullet Bd-indent Bl-compact">
+  <li>Call <a class="Xr">daemon(3)</a>.</li>
+  <li>Do the moral equivalent of <a class="Xr">daemon(3)</a> by calling
+      <a class="Xr">fork(2)</a> and have the parent process
+      <a class="Xr">exit(3)</a> or <a class="Xr">_exit(2)</a>.</li>
+</ul>
+<p class="Pp">A <code class="Nm">launchd</code> daemon or agent should not
+    perform the following as part of its initialization, as launchd will always
+    implicitly perform them on behalf of the process.</p>
+<p class="Pp"></p>
+<ul class="Bl-bullet Bd-indent Bl-compact">
+  <li>Redirect <a class="Xr">stdio(3)</a> to /dev/null.</li>
+</ul>
+<p class="Pp">A <code class="Nm">launchd</code> daemon or agent need not perform
+    the following as part of its initialization, since
+    <code class="Nm">launchd</code> can perform them on the process' behalf with
+    the appropriate <code class="Nm">launchd.plist</code> keys specified.</p>
+<p class="Pp"></p>
+<ul class="Bl-bullet Bd-indent Bl-compact">
+  <li>Setup the user ID or group ID.</li>
+  <li>Setup the working directory.</li>
+  <li><a class="Xr">chroot(2)</a></li>
+  <li><a class="Xr">setsid(2)</a></li>
+  <li>Close &quot;stray&quot; file descriptors.</li>
+  <li>Setup resource limits with <a class="Xr">setrlimit(2)</a>.</li>
+  <li>Setup priority with <a class="Xr">setpriority(2)</a>.</li>
+</ul>
+<p class="Pp">A daemon or agent launched by <code class="Nm">launchd</code>
+    SHOULD:</p>
+<p class="Pp"></p>
+<ul class="Bl-bullet Bd-indent Bl-compact">
+  <li>Launch on demand given criteria specified in the XML property list. More
+      information can be found later in this man page.</li>
+  <li>Handle the SIGTERM signal, preferably with a <a class="Xr">dispatch(3)</a>
+      source, and respond to this signal by unwinding any outstanding work
+      quickly and then exiting.</li>
+</ul>
+<p class="Pp">A daemon or agent launched by <code class="Nm">launchd</code>
+    <i class="Em">MUST</i>:</p>
+<p class="Pp"></p>
+<ul class="Bl-bullet Bd-indent Bl-compact">
+  <li>check in for any <code class="Nm">MachServices</code> advertised in its
+      plist, using <a class="Xr">xpc_connection_create_mach_service(3)</a> (or
+      <a class="Xr">bootstrap_check_in(3)</a>) if it uses MIG or raw Mach for
+      communication</li>
+  <li>check in for any <code class="Nm">LaunchEvents</code> advertised in its
+      plist, using <a class="Xr">xpc_set_event_stream_handler(3)</a></li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="XML_PROPERTY_LIST_KEYS"><a class="permalink" href="#XML_PROPERTY_LIST_KEYS">XML
+  PROPERTY LIST KEYS</a></h1>
+The following keys can be used to describe the configuration details of your
+  daemon or agent. Property lists are Apple's standard configuration file
+  format. Please see <a class="Xr">plist(5)</a> for more information. Please
+  note: property list files are expected to have their name end in
+  &quot;.plist&quot;. Also please note that it is the expected convention for
+  launchd property list files to be named &lt;Label&gt;.plist. Thus, if your job
+  label is &quot;com.apple.sshd&quot;, your plist file should be named
+  &quot;com.apple.sshd.plist&quot;.
+<dl class="Bl-ohang">
+  <dt><b class="Sy">Label &lt;string&gt;</b></dt>
+  <dd>This required key uniquely identifies the job to
+      <code class="Nm">launchd</code>.</dd>
+  <dt><b class="Sy">Disabled &lt;boolean&gt;</b></dt>
+  <dd>This optional key specifies whether the job should be loaded by default.
+      Note that this key may be overridden through the
+      <var class="Ar">enable</var> subcommand of <a class="Xr">launchctl(3)</a>.
+      Previous Darwin operating systems would modify the configuration file's
+      value for this key, but now this state is kept externally.</dd>
+  <dt><b class="Sy">UserName &lt;string&gt;</b></dt>
+  <dd>This optional key specifies the user to run the job as. This key is only
+      applicable for services that are loaded into the privileged system
+    domain.</dd>
+  <dt><b class="Sy">GroupName &lt;string&gt;</b></dt>
+  <dd>This optional key specifies the group to run the job as. This key is only
+      applicable for services that are loaded into the privileged system domain.
+      If UserName is set and GroupName is not, then the group will be set to the
+      primary group of the user.</dd>
+  <dt><b class="Sy">inetdCompatibility &lt;dictionary&gt;</b></dt>
+  <dd>The presence of this key specifies that the daemon expects to be run as if
+      it were launched from inetd. For new projects, this key should be avoided.
+    <dl class="Bl-ohang Bd-indent">
+      <dt><b class="Sy">Wait &lt;boolean&gt;</b></dt>
+      <dd>This flag corresponds to the &quot;wait&quot; or &quot;nowait&quot;
+          option of inetd. If true, then the listening socket is passed via the
+          <a class="Xr">stdio(3)</a> file descriptors. If false, then
+          <a class="Xr">accept(2)</a> is called on behalf of the job, and the
+          result is passed via the <a class="Xr">stdio(3)</a> descriptors.</dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">LimitLoadToHosts &lt;array of strings&gt;</b></dt>
+  <dd>This configuration file only applies to the hosts listed with this key.
+      This key is no longer supported.</dd>
+  <dt><b class="Sy">LimitLoadFromHosts &lt;array of strings&gt;</b></dt>
+  <dd>This configuration file only applies to hosts NOT listed with this key.
+      This key is no longer supported.</dd>
+  <dt><b class="Sy">LimitLoadToSessionType &lt;string or array of
+    strings&gt;</b></dt>
+  <dd>This configuration file only applies to sessions of the type(s) specified.
+      This key only applies to jobs which are agents. There are no distinct
+      sessions in the privileged system context.</dd>
+  <dt><b class="Sy">LimitLoadToHardware &lt;dictionary of arrays&gt;</b></dt>
+  <dd>This configuration file only applies to the hardware listed with this key.
+      Each key in the dictionary defines a subdomain of the &quot;hw&quot;
+      <a class="Xr">sysctl(3)</a> domain. Each value of the value defines valid
+      values for the job to load. So a key of &quot;model&quot; with an array
+      specifying only &quot;MacBookPro4,2&quot; would only load on a machine
+      whose &quot;hw.model&quot; value was &quot;MacBookPro4,2&quot;.</dd>
+  <dt><b class="Sy">Program &lt;string&gt;</b></dt>
+  <dd>This key maps to the first argument of <a class="Xr">execv(3)</a> and
+      indicates the absolute path to the executable for the job. If this key is
+      missing, then the first element of the array of strings provided to the
+      <code class="Nm">ProgramArguments</code> will be used instead. This key is
+      required in the absence of the <code class="Nm">ProgramArguments</code>
+      key.</dd>
+  <dt><b class="Sy">ProgramArguments &lt;array of strings&gt;</b></dt>
+  <dd>This key maps to the second argument of <a class="Xr">execvp(3)</a> and
+      specifies the argument vector to be passed to the job when a process is
+      spawned. This key is required in the absence of the Program key.
+      <i class="Em">IMPORTANT:</i> Many people are confused by this key. Please
+      read <a class="Xr">execvp(3)</a> very carefully!
+    <p class="Pp"><i class="Em">NOTE:</i> The <code class="Nm">Program</code>
+        key must be an absolute path. Previous versions of launchd did not
+        enforce this requirement but failed to run the job. In the absence of
+        the <code class="Nm">Program</code> key, the first element of the
+        <code class="Nm">ProgramArguments</code> array may be either an absolute
+        path, or a relative path which is resolved using _PATH_STDPATH.</p>
+  </dd>
+  <dt><b class="Sy">EnableGlobbing &lt;boolean&gt;</b></dt>
+  <dd>This flag causes <code class="Nm">launchd</code> to use the
+      <a class="Xr">glob(3)</a> mechanism to update the program arguments before
+      invocation.</dd>
+  <dt><b class="Sy">EnableTransactions &lt;boolean&gt;</b></dt>
+  <dd>This key instructs <code class="Nm">launchd</code> that the job uses
+      <a class="Xr">xpc_transaction_begin(3)</a> and
+      <a class="Xr">xpc_transaction_end(3)</a> to track outstanding
+      transactions. When a process has an outstanding transaction, it is
+      considered active, otherwise inactive. A transaction is automatically
+      created when an XPC message expecting a reply is received, until the reply
+      is sent or the request message is discarded. When
+      <code class="Nm">launchd</code> stops an active process, it sends SIGTERM
+      first, and then SIGKILL after a reasonable timeout. If the process is
+      inactive, SIGKILL is sent immediately.</dd>
+  <dt><b class="Sy">EnablePressuredExit &lt;boolean&gt;</b></dt>
+  <dd>This key opts the job into the system's Pressured Exit facility. Use of
+      this key implies <code class="Nm">EnableTransactions</code> , and also
+      lets the system consider process eligible for reclamation under memory
+      pressure when it's inactive. See <a class="Xr">xpc_main(3)</a> for
+      details. Jobs that opt into Pressured Exit will be automatically
+      relaunched if they exit or crash while holding open transactions.
+    <p class="Pp"><i class="Em">NOTE</i>: <a class="Xr">launchd(8)</a> does not
+        respect <code class="Nm">EnablePressuredExit</code> for jobs that have
+        <code class="Nm">KeepAlive</code> set to true.</p>
+    <p class="Pp"><i class="Em">IMPORTANT</i>: Jobs which opt into Pressured
+        Exit will ignore SIGTERM rather than exiting by default, so a
+        <a class="Xr">dispatch(3)</a> source must be used when handling this
+        signal.</p>
+  </dd>
+  <dt><b class="Sy">OnDemand &lt;boolean&gt;</b></dt>
+  <dd>This key does nothing if set to true. If set to false, this key is
+      equivalent to specifying a true value for the
+      <code class="Nm">KeepAlive</code> key. This key should not be used. Please
+      remove this key from your <code class="Nm">launchd.plist</code>.</dd>
+  <dt><b class="Sy">ServiceIPC &lt;boolean&gt;</b></dt>
+  <dd>Please remove this key from your
+    <code class="Nm">launchd.plist</code>.</dd>
+  <dt><b class="Sy">KeepAlive &lt;boolean or dictionary of stuff&gt;</b></dt>
+  <dd>This optional key is used to control whether your job is to be kept
+      continuously running or to let demand and conditions control the
+      invocation. The default is false and therefore only demand will start the
+      job. The value may be set to true to unconditionally keep the job alive.
+      Alternatively, a dictionary of conditions may be specified to selectively
+      control whether <code class="Nm">launchd</code> keeps a job alive or not.
+      If multiple keys are provided, launchd ORs them, thus providing maximum
+      flexibility to the job to refine the logic and stall if necessary. If
+      <code class="Nm">launchd</code> finds no reason to restart the job, it
+      falls back on demand based invocation. Jobs that exit quickly and
+      frequently when configured to be kept alive will be throttled to conserve
+      system resources.
+    <dl class="Bl-ohang Bd-indent">
+      <dt><b class="Sy">SuccessfulExit &lt;boolean&gt;</b></dt>
+      <dd>If true, the job will be restarted as long as the program exits and
+          with an exit status of zero. If false, the job will be restarted in
+          the inverse condition. This key implies that &quot;RunAtLoad&quot; is
+          set to true, since the job needs to run at least once before an exit
+          status can be determined.</dd>
+      <dt><b class="Sy">NetworkState &lt;boolean&gt;</b></dt>
+      <dd>This key is no longer implemented as it never acted how most users
+          expected.</dd>
+      <dt><b class="Sy">PathState &lt;dictionary of booleans&gt;</b></dt>
+      <dd>Each key in this dictionary is a file-system path. If the value of the
+          key is true, then the job will be kept alive as long as the path
+          exists. If false, the job will be kept alive in the inverse condition.
+          The intent of this feature is that two or more jobs may create
+          semaphores in the file- system namespace. The following example keeps
+          the job alive as long as the file
+          <code class="Nm">/path/to/file</code> exists.
+        <p class="Pp"></p>
+        <div class="Bd
+          Bd-indent"><code class="Li">&lt;key&gt;KeepAlive&lt;/key&gt;</code></div>
+        <div class="Bd Bd-indent"><code class="Li">&lt;dict&gt;</code></div>
+        <div class="Bd
+          Bd-indent"><code class="Li">	&lt;key&gt;PathState&lt;/key&gt;</code></div>
+        <div class="Bd Bd-indent"><code class="Li">	&lt;dict&gt;</code></div>
+        <div class="Bd
+          Bd-indent"><code class="Li">		&lt;key&gt;/path/to/file&lt;/key&gt;</code></div>
+        <div class="Bd Bd-indent"><code class="Li">		&lt;true/&gt;</code></div>
+        <div class="Bd Bd-indent"><code class="Li">	&lt;/dict&gt;</code></div>
+        <div class="Bd Bd-indent"><code class="Li">&lt;/dict&gt;</code></div>
+        <p class="Pp"><i class="Em">IMPORTANT</i>: Filesystem monitoring
+            mechanisms are inherently race-prone and lossy. This option should
+            be avoided in favor of demand-based alternatives using IPC.</p>
+      </dd>
+      <dt><b class="Sy">OtherJobEnabled &lt;dictionary of booleans&gt;</b></dt>
+      <dd>Each key in this dictionary is the name of another job. If the value
+          is true, then the job will be kept alive as long as one of the
+          specified other jobs is loaded in <a class="Xr">launchd(8)</a>.
+        <p class="Pp"><i class="Em">NOTE</i>: This key only evaluates whether
+            the job is loaded, not whether it is running. Use of this key is
+            highly discouraged. If multiple jobs need to coordinate coordinate
+            their lifecycles, they should establish contracts using IPC.</p>
+      </dd>
+      <dt><b class="Sy">Crashed &lt;boolean&gt;</b></dt>
+      <dd>If true, the the job will be restarted as long as it exited due to a
+          signal which is typically associated with a crash (SIGILL, SIGSEGV,
+          etc.). If false, the job will be restarted in the inverse
+        condition.</dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">RunAtLoad &lt;boolean&gt;</b></dt>
+  <dd>This optional key is used to control whether your job is launched once at
+      the time the job is loaded. The default is false. This key should be
+      avoided, as speculative job launches have an adverse effect on system-boot
+      and user-login scenarios.</dd>
+  <dt><b class="Sy">RootDirectory &lt;string&gt;</b></dt>
+  <dd>This optional key is used to specify a directory to
+      <a class="Xr">chroot(2)</a> to before running the job.
+    <p class="Pp"><i class="Em">IMPORTANT</i>: iOS and OS X both make
+        significant use of IPC to implement features. The details of the
+        communication between a client and server are typically implemented in
+        dynamic library code that is abstracted away from the caller beneath the
+        API boundary so that the client of a daemon is not aware of any IPC that
+        is happening.</p>
+    <p class="Pp">So unless the library stack which exists in the jail specified
+        by this key or a call to <a class="Xr">chroot(2)</a> is identical to the
+        one shipping on the system, there is no guarantee that a process running
+        in that jail will know how to communicate with the daemons on the
+        system. Mismatches in the library stack between the jail and the system
+        can manifest as random failures, hangs and crashes.</p>
+    <p class="Pp">For these reasons, it is highly recommended that you avoid
+        making use of this key unless you have taken special precautions to
+        ensure that the job in question never attempts any IPC by setting the
+        XPC_NULL_BOOTSTRAP environment variable to a value of &quot;1&quot;.
+        Note that even if you have done this, you must also take special care to
+        propagate this environment variable to any child processes your job may
+        spawn through <a class="Xr">fork(2)</a> or
+        <a class="Xr">posix_spawn(2)</a>. And even if you have done that, there
+        is no guarantee that any subprocesses spawned by your child processes
+        will take care to do the same thing unless you completely control all
+        possible chains of execution, which is unlikely.</p>
+  </dd>
+  <dt><b class="Sy">WorkingDirectory &lt;string&gt;</b></dt>
+  <dd>This optional key is used to specify a directory to
+      <a class="Xr">chdir(2)</a> to before running the job.</dd>
+  <dt><b class="Sy">EnvironmentVariables &lt;dictionary of strings&gt;</b></dt>
+  <dd>This optional key is used to specify additional environmental variables to
+      be set before running the job. Each key in the dictionary is the name of
+      an environment variable, with the corresponding value being a string
+      representing the desired value. <i class="Em">NOTE</i>: Values other than
+      strings will be ignored.</dd>
+  <dt><b class="Sy">Umask &lt;integer or string&gt;</b></dt>
+  <dd>This optional key specifies what value should be passed to
+      <a class="Xr">umask(2)</a> before running the job. If the value specified
+      is an integer, it must be a decimal representation of the desired
+      <a class="Xr">umask</a>, as property lists do not support encoding
+      integers in octal. If a string is given, the string will be converted into
+      an integer as per the rules described in <a class="Xr">strtoul(3)</a>, and
+      an octal value may be specified by prefixing the string with a '0'. If a
+      string that does not cleanly convert to an integer is specified, the
+      behavior will be to set a <a class="Xr">umask(2)</a> according to the
+      <a class="Xr">strtoul(3)</a> parsing rules.</dd>
+  <dt><b class="Sy">TimeOut &lt;integer&gt;</b></dt>
+  <dd>The recommended idle time out (in seconds) to pass to the job. This key
+      never did anything interesting and is no longer implemented. Jobs seeking
+      to exit when idle should use the EnablePressuredExit key to opt into the
+      system mechanism for reclaiming killable jobs under memory pressure.</dd>
+  <dt><b class="Sy">ExitTimeOut &lt;integer&gt;</b></dt>
+  <dd>The amount of time <code class="Nm">launchd</code> waits between sending
+      the SIGTERM signal and before sending a SIGKILL signal when the job is to
+      be stopped. The default value is system-defined. The value zero is
+      interpreted as infinity and should not be used, as it can stall system
+      shutdown forever.</dd>
+  <dt><b class="Sy">ThrottleInterval &lt;integer&gt;</b></dt>
+  <dd>This key lets one override the default throttling policy imposed on jobs
+      by <code class="Nm">launchd</code>. The value is in seconds, and by
+      default, jobs will not be spawned more than once every 10 seconds. The
+      principle behind this is that jobs should linger around just in case they
+      are needed again in the near future. This not only reduces the latency of
+      responses, but it encourages developers to amortize the cost of program
+      invocation.</dd>
+  <dt><b class="Sy">InitGroups &lt;boolean&gt;</b></dt>
+  <dd>This optional key specifies whether <a class="Xr">initgroups(3)</a> to
+      initialize the group list for the job. The default is true. This key will
+      be ignored if the <code class="Nm">UserName</code> key is not set. Note
+      that for agents, the <code class="Nm">UserName</code> key is ignored.</dd>
+  <dt><b class="Sy">WatchPaths &lt;array of strings&gt;</b></dt>
+  <dd>This optional key causes the job to be started if any one of the listed
+      paths are modified.
+    <p class="Pp"><i class="Em">IMPORTANT</i>: Use of this key is highly
+        discouraged, as filesystem event monitoring is highly race-prone, and it
+        is entirely possible for modifications to be missed. When modifications
+        are caught, there is no guarantee that the file will be in a consistent
+        state when the job is launched.</p>
+  </dd>
+  <dt><b class="Sy">QueueDirectories &lt;array of strings&gt;</b></dt>
+  <dd>This optional key keeps the job alive as long as the directory or
+      directories specified are not empty.</dd>
+  <dt><b class="Sy">StartOnMount &lt;boolean&gt;</b></dt>
+  <dd>This optional key causes the job to be started every time a filesystem is
+      mounted.</dd>
+  <dt><b class="Sy">StartInterval &lt;integer&gt;</b></dt>
+  <dd>This optional key causes the job to be started every N seconds. If the
+      system is asleep during the time of the next scheduled interval firing,
+      that interval will be missed due to shortcomings in
+      <a class="Xr">kqueue(3)</a>. If the job is running during an interval
+      firing, that interval firing will likewise be missed.</dd>
+  <dt><b class="Sy">StartCalendarInterval &lt;dictionary of integers or array of
+    dictionaries of integers&gt;</b></dt>
+  <dd>This optional key causes the job to be started every calendar interval as
+      specified. Missing arguments are considered to be wildcard. The semantics
+      are similar to <a class="Xr">crontab(5)</a> in how firing dates are
+      specified. Multiple dictionaries may be specified in an array to schedule
+      multiple calendar intervals.
+    <p class="Pp">Unlike cron which skips job invocations when the computer is
+        asleep, launchd will start the job the next time the computer wakes up.
+        If multiple intervals transpire before the computer is woken, those
+        events will be coalesced into one event upon wake from sleep.</p>
+    <p class="Pp">Note that <code class="Nm">StartInterval</code> and
+        <code class="Nm">StartCalendarInterval</code> are not aware of each
+        other. They are evaluated completely independently by the system.</p>
+    <dl class="Bl-ohang Bd-indent">
+      <dt><b class="Sy">Minute &lt;integer&gt;</b></dt>
+      <dd>The minute (0-59) on which this job will be run.</dd>
+      <dt><b class="Sy">Hour &lt;integer&gt;</b></dt>
+      <dd>The hour (0-23) on which this job will be run.</dd>
+      <dt><b class="Sy">Day &lt;integer&gt;</b></dt>
+      <dd>The day of the month (1-31) on which this job will be run.</dd>
+      <dt><b class="Sy">Weekday &lt;integer&gt;</b></dt>
+      <dd>The weekday on which this job will be run (0 and 7 are Sunday). If
+          both <code class="Nm">Day</code> and <code class="Nm">Weekday</code>
+          are specificed, then the job will be started if either one matches the
+          current date.</dd>
+      <dt><b class="Sy">Month &lt;integer&gt;</b></dt>
+      <dd>The month (1-12) on which this job will be run.</dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">StandardInPath &lt;string&gt;</b></dt>
+  <dd>This optional key specifies that the given path should be mapped to the
+      job's <a class="Xr">stdin(4)</a>, and that the contents of that file will
+      be readable from the job's <a class="Xr">stdin(4)</a>. If the file does
+      not exist, no data will be delivered to the process'
+      <a class="Xr">stdin(4)</a>.</dd>
+  <dt><b class="Sy">StandardOutPath &lt;string&gt;</b></dt>
+  <dd>This optional key specifies that the given path should be mapped to the
+      job's <a class="Xr">stdout(4)</a>, and that any writes to the job's
+      <a class="Xr">stdout(4)</a> will go to the given file. If the file does
+      not exist, it will be created with writable permissions and ownership
+      reflecting the user and/or group specified as the
+      <code class="Nm">UserName</code> and/or <code class="Nm">GroupName</code>,
+      respectively (if set) and permissions reflecting the
+      <a class="Xr">umask(2)</a> specified by the <code class="Nm">Umask</code>
+      key, if set.</dd>
+  <dt><b class="Sy">StandardErrorPath &lt;string&gt;</b></dt>
+  <dd>This optional key specifies that the given path should be mapped to the
+      job's <a class="Xr">stderr(4)</a>, and that any writes to the job's
+      <a class="Xr">stderr(4)</a> will go to the given file. Note that this file
+      is opened as readable and writable as mandated by the POSIX specification
+      for unclear reasons. If the file does not exist, it will be created with
+      ownership reflecting the user and/or group specified as the
+      <code class="Nm">UserName</code> and/or <code class="Nm">GroupName</code>,
+      respectively (if set) and permissions reflecting the
+      <a class="Xr">umask(2)</a> specified by the <code class="Nm">Umask</code>
+      key, if set.</dd>
+  <dt><b class="Sy">Debug &lt;boolean&gt;</b></dt>
+  <dd>This optional key specifies that <code class="Nm">launchd</code> should
+      adjust its log mask temporarily to LOG_DEBUG while dealing with this
+    job.</dd>
+  <dt><b class="Sy">WaitForDebugger &lt;boolean&gt;</b></dt>
+  <dd>This optional key specifies that <code class="Nm">launchd</code> should
+      launch the job in a suspended state so that a debugger can be attached to
+      the process as early as possible (at the first instruction).</dd>
+  <dt><b class="Sy">SoftResourceLimits &lt;dictionary of integers&gt;</b></dt>
+  <dd></dd>
+  <dt><b class="Sy">HardResourceLimits &lt;dictionary of integers&gt;</b></dt>
+  <dd>Resource limits to be imposed on the job. These adjust variables set with
+      <a class="Xr">setrlimit(2)</a>. The following keys apply:
+    <dl class="Bl-ohang Bd-indent">
+      <dt><b class="Sy">Core &lt;integer&gt;</b></dt>
+      <dd>The largest size (in bytes) core file that may be created.</dd>
+      <dt><b class="Sy">CPU &lt;integer&gt;</b></dt>
+      <dd>The maximum amount of cpu time (in seconds) to be used by each
+          process.</dd>
+      <dt><b class="Sy">Data &lt;integer&gt;</b></dt>
+      <dd>The maximum size (in bytes) of the data segment for a process; this
+          defines how far a program may extend its break with the
+          <a class="Xr">sbrk(2)</a> system call.</dd>
+      <dt><b class="Sy">FileSize &lt;integer&gt;</b></dt>
+      <dd>The largest size (in bytes) file that may be created.</dd>
+      <dt><b class="Sy">MemoryLock &lt;integer&gt;</b></dt>
+      <dd>The maximum size (in bytes) which a process may lock into memory using
+          the <a class="Xr">mlock(2)</a> function.</dd>
+      <dt><b class="Sy">NumberOfFiles &lt;integer&gt;</b></dt>
+      <dd>The maximum number of open files for this process. Setting this value
+          in a system wide daemon will set the <a class="Xr">sysctl(3)</a>
+          kern.maxfiles (SoftResourceLimits) or kern.maxfilesperproc
+          (HardResourceLimits) value in addition to the
+          <a class="Xr">setrlimit(2)</a> values.</dd>
+      <dt><b class="Sy">NumberOfProcesses &lt;integer&gt;</b></dt>
+      <dd>The maximum number of simultaneous processes for this UID. Setting
+          this value in a system wide daemon will set the
+          <a class="Xr">sysctl(3)</a> kern.maxproc (SoftResourceLimits) or
+          kern.maxprocperuid (HardResourceLimits) value in addition to the
+          <a class="Xr">setrlimit(2)</a> values.</dd>
+      <dt><b class="Sy">ResidentSetSize &lt;integer&gt;</b></dt>
+      <dd>The maximum size (in bytes) to which a process's resident set size may
+          grow. This imposes a limit on the amount of physical memory to be
+          given to a process; if memory is tight, the system will prefer to take
+          memory from processes that are exceeding their declared resident set
+          size.</dd>
+      <dt><b class="Sy">Stack &lt;integer&gt;</b></dt>
+      <dd>The maximum size (in bytes) of the stack segment for a process; this
+          defines how far a program's stack segment may be extended. Stack
+          extension is performed automatically by the system.</dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">Nice &lt;integer&gt;</b></dt>
+  <dd>This optional key specifies what <a class="Xr">nice(3)</a> value should be
+      applied to the daemon.</dd>
+  <dt><b class="Sy">ProcessType &lt;string&gt;</b></dt>
+  <dd>This optional key describes, at a high level, the intended purpose of the
+      job. The system will apply resource limits based on what kind of job it
+      is. If left unspecified, the system will apply light resource limits to
+      the job, throttling its CPU usage and I/O bandwidth. This classification
+      is preferable to using the HardResourceLimits, SoftResourceLimits and Nice
+      keys. The following are valid values:
+    <dl class="Bl-ohang Bd-indent">
+      <dt><b class="Sy">Background</b></dt>
+      <dd>Background jobs are generally processes that do work that was not
+          directly requested by the user. The resource limits applied to
+          Background jobs are intended to prevent them from disrupting the user
+          experience.</dd>
+      <dt><b class="Sy">Standard</b></dt>
+      <dd>Standard jobs are equivalent to no ProcessType being set.</dd>
+      <dt><b class="Sy">Adaptive</b></dt>
+      <dd>Adaptive jobs move between the Background and Interactive
+          classifications based on activity over XPC connections. See
+          <a class="Xr">xpc_transaction_begin(3)</a> for details.</dd>
+      <dt><b class="Sy">Interactive</b></dt>
+      <dd>Interactive jobs run with the same resource limitations as apps, that
+          is to say, none. Interactive jobs are critical to maintaining a
+          responsive user experience, and this key should only be used if an
+          app's ability to be responsive depends on it, and cannot be made
+          Adaptive.</dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">AbandonProcessGroup &lt;boolean&gt;</b></dt>
+  <dd>When a job dies, <code class="Nm">launchd</code> kills any remaining
+      processes with the same process group ID as the job. Setting this key to
+      true disables that behavior.</dd>
+  <dt><b class="Sy">LowPriorityIO &lt;boolean&gt;</b></dt>
+  <dd>This optional key specifies whether the kernel should consider this daemon
+      to be low priority when doing filesystem I/O.</dd>
+  <dt><b class="Sy">LowPriorityBackgroundIO &lt;boolean&gt;</b></dt>
+  <dd>This optional key specifies whether the kernel should consider this daemon
+      to be low priority when doing filesystem I/O when the process is throttled
+      with the Darwin-background classification.</dd>
+  <dt><b class="Sy">MaterializeDatalessFiles</b></dt>
+  <dd>This optional key specifies the dataless file materialization policy.
+      Setting this key to true causes dataless files to be materialized. Setting
+      this key to false causes dataless files to not be materialized. If this
+      key is not set, the default system policy for dataless files will be used.
+      See <a class="Xr">setiopolicy_np(3)</a></dd>
+  <dt><b class="Sy">LaunchOnlyOnce &lt;boolean&gt;</b></dt>
+  <dd>This optional key specifies whether the job can only be run once and only
+      once. In other words, if the job cannot be safely respawned without a full
+      machine reboot, then set this key to be true.</dd>
+  <dt><b class="Sy">MachServices &lt;dictionary of booleans or a dictionary of
+    dictionaries&gt;</b></dt>
+  <dd>This optional key is used to specify Mach services to be registered with
+      the Mach bootstrap namespace. Each key in this dictionary should be the
+      name of a service to be advertised. The value of the key must be a boolean
+      and set to true or a dictionary in order for the service to be advertised.
+      Valid keys in this dictionary are:
+    <dl class="Bl-ohang Bd-indent">
+      <dt><b class="Sy">ResetAtClose &lt;boolean&gt;</b></dt>
+      <dd>The default value for this key is false, and so the port is recycled,
+          thus leaving clients to remain oblivious to the demand nature of the
+          job. If the value is set to true, clients receive port death
+          notifications when the job lets go of the receive right. The port will
+          be recreated atomically with respect to bootstrap_look_up() calls, so
+          that clients can trust that after receiving a port-death notification,
+          the new port will have already been recreated. Setting the value to
+          true should be done with care. Not all clients may be able to handle
+          this behavior. The default value is false.
+        <p class="Pp">Note that this option is not compatible with
+            <a class="Xr">xpc(3)</a>, which automatically handles notifying
+            clients of interrupted connections and server death.</p>
+      </dd>
+      <dt><b class="Sy">HideUntilCheckIn &lt;boolean&gt;</b></dt>
+      <dd>Reserve the name in the namespace, but cause bootstrap_look_up() to
+          fail until the job has checked in with
+          <code class="Nm">launchd</code>.
+        <p class="Pp">This option is incompatible with <a class="Xr">xpc(3)</a>,
+            which relies on the constant availability of services. This option
+            also encourages polling for service availability and is therefore
+            generally discouraged. Future implementations will penalize use of
+            this option in subtle and creative ways.</p>
+        <p class="Pp">Jobs can dequeue messages from the MachServices they
+            advertised with
+            <a class="Xr">xpc_connection_create_mach_service(3)</a> or
+            bootstrap_check_in() API (to obtain the underlying port's receive
+            right) and the Mach APIs to dequeue messages from that port.</p>
+      </dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">Sockets &lt;dictionary of dictionaries... OR dictionary of
+    array of dictionaries...&gt;</b></dt>
+  <dd>This optional key is used to specify launch on demand sockets that can be
+      used to let <code class="Nm">launchd</code> know when to run the job. The
+      job must check-in to get a copy of the file descriptors using the
+      <a class="Xr">launch_activate_socket(3)</a> API. The keys of the top level
+      Sockets dictionary can be anything. These keys are meant for the
+      application developer to associate which socket descriptors correspond to
+      which application level protocols (e.g. http vs. ftp vs. DNS...).
+    <p class="Pp">The parameters below are used as inputs to call
+        <a class="Xr">getaddrinfo(3)</a>.</p>
+    <dl class="Bl-ohang Bd-indent">
+      <dt><b class="Sy">SockType &lt;string&gt;</b></dt>
+      <dd>This optional key tells <code class="Nm">launchd</code> what type of
+          socket to create. The default is &quot;stream&quot; and other valid
+          values for this key are &quot;dgram&quot; and &quot;seqpacket&quot;
+          respectively.</dd>
+      <dt><b class="Sy">SockPassive &lt;boolean&gt;</b></dt>
+      <dd>This optional key specifies whether <a class="Xr">listen(2)</a> or
+          <a class="Xr">connect(2)</a> should be called on the created file
+          descriptor. The default is true, to listen for new connections.</dd>
+      <dt><b class="Sy">SockNodeName &lt;string&gt;</b></dt>
+      <dd>This optional key specifies the node to <a class="Xr">connect(2)</a>
+          or <a class="Xr">bind(2)</a> to.</dd>
+      <dt><b class="Sy">SockServiceName &lt;string or integer&gt;</b></dt>
+      <dd>This optional key specifies the service on the node to
+          <a class="Xr">connect(2)</a> or <a class="Xr">bind(2)</a> to. It may
+          be a port number represented as an integer or a service name
+          represented as a string (&quot;ssh&quot;, &quot;telnet&quot;,
+        etc.)</dd>
+      <dt><b class="Sy">SockFamily &lt;string&gt;</b></dt>
+      <dd>This optional key can be used to specifically request that
+          &quot;IPv4&quot; or &quot;IPv6&quot; socket(s) be created. An
+          additional option, &quot;IPv4v6&quot; indicates that a single socket
+          that listens for both IPv4 and IPv6 connections should be
+        created.</dd>
+      <dt><b class="Sy">SockProtocol &lt;string&gt;</b></dt>
+      <dd>This optional key specifies the protocol to be passed to
+          <a class="Xr">socket(2)</a>. The only values understood by this key at
+          the moment are &quot;TCP&quot; and &quot;UDP&quot;.</dd>
+      <dt><b class="Sy">SockPathName &lt;string&gt;</b></dt>
+      <dd>This optional key implies SockFamily is set to &quot;Unix&quot;. It
+          specifies the path to <a class="Xr">connect(2)</a> or
+          <a class="Xr">bind(2)</a> to.</dd>
+      <dt><b class="Sy">SecureSocketWithKey &lt;string&gt;</b></dt>
+      <dd>This optional key is a variant of SockPathName. Instead of binding to
+          a known path, a securely generated socket is created and the path is
+          assigned to the environment variable that is inherited by all jobs
+          spawned in the job's context.</dd>
+      <dt><b class="Sy">SockPathOwner &lt;integer&gt;</b></dt>
+      <dd>This optional key specifies the user ID that should be the domain
+          socket's owner.</dd>
+      <dt><b class="Sy">SockPathGroup &lt;integer&gt;</b></dt>
+      <dd>This optional key specifies the group ID that should be set as the
+          domain socket's group.</dd>
+      <dt><b class="Sy">SockPathMode &lt;integer&gt;</b></dt>
+      <dd>This optional key specifies the mode of the socket. Known bug:
+          Property lists don't support octal, so please convert the value to
+          decimal.</dd>
+      <dt><b class="Sy">Bonjour &lt;boolean or string or array of
+        strings&gt;</b></dt>
+      <dd>This optional key can be used to request that the service be
+          registered with the the Bonjour subsystem. If the value is boolean,
+          the service name is inferred from the SockServiceName.</dd>
+      <dt><b class="Sy">MulticastGroup &lt;string&gt;</b></dt>
+      <dd>This optional key can be used to request that the datagram socket join
+          a multicast group. If the value is a hostname, then
+          <a class="Xr">getaddrinfo(3)</a> will be used to join the correct
+          multicast address for a given socket family. If an explicit IPv4 or
+          IPv6 address is given, it is required that the SockFamily family also
+          be set, otherwise the results are undefined.</dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">LaunchEvents &lt;dictionary of dictionaries of
+    dictionaries&gt;</b></dt>
+  <dd>Specifies higher-level event types to be used as launch-on-demand event
+      sources. Each sub-dictionary defines events for a particular event
+      subsystem, such as &quot;com.apple.iokit.matching&quot;, which can be used
+      to launch jobs based on the appearance of nodes in the IORegistry. Each
+      dictionary within the sub-dictionary specifies an event descriptor that is
+      specified to each event subsystem. With this key, the job promises to use
+      the <a class="Xr">xpc_set_event_stream_handler(3)</a> API to consume
+      events. See <a class="Xr">xpc_events(3)</a> for more details on event
+      sources.</dd>
+  <dt><b class="Sy">HopefullyExitsLast &lt;string&gt;</b></dt>
+  <dd>This key was a hack for jobs which could not properly keep track of their
+      clients and is no longer implemented.</dd>
+  <dt><b class="Sy">HopefullyExitsFirst &lt;string&gt;</b></dt>
+  <dd>This key was a hack for jobs which could not properly keep track of their
+      clients and is no longer implemented.</dd>
+  <dt><b class="Sy">SessionCreate &lt;boolean&gt;</b></dt>
+  <dd>This key specifies that the job should be spawned into a new security
+      audit session rather than the default session for the context is belongs
+      to. See <a class="Xr">auditon(2)</a> for details.</dd>
+  <dt><b class="Sy">LegacyTimers &lt;boolean&gt;</b></dt>
+  <dd>This optional key controls the behavior of timers created by the job. By
+      default on OS X Mavericks version 10.9 and later, timers created by
+      launchd jobs are coalesced. Batching the firing of timers with similar
+      deadlines improves the overall energy efficiency of the system. If this
+      key is set to true, timers created by the job will opt into less efficient
+      but more precise behavior and not be coalesced with other timers. This key
+      may have no effect if the job's <var class="Fa">ProcessType</var> is not
+      set to Interactive.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
+Daemons and agents managed by launchd are subject to macOS user privacy
+  protections. Specifying privacy sensitive files and folders in a launchd plist
+  may not have the desired effect, and may prevent the job from running.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DEPENDENCIES"><a class="permalink" href="#DEPENDENCIES">DEPENDENCIES</a></h1>
+Unlike many bootstrapping daemons, launchd has no explicit dependency model.
+  Interdependencies are expected to be solved through the use of IPC. It is
+  therefore in the best interest of a job developer who expects dependents to
+  define all of the sockets in the configuration file. This has the added
+  benefit of making it possible to start the job based on demand instead of
+  immediately. <code class="Nm">launchd</code> will continue to place as many
+  restrictions on jobs that do not conform to this model as possible.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE_XML_PROPERTY_LISTS"><a class="permalink" href="#EXAMPLE_XML_PROPERTY_LISTS">EXAMPLE
+  XML PROPERTY LISTS</a></h1>
+The following XML Property List describes an on-demand daemon that will only
+  launch when a message arrives on the &quot;com.example.exampled&quot;
+  MachService.
+<p class="Pp"></p>
+<div class="Bd Bd-indent"><code class="Li">&lt;?xml version=&quot;1.0&quot;
+  encoding=&quot;UTF-8&quot;?&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">&lt;!DOCTYPE plist PUBLIC
+  &quot;-//Apple Computer//DTD PLIST 1.0//EN&quot;
+  &quot;http://www.apple.com/DTDs/PropertyList-1.0.dtd&quot;&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">&lt;plist
+  version=&quot;1.0&quot;&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">&lt;dict&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">	&lt;key&gt;Label&lt;/key&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">	&lt;string&gt;com.example.exampled&lt;/string&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">	&lt;key&gt;Program&lt;/key&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">	&lt;string&gt;/path/tp/exampled&lt;/string&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">	&lt;key&gt;ProgramArguments&lt;/key&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">	&lt;array&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">		&lt;string&gt;exampled&lt;/string&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">		&lt;string&gt;argv1&lt;/string&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">		&lt;string&gt;argv2&lt;/string&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">	&lt;/array&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">	&lt;key&gt;MachServices&lt;/key&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">	&lt;dict&gt;</code></div>
+<div class="Bd
+  Bd-indent"><code class="Li">		&lt;key&gt;com.example.exampled&lt;/key&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">		&lt;true/&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">	&lt;/dict&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">&lt;/dict&gt;</code></div>
+<div class="Bd Bd-indent"><code class="Li">&lt;/plist&gt;</code></div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag Bl-compact">
+  <dt><span class="Pa">~/Library/LaunchAgents</span></dt>
+  <dd>Per-user agents provided by the user.</dd>
+  <dt><span class="Pa">/Library/LaunchAgents</span></dt>
+  <dd>Per-user agents provided by the administrator.</dd>
+  <dt><span class="Pa">/Library/LaunchDaemons</span></dt>
+  <dd>System-wide daemons provided by the administrator.</dd>
+  <dt><span class="Pa">/System/Library/LaunchAgents</span></dt>
+  <dd>Per-user agents provided by OS X.</dd>
+  <dt><span class="Pa">/System/Library/LaunchDaemons</span></dt>
+  <dd>System-wide daemons provided by OS X.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">launchctl(1)</a>, <a class="Xr">sysctl(3)</a>,
+  <a class="Xr">launchd(8)</a>, <a class="Xr">plist(5)</a>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">30 July, 2019</td>
+    <td class="foot-os">Darwin</td>
+  </tr>
+</table>
+</body>
+</html>

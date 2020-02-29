@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   cupsd-logs man page for CUPS.
+  
+   Copyright \[u00A9]\[u00A0]2007-2019 by Apple Inc.
+   Copyright \[u00A9]\[u00A0]1997-2006 by Easy Software Products.
+  
+   Licensed under Apache License v2.0.  See the file "LICENSE" for more
+   information.
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>cupsd-logs(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">cupsd-logs(5)</td>
+    <td class="head-vol">Apple Inc.</td>
+    <td class="head-rtitle">cupsd-logs(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+cupsd-logs - cupsd log files (access_log, error_log, and page_log)
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<b>cupsd</b>(8) normally maintains three log files: <i>access_log</i> to track
+  requests that are submitted to the scheduler, <i>error_log</i> to track
+  progress and errors, and <i>page_log</i> to track pages that are printed.
+  Configuration directives in <b>cupsd.conf</b>(5) and <b>cups-files.conf</b>(5)
+  control what information is logged and where it is stored.
+<section class="Ss">
+<h2 class="Ss" id="ACCESS_LOG_FILE_FORMAT"><a class="permalink" href="#ACCESS_LOG_FILE_FORMAT">ACCESS
+  LOG FILE FORMAT</a></h2>
+The <i>access_log</i> file lists each HTTP resource that is accessed by a web
+  browser or client. Each line is in an extended version of the so-called
+  &quot;Common Log Format&quot; used by many web servers and web reporting
+  tools:
+<pre>
+    <i>host group user date-time </i>&quot;<i>method resource version</i>&quot; <i>status bytes</i>
+<i>      ipp-operation ipp-status</i>
+</pre>
+For example:
+<pre>
+    10.0.1.2 - - [01/Dec/2005:21:50:28 +0000] &quot;POST / HTTP/1.1&quot; 200 317
+      CUPS-Get-Printers successful-ok-ignored-or-substituted-attributes
+    localhost - - [01/Dec/2005:21:50:32 +0000] &quot;GET /admin HTTP/1.1&quot;
+      200 0 - -
+    localhost - - [01/Dec/2005:21:50:32 +0000] &quot;POST / HTTP/1.1&quot;
+      200 157 CUPS-Get-Printers
+      successful-ok-ignored-or-substituted-attributes
+    localhost - - [01/Dec/2005:21:50:32 +0000] &quot;POST / HTTP/1.1&quot;
+      200 1411 CUPS-Get-Devices -
+    localhost - - [01/Dec/2005:21:50:32 +0000] &quot;GET /admin HTTP/1.1&quot;
+      200 6667 - -
+</pre>
+The <i>host</i> field will normally only be an IP address unless you have
+  enabled the HostNameLookups directive in the <i>cupsd.conf</i> file or if the
+  IP address corresponds to your local machine.
+<p class="Pp">The <i>group</i> field always contains &quot;-&quot;.</p>
+<p class="Pp">The <i>user</i> field is the authenticated username of the
+    requesting user. If no username and password is supplied for the request
+    then this field contains &quot;-&quot;.</p>
+<p class="Pp">The <i>date-time</i> field is the date and time of the request in
+    local time and is in the format &quot;[DD/MON/YYYY:HH:MM:SS
+  +ZZZZ]&quot;.</p>
+<p class="Pp">The <i>method</i> field is the HTTP method used: &quot;GET&quot;,
+    &quot;HEAD&quot;, &quot;OPTIONS&quot;, &quot;POST&quot;, or &quot;PUT&quot;.
+    &quot;GET&quot; requests are used to get files from the server, both for the
+    web interface and to get configuration and log files. &quot;HEAD&quot;
+    requests are used to get information about a resource prior to a
+    &quot;GET&quot;. &quot;OPTIONS&quot; requests are used to upgrade
+    connections to TLS encryption. &quot;POST&quot; requests are used for web
+    interface forms and IPP requests. &quot;PUT&quot; requests are used to
+    upload configuration files.</p>
+<p class="Pp">The <i>resource</i> field is the filename of the requested
+    resource.</p>
+<p class="Pp">The <i>version</i> field is the HTTP specification version used by
+    the client. For CUPS clients this will always be &quot;HTTP/1.1&quot;.</p>
+<p class="Pp">The <i>status</i> field contains the HTTP result status of the
+    request, as follows:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>200</dt>
+  <dd>Successful operation.</dd>
+  <dt>201</dt>
+  <dd>File created/modified successfully.</dd>
+  <dt>304</dt>
+  <dd>The requested file has not changed.</dd>
+  <dt>400</dt>
+  <dd>Bad HTTP request; typically this means that you have a malicious program
+      trying to access your server.</dd>
+  <dt>401</dt>
+  <dd>Unauthorized, authentication (username + password) is required.</dd>
+  <dt>403</dt>
+  <dd>Access is forbidden; typically this means that a client tried to access a
+      file or resource they do not have permission to access.</dd>
+  <dt>404</dt>
+  <dd>The file or resource does not exist.</dd>
+  <dt>405</dt>
+  <dd>URL access method is not allowed; typically this means you have a web
+      browser using your server as a proxy.</dd>
+  <dt>413</dt>
+  <dd>Request too large; typically this means that a client tried to print a
+      file larger than the MaxRequestSize allows.</dd>
+  <dt>426</dt>
+  <dd>Upgrading to TLS-encrypted connection.</dd>
+  <dt>500</dt>
+  <dd>Server error; typically this happens when the server is unable to
+      open/create a file - consult the error_log file for details.</dd>
+  <dt>501</dt>
+  <dd>The client requested encryption but encryption support is not
+      enabled/compiled in.</dd>
+  <dt>505</dt>
+  <dd>HTTP version number not supported; typically this means that you have a
+      malicious program trying to access your server.</dd>
+</dl>
+</div>
+<p class="Pp">The <i>bytes</i> field contains the number of bytes in the
+    request. For POST requests the bytes field contains the number of bytes of
+    non-IPP data that is received from the client.</p>
+<p class="Pp">The <i>ipp-operation</i> field contains either &quot;-&quot; for
+    non-IPP requests or the IPP operation name for POST requests containing an
+    IPP request.</p>
+<p class="Pp">The <i>ipp-status</i> field contains either &quot;-&quot; for
+    non-IPP requests or the IPP status code name for POST requests containing an
+    IPP response.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="ERROR_LOG_FILE_FORMAT"><a class="permalink" href="#ERROR_LOG_FILE_FORMAT">ERROR
+  LOG FILE FORMAT</a></h2>
+The <i>error_log</i> file lists messages from the scheduler - errors, warnings,
+  etc. The LogLevel directive in the <b>cupsd.conf</b>(5) file controls which
+  messages are logged:
+<pre>
+    level date-time message
+</pre>
+For example:
+<pre>
+    I [20/May/1999:19:18:28 +0000] [Job 1] Queued on 'DeskJet' by 'mike'.
+    D [20/May/1999:19:18:28 +0000] [Job 1] argv[0]=&quot;DeskJet&quot;
+    D [20/May/1999:19:18:28 +0000] [Job 1] argv[1]=&quot;1&quot;
+    D [20/May/1999:19:18:28 +0000] [Job 1] argv[2]=&quot;mike&quot;
+    D [20/May/1999:19:18:28 +0000] [Job 1] argv[3]=&quot;myjob&quot;
+    D [20/May/1999:19:18:28 +0000] [Job 1] argv[4]=&quot;1&quot;
+    D [20/May/1999:19:18:28 +0000] [Job 1] argv[5]=&quot;media=
+      na_letter_8.5x11in sides=one-sided&quot;
+    D [20/May/1999:19:18:28 +0000] [Job 1] argv[6]=&quot;/var/spool/cups/
+      d000001-001&quot;
+    I [20/May/1999:19:21:02 +0000] [Job 2] Queued on 'DeskJet' by 'mike'.
+    I [20/May/1999:19:22:24 +0000] [Job 2] Canceled by 'mike'.
+</pre>
+The <i>level</i> field contains the type of message:
+<dl class="Bl-tag">
+  <dt>A</dt>
+  <dd>Alert message (LogLevel alert)</dd>
+  <dt>C</dt>
+  <dd>Critical error message (LogLevel crit)</dd>
+  <dt>D</dt>
+  <dd>Debugging message (LogLevel debug)</dd>
+  <dt>d</dt>
+  <dd>Detailed debugging message (LogLevel debug2)</dd>
+  <dt>E</dt>
+  <dd>Normal error message (LogLevel error)</dd>
+  <dt>I</dt>
+  <dd>Informational message (LogLevel info)</dd>
+  <dt>N</dt>
+  <dd>Notice message (LogLevel notice)</dd>
+  <dt>W</dt>
+  <dd>Warning message (LogLevel warn)</dd>
+  <dt>X</dt>
+  <dd>Emergency error message (LogLevel emerg)</dd>
+</dl>
+<p class="Pp">The <i>date-time</i> field contains the date and time of when the
+    page started printing. The format of this field is identical to the
+    data-time field in the <i>access_log</i> file.</p>
+<p class="Pp">The <i>message</i> field contains a free-form textual message.
+    Messages from job filters are prefixed with &quot;[Job NNN]&quot; where
+    &quot;NNN&quot; is the job ID.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="PAGE_LOG_FILE_FORMAT"><a class="permalink" href="#PAGE_LOG_FILE_FORMAT">PAGE
+  LOG FILE FORMAT</a></h2>
+The <i>page_log</i> file lists the total number of pages (sheets) that are
+  printed. By default, each line contains the following information:
+<pre>
+    <i>printer user job-id date-time </i><b>total </b><i>num-sheets job-billing</i>
+<i>      job-originating-host-name job-name media sides</i>
+</pre>
+For example the entry for a two page job called &quot;myjob&quot; might look
+  like:
+<pre>
+    DeskJet root 1 [20/May/1999:19:21:06 +0000] total 2 acme-123
+      localhost myjob na_letter_8.5x11in one-sided
+</pre>
+The PageLogFormat directive in the <b>cupsd.conf</b>(5) file can be used to
+  change this information.
+<p class="Pp">The <i>printer</i> field contains the name of the printer that
+    printed the page. If you send a job to a printer class, this field will
+    contain the name of the printer that was assigned the job.</p>
+<p class="Pp">The <i>user</i> field contains the name of the user (the IPP
+    requesting-user-name attribute) that submitted this file for printing.</p>
+<p class="Pp">The <i>job-id</i> field contains the job number of the page being
+    printed.</p>
+<p class="Pp">The <i>date-time</i> field contains the date and time of when the
+    page started printing. The format of this field is identical to the
+    data-time field in the <i>access_log</i> file.</p>
+<p class="Pp">The <i>num-sheets</i> field provides the total number of pages
+    (sheets) that have been printed on for the job.</p>
+<p class="Pp">The <i>job-billing</i> field contains a copy of the job-billing or
+    job-account-id attributes provided with the IPP Create-Job or Print-Job
+    requests or &quot;-&quot; if neither was provided.</p>
+<p class="Pp">The <i>job-originating-host-name</i> field contains the hostname
+    or IP address of the client that printed the job.</p>
+<p class="Pp">The <i>job-name</i> field contains a copy of the job-name
+    attribute provided with the IPP Create-Job or Print-Job requests or
+    &quot;-&quot; if none was provided.</p>
+<p class="Pp">The <i>media</i> field contains a copy of the media or
+    media-col/media-size attribute provided with the IPP Create-Job or Print-Job
+    requests or &quot;-&quot; if none was provided.</p>
+<p class="Pp">The <i>sides</i> field contains a copy of the sides attribute
+    provided with the IPP Create-Job or Print-Job requests or &quot;-&quot; if
+    none was provided.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>cupsd</b>(8), <b>cupsd.conf</b>(5), <b>cups-files.conf</b>(5), CUPS Online
+  Help (http://localhost:631/help)
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+Copyright &#x00A9; 2007-2019 by Apple Inc.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">CUPS</td>
+    <td class="foot-os">26 April 2019</td>
+  </tr>
+</table>
+</body>
+</html>

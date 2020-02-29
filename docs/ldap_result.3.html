@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>LDAP_RESULT(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">LDAP_RESULT(3)</td>
+    <td class="head-vol">Library Functions Manual</td>
+    <td class="head-rtitle">LDAP_RESULT(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+ldap_result - Wait for the result of an LDAP operation
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+OpenLDAP LDAP (libldap, -lldap)
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>
+<b></b><b>#include &lt;ldap.h&gt;</b>
+</pre>
+<pre>
+<b></b><b>int ldap_result( LDAP *ld, int msgid, int all,</b>
+<b>	struct timeval *timeout, LDAPMessage **result );</b>
+<b>int ldap_msgfree( LDAPMessage *msg );</b>
+<b>int ldap_msgtype( LDAPMessage *msg );</b>
+<b>int ldap_msgid( LDAPMessage *msg );</b>
+<b></b>
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The <b>ldap_result()</b> routine is used to wait for and return the result of an
+  operation previously initiated by one of the LDAP asynchronous operation
+  routines (e.g., <b>ldap_search_ext</b>(3), <b>ldap_modify_ext</b>(3), etc.).
+  Those routines all return -1 in case of error, and an invocation identifier
+  upon successful initiation of the operation. The invocation identifier is
+  picked by the library and is guaranteed to be unique across the LDAP session.
+  It can be used to request the result of a specific operation from
+  <b>ldap_result()</b> through the <i>msgid</i> parameter.
+<p class="Pp">The <b>ldap_result()</b> routine will block or not, depending upon
+    the setting of the <i>timeout</i> parameter. If timeout is not a NULL
+    pointer, it specifies a maximum interval to wait for the selection to
+    complete. If timeout is a NULL pointer, the LDAP_OPT_TIMEOUT value set by
+    <b>ldap_set_option</b>(3) is used. With the default setting, the select
+    blocks indefinitely. To effect a poll, the timeout argument should be a
+    non-NULL pointer, pointing to a zero-valued timeval structure. To obtain the
+    behavior of the default setting, bypassing any value set by
+    <b>ldap_set_option</b>(3), set to -1 the <i>tv_sec</i> field of the
+    <i>timeout</i> parameter. See <b>select</b>(2) for further details.</p>
+<p class="Pp">If the result of a specific operation is required, <i>msgid</i>
+    should be set to the invocation identifier returned when the operation was
+    initiated, otherwise LDAP_RES_ANY or LDAP_RES_UNSOLICITED should be supplied
+    to wait for any or unsolicited response.</p>
+<p class="Pp">The <i>all</i> parameter, if non-zero, causes <b>ldap_result()</b>
+    to return all responses with msgid, otherwise only the next response is
+    returned. This is commonly used to obtain all the responses of a search
+    operation.</p>
+<p class="Pp">A search response is made up of zero or more search entries, zero
+    or more search references, and zero or more extended partial responses
+    followed by a search result. If <i>all</i> is set to 0, search entries will
+    be returned one at a time as they come in, via separate calls to
+    <b>ldap_result()</b>. If it's set to 1, the search response will only be
+    returned in its entirety, i.e., after all entries, all references, all
+    extended partial responses, and the final search result have been
+  received.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+Upon success, the type of the result received is returned and the <i>result</i>
+  parameter will contain the result of the operation; otherwise, the
+  <i>result</i> parameter is undefined. This result should be passed to the LDAP
+  parsing routines, <b>ldap_first_message</b>(3) and friends, for
+  interpretation.
+<p class="Pp">The possible result types returned are:</p>
+<p class="Pp"></p>
+<pre>
+	LDAP_RES_BIND (0x61)
+	LDAP_RES_SEARCH_ENTRY (0x64)
+	LDAP_RES_SEARCH_REFERENCE (0x73)
+	LDAP_RES_SEARCH_RESULT (0x65)
+	LDAP_RES_MODIFY (0x67)
+	LDAP_RES_ADD (0x69)
+	LDAP_RES_DELETE (0x6b)
+	LDAP_RES_MODDN (0x6d)
+	LDAP_RES_COMPARE (0x6f)
+	LDAP_RES_EXTENDED (0x78)
+	LDAP_RES_INTERMEDIATE (0x79)
+</pre>
+<p class="Pp">The <b>ldap_msgfree()</b> routine is used to free the memory
+    allocated for result(s) by <b>ldap_result()</b> or
+    <b>ldap_search_ext_s</b>(3) and friends. It takes a pointer to the result or
+    result chain to be freed and returns the type of the last message in the
+    chain. If the parameter is NULL, the function does nothing and returns
+  zero.</p>
+<p class="Pp">The <b>ldap_msgtype()</b> routine returns the type of a
+  message.</p>
+<p class="Pp">The <b>ldap_msgid()</b> routine returns the message id of a
+    message.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ERRORS"><a class="permalink" href="#ERRORS">ERRORS</a></h1>
+<b>ldap_result()</b> returns -1 if something bad happens, and zero if the
+  timeout specified was exceeded. <b>ldap_msgtype()</b> and <b>ldap_msgid()</b>
+  return -1 on error.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>ldap</b>(3), <b>ldap_first_message</b>(3), <b>select</b>(2)
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACKNOWLEDGEMENTS"><a class="permalink" href="#ACKNOWLEDGEMENTS">ACKNOWLEDGEMENTS</a></h1>
+<b>OpenLDAP Software</b> is developed and maintained by The OpenLDAP Project
+  &lt;http://www.openldap.org/&gt;. <b>OpenLDAP Software</b> is derived from
+  University of Michigan LDAP 3.3 Release.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2011/11/24</td>
+    <td class="foot-os">OpenLDAP 2.4.28</td>
+  </tr>
+</table>
+</body>
+</html>

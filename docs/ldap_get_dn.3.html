@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>LDAP_GET_DN(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">LDAP_GET_DN(3)</td>
+    <td class="head-vol">Library Functions Manual</td>
+    <td class="head-rtitle">LDAP_GET_DN(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+ldap_get_dn, ldap_explode_dn, ldap_explode_rdn, ldap_dn2ufn - LDAP DN handling
+  routines
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+OpenLDAP LDAP (libldap, -lldap)
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>
+<b></b><b>#include &lt;ldap.h&gt;</b>
+</pre>
+<pre>
+<b></b><b>char *ldap_get_dn( LDAP *ld, LDAPMessage *entry )</b>
+</pre>
+<pre>
+<b></b><b>int ldap_str2dn( const char *str, LDAPDN *dn, unsigned flags )</b>
+</pre>
+<pre>
+<b></b><b>void ldap_dnfree( LDAPDN dn )</b>
+</pre>
+<pre>
+<b></b><b>int ldap_dn2str( LDAPDN dn, char **str, unsigned flags )</b>
+</pre>
+<pre>
+<b></b><b>char **ldap_explode_dn( const char *dn, int notypes )</b>
+</pre>
+<pre>
+<b></b><b>char **ldap_explode_rdn( const char *rdn, int notypes )</b>
+</pre>
+<pre>
+<b></b><b>char *ldap_dn2ufn( const char * dn )</b>
+</pre>
+<pre>
+<b></b><b>char *ldap_dn2dcedn( const char * dn )</b>
+</pre>
+<pre>
+<b></b><b>char *ldap_dcedn2dn( const char * dn )</b>
+</pre>
+<pre>
+<b></b><b>char *ldap_dn2ad_canonical( const char * dn )</b>
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+These routines allow LDAP entry names (Distinguished Names, or DNs) to be
+  obtained, parsed, converted to a user-friendly form, and tested. A DN has the
+  form described in RFC 4414 &quot;Lightweight Directory Access Protocol (LDAP):
+  String Representation of Distinguished Names&quot;.
+<p class="Pp">The <b>ldap_get_dn()</b> routine takes an <i>entry</i> as returned
+    by <b>ldap_first_entry</b>(3) or <b>ldap_next_entry</b>(3) and returns a
+    copy of the entry's DN. Space for the DN will be obtained dynamically and
+    should be freed by the caller using <b>ldap_memfree</b>(3).</p>
+<p class="Pp"><b>ldap_str2dn()</b> parses a string representation of a
+    distinguished name contained in <b>str</b> into its components, which are
+    stored in <b>dn</b> as <b>ldap_ava</b> structures, arranged in
+    <b>LDAPAVA,</b> <b>LDAPRDN,</b> and <b>LDAPDN</b> terms. Space for <b>dn</b>
+    will be obtained dynamically and should be freed by the caller using
+    <b>ldap_dnfree</b>(3). The <b>LDAPDN</b> is defined as:</p>
+<pre>
+<b></b>
+<b>typedef struct ldap_ava {</b>
+<b>    char *la_attr;</b>
+<b>    struct berval *la_value;</b>
+<b>    unsigned la_flags;</b>
+<b>} LDAPAVA;</b>
+<b>typedef LDAPAVA** LDAPRDN;</b>
+<b>typedef LDAPRDN* LDAPDN;</b>
+<b></b>
+</pre>
+The attribute types and the attribute values are not normalized. The
+  <b>la_flags</b> can be either <b>LDAP_AVA_STRING</b> or
+  <b>LDAP_AVA_BINARY,</b> the latter meaning that the value is BER/DER encoded
+  and thus must be represented as, quoting from RFC 4514, &quot; ... an
+  octothorpe character ('#' ASCII 35) followed by the hexadecimal representation
+  of each of the bytes of the BER encoding of the X.500 AttributeValue.&quot;
+  The <b>flags</b> parameter to <b>ldap_str2dn()</b> can be
+<p class="Pp"></p>
+<pre>
+	LDAP_DN_FORMAT_LDAPV3
+	LDAP_DN_FORMAT_LDAPV2
+	LDAP_DN_FORMAT_DCE
+</pre>
+which defines what DN syntax is expected (according to RFC 4514, RFC 1779 and
+  DCE, respectively). The format can be <i>OR</i>ed to the flags
+<p class="Pp"></p>
+<pre>
+	LDAP_DN_P_NO_SPACES
+	LDAP_DN_P_NO_SPACE_AFTER_RDN
+	...
+	LDAP_DN_PEDANTIC
+</pre>
+The latter is a shortcut for all the previous limitations.
+<p class="Pp"><b>LDAP_DN_P_NO_SPACES</b> does not allow extra spaces in the dn;
+    the default is to silently eliminate spaces around AVA separators ('='), RDN
+    component separators ('+' for LDAPv3/LDAPv2 or ',' for DCE) and RDN
+    separators (',' LDAPv3/LDAPv2 or '/' for DCE).</p>
+<p class="Pp"><b>LDAP_DN_P_NO_SPACE_AFTER_RDN</b> does not allow a single space
+    after RDN separators.</p>
+<p class="Pp"><b>ldap_dn2str()</b> performs the inverse operation, yielding in
+    <b>str</b> a string representation of <b>dn.</b> It allows the same values
+    for <b>flags</b> as <b>ldap_str2dn(),</b> plus</p>
+<p class="Pp"></p>
+<pre>
+	LDAP_DN_FORMAT_UFN
+	LDAP_DN_FORMAT_AD_CANONICAL
+</pre>
+for user-friendly naming (RFC 1781) and AD canonical.
+<p class="Pp">The following routines are viewed as deprecated in favor of
+    <b>ldap_str2dn()</b> and <b>ldap_dn2str().</b> They are provided to support
+    legacy applications.</p>
+<p class="Pp">The <b>ldap_explode_dn()</b> routine takes a DN as returned by
+    <b>ldap_get_dn()</b> and breaks it up into its component parts. Each part is
+    known as a Relative Distinguished Name, or RDN. <b>ldap_explode_dn()</b>
+    returns a NULL-terminated array, each component of which contains an RDN
+    from the DN. The <i>notypes</i> parameter is used to request that only the
+    RDN values be returned, not their types. For example, the DN &quot;cn=Bob,
+    c=US&quot; would return as either { &quot;cn=Bob&quot;, &quot;c=US&quot;,
+    NULL } or { &quot;Bob&quot;, &quot;US&quot;, NULL }, depending on whether
+    notypes was 0 or 1, respectively. Assertion values in RDN strings may
+    included escaped characters. The result can be freed by calling
+    <b>ldap_value_free</b>(3).</p>
+<p class="Pp">Similarly, the <b>ldap_explode_rdn()</b> routine takes an RDN as
+    returned by <b>ldap_explode_dn(dn,0)</b> and breaks it up into its
+    &quot;type=value&quot; component parts (or just &quot;value&quot;, if the
+    <i>notypes</i> parameter is set). Note the value is not unescaped. The
+    result can be freed by calling <b>ldap_value_free</b>(3).</p>
+<p class="Pp"><b>ldap_dn2ufn()</b> is used to turn a DN as returned by
+    <b>ldap_get_dn</b>(3) into a more user-friendly form, stripping off all type
+    names. See &quot;Using the Directory to Achieve User Friendly Naming&quot;
+    (RFC 1781) for more details on the UFN format. Due to the ambiguous nature
+    of the format, it is generally only used for display purposes. The space for
+    the UFN returned is obtained dynamically and the user is responsible for
+    freeing it via a call to <b>ldap_memfree</b>(3).</p>
+<p class="Pp"><b>ldap_dn2dcedn()</b> is used to turn a DN as returned by
+    <b>ldap_get_dn</b>(3) into a DCE-style DN, e.g. a string with
+    most-significant to least significant rdns separated by slashes ('/'); rdn
+    components are separated by commas (','). Only printable chars (e.g. LDAPv2
+    printable string) are allowed, at least in this implementation.
+    <b>ldap_dcedn2dn()</b> performs the opposite operation.
+    <b>ldap_dn2ad_canonical()</b> turns a DN into a AD canonical name, which is
+    basically a DCE dn with attribute types omitted. The trailing domain, if
+    present, is turned in a DNS-like domain. The space for the returned value is
+    obtained dynamically and the user is responsible for freeing it via a call
+    to <b>ldap_memfree</b>(3).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ERRORS"><a class="permalink" href="#ERRORS">ERRORS</a></h1>
+If an error occurs in <b>ldap_get_dn()</b>, NULL is returned and the
+  <b>ld_errno</b> field in the <i>ld</i> parameter is set to indicate the error.
+  See <b>ldap_error</b>(3) for a description of possible error codes.
+  <b>ldap_explode_dn()</b>, <b>ldap_explode_rdn()</b>, <b>ldap_dn2ufn(),</b>
+  <b>ldap_dn2dcedn(),</b> <b>ldap_dcedn2dn(),</b> and
+  <b>ldap_dn2ad_canonical()</b> will return NULL with <b>errno</b>(3) set
+  appropriately in case of trouble.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+These routines dynamically allocate memory that the caller must free.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>ldap</b>(3), <b>ldap_error</b>(3), <b>ldap_first_entry</b>(3),
+  <b>ldap_memfree</b>(3), <b>ldap_value_free</b>(3)
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACKNOWLEDGEMENTS"><a class="permalink" href="#ACKNOWLEDGEMENTS">ACKNOWLEDGEMENTS</a></h1>
+<b>OpenLDAP Software</b> is developed and maintained by The OpenLDAP Project
+  &lt;http://www.openldap.org/&gt;. <b>OpenLDAP Software</b> is derived from
+  University of Michigan LDAP 3.3 Release.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2011/11/24</td>
+    <td class="foot-os">OpenLDAP 2.4.28</td>
+  </tr>
+</table>
+</body>
+</html>

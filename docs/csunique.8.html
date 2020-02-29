@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   Copyright (c) 2012 Apple Inc.  All rights reserved.
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>CSUNIQUE(8)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">CSUNIQUE(8)</td>
+    <td class="head-vol">System Manager's Manual</td>
+    <td class="head-rtitle">CSUNIQUE(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">csunique</code> &#x2014;
+<div class="Nd">modify the UUIDs of CoreStorage metadata objects</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">csunique</code></td>
+    <td>[<code class="Fl">-v</code> | <code class="Fl">--verbose</code>]
+      [<code class="Fl">-n</code> | <code class="Fl">--dry-run</code>]
+      [<code class="Fl">-I</code> | <code class="Fl">--include</code>
+      <var class="Ar">include</var>] [<code class="Fl">-X</code> |
+      <code class="Fl">--exclude</code> <var class="Ar">exclude</var>]
+      <var class="Ar">device ...</var></td>
+  </tr>
+</table>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The <code class="Nm">csunique</code> utility can rewrite CoreStorage logical
+  volume group metadata, changing object UUIDs. All CoreStorage objects are
+  uniquely identified by UUIDs. This can be useful when copying an initial
+  &quot;canned image&quot; onto multiple machines to establish these as
+  independent volumes.
+<p class="Pp">The <var class="Ar">device</var> parameter(s) should be path(s) to
+    the &quot;raw&quot; (character special) disk device(s) such as
+    <span class="Pa">/dev/rdisk1s1</span> that constitute the CoreStorage
+    logical volume group. If you specify a &quot;non-raw&quot; (block special)
+    path such as <span class="Pa">/dev/disk1s1</span>, or just the disk name
+    such as <span class="Pa">disk1s1</span>, it will automatically be converted
+    to the corresponding raw disk device
+    (<span class="Pa">/dev/rdisk1s1</span>).</p>
+<p class="Pp">The options are as follows:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#v"><code class="Fl" id="v">-v</code></a></dt>
+  <dd>Output verbose progress information of each step and the UUID
+    re-mappings.</dd>
+  <dt><a class="permalink" href="#n"><code class="Fl" id="n">-n</code></a></dt>
+  <dd>Operates in &quot;dry run&quot; mode; no changes are made to the on-disk
+      data.</dd>
+  <dt><a class="permalink" href="#I"><code class="Fl" id="I">-I</code></a></dt>
+  <dd>Specifies an additional class of UUID objects that should be
+    modified.</dd>
+  <dt><a class="permalink" href="#X"><code class="Fl" id="X">-X</code></a></dt>
+  <dd>Specifies a class of UUID objects that should not be modified. By default
+      all UUIDs will be changed.</dd>
+</dl>
+</div>
+<p class="Pp">The classes of CoreStorage UUID objects that can be included or
+    excluded from modification by <code class="Nm">csunique</code> are indicated
+    using the following characters:</p>
+<dl class="Bl-hang Bd-indent">
+  <dt>f</dt>
+  <dd>logical volume family (LVF)</dd>
+  <dt>g</dt>
+  <dd>logical volume group (LVG)</dd>
+  <dt>l</dt>
+  <dd>logical volume (LV)</dd>
+  <dt>p</dt>
+  <dd>physical volume (PV)</dd>
+  <dt>w</dt>
+  <dd>MLV wipekey</dd>
+</dl>
+<p class="Pp"><code class="Nm">csunique</code> processes/transforms the
+    CoreStorage metadata in a number of steps:</p>
+<ol class="Bl-enum Bd-indent">
+  <li>Firstly, an initial <span class="Pa">fsck_cs</span> is performed to ensure
+      the source structure is consistent;</li>
+  <li>If the LVG is currently live and mounted by the kext it is temporarily
+      &quot;frozen&quot;;</li>
+  <li>If the disk partitions are of type Apple_CoreStorage then they are
+      switched offline (which dissociates the kext from the old metadata);</li>
+  <li>The CoreStorage metadata is locally parsed and loaded;</li>
+  <li>All object UUIDs are located, and new UUIDs generated for classes as set
+      by the <code class="Fl">-I</code> and <code class="Fl">-X</code>
+    options;</li>
+  <li>UUIDs are re-written to disk;</li>
+  <li>A post-modification <span class="Pa">fsck_cs</span> is performed to ensure
+      the final structure is consistent;</li>
+  <li>Finally, any disk partitions taken offline are restored to
+      Apple_CoreStorage (which will reload the kext with the new UUID
+    metadata).</li>
+</ol>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DIAGNOSTICS"><a class="permalink" href="#DIAGNOSTICS">DIAGNOSTICS</a></h1>
+The <code class="Nm">csunique</code> utility exits with 0 if the CoreStorage
+  logical volume group was modified as directed, and with &gt;0 if it was unable
+  to do so. Any error message is written to stderr.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<code class="Nm">csunique</code> cannot modify the LVF UUID if there are any
+  encrypted LVs inside it. Any mounted LVs must be manually unmounted before
+  invocation.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+The <code class="Nm">csunique</code> utility first appeared in OS X 10.8.1.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">September 25, 2012</td>
+    <td class="foot-os">OS X</td>
+  </tr>
+</table>
+</body>
+</html>

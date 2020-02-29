@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>SLAPD-NDB(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SLAPD-NDB(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">SLAPD-NDB(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+slapd-ndb - MySQL NDB backend to slapd
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<b>/etc/openldap/slapd.conf</b>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The <b>ndb</b> backend to <b>slapd</b>(8) uses the MySQL Cluster package to
+  store data, through its NDB API. It provides fault tolerance with extreme
+  scalability, along with a degree of SQL compatibility.
+<p class="Pp">This backend is designed to store LDAP information using tables
+    that are also visible from SQL. It uses a higher level SQL API for creating
+    these tables, while using the low level NDB API for storing and retrieving
+    the data within these tables. The NDB Cluster engine allows data to be
+    partitioned across multiple data nodes, and this backend allows multiple
+    slapd instances to operate against a given database concurrently.</p>
+<p class="Pp">The general approach is to use distinct tables for each LDAP
+    object class. Entries comprised of multiple object classes will have their
+    data spread across multiple tables. The data tables use a 64 bit entryID as
+    their primary key. The DIT hierarchy is maintained in a separate table,
+    which maps DNs to entryIDs.</p>
+<p class="Pp">This backend is experimental. While intended to be a
+    general-purpose backend, it is currently missing a number of common LDAP
+    features. See the <b>TODO</b> file in the source directory for details.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION"><a class="permalink" href="#CONFIGURATION">CONFIGURATION</a></h1>
+These <b>slapd.conf</b> options apply to the <b>ndb</b> backend database. That
+  is, they must follow a &quot;database ndb&quot; line and come before any
+  subsequent &quot;backend&quot; or &quot;database&quot; lines. Other database
+  options are described in the <b>slapd.conf</b>(5) manual page.
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DATA_SOURCE_CONFIGURATION"><a class="permalink" href="#DATA_SOURCE_CONFIGURATION">DATA
+  SOURCE CONFIGURATION</a></h1>
+<dl class="Bl-tag">
+  <dt><b>dbhost &lt;hostname&gt;</b></dt>
+  <dd>The name or IP address of the host running the MySQL server. The default
+      is &quot;localhost&quot;. On Unix systems, the connection to a local
+      server is made using a Unix Domain socket, whose path is specified using
+      the <b>dbsocket</b> directive.</dd>
+  <dt><b>dbuser &lt;username&gt;</b></dt>
+  <dd>The MySQL login ID to use when connecting to the MySQL server. The chosen
+      user must have sufficient privileges to manipulate the SQL tables in the
+      target database.</dd>
+  <dt><b>dbpasswd &lt;password&gt;</b></dt>
+  <dd>The password for the <b>dbuser</b>.</dd>
+  <dt><b>dbname &lt;database name&gt;</b></dt>
+  <dd>The name of the MySQL database to use.</dd>
+  <dt><b>dbport &lt;port&gt;</b></dt>
+  <dd>The port number to use for the TCP connection to the MySQL server.</dd>
+  <dt><b>dbsocket &lt;path&gt;</b></dt>
+  <dd>The socket to be used for connecting to a local MySQL server.</dd>
+  <dt><b>dbflag &lt;integer&gt;</b></dt>
+  <dd>Client flags for the MySQL session. See the MySQL documentation for
+      details.</dd>
+  <dt><b>dbconnect &lt;connectstring&gt;</b></dt>
+  <dd>The name or IP address of the host running the cluster manager. The
+      default is &quot;localhost&quot;.</dd>
+  <dt><b>dbconnections &lt;integer&gt;</b></dt>
+  <dd>The number of cluster connections to establish. Using up to 4 may improve
+      performance under heavier load. The default is 1.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SCHEMA_CONFIGURATION"><a class="permalink" href="#SCHEMA_CONFIGURATION">SCHEMA
+  CONFIGURATION</a></h1>
+<dl class="Bl-tag">
+  <dt><b>attrlen &lt;attribute&gt; &lt;length&gt;</b></dt>
+  <dd>Specify the column length to use for a particular attribute. LDAP
+      attributes are stored in individual columns of the SQL tables. The maximum
+      column lengths for each column must be specified when creating these
+      tables. If a length constraint was specified in the attribute's LDAP
+      schema definition, that value will be used by default. If the schema
+      didn't specify a constraint, the default is 128 bytes. Currently the
+      maximum is 1024.</dd>
+  <dt><b>index &lt;attr[,attr...]&gt;</b></dt>
+  <dd>Specify a list of attributes for which indexing should be maintained.
+      Currently there is no support for substring indexing; a single index
+      structure provides presence, equality, and inequality indexing for the
+      specified attributes.</dd>
+  <dt><b>attrset &lt;set&gt; &lt;attrs&gt;</b></dt>
+  <dd>Specify a list of attributes to be treated as an attribute set. This
+      directive creates a table named <i>set</i> which will contain all of the
+      listed attributes. Ordinarily an attribute resides in a table named by an
+      object class that uses the attribute. However, attributes are only allowed
+      to appear in a single table. For attributes that are derived from an
+      inherited object class definition, the attribute will only be stored in
+      the superior class's table. Attribute sets should be defined for any
+      attributes that are used in multiple unrelated object classes, i.e.,
+      classes that are not connected by a simple inheritance chain.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACCESS_CONTROL"><a class="permalink" href="#ACCESS_CONTROL">ACCESS
+  CONTROL</a></h1>
+The <b>ndb</b> backend honors most access control semantics as indicated in
+  <b>slapd.access</b>(5).
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt><b>/etc/openldap/slapd.conf</b></dt>
+  <dd>default <b>slapd</b> configuration file</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>slapd.conf</b>(5), <b>slapd-config</b>(5), <b>slapd</b>(8),
+  <b>slapadd</b>(8), <b>slapcat</b>(8), <b>slapindex</b>(8), MySQL Cluster
+  documentation.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+Howard Chu, with assistance from Johan Andersson et al @ MySQL.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2011/11/24</td>
+    <td class="foot-os">OpenLDAP 2.4.28</td>
+  </tr>
+</table>
+</body>
+</html>

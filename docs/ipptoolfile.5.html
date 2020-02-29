@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   ipptoolfile man page.
+  
+   Copyright \[u00A9]\[u00A0]2010-2019 by Apple Inc.
+  
+   Licensed under Apache License v2.0.  See the file "LICENSE" for more
+   information.
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>ipptoolfile(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">ipptoolfile(5)</td>
+    <td class="head-vol">Apple Inc.</td>
+    <td class="head-rtitle">ipptoolfile(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+ipptoolfile - ipptool file format
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The <b>ipptool</b>(1) program accepts free-form plain text files that describe
+  one or more IPP requests. Comments start with the &quot;#&quot; character and
+  continue to the end of the line. Each request is enclosed by curly braces, for
+  example:
+<pre>
+    # This is a comment
+    {
+      # The name of the test
+      NAME &quot;Print PDF File&quot;
+      # The request to send
+      OPERATION Print-Job
+      GROUP operation-attributes-tag
+      ATTR charset attributes-charset utf-8
+      ATTR language attributes-natural-language en
+      ATTR uri printer-uri $uri
+      ATTR name requesting-user-name $user
+      ATTR mimeMediaType document-format application/pdf
+      GROUP job-attributes-tag
+      ATTR collection media-col {
+        # US Letter plain paper from the &quot;main&quot; tray
+        MEMBER collection media-size {
+          MEMBER integer x-dimension 21590
+          MEMBER integer y-dimension 27940
+        }
+        MEMBER integer media-top-margin 423
+        MEMBER integer media-bottom-margin 423
+        MEMBER integer media-left-margin 423
+        MEMBER integer media-right-margin 423
+        MEMBER keyword media-source &quot;main&quot;
+        MEMBER keyword media-type &quot;stationery&quot;
+      }
+      FILE testfile.pdf
+      # The response to expect
+      STATUS successful-ok
+      EXPECT job-id OF-TYPE integer WITH-VALUE &gt;0
+      EXPECT job-uri OF-TYPE uri
+    }
+    {
+      # The name of the test
+      NAME &quot;Wait for Job to Complete&quot;
+      # The request to send
+      OPERATION Get-Job-Attributes
+      GROUP operation-attributes-tag
+      ATTR charset attributes-charset utf-8
+      ATTR language attributes-natural-language en
+      ATTR uri printer-uri $uri
+      ATTR integer job-id $job-id
+      ATTR name requesting-user-name $user
+      # The response to expect
+      STATUS successful-ok
+      EXPECT job-id OF-TYPE integer WITH-VALUE $job-id
+      EXPECT job-uri OF-TYPE uri
+      EXPECT job-state OF-TYPE enum WITH-VALUE &gt;5 REPEAT-NO-MATCH
+      EXPECT job-originating-user-name OF-TYPE name WITH-VALUE &quot;$user&quot;
+      # Show the job state until completed...
+      DISPLAY job-state
+      DISPLAY job-state-reasons
+    }
+</pre>
+<section class="Ss">
+<h2 class="Ss" id="TOP-LEVEL_DIRECTIVES"><a class="permalink" href="#TOP-LEVEL_DIRECTIVES">TOP-LEVEL
+  DIRECTIVES</a></h2>
+The following directives can be used outside of a <i>test</i>:
+<dl class="Bl-tag">
+  <dt><b>{ </b><i>test </i><b>}</b></dt>
+  <dd>Defines a test.</dd>
+  <dt><b>DEFINE </b><i>variable-name value</i></dt>
+  <dd>Defines the named variable to the given value. This is equivalent to
+      specifying <i>-d variable-name=value</i> on the <b>ipptool</b>(8)
+      command-line.</dd>
+  <dt><b>DEFINE-DEFAULT </b><i>variable-name value</i></dt>
+  <dd>Defines the named variable to the given value if it does not already have
+      a value.</dd>
+  <dt><b>FILE-ID &quot;</b><i>identifier</i><b>&quot;</b></dt>
+  <dd>Specifies an identifier string for the current file.</dd>
+  <dt><b>IGNORE-ERRORS yes</b></dt>
+  <dd></dd>
+  <dt><b>IGNORE-ERRORS no</b></dt>
+  <dd>Specifies whether, by default, <b>ipptool</b>(8) will ignore errors and
+      continue with subsequent tests.</dd>
+  <dt><b>INCLUDE &quot;</b><i>filename</i><b>&quot;</b></dt>
+  <dd></dd>
+  <dt><b>INCLUDE &lt;</b><i>filename</i><b>&gt;</b></dt>
+  <dd>Includes another test file. The first form includes a file relative to the
+      current test file, while the second form includes a file from the
+      <b>ipptool</b>(8) include directory.</dd>
+  <dt><b>INCLUDE-IF-DEFINED </b><i>name
+    </i><b>&quot;</b><i>filename</i><b>&quot;</b></dt>
+  <dd></dd>
+  <dt><b>INCLUDE-IF-DEFINED </b><i>name
+    </i><b>&lt;</b><i>filename</i><b>&gt;</b></dt>
+  <dd>Includes another test file if the named variable is defined. The first
+      form includes a file relative to the current test file, while the second
+      form includes a file from the <b>ipptool</b>(8) include directory.</dd>
+  <dt><b>INCLUDE-IF-NOT-DEFINED </b><i>name
+    </i><b>&quot;</b><i>filename</i><b>&quot;</b></dt>
+  <dd></dd>
+  <dt><b>INCLUDE-IF-NOT-DEFINED </b><i>name
+    </i><b>&lt;</b><i>filename</i><b>&gt;</b></dt>
+  <dd>Includes another test file if the named variable is not defined. The first
+      form includes a file relative to the current test file, while the second
+      form includes a file from the <b>ipptool</b>(8) include directory.</dd>
+  <dt><b>SKIP-IF-DEFINED </b><i>variable-name</i></dt>
+  <dd></dd>
+  <dt><b>SKIP-IF-NOT-DEFINED </b><i>variable-name</i></dt>
+  <dd>Specifies that the remainder of the test file should be skipped when the
+      variable is or is not defined.</dd>
+  <dt><b>STOP-AFTER-INCLUDE-ERROR no</b></dt>
+  <dd></dd>
+  <dt><b>STOP-AFTER-INCLUDE-ERROR yes</b></dt>
+  <dd>Specifies whether tests will be stopped after an error in an included
+      file.</dd>
+  <dt><b>TRANSFER auto</b></dt>
+  <dd>Specifies that tests will, by default, use &quot;Transfer-Encoding:
+      chunked&quot; for requests with attached files and
+      &quot;Content-Length:&quot; for requests without attached files.</dd>
+  <dt><b>TRANSFER chunked</b></dt>
+  <dd>Specifies that tests will, by default, use the HTTP/1.1
+      &quot;Transfer-Encoding: chunked&quot; header. This is the default and is
+      equivalent to specifying <i>-c</i> on the <b>ipptool</b>(8) command-line.
+      Support for chunked requests is required for conformance with all versions
+      of IPP.</dd>
+  <dt><b>TRANSFER length</b></dt>
+  <dd>Specifies that tests will, by default, use the HTTP/1.0
+      &quot;Content-Length:&quot; header. This is equivalent to specifying
+      <i>-l</i> on the <b>ipptool</b>(8) command-line. Support for content
+      length requests is required for conformance with all versions of IPP.</dd>
+  <dt><b>VERSION 1.0</b></dt>
+  <dd></dd>
+  <dt><b>VERSION 1.1</b></dt>
+  <dd></dd>
+  <dt><b>VERSION 2.0</b></dt>
+  <dd></dd>
+  <dt><b>VERSION 2.1</b></dt>
+  <dd></dd>
+  <dt><b>VERSION 2.2</b></dt>
+  <dd>Specifies the default IPP version number to use for the tests that
+    follow.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="TEST_DIRECTIVES"><a class="permalink" href="#TEST_DIRECTIVES">TEST
+  DIRECTIVES</a></h2>
+The following directives are understood within a <i>test</i>:
+<dl class="Bl-tag">
+  <dt><b>ATTR </b><i>out-of-band-tag attribute-name</i></dt>
+  <dd></dd>
+  <dt><b>ATTR </b><i>tag attribute-name value(s)</i></dt>
+  <dd>Adds an attribute to the test request. Out-of-band tags (admin-define,
+      delete-attribute, no-value, not-settable, unknown, unsupported) have no
+      value. Values for other tags are separated by the comma (&quot;,&quot;)
+      character - escape commas using the &quot; Common attributes and values
+      are listed in the IANA IPP registry - see references below.</dd>
+  <dt><b>ATTR collection </b><i>attribute-name </i><b>{ MEMBER </b><i>tag
+    member-name value(s) ... </i><b>}</b> [ <i>... </i><b>,{ </b><i>... </i><b>}
+    </b>]</dt>
+  <dd>Adds a collection attribute to the test request. Member attributes follow
+      the same syntax as regular attributes and can themselves be nested
+      collections. Multiple collection values can be supplied as needed,
+      separated by commas.</dd>
+  <dt><b>COMPRESSION deflate</b></dt>
+  <dd></dd>
+  <dt><b>COMPRESSION gzip</b></dt>
+  <dd></dd>
+  <dt><b>COMPRESSION none</b></dt>
+  <dd>Uses the specified compression on the document data following the
+      attributes in a Print-Job or Send-Document request.</dd>
+  <dt><b>DELAY </b><i>seconds</i>[<i>,repeat-seconds</i>]</dt>
+  <dd>Specifies a delay in seconds before this test will be run. If two values
+      are specified, the second value is used as the delay between repeated
+      tests.</dd>
+  <dt><b>DISPLAY </b><i>attribute-name</i></dt>
+  <dd>Specifies that value of the named attribute should be output as part of
+      the test report.</dd>
+  <dt><b>EXPECT </b><i>attribute-name </i>[ <i>predicate(s) </i>]</dt>
+  <dd></dd>
+  <dt><b>EXPECT ?</b><i>attribute-name predicate(s)</i></dt>
+  <dd></dd>
+  <dt><b>EXPECT !</b><i>attribute-name</i></dt>
+  <dd>Specifies that the response must/may/must not include the named attribute.
+      Additional requirements can be added as predicates - see the &quot;EXPECT
+      PREDICATES&quot; section for more information on predicates. Attribute
+      names can specify member attributes by separating the attribute and member
+      names with the forward slash, for example
+      &quot;media-col/media-size/x-dimension&quot;.</dd>
+  <dt><b>EXPECT-ALL </b><i>attribute-name </i>[ <i>predicate(s) </i>]</dt>
+  <dd></dd>
+  <dt><b>EXPECT-ALL ?</b><i>attribute-name predicate(s)</i></dt>
+  <dd>Specifies that the response must/may include the named attribute and that
+      all occurrences of that attribute must match the given predicates.</dd>
+  <dt><b>FILE filename</b></dt>
+  <dd>Specifies a file to include at the end of the request. This is typically
+      used when sending a test print file.</dd>
+  <dt><b>GROUP tag</b></dt>
+  <dd>Specifies the group tag for subsequent attributes in the request.</dd>
+  <dt><b>IGNORE-ERRORS yes</b></dt>
+  <dd></dd>
+  <dt><b>IGNORE-ERRORS no</b></dt>
+  <dd>Specifies whether <b>ipptool</b>(8) will ignore errors and continue with
+      subsequent tests.</dd>
+  <dt><b>NAME &quot;</b><i>literal string</i><b>&quot;</b></dt>
+  <dd>Specifies the human-readable name of the test.</dd>
+  <dt><b>OPERATION </b><i>operation-code</i></dt>
+  <dd>Specifies the operation to be performed.</dd>
+  <dt><b>PAUSE &quot;</b><i>message</i><b>&quot;</b></dt>
+  <dd>Displays the provided message and waits for the user to press a key to
+      continue.</dd>
+  <dt><b>REQUEST-ID </b><i>number</i></dt>
+  <dd></dd>
+  <dt><b>REQUEST-ID random</b></dt>
+  <dd>Specifies the request-id value to use in the request, either an integer or
+      the word &quot;random&quot; to use a randomly generated value (the
+      default).</dd>
+  <dt><b>RESOURCE </b><i>path</i></dt>
+  <dd>Specifies an alternate resource path that is used for the HTTP POST
+      request. The default is the resource from the URI provided to the
+      <b>ipptool</b>(8) program.</dd>
+  <dt><b>SKIP-IF-DEFINED </b><i>variable-name</i></dt>
+  <dd></dd>
+  <dt><b>SKIP-IF-NOT-DEFINED </b><i>variable-name</i></dt>
+  <dd>Specifies that the current test should be skipped when the variable is or
+      is not defined.</dd>
+  <dt><b>SKIP-PREVIOUS-ERROR yes</b></dt>
+  <dd></dd>
+  <dt><b>SKIP-PREVIOUS-ERROR no</b></dt>
+  <dd>Specifies whether <b>ipptool</b>(8) will skip the current test if the
+      previous test resulted in an error/failure.</dd>
+  <dt><b>STATUS </b><i>status-code </i>[ <i>predicate</i> ]</dt>
+  <dd>Specifies an expected response status-code value. Additional requirements
+      can be added as predicates - see the &quot;STATUS PREDICATES&quot; section
+      for more information on predicates.</dd>
+  <dt><b>TEST-ID &quot;</b><i>identifier</i>&quot;</dt>
+  <dd>Specifies an identifier string for the current test.</dd>
+  <dt><b>TRANSFER auto</b></dt>
+  <dd>Specifies that this test will use &quot;Transfer-Encoding: chunked&quot;
+      if it has an attached file or &quot;Content-Length:&quot; otherwise.</dd>
+  <dt><b>TRANSFER chunked</b></dt>
+  <dd>Specifies that this test will use the HTTP/1.1 &quot;Transfer-Encoding:
+      chunked&quot; header.</dd>
+  <dt><b>TRANSFER length</b></dt>
+  <dd>Specifies that this test will use the HTTP/1.0 &quot;Content-Length:&quot;
+      header.</dd>
+  <dt><b>VERSION 1.0</b></dt>
+  <dd></dd>
+  <dt><b>VERSION 1.1</b></dt>
+  <dd></dd>
+  <dt><b>VERSION 2.0</b></dt>
+  <dd></dd>
+  <dt><b>VERSION 2.1</b></dt>
+  <dd></dd>
+  <dt><b>VERSION 2.2</b></dt>
+  <dd>Specifies the IPP version number to use for this test.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="EXPECT_PREDICATES"><a class="permalink" href="#EXPECT_PREDICATES">EXPECT
+  PREDICATES</a></h2>
+The following predicates are understood following the <b>EXPECT</b> test
+  directive:
+<dl class="Bl-tag">
+  <dt><b>COUNT </b><i>number</i></dt>
+  <dd>Requires the <b>EXPECT</b> attribute to have the specified number of
+      values.</dd>
+  <dt><b>DEFINE-MATCH </b><i>variable-name</i></dt>
+  <dd>Defines the variable to &quot;1&quot; when the <b>EXPECT</b> condition
+      matches. A side-effect of this predicate is that this <b>EXPECT</b> will
+      never fail a test.</dd>
+  <dt><b>DEFINE-NO-MATCH </b><i>variable-name</i></dt>
+  <dd>Defines the variable to &quot;1&quot; when the <b>EXPECT</b> condition
+      does not match. A side-effect of this predicate is that this <b>EXPECT</b>
+      will never fail a test.</dd>
+  <dt><b>DEFINE-VALUE </b><i>variable-name</i></dt>
+  <dd>Defines the variable to the value of the attribute when the <b>EXPECT</b>
+      condition matches. A side-effect of this predicate is that this
+      <b>EXPECT</b> will never fail a test.</dd>
+  <dt><b>IF-DEFINED </b><i>variable-name</i></dt>
+  <dd>Makes the <b>EXPECT</b> conditions apply only if the specified variable is
+      defined.</dd>
+  <dt><b>IF-NOT-DEFINED </b><i>variable-name</i></dt>
+  <dd>Makes the <b>EXPECT</b> conditions apply only if the specified variable is
+      not defined.</dd>
+  <dt><b>IN-GROUP </b><i>tag</i></dt>
+  <dd>Requires the <b>EXPECT</b> attribute to be in the specified group
+    tag.</dd>
+  <dt><b>OF-TYPE </b><i>tag[,tag,...]</i></dt>
+  <dd>Requires the <b>EXPECT</b> attribute to use one of the specified value
+      tag(s).</dd>
+  <dt><b>REPEAT-LIMIT </b><i>number</i></dt>
+  <dd>
+    <br/>
+    Specifies the maximum number of times to repeat if the <b>REPEAT-MATCH</b>
+      or <b>REPEAT-NO-MATCH</b> predicate is specified. The default value is
+      1000.</dd>
+  <dt><b>REPEAT-MATCH</b></dt>
+  <dd></dd>
+  <dt><b>REPEAT-NO-MATCH</b></dt>
+  <dd>Specifies that the current test should be repeated when the <b>EXPECT</b>
+      condition matches or does not match.</dd>
+  <dt><b>SAME-COUNT-AS </b><i>attribute-name</i></dt>
+  <dd>Requires the <b>EXPECT</b> attribute to have the same number of values as
+      the specified parallel attribute.</dd>
+  <dt><b>WITH-ALL-HOSTNAMES &quot;</b><i>literal string</i><b>&quot;</b></dt>
+  <dd></dd>
+  <dt><b>WITH-ALL-HOSTNAMES &quot;/</b><i>regular
+    expression</i><b>/&quot;</b></dt>
+  <dd>Requires that all URI values contain a matching hostname.</dd>
+  <dt><b>WITH-ALL-RESOURCES &quot;</b><i>literal string</i><b>&quot;</b></dt>
+  <dd></dd>
+  <dt><b>WITH-ALL-RESOURCES &quot;/</b><i>regular
+    expression</i><b>/&quot;</b></dt>
+  <dd>Requires that all URI values contain a matching resource (including
+      leading /).</dd>
+  <dt><b>WITH-ALL-SCHEMES &quot;</b><i>literal string</i><b>&quot;</b></dt>
+  <dd></dd>
+  <dt><b>WITH-ALL-SCHEMES &quot;/</b><i>regular
+    expression</i><b>/&quot;</b></dt>
+  <dd>Requires that all URI values contain a matching scheme.</dd>
+  <dt><b>WITH-ALL-VALUES &quot;</b><i>literal string</i><b>&quot;</b></dt>
+  <dd>Requires that all values of the <b>EXPECT</b> attribute match the literal
+      string. Comparisons are case-sensitive.</dd>
+  <dt><b>WITH-ALL-VALUES &lt;</b><i>number</i></dt>
+  <dd></dd>
+  <dt><b>WITH-ALL-VALUES =</b><i>number</i></dt>
+  <dd></dd>
+  <dt><b>WITH-ALL-VALUES &gt;</b><i>number</i></dt>
+  <dd></dd>
+  <dt><b>WITH-ALL-VALUES </b><i>number</i>[<i>,...,number</i>]</dt>
+  <dd>Requires that all values of the <b>EXPECT</b> attribute match the
+      number(s) or numeric comparison. When comparing rangeOfInteger values, the
+      &quot;&lt;&quot; and &quot;&gt;&quot; operators only check the upper bound
+      of the range.</dd>
+  <dt><b>WITH-ALL-VALUES &quot;false&quot;</b></dt>
+  <dd></dd>
+  <dt><b>WITH-ALL-VALUES &quot;true&quot;</b></dt>
+  <dd>Requires that all values of the <b>EXPECT</b> attribute match the boolean
+      value given.</dd>
+  <dt><b>WITH-ALL-VALUES &quot;/</b><i>regular expression</i><b>/&quot;</b></dt>
+  <dd>Requires that all values of the <b>EXPECT</b> attribute match the regular
+      expression, which must conform to the POSIX regular expression syntax.
+      Comparisons are case-sensitive.</dd>
+  <dt><b>WITH-HOSTNAME &quot;</b><i>literal string</i><b>&quot;</b></dt>
+  <dd></dd>
+  <dt><b>WITH-HOSTNAME &quot;/</b><i>regular expression</i><b>/&quot;</b></dt>
+  <dd>Requires that at least one URI value contains a matching hostname.</dd>
+  <dt><b>WITH-RESOURCE &quot;</b><i>literal string</i><b>&quot;</b></dt>
+  <dd></dd>
+  <dt><b>WITH-RESOURCE &quot;/</b><i>regular expression</i><b>/&quot;</b></dt>
+  <dd>Requires that at least one URI value contains a matching resource
+      (including leading /).</dd>
+  <dt><b>WITH-SCHEME &quot;</b><i>literal string</i><b>&quot;</b></dt>
+  <dd></dd>
+  <dt><b>WITH-SCHEME &quot;/</b><i>regular expression</i><b>/&quot;</b></dt>
+  <dd>Requires that at least one URI value contains a matching scheme.</dd>
+  <dt><b>WITH-VALUE &quot;</b><i>literal string</i><b>&quot;</b></dt>
+  <dd>Requires that at least one value of the <b>EXPECT</b> attribute matches
+      the literal string. Comparisons are case-sensitive.</dd>
+  <dt><b>WITH-VALUE &lt;</b><i>number</i></dt>
+  <dd></dd>
+  <dt><b>WITH-VALUE =</b><i>number</i></dt>
+  <dd></dd>
+  <dt><b>WITH-VALUE &gt;</b><i>number</i></dt>
+  <dd></dd>
+  <dt><b>WITH-VALUE </b><i>number</i>[<i>,...,number</i>]</dt>
+  <dd>Requires that at least one value of the <b>EXPECT</b> attribute matches
+      the number(s) or numeric comparison. When comparing rangeOfInteger values,
+      the &quot;&lt;&quot; and &quot;&gt;&quot; operators only check the upper
+      bound of the range.</dd>
+  <dt><b>WITH-VALUE &quot;false&quot;</b></dt>
+  <dd></dd>
+  <dt><b>WITH-VALUE &quot;true&quot;</b></dt>
+  <dd>Requires that at least one value of the <b>EXPECT</b> attribute matches
+      the boolean value given.</dd>
+  <dt><b>WITH-VALUE &quot;/</b><i>regular expression</i><b>/&quot;</b></dt>
+  <dd>Requires that at least one value of the <b>EXPECT</b> attribute matches
+      the regular expression, which must conform to the POSIX regular expression
+      syntax. Comparisons are case-sensitive.</dd>
+  <dt><b>WITH-VALUE-FROM </b><i>attribute-name</i></dt>
+  <dd>Requires that the value(s) of the <b>EXPECT</b> attribute matches the
+      value(s) in the specified attribute. For example, &quot;EXPECT job-sheets
+      WITH-VALUE-FROM job-sheets-supported&quot; requires that the
+      &quot;job-sheets&quot; value is listed as a value of the
+      &quot;job-sheets-supported&quot; attribute.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="STATUS_PREDICATES"><a class="permalink" href="#STATUS_PREDICATES">STATUS
+  PREDICATES</a></h2>
+The following predicates are understood following the <b>STATUS</b> test
+  directive:
+<dl class="Bl-tag">
+  <dt><b>DEFINE-MATCH </b><i>variable-name</i></dt>
+  <dd>Defines the variable to &quot;1&quot; when the <b>STATUS</b> matches. A
+      side-effect of this predicate is that this <b>STATUS</b> will never fail a
+      test.</dd>
+  <dt><b>DEFINE-NO-MATCH </b><i>variable-name</i></dt>
+  <dd>Defines the variable to &quot;1&quot; when the <b>STATUS</b> does not
+      match. A side-effect of this predicate is that this <b>STATUS</b> will
+      never fail a test.</dd>
+  <dt><b>IF-DEFINED </b><i>variable-name</i></dt>
+  <dd>Makes the <b>STATUS</b> apply only if the specified variable is
+    defined.</dd>
+  <dt><b>IF-NOT-DEFINED </b><i>variable-name</i></dt>
+  <dd>Makes the <b>STATUS</b> apply only if the specified variable is not
+      defined.</dd>
+  <dt><b>REPEAT-LIMIT </b><i>number</i></dt>
+  <dd>
+    <br/>
+    Specifies the maximum number of times to repeat. The default value is
+    1000.</dd>
+  <dt><b>REPEAT-MATCH</b></dt>
+  <dd></dd>
+  <dt><b>REPEAT-NO-MATCH</b></dt>
+  <dd>Specifies that the current test should be repeated when the response
+      status-code matches or does not match the value specified by the STATUS
+      directive.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="OPERATION_CODES"><a class="permalink" href="#OPERATION_CODES">OPERATION
+  CODES</a></h2>
+Operation codes correspond to the hexadecimal numbers (0xHHHH) and names from
+  RFC 8011 and other IPP extension specifications. Here is a complete list of
+  names supported by <b>ipptool</b>(8):
+<pre>
+    Activate-Printer
+    CUPS-Accept-Jobs
+    CUPS-Add-Modify-Class
+    CUPS-Add-Modify-Printer
+    CUPS-Authenticate-Job
+    CUPS-Delete-Class
+    CUPS-Delete-Printer
+    CUPS-Get-Classes
+    CUPS-Get-Default
+    CUPS-Get-Devices
+    CUPS-Get-Document
+    CUPS-Get-PPD
+    CUPS-Get-PPDs
+    CUPS-Get-Printers
+    CUPS-Move-Job
+    CUPS-Reject-Jobs
+    CUPS-Set-Default
+    Cancel-Current-Job
+    Cancel-Job
+    Cancel-Jobs
+    Cancel-My-Jobs
+    Cancel-Subscription
+    Close-Job
+    Create-Job
+    Create-Job-Subscriptions
+    Create-Printer-Subscriptions
+    Deactivate-Printer
+    Disable-Printer
+    Enable-Printer
+    Get-Job-Attributes
+    Get-Jobs
+    Get-Notifications
+    Get-Printer-Attributes
+    Get-Printer-Support-Files
+    Get-Printer-Supported-Values
+    Get-Subscription-Attributes
+    Get-Subscriptions
+    Hold-Job
+    Hold-New-Jobs
+    Identify-Printer
+    Pause-Printer
+    Pause-Printer-After-Current-Job
+    Print-Job
+    Print-URI
+    Promote-Job
+    Purge-Jobs
+    Release-Held-New-Jobs
+    Release-Job
+    Renew-Subscription
+    Reprocess-Job
+    Restart-Job
+    Restart-Printer
+    Resubmit-Job
+    Resume-Job
+    Resume-Printer
+    Schedule-Job-After
+    Send-Document
+    Send-Hardcopy-Document
+    Send-Notifications
+    Send-URI
+    Set-Job-Attributes
+    Set-Printer-Attributes
+    Shutdown-Printer
+    Startup-Printer
+    Suspend-Current-Job
+    Validate-Document
+    Validate-Job
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="STATUS_CODES"><a class="permalink" href="#STATUS_CODES">STATUS
+  CODES</a></h2>
+Status codes correspond to the hexadecimal numbers (0xHHHH) and names from RFC
+  8011 and other IPP extension specifications. Here is a complete list of the
+  names supported by <b>ipptool</b>(8):
+<pre>
+    client-error-account-authorization-failed
+    client-error-account-closed
+    client-error-account-info-needed
+    client-error-account-limit-reached
+    client-error-attributes-not-settable
+    client-error-attributes-or-values-not-supported
+    client-error-bad-request
+    client-error-charset-not-supported
+    client-error-compression-error
+    client-error-compression-not-supported
+    client-error-conflicting-attributes
+    client-error-document-access-error
+    client-error-document-format-error
+    client-error-document-format-not-supported
+    client-error-document-password-error
+    client-error-document-permission-error
+    client-error-document-security-error
+    client-error-document-unprintable-error
+    client-error-forbidden
+    client-error-gone
+    client-error-ignored-all-notifications
+    client-error-ignored-all-subscriptions
+    client-error-not-authenticated
+    client-error-not-authorized
+    client-error-not-found
+    client-error-not-possible
+    client-error-print-support-file-not-found
+    client-error-request-entity-too-large
+    client-error-request-value-too-long
+    client-error-timeout
+    client-error-too-many-subscriptions
+    client-error-uri-scheme-not-supported
+    cups-error-account-authorization-failed
+    cups-error-account-closed
+    cups-error-account-info-needed
+    cups-error-account-limit-reached
+    cups-see-other
+    redirection-other-site
+    server-error-busy
+    server-error-device-error
+    server-error-internal-error
+    server-error-job-canceled
+    server-error-multiple-document-jobs-not-supported
+    server-error-not-accepting-jobs
+    server-error-operation-not-supported
+    server-error-printer-is-deactivated
+    server-error-service-unavailable
+    server-error-temporary-error
+    server-error-version-not-supported
+    successful-ok
+    successful-ok-but-cancel-subscription
+    successful-ok-conflicting-attributes
+    successful-ok-events-complete
+    successful-ok-ignored-notifications
+    successful-ok-ignored-or-substituted-attributes
+    successful-ok-ignored-subscriptions
+    successful-ok-too-many-events
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="TAGS"><a class="permalink" href="#TAGS">TAGS</a></h2>
+Value and group tags correspond to the names from RFC 8011 and other IPP
+  extension specifications. Here are the group tags:
+<pre>
+    document-attributes-tag
+    event-notification-attributes-tag
+    job-attributes-tag
+    operation-attributes-tag
+    printer-attributes-tag
+    subscription-attributes-tag
+    unsupported-attributes-tag
+</pre>
+<p class="Pp">Here are the value tags:</p>
+<pre>
+    admin-define
+    boolean
+    charset
+    collection
+    dateTime
+    default
+    delete-attribute
+    enum
+    integer
+    keyword
+    mimeMediaType
+    nameWithLanguage
+    nameWithoutLanguage
+    naturalLanguage
+    no-value
+    not-settable
+    octetString
+    rangeOfInteger
+    resolution
+    textWithLanguage
+    textWithoutLanguage
+    unknown
+    unsupported
+    uri
+    uriScheme
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="VARIABLES"><a class="permalink" href="#VARIABLES">VARIABLES</a></h2>
+The <b>ipptool</b>(8) program maintains a list of variables that can be used in
+  any literal string or attribute value by specifying
+  &quot;<i>$variable-name</i>&quot;. Aside from variables defined using the
+  <i>-d</i> option or <b>DEFINE</b> directive, the following pre-defined
+  variables are available:
+<dl class="Bl-tag">
+  <dt><b>$$</b></dt>
+  <dd>Inserts a single &quot;$&quot; character.</dd>
+  <dt><b>$ENV[</b><i>name</i><b>]</b></dt>
+  <dd>Inserts the value of the named environment variable, or an empty string if
+      the environment variable is not defined.</dd>
+  <dt><b>$date-current</b></dt>
+  <dd>Inserts the current date and time using the ISO-8601 format
+      (&quot;yyyy-mm-ddThh:mm:ssZ&quot;).</dd>
+  <dt><b>$date-start</b></dt>
+  <dd>Inserts the starting date and time using the ISO-8601 format
+      (&quot;yyyy-mm-ddThh:mm:ssZ&quot;).</dd>
+  <dt><b>$filename</b></dt>
+  <dd>Inserts the filename provided to <b>ipptool</b>(8) with the <i>-f</i>
+      option.</dd>
+  <dt><b>$filetype</b></dt>
+  <dd>Inserts the MIME media type for the filename provided to <b>ipptool</b>(8)
+      with the <i>-f</i> option.</dd>
+  <dt><b>$hostname</b></dt>
+  <dd>Inserts the hostname from the URI provided to <b>ipptool</b>(8).</dd>
+  <dt><b>$job-id</b></dt>
+  <dd>Inserts the last &quot;job-id&quot; attribute value returned in a test
+      response or 0 if no &quot;job-id&quot; attribute has been seen.</dd>
+  <dt><b>$job-uri</b></dt>
+  <dd>Inserts the last &quot;job-uri&quot; attribute value returned in a test
+      response or an empty string if no &quot;job-uri&quot; attribute has been
+      seen.</dd>
+  <dt><b>$notify-subscription-id</b></dt>
+  <dd>Inserts the last &quot;notify-subscription-id&quot; attribute value
+      returned in a test response or 0 if no &quot;notify-subscription-id&quot;
+      attribute has been seen.</dd>
+  <dt><b>$port</b></dt>
+  <dd>Inserts the port number from the URI provided to <b>ipptool</b>(8).</dd>
+  <dt><b>$resource</b></dt>
+  <dd>Inserts the resource path from the URI provided to <b>ipptool</b>(8).</dd>
+  <dt><b>$scheme</b></dt>
+  <dd>Inserts the scheme from the URI provided to <b>ipptool</b>(8).</dd>
+  <dt><b>$uri</b></dt>
+  <dd>Inserts the URI provided to <b>ipptool</b>(8).</dd>
+  <dt><b>$uriuser</b></dt>
+  <dd>Inserts the username from the URI provided to <b>ipptool</b>(8), if
+    any.</dd>
+  <dt><b>$user</b></dt>
+  <dd>Inserts the current user's login name.</dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>ipptool</b>(1), IANA IPP Registry
+  (http://www.iana.org/assignments/ipp-registrations), PWG Internet Printing
+  Protocol Workgroup (http://www.pwg.org/ipp), RFC 8011
+  (http://tools.ietf.org/html/rfc8011)
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+Copyright &#x00A9; 2007-2019 by Apple Inc.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">CUPS</td>
+    <td class="foot-os">13 May 2019</td>
+  </tr>
+</table>
+</body>
+</html>

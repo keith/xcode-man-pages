@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   **************************************************************************
+   *                                  _   _ ____  _
+   *  Project                     ___| | | |  _ \| |
+   *                             / __| | | | |_) | |
+   *                            | (__| |_| |  _ <| |___
+   *                             \___|\___/|_| \_\_____|
+   *
+   * Copyright (C) 1998 - 2016, Daniel Stenberg, <daniel@haxx.se>, et al.
+   *
+   * This software is licensed as described in the file COPYING, which
+   * you should have received as part of this distribution. The terms
+   * are also available at https://curl.haxx.se/docs/copyright.html.
+   *
+   * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+   * copies of the Software, and permit persons to whom the Software is
+   * furnished to do so, under the terms of the COPYING file.
+   *
+   * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+   * KIND, either express or implied.
+   *
+   **************************************************************************
+ -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>curl_easy_pause(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">curl_easy_pause(3)</td>
+    <td class="head-vol">libcurl Manual</td>
+    <td class="head-rtitle">curl_easy_pause(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<p class="Pp"></p>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+curl_easy_pause - pause and unpause a connection
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<b>#include &lt;curl/curl.h&gt;</b>
+<p class="Pp"><b>CURLcode curl_easy_pause(CURL *</b><i>handle</i><b>, int
+    </b><i>bitmask</i><b> );</b></p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+Using this function, you can explicitly mark a running connection to get paused,
+  and you can unpause a connection that was previously paused.
+<p class="Pp">A connection can be paused by using this function or by letting
+    the read or the write callbacks return the proper magic return code
+    (<i>CURL_READFUNC_PAUSE</i> and <i>CURL_WRITEFUNC_PAUSE</i>). A write
+    callback that returns pause signals to the library that it couldn't take
+    care of any data at all, and that data will then be delivered again to the
+    callback when the writing is later unpaused.</p>
+<p class="Pp">While it may feel tempting, take care and notice that you cannot
+    call this function from another thread. To unpause, you may for example call
+    it from the progress callback (<i>CURLOPT_PROGRESSFUNCTION(3)</i>), which
+    gets called at least once per second, even if the connection is paused.</p>
+<p class="Pp">When this function is called to unpause reading, the chance is
+    high that you will get your write callback called before this function
+    returns.</p>
+<p class="Pp">The <b>handle</b> argument is of course identifying the handle
+    that operates on the connection you want to pause or unpause.</p>
+<p class="Pp">The <b>bitmask</b> argument is a set of bits that sets the new
+    state of the connection. The following bits can be used:</p>
+<dl class="Bl-tag">
+  <dt>CURLPAUSE_RECV</dt>
+  <dd>Pause receiving data. There will be no data received on this connection
+      until this function is called again without this bit set. Thus, the write
+      callback (<i>CURLOPT_WRITEFUNCTION(3)</i>) won't be called.</dd>
+  <dt>CURLPAUSE_SEND</dt>
+  <dd>Pause sending data. There will be no data sent on this connection until
+      this function is called again without this bit set. Thus, the read
+      callback (<i>CURLOPT_READFUNCTION(3)</i>) won't be called.</dd>
+  <dt>CURLPAUSE_ALL</dt>
+  <dd>Convenience define that pauses both directions.</dd>
+  <dt>CURLPAUSE_CONT</dt>
+  <dd>Convenience define that unpauses both directions.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+CURLE_OK (zero) means that the option was set properly, and a non-zero return
+  code means something wrong occurred after the new state was set. See the
+  <i>libcurl-errors(3)</i> man page for the full list with descriptions.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIMITATIONS"><a class="permalink" href="#LIMITATIONS">LIMITATIONS</a></h1>
+The pausing of transfers does not work with protocols that work without network
+  connectivity, like FILE://. Trying to pause such a transfer, in any direction,
+  will cause problems in the worst case or an error in the best case.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
+This function was added in libcurl 7.18.0. Before this version, there was no
+  explicit support for pausing transfers.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="USAGE_WITH_THE_MULTI-SOCKET_INTERFACE"><a class="permalink" href="#USAGE_WITH_THE_MULTI-SOCKET_INTERFACE">USAGE
+  WITH THE MULTI-SOCKET INTERFACE</a></h1>
+Before libcurl 7.32.0, when a specific handle was unpaused with this function,
+  there was no particular forced rechecking or similar of the socket's state,
+  which made the continuation of the transfer get delayed until next
+  multi-socket call invoke or even longer. Alternatively, the user could
+  forcibly call for example <i>curl_multi_socket_all(3)</i> - with a rather
+  hefty performance penalty.
+<p class="Pp">Starting in libcurl 7.32.0, unpausing a transfer will schedule a
+    timeout trigger for that handle 1 millisecond into the future, so that a
+    curl_multi_socket_action( ... CURL_SOCKET_TIMEOUT) can be used immediately
+    afterwards to get the transfer going again as desired.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MEMORY_USE"><a class="permalink" href="#MEMORY_USE">MEMORY
+  USE</a></h1>
+When pausing a read by returning the magic return code from a write callback,
+  the read data is already in libcurl's internal buffers so it'll have to keep
+  it in an allocated buffer until the reading is again unpaused using this
+  function.
+<p class="Pp">If the downloaded data is compressed and is asked to get
+    uncompressed automatically on download, libcurl will continue to uncompress
+    the entire downloaded chunk and it will cache the data uncompressed. This
+    has the side- effect that if you download something that is compressed a
+    lot, it can result in a very large data amount needing to be allocated to
+    save the data during the pause. This said, you should probably consider not
+    using paused reading if you allow libcurl to uncompress data
+  automatically.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>curl_easy_cleanup</b>(3), <b>curl_easy_reset</b>(3)
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">May 1, 2016</td>
+    <td class="foot-os">libcurl 7.64.1</td>
+  </tr>
+</table>
+</body>
+</html>

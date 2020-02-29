@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   t
+       Title: gitrepository-layout
+      Author: [FIXME: author] [see http://docbook.sf.net/el/author]
+   Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+        Date: 02/24/2019
+      Manual: Git Manual
+      Source: Git 2.21.0
+    Language: English
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>GITREPOSITORY-LAYOU(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">GITREPOSITORY-LAYOU(5)</td>
+    <td class="head-vol">Git Manual</td>
+    <td class="head-rtitle">GITREPOSITORY-LAYOU(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+gitrepository-layout - Git Repository Layout
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+$GIT_DIR/*
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+A Git repository comes in two different flavours:
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;a <b>.git</b> directory at the root of the
+  working tree;</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;a <b>&lt;project&gt;.git</b> directory that is a
+  <i>bare</i> repository (i.e. without its own working tree), that is typically
+  used for exchanging histories with others by pushing into it and fetching from
+  it.</div>
+<p class="Pp"><b>Note</b>: Also you can have a plain text file <b>.git</b> at
+    the root of your working tree, containing <b>gitdir: &lt;path&gt;</b> to
+    point at the real directory that has the repository. This mechanism is often
+    used for a working tree of a submodule checkout, to allow you in the
+    containing superproject to <b>git checkout</b> a branch that does not have
+    the submodule. The <b>checkout</b> has to remove the entire submodule
+    working tree, without losing the submodule repository.</p>
+<p class="Pp">These things may exist in a Git repository.</p>
+<p class="Pp">objects</p>
+<div class="Bd-indent">Object store associated with this repository. Usually an
+  object store is self sufficient (i.e. all the objects that are referred to by
+  an object found in it are also found in it), but there are a few ways to
+  violate it.
+<p class="Pp"></p>
+<div class="Bd-indent"> 1.You could have an incomplete but locally usable
+  repository by creating a shallow clone. See <b>git-clone</b>(1).</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 2.You could be using the <b>objects/info/alternates</b>
+  or <b>$GIT_ALTERNATE_OBJECT_DIRECTORIES</b> mechanisms to <i>borrow</i>
+  objects from other object stores. A repository with this kind of incomplete
+  object store is not suitable to be published for use with dumb transports but
+  otherwise is OK as long as <b>objects/info/alternates</b> points at the object
+  stores it borrows from.
+<p class="Pp">This directory is ignored if $GIT_COMMON_DIR is set and
+    &quot;$GIT_COMMON_DIR/objects&quot; will be used instead.</p>
+</div>
+</div>
+<p class="Pp">objects/[0-9a-f][0-9a-f]</p>
+<div class="Bd-indent">A newly created object is stored in its own file. The
+  objects are splayed over 256 subdirectories using the first two characters of
+  the sha1 object name to keep the number of directory entries in <b>objects</b>
+  itself to a manageable number. Objects found here are often called
+  <i>unpacked</i> (or <i>loose</i>) objects.</div>
+<p class="Pp">objects/pack</p>
+<div class="Bd-indent">Packs (files that store many object in compressed form,
+  along with index files to allow them to be randomly accessed) are found in
+  this directory.</div>
+<p class="Pp">objects/info</p>
+<div class="Bd-indent">Additional information about the object store is recorded
+  in this directory.</div>
+<p class="Pp">objects/info/packs</p>
+<div class="Bd-indent">This file is to help dumb transports discover what packs
+  are available in this object store. Whenever a pack is added or removed,
+  <b>git update-server-info</b> should be run to keep this file up to date if
+  the repository is published for dumb transports. <i>git repack</i> does this
+  by default.</div>
+<p class="Pp">objects/info/alternates</p>
+<div class="Bd-indent">This file records paths to alternate object stores that
+  this object store borrows objects from, one pathname per line. Note that not
+  only native Git tools use it locally, but the HTTP fetcher also tries to use
+  it remotely; this will usually work if you have relative paths (relative to
+  the object database, not to the repository!) in your alternates file, but it
+  will not work if you use absolute paths unless the absolute path in filesystem
+  and web URL is the same. See also <i>objects/info/http-alternates</i>.</div>
+<p class="Pp">objects/info/http-alternates</p>
+<div class="Bd-indent">This file records URLs to alternate object stores that
+  this object store borrows objects from, to be used when the repository is
+  fetched over HTTP.</div>
+<p class="Pp">refs</p>
+<div class="Bd-indent">References are stored in subdirectories of this
+  directory. The <i>git prune</i> command knows to preserve objects reachable
+  from refs found in this directory and its subdirectories. This directory is
+  ignored (except refs/bisect and refs/worktree) if $GIT_COMMON_DIR is set and
+  &quot;$GIT_COMMON_DIR/refs&quot; will be used instead.</div>
+<p class="Pp">refs/heads/<b>name</b></p>
+<div class="Bd-indent">records tip-of-the-tree commit objects of branch
+  <b>name</b></div>
+<p class="Pp">refs/tags/<b>name</b></p>
+<div class="Bd-indent">records any object name (not necessarily a commit object,
+  or a tag object that points at a commit object).</div>
+<p class="Pp">refs/remotes/<b>name</b></p>
+<div class="Bd-indent">records tip-of-the-tree commit objects of branches copied
+  from a remote repository.</div>
+<p class="Pp">refs/replace/<b>&lt;obj-sha1&gt;</b></p>
+<div class="Bd-indent">records the SHA-1 of the object that replaces
+  <b>&lt;obj-sha1&gt;</b>. This is similar to info/grafts and is internally used
+  and maintained by <b>git-replace</b>(1). Such refs can be exchanged between
+  repositories while grafts are not.</div>
+<p class="Pp">packed-refs</p>
+<div class="Bd-indent">records the same information as refs/heads/, refs/tags/,
+  and friends record in a more efficient way. See <b>git-pack-refs</b>(1). This
+  file is ignored if $GIT_COMMON_DIR is set and
+  &quot;$GIT_COMMON_DIR/packed-refs&quot; will be used instead.</div>
+<p class="Pp">HEAD</p>
+<div class="Bd-indent">A symref (see glossary) to the <b>refs/heads/</b>
+  namespace describing the currently active branch. It does not mean much if the
+  repository is not associated with any working tree (i.e. a <i>bare</i>
+  repository), but a valid Git repository <b>must</b> have the HEAD file; some
+  porcelains may use it to guess the designated &quot;default&quot; branch of
+  the repository (usually <i>master</i>). It is legal if the named branch
+  <i>name</i> does not (yet) exist. In some legacy setups, it is a symbolic link
+  instead of a symref that points at the current branch.
+<p class="Pp">HEAD can also record a specific commit directly, instead of being
+    a symref to point at the current branch. Such a state is often called
+    <i>detached HEAD.</i> See <b>git-checkout</b>(1) for details.</p>
+</div>
+<p class="Pp">config</p>
+<div class="Bd-indent">Repository specific configuration file. This file is
+  ignored if $GIT_COMMON_DIR is set and &quot;$GIT_COMMON_DIR/config&quot; will
+  be used instead.</div>
+<p class="Pp">config.worktree</p>
+<div class="Bd-indent">Working directory specific configuration file for the
+  main working directory in multiple working directory setup (see
+  <b>git-worktree</b>(1)).</div>
+<p class="Pp">branches</p>
+<div class="Bd-indent">A slightly deprecated way to store shorthands to be used
+  to specify a URL to <i>git fetch</i>, <i>git pull</i> and <i>git push</i>. A
+  file can be stored as <b>branches/&lt;name&gt;</b> and then <i>name</i> can be
+  given to these commands in place of <i>repository</i> argument. See the
+  REMOTES section in <b>git-fetch</b>(1) for details. This mechanism is legacy
+  and not likely to be found in modern repositories. This directory is ignored
+  if $GIT_COMMON_DIR is set and &quot;$GIT_COMMON_DIR/branches&quot; will be
+  used instead.</div>
+<p class="Pp">hooks</p>
+<div class="Bd-indent">Hooks are customization scripts used by various Git
+  commands. A handful of sample hooks are installed when <i>git init</i> is run,
+  but all of them are disabled by default. To enable, the <b>.sample</b> suffix
+  has to be removed from the filename by renaming. Read <b>githooks</b>(5) for
+  more details about each hook. This directory is ignored if $GIT_COMMON_DIR is
+  set and &quot;$GIT_COMMON_DIR/hooks&quot; will be used instead.</div>
+<p class="Pp">common</p>
+<div class="Bd-indent">When multiple working trees are used, most of files in
+  $GIT_DIR are per-worktree with a few known exceptions. All files under
+  <i>common</i> however will be shared between all working trees.</div>
+<p class="Pp">index</p>
+<div class="Bd-indent">The current index file for the repository. It is usually
+  not found in a bare repository.</div>
+<p class="Pp">sharedindex.&lt;SHA-1&gt;</p>
+<div class="Bd-indent">The shared index part, to be referenced by $GIT_DIR/index
+  and other temporary index files. Only valid in split index mode.</div>
+<p class="Pp">info</p>
+<div class="Bd-indent">Additional information about the repository is recorded
+  in this directory. This directory is ignored if $GIT_COMMON_DIR is set and
+  &quot;$GIT_COMMON_DIR/info&quot; will be used instead.</div>
+<p class="Pp">info/refs</p>
+<div class="Bd-indent">This file helps dumb transports discover what refs are
+  available in this repository. If the repository is published for dumb
+  transports, this file should be regenerated by <i>git update-server-info</i>
+  every time a tag or branch is created or modified. This is normally done from
+  the <b>hooks/update</b> hook, which is run by the <i>git-receive-pack</i>
+  command when you <i>git push</i> into the repository.</div>
+<p class="Pp">info/grafts</p>
+<div class="Bd-indent">This file records fake commit ancestry information, to
+  pretend the set of parents a commit has is different from how the commit was
+  actually created. One record per line describes a commit and its fake parents
+  by listing their 40-byte hexadecimal object names separated by a space and
+  terminated by a newline.
+<p class="Pp">Note that the grafts mechanism is outdated and can lead to
+    problems transferring objects between repositories; see
+    <b>git-replace</b>(1) for a more flexible and robust system to do the same
+    thing.</p>
+</div>
+<p class="Pp">info/exclude</p>
+<div class="Bd-indent">This file, by convention among Porcelains, stores the
+  exclude pattern list. <b>.gitignore</b> is the per-directory ignore file.
+  <i>git status</i>, <i>git add</i>, <i>git rm</i> and <i>git clean</i> look at
+  it but the core Git commands do not look at it. See also:
+  <b>gitignore</b>(5).</div>
+<p class="Pp">info/attributes</p>
+<div class="Bd-indent">Defines which attributes to assign to a path, similar to
+  per-directory <b>.gitattributes</b> files. See also:
+  <b>gitattributes</b>(5).</div>
+<p class="Pp">info/sparse-checkout</p>
+<div class="Bd-indent">This file stores sparse checkout patterns. See also:
+  <b>git-read-tree</b>(1).</div>
+<p class="Pp">remotes</p>
+<div class="Bd-indent">Stores shorthands for URL and default refnames for use
+  when interacting with remote repositories via <i>git fetch</i>, <i>git
+  pull</i> and <i>git push</i> commands. See the REMOTES section in
+  <b>git-fetch</b>(1) for details. This mechanism is legacy and not likely to be
+  found in modern repositories. This directory is ignored if $GIT_COMMON_DIR is
+  set and &quot;$GIT_COMMON_DIR/remotes&quot; will be used instead.</div>
+<p class="Pp">logs</p>
+<div class="Bd-indent">Records of changes made to refs are stored in this
+  directory. See <b>git-update-ref</b>(1) for more information. This directory
+  is ignored if $GIT_COMMON_DIR is set and &quot;$GIT_COMMON_DIR/logs&quot; will
+  be used instead.</div>
+<p class="Pp">logs/refs/heads/<b>name</b></p>
+<div class="Bd-indent">Records all changes made to the branch tip named
+  <b>name</b>.</div>
+<p class="Pp">logs/refs/tags/<b>name</b></p>
+<div class="Bd-indent">Records all changes made to the tag named
+  <b>name</b>.</div>
+<p class="Pp">shallow</p>
+<div class="Bd-indent">This is similar to <b>info/grafts</b> but is internally
+  used and maintained by shallow clone mechanism. See <b>--depth</b> option to
+  <b>git-clone</b>(1) and <b>git-fetch</b>(1). This file is ignored if
+  $GIT_COMMON_DIR is set and &quot;$GIT_COMMON_DIR/shallow&quot; will be used
+  instead.</div>
+<p class="Pp">commondir</p>
+<div class="Bd-indent">If this file exists, $GIT_COMMON_DIR (see <b>git</b>(1))
+  will be set to the path specified in this file if it is not explicitly set. If
+  the specified path is relative, it is relative to $GIT_DIR. The repository
+  with commondir is incomplete without the repository pointed by
+  &quot;commondir&quot;.</div>
+<p class="Pp">modules</p>
+<div class="Bd-indent">Contains the git-repositories of the submodules.</div>
+<p class="Pp">worktrees</p>
+<div class="Bd-indent">Contains administrative data for linked working trees.
+  Each subdirectory contains the working tree-related part of a linked working
+  tree. This directory is ignored if $GIT_COMMON_DIR is set, in which case
+  &quot;$GIT_COMMON_DIR/worktrees&quot; will be used instead.</div>
+<p class="Pp">worktrees/&lt;id&gt;/gitdir</p>
+<div class="Bd-indent">A text file containing the absolute path back to the .git
+  file that points to here. This is used to check if the linked repository has
+  been manually removed and there is no need to keep this directory any more.
+  The mtime of this file should be updated every time the linked repository is
+  accessed.</div>
+<p class="Pp">worktrees/&lt;id&gt;/locked</p>
+<div class="Bd-indent">If this file exists, the linked working tree may be on a
+  portable device and not available. The presence of this file prevents
+  <b>worktrees/&lt;id&gt;</b> from being pruned either automatically or manually
+  by <b>git worktree prune</b>. The file may contain a string explaining why the
+  repository is locked.</div>
+<p class="Pp">worktrees/&lt;id&gt;/config.worktree</p>
+<div class="Bd-indent">Working directory specific configuration file.</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="GIT_REPOSITORY_FORMAT_VERSIONS"><a class="permalink" href="#GIT_REPOSITORY_FORMAT_VERSIONS">GIT
+  REPOSITORY FORMAT VERSIONS</a></h1>
+Every git repository is marked with a numeric version in the
+  <b>core.repositoryformatversion</b> key of its <b>config</b> file. This
+  version specifies the rules for operating on the on-disk repository data. An
+  implementation of git which does not understand a particular version
+  advertised by an on-disk repository MUST NOT operate on that repository; doing
+  so risks not only producing wrong results, but actually losing data.
+<p class="Pp">Because of this rule, version bumps should be kept to an absolute
+    minimum. Instead, we generally prefer these strategies:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;bumping format version numbers of individual data
+  files (e.g., index, packfiles, etc). This restricts the incompatibilities only
+  to those files.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;introducing new data that gracefully degrades
+  when used by older clients (e.g., pack bitmap files are ignored by older
+  clients, which simply do not take advantage of the optimization they
+  provide).</div>
+<p class="Pp">A whole-repository format version bump should only be part of a
+    change that cannot be independently versioned. For instance, if one were to
+    change the reachability rules for objects, or the rules for locking refs,
+    that would require a bump of the repository format version.</p>
+<p class="Pp">Note that this applies only to accessing the repository&#x2019;s
+    disk contents directly. An older client which understands only format
+    <b>0</b> may still connect via <b>git://</b> to a repository using format
+    <b>1</b>, as long as the server process understands format <b>1</b>.</p>
+<p class="Pp">The preferred strategy for rolling out a version bump (whether
+    whole repository or for a single file) is to teach git to read the new
+    format, and allow writing the new format with a config switch or command
+    line option (for experimentation or for those who do not care about
+    backwards compatibility with older gits). Then after a long period to allow
+    the reading capability to become common, we may switch to writing the new
+    format by default.</p>
+<p class="Pp">The currently defined format versions are:</p>
+<section class="Ss">
+<h2 class="Ss" id="Version__fB0_fR"><a class="permalink" href="#Version__fB0_fR">Version
+  <b>0</b></a></h2>
+This is the format defined by the initial version of git, including but not
+  limited to the format of the repository directory, the repository
+  configuration file, and the object and ref storage. Specifying the complete
+  behavior of git is beyond the scope of this document.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Version__fB1_fR"><a class="permalink" href="#Version__fB1_fR">Version
+  <b>1</b></a></h2>
+This format is identical to version <b>0</b>, with the following exceptions:
+<p class="Pp"></p>
+<div class="Bd-indent"> 1.When reading the <b>core.repositoryformatversion</b>
+  variable, a git implementation which supports version 1 MUST also read any
+  configuration keys found in the <b>extensions</b> section of the configuration
+  file.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 2.If a version-1 repository specifies any
+  <b>extensions.*</b> keys that the running git has not implemented, the
+  operation MUST NOT proceed. Similarly, if the value of any known key is not
+  understood by the implementation, the operation MUST NOT proceed.</div>
+<p class="Pp">Note that if no extensions are specified in the config file, then
+    <b>core.repositoryformatversion</b> SHOULD be set to <b>0</b> (setting it to
+    <b>1</b> provides no benefit, and makes the repository incompatible with
+    older implementations of git).</p>
+<p class="Pp">This document will serve as the master list for extensions. Any
+    implementation wishing to define a new extension should make a note of it
+    here, in order to claim the name.</p>
+<p class="Pp">The defined extensions are:</p>
+<p class="Pp"><b>noop</b>
+  <br/>
+</p>
+<div class="Bd-indent">
+<p class="Pp">This extension does not change git&#x2019;s behavior at all. It is
+    useful only for testing format-1 compatibility.</p>
+</div>
+<p class="Pp"><b>preciousObjects</b>
+  <br/>
+</p>
+<div class="Bd-indent">
+<p class="Pp">When the config key <b>extensions.preciousObjects</b> is set to
+    <b>true</b>, objects in the repository MUST NOT be deleted (e.g., by
+    <b>git-prune</b> or <b>git repack -d</b>).</p>
+</div>
+<p class="Pp"><b>partialclone</b>
+  <br/>
+</p>
+<div class="Bd-indent">
+<p class="Pp">When the config key <b>extensions.partialclone</b> is set, it
+    indicates that the repo was created with a partial clone (or later performed
+    a partial fetch) and that the remote may have omitted sending certain
+    unwanted objects. Such a remote is called a &quot;promisor remote&quot; and
+    it promises that all such omitted objects can be fetched from it in the
+    future.</p>
+<p class="Pp">The value of this key is the name of the promisor remote.</p>
+</div>
+<p class="Pp"><b>worktreeConfig</b>
+  <br/>
+</p>
+<div class="Bd-indent">
+<p class="Pp">If set, by default &quot;git config&quot; reads from both
+    &quot;config&quot; and &quot;config.worktree&quot; file from GIT_DIR in that
+    order. In multiple working directory mode, &quot;config&quot; file is shared
+    while &quot;config.worktree&quot; is per-working directory (i.e.,
+    it&#x2019;s in GIT_COMMON_DIR/worktrees/&lt;id&gt;/config.worktree)</p>
+</div>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>git-init</b>(1), <b>git-clone</b>(1), <b>git-fetch</b>(1),
+  <b>git-pack-refs</b>(1), <b>git-gc</b>(1), <b>git-checkout</b>(1),
+  <b>gitglossary</b>(7), <b>The Git User&#x2019;s Manual</b>[1]
+</section>
+<section class="Sh">
+<h1 class="Sh" id="GIT"><a class="permalink" href="#GIT">GIT</a></h1>
+Part of the <b>git</b>(1) suite
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<dl class="Bl-tag">
+  <dt> 1.</dt>
+  <dd>The Git User&#x2019;s Manual</dd>
+</dl>
+<div class="Bd-indent">git-htmldocs/user-manual.html</div>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">02/24/2019</td>
+    <td class="foot-os">Git 2.21.0</td>
+  </tr>
+</table>
+</body>
+</html>

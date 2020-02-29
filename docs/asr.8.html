@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>ASR(8)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">ASR(8)</td>
+    <td class="head-vol">System Manager's Manual</td>
+    <td class="head-rtitle">ASR(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">asr</code> &#x2014;
+<div class="Nd">Apple Software Restore; copy volumes (e.g. from disk
+  images)</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">asr</code></td>
+    <td><var class="Ar">verb</var> [options]</td>
+  </tr>
+</table>
+<br/>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">asr</code></td>
+    <td><b class="Sy">restore[exact]</b> <code class="Fl">--source</code>
+      <var class="Ar">source</var> <code class="Fl">--target</code>
+      <var class="Ar">target</var> [<var class="Ar">options</var>]</td>
+  </tr>
+</table>
+<br/>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">asr</code></td>
+    <td><b class="Sy">server</b> <code class="Fl">--source</code>
+      <var class="Ar">source</var> <code class="Fl">--config</code>
+      <var class="Ar">configuration</var> [<var class="Ar">options</var>]</td>
+  </tr>
+</table>
+<br/>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">asr</code></td>
+    <td><b class="Sy">restore</b> <code class="Fl">--source</code>
+      <var class="Ar">asr://source</var> <code class="Fl">--file</code>
+      <var class="Ar">file</var> [<var class="Ar">options</var>]</td>
+  </tr>
+</table>
+<br/>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">asr</code></td>
+    <td><b class="Sy">imagescan</b> <code class="Fl">--source</code>
+      <var class="Ar">image</var> [<var class="Ar">options</var>]</td>
+  </tr>
+</table>
+<br/>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">asr</code></td>
+    <td><b class="Sy">help</b> | <var class="Ar">file ...</var>
+      <b class="Sy">version</b></td>
+  </tr>
+</table>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<code class="Nm">asr</code> efficiently copies disk images onto volumes, either
+  directly or via a multicast network stream. <code class="Nm">asr</code> can
+  also accurately clone volumes without the use of an intermediate disk image.
+<p class="Pp">In its first form, <code class="Nm">asr</code> copies
+    <var class="Ar">source</var> (usually a disk image, potentially on an HTTP
+    server) to <var class="Ar">target</var>. <var class="Ar">source</var> can be
+    specified using a path in the filesystem, or an http or https URL. It can
+    also be an asr:// URL to indicate a multicast source.
+    <code class="Nm">asr</code> can also be invoked with its second form to act
+    as a multicast server. In its third form, <code class="Nm">asr</code> will
+    restore a multicast disk image to a file instead of disk volume. In its
+    fourth form, <code class="Nm">asr</code> prepares a disk image to be
+    restored efficiently, adding whole-volume checksum information.
+    <b class="Sy">help</b> and <b class="Sy">version</b> provide usage and
+    version information, respectively.</p>
+<p class="Pp"><var class="Ar">source</var> and <var class="Ar">target</var> can
+    be /dev entries or volume mountpoints. For more information on restoring to
+    or from APFS filesystems, see the <b class="Sy">RESTORING WITH APFS
+    FILESYSTEMS</b> section below. If restoring a multicast disk image to a
+    file, <var class="Ar">file</var> can be a path to a local file or directory.
+    If the specified path is a file, the disk image is given the specified name.
+    If a directory, the name of the disk image being multicast is used. When
+    specifying <b class="Sy">server,</b> <var class="Ar">source</var> has to be
+    a UDIF disk image. Restoring from a multicast stream is accomplished by
+    passing a asr:// url as <var class="Ar">source</var>.</p>
+<p class="Pp">When restoring APFS volumes, <code class="Nm">asr</code> supports
+    restoring snapshots from the source volume, as well as restoring snapshot
+    deltas. See the <b class="Sy">RESTORING WITH APFS SNAPSHOTS</b> section
+    below.</p>
+<p class="Pp"><code class="Nm">asr</code> supports restoring systems with a
+    Read-Only System Volume (ROSV). For more information, see the
+    <b class="Sy">RESTORING WITH READ-ONLY SYSTEM VOLUMES</b> section below.</p>
+<p class="Pp"><code class="Nm">asr</code> needs to be run as root (see
+    <a class="Xr">sudo(8)</a>) in order to accomplish its tasks.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="VERBS"><a class="permalink" href="#VERBS">VERBS</a></h1>
+Each verb is listed with its description and individual arguments.
+<dl class="Bl-hang">
+  <dt><b class="Sy">restore</b></dt>
+  <dd>restores a disk image or volume to another volume (including a mounted
+      disk image)
+    <dl class="Bl-tag">
+      <dt><a class="permalink" href="#-source"><code class="Fl" id="-source">--source</code></a></dt>
+      <dd>can be a disk image, /dev entry, or volume mountpoint. In the latter
+          two cases, the volume must be unmountable or mounted read-only in
+          order for a erase blockcopy to occur (thus, one cannot erase blockcopy
+          the root filesystem as the source, unless it happened to be mounted
+          read-only).</dd>
+      <dt><a class="permalink" href="#-target"><code class="Fl" id="-target">--target</code></a></dt>
+      <dd>can be a /dev entry, or volume mountpoint. Must be unmountable in
+          order for an erase block-copy to occur. If
+          <var class="Ar">source</var> specifies an image of an APFS container,
+          then <var class="Ar">target</var> can specify a mounted APFS volume.
+          See the <b class="Sy">RESTORING WITH APFS FILESYSTEMS</b> section
+          below for details.</dd>
+      <dt><a class="permalink" href="#-file"><code class="Fl" id="-file">--file</code></a></dt>
+      <dd>when performing a multicast restore, <code class="Fl">--file</code>
+          can be specified instead of <code class="Fl">--target.</code> If the
+          specified path is a file, the disk image is given the specified name.
+          If a directory, the name of the disk image being multicast is
+        used.</dd>
+      <dt><a class="permalink" href="#-erase"><code class="Fl" id="-erase">--erase</code></a></dt>
+      <dd>erases <var class="Ar">target</var> and is required.
+          <code class="Fl">--erase</code> must always be used, as file copies
+          are no longer supported by <code class="Nm">asr</code>. If
+          <var class="Ar">source</var> is a asr:// url for restoring from a
+          multicast stream, <code class="Fl">--erase</code> must be passed
+          (multicasting only supports erase block-copy restores). Passing
+          <code class="Fl">--erase</code> with <code class="Fl">--file</code>
+          indicates any existing file should be overwritten when doing a
+          multicast file copy.</dd>
+      <dt><a class="permalink" href="#-format"><code class="Fl" id="-format">--format</code></a>
+        <var class="Ar">HFS+</var> | <var class="Ar">HFSX</var></dt>
+      <dd>specifies the destination filesystem format, when
+          <code class="Fl">--erase</code> is also given. If not specified, the
+          destination will be formatted with the same filesystem format as the
+          source. If multicasting, the <code class="Fl">--format</code>
+          specified must be block copy compatible with the
+          <var class="Ar">source</var>. <code class="Fl">--format</code> is
+          ignored if <code class="Fl">--erase</code> is not used. Note: HFS
+          Journaling is an attribute of the source image, and is not affected by
+          <code class="Fl">--format</code>.</dd>
+      <dt><a class="permalink" href="#-noprompt"><code class="Fl" id="-noprompt">--noprompt</code></a></dt>
+      <dd>suppresses the prompt which usually occurs before
+          <var class="Ar">target</var> is erased. <a class="Xr">newfs_hfs(8)</a>
+          will be called on <var class="Ar">target</var> and once you start
+          writing new data, there isn't much hope for recovery. You have been
+          warned.</dd>
+      <dt><a class="permalink" href="#-timeout"><code class="Fl" id="-timeout">--timeout</code></a>
+        <var class="Ar">num</var></dt>
+      <dd>specifies <var class="Ar">num</var> seconds that a multicast client
+          should wait when no payload data has been received over a multicast
+          stream before exiting, allowing the client to stop in case of server
+          failure/stoppage. It defaults to 0 (i.e. never time out).</dd>
+      <dt><a class="permalink" href="#-puppetstrings"><code class="Fl" id="-puppetstrings">--puppetstrings</code></a></dt>
+      <dd>provide progress output that is easy for another program to parse. Any
+          program trying to interpret <code class="Nm">asr</code>'s progress
+          should use <code class="Fl">--puppetstrings</code>.</dd>
+      <dt><a class="permalink" href="#-noverify"><code class="Fl" id="-noverify">--noverify</code></a></dt>
+      <dd>skips the verification steps normally taken to ensure that a volume
+          has been properly restored. <code class="Fl">--noverify</code> allows
+          images which have not been scanned to be restored. Skipping
+          verification is dangerous for a number of reasons and should never be
+          used in production systems.</dd>
+      <dt><a class="permalink" href="#-allowfragmentedcatalog"><code class="Fl" id="-allowfragmentedcatalog">--allowfragmentedcatalog</code></a></dt>
+      <dd>allows restores to proceed even if the source's catalog file is
+          fragmented (in particular, if it has more than 8 extents). By default
+          such restores are disallowed. Catalog fragmentation is undesirable and
+          in most cases it is better to fix the problem on the source (e.g. by
+          running fsck_hfs -r on it), but
+          <code class="Fl">--allowfragmentedcatalog</code> is provided for
+          situations where such a change is impractical. This option only makes
+          sense if the source specifes an HFS+ filesystem variant. It is
+          otherwise ignored.</dd>
+      <dt><a class="permalink" href="#-corestorageconvert"><code class="Fl" id="-corestorageconvert">--corestorageconvert</code></a></dt>
+      <dd>Cause <var class="Ar">target</var> to be converted to a Core Storage
+          LVG at the end of the restore. After the copy and verify are complete,
+          <code class="Nm">asr</code> will create a new Core Storage Logical
+          Volume Group (LVG), using the partition represented by
+          <var class="Ar">target</var> as its only physical volume (PV). The
+          volume contents restored from <var class="Ar">source</var> will be
+          present as a single logical volume (LV) exported from this LVG. If
+          <var class="Ar">target</var> is already a Core Storage LV, then this
+          option has no effect.</dd>
+      <dt><a class="permalink" href="#-SHA256"><code class="Fl" id="-SHA256">--SHA256</code></a></dt>
+      <dd>forces the restore to use the SHA-256 hash in the image during
+          verification. If the image doesn't contain a SHA-256 hash, then an
+          error will be raised.</dd>
+      <dt><a class="permalink" href="#-sourcevolumename"><code class="Fl" id="-sourcevolumename">--sourcevolumename</code></a></dt>
+      <dd>tells <code class="Nm">asr</code> which volume in the
+          <var class="Ar">source</var> container to invert when doing an APFS
+          restore. It is an error if more than one volume has the specified
+          name. You can see the volume names and UUIDs by running
+          <code class="Nm">asr</code> with the <b class="Sy">info</b> verb. See
+          the section <b class="Sy">RESTORING WITH APFS FILESYSTEMS</b> below
+          for when this option is necessary.</dd>
+      <dt><a class="permalink" href="#-sourcevolumeUUID"><code class="Fl" id="-sourcevolumeUUID">--sourcevolumeUUID</code></a></dt>
+      <dd>tells <code class="Nm">asr</code> which volume in the
+          <var class="Ar">source</var> container to invert when doing an APFS
+          restore. You can see the volume names and UUIDs by running
+          <code class="Nm">asr</code> with the <b class="Sy">info</b> verb. See
+          the section <b class="Sy">RESTORING WITH APFS FILESYSTEMS</b> below
+          for when this option is necessary.</dd>
+      <dt><a class="permalink" href="#-useReplication"><code class="Fl" id="-useReplication">--useReplication</code></a></dt>
+      <dd>forces <code class="Nm">asr</code> to use replication for restoring
+          APFS volumes (see the section <b class="Sy">REPLICATION AND THE
+          INVERTER</b> below). This is the default, but there may be a
+          preference setting to use the inverter instead. This would override
+          that preference setting.</dd>
+      <dt><a class="permalink" href="#-useInverter"><code class="Fl" id="-useInverter">--useInverter</code></a></dt>
+      <dd>forces <code class="Nm">asr</code> to use the inverter for restoring
+          APFS volumes (see the section <b class="Sy">REPLICATION AND THE
+          INVERTER</b> below). This overrides any preference setting.</dd>
+      <dt><a class="permalink" href="#-toSnapshot"><code class="Fl" id="-toSnapshot">--toSnapshot</code></a></dt>
+      <dd>specifies the snapshot on the <var class="Ar">source</var> APFS volume
+          to restore to the <var class="Ar">target</var> APFS volume. The
+          argument must be either the name or UUID of a snapshot on
+          <var class="Ar">source.</var> See the <b class="Sy">RESTORING WITH
+          APFS SNAPSHOTS</b> section below for more details.</dd>
+      <dt><a class="permalink" href="#-fromSnapshot"><code class="Fl" id="-fromSnapshot">--fromSnapshot</code></a></dt>
+      <dd>names a snapshot on the <var class="Ar">source</var> APFS volume to
+          use in combination with <code class="Fl">--toSnapshot</code> to
+          specify a snapshot delta to restore to the
+          <var class="Ar">target</var> APFS volume. The argument must be either
+          the name or UUID of a snapshot on both <var class="Ar">source</var>
+          and <var class="Ar">target.</var> See the <b class="Sy">RESTORING WITH
+          APFS SNAPSHOTS</b> section below for more details.</dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">restoreexact</b></dt>
+  <dd>performs the same operation as <b class="Sy">restore</b>, taking all the
+      same options, but with the following difference: for an HFS Plus volume,
+      the target partition is resized to exactly match the size of the source
+      partition/volume, if such a resize can be done. If the target partition
+      needs to grow and there is not enough space, then the operation will fail.
+      If it needs to shrink, then it should always be able to do so, possibly
+      leaving free space in the target disk's partition map. Because the target
+      exactly matches the source in size, all volume structures should be
+      identical in source and target upon completion of the restore.
+    <p class="Pp"><b class="Sy">restoreexact</b> is not allowed with APFS
+        volumes (see the section <b class="Sy">RESTORING WITH APFS
+        FILESYSTEMS</b> below), so its use is deprecated.</p>
+  </dd>
+  <dt><b class="Sy">server</b></dt>
+  <dd>multicasts <var class="Ar">source</var> over the network. Requires
+      <code class="Fl">--erase</code> be passed in by clients (multicasting only
+      supports erase block-copy restores).
+    <dl class="Bl-tag">
+      <dt><a class="permalink" href="#-source_2"><code class="Fl" id="-source_2">--source</code></a></dt>
+      <dd><var class="Ar">source</var> has to be a UDIF disk image. A path to a
+          disk image on a local/remote volume can be passed in, or a http:// url
+          to a disk image that is accessible via a web server.</dd>
+      <dt><a class="permalink" href="#-interface"><code class="Fl" id="-interface">--interface</code></a></dt>
+      <dd>the network interface to be used for multicasting (e.g. en0) instead
+          of the default network interface.</dd>
+      <dt><a class="permalink" href="#-config"><code class="Fl" id="-config">--config</code></a></dt>
+      <dd><b class="Sy">server</b> requires a configuration file to be passed,
+          in standard property list format. The following keys/options configure
+          the various parameters for multicast operation.</dd>
+    </dl>
+    <dl class="Bl-tag">
+      <dt><i class="Em">Required</i></dt>
+      <dd style="width: auto;">&#x00A0;</dd>
+      <dt>Data Rate</dt>
+      <dd>this is the desired data rate in bytes per second. On average, the
+          stream will go slightly slower than this speed, but will never exceed
+          it. It's a number in the plist (-int when set with
+          <a class="Xr">defaults(1)</a>).</dd>
+      <dt>&#x00A0;</dt>
+      <dd>Note: The performance/reliability of the networking infrastructure
+          being multicast on is an important factor in determining what data
+          rate can be supported. Excessive/bursty packet loss for a given data
+          rate could be due to an inability of the server/client to be able to
+          send/receive multicast data at that rate, but it's equally important
+          to verify that the network infrastructure can support multicasting at
+          the requested rate.</dd>
+      <dt>Multicast Address</dt>
+      <dd>this is the Multicast address for the data stream. It's a string in
+          the plist.</dd>
+      <dt><i class="Em">Optional</i></dt>
+      <dd style="width: auto;">&#x00A0;</dd>
+      <dt>Client Data Rate</dt>
+      <dd>this is the rate the slowest client can write data to its
+          <var class="Ar">target</var> in bytes per second. if
+          <code class="Nm">asr</code> misses data on the first pass (x's during
+          progress) and slowing the Data Rate doesn't resolve it, setting the
+          Client Data Rate will dynamically regulate the speed of the multicast
+          stream to allow clients more time to write the data. It's a number in
+          the plist (-int when set with <a class="Xr">defaults(1)</a>).</dd>
+      <dt>DNS Service Discovery</dt>
+      <dd>whether the server should be advertised via DNS Service Discovery,
+          a.k.a. Bonjour (tm). It defaults to true. It's a boolean in the plist
+          (-bool when set with <a class="Xr">defaults(1)</a>).</dd>
+      <dt>Loop Suspend</dt>
+      <dd>a limit of the number of times to multicast the image file when no
+          clients have started a restore operation. Once exceeded, the server
+          will stop the stream and wait for new clients before multicasting the
+          image file. It defaults to 0 (e.g. never stop multicasting once a
+          client starts the stream), and should not be set to &lt;2. It's a
+          number in the plist (-int when set with
+          <a class="Xr">defaults(1)</a>).</dd>
+      <dt>Multicast TTL</dt>
+      <dd>the time to live on the multicast packets (for multicasting through
+          routers). It defaults to 3. It cannot be set to 0, and should not be
+          set to 1 (otherwise, it could adversely affect some network routers).
+          It's a number in the plist (-int when set with
+          <a class="Xr">defaults(1)</a>).</dd>
+      <dt>Port</dt>
+      <dd>the port of initial client-server handshake, version checks, multicast
+          restore metadata, and stream data. It defaults to 7800. This should
+          only be included/modified if the default port cannot be used. It's a
+          number in the plist (-int when set with
+          <a class="Xr">defaults(1)</a>).</dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">imagescan</b></dt>
+  <dd>calculate checksums of the data in the provided image and store them in
+      the image. These checksums are used to ensure proper restores. SHA-1 and
+      SHA-256 hashes are used. Also determines if the disk image is in order for
+      multicasting, and rewrites the file in order if not. If the image has to
+      be reordered, it will require free disk space equal to the size of the
+      disk image being scanned.
+    <dl class="Bl-tag">
+      <dt><a class="permalink" href="#-nostream"><code class="Fl" id="-nostream">--nostream</code></a></dt>
+      <dd>bypasses the check/reordering of a disk image file for multicasting.
+          By default disk images will be rewritten in a way that's necessary for
+          multicasting.</dd>
+      <dt><a class="permalink" href="#-allowfragmentedcatalog_2"><code class="Fl" id="-allowfragmentedcatalog_2">--allowfragmentedcatalog</code></a></dt>
+      <dd>bypasses the check for a fragmented catalog file. By default that
+          check is done and scanning won't be allowed on an image that has a
+          fragmented catalog file. It is usually a better idea to fix the image
+          (e.g. run fsck_hfs -r on a writable copy of it) than to use
+          <code class="Fl">--allowfragmentedcatalog,</code> but it is provided
+          in case fixing the image is impractical.</dd>
+    </dl>
+  </dd>
+  <dt><b class="Sy">info</b></dt>
+  <dd>report the image metadata which was placed in the image by a previous use
+      of the <b class="Sy">imagescan</b> verb. Requires
+      <code class="Fl">--source.</code> The report is written to standard
+      output.
+    <dl class="Bl-tag">
+      <dt><a class="permalink" href="#-plist"><code class="Fl" id="-plist">--plist</code></a></dt>
+      <dd>writes its output as an XML-formatted plist, suitable for parsing by
+          another program.</dd>
+    </dl>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RESTORING_WITH_APFS_FILESYSTEMS"><a class="permalink" href="#RESTORING_WITH_APFS_FILESYSTEMS">RESTORING
+  WITH APFS FILESYSTEMS</a></h1>
+Individual APFS volumes can not be restored directly, because their device nodes
+  don't allow I/O from a standard process. However, <code class="Nm">asr</code>
+  can restore entire APFS containers, including all volumes. Or it can restore
+  valid system configurations, which can get the effect of restoring a single
+  system. This requires understanding what is meant by a <b class="Sy">valid
+  system.</b>
+<p class="Pp">In order for an APFS volume to be bootable, it must contain a
+    properly installed macOS system. It must also be part of an APFS container
+    which also has two special volumes in it: a Preboot volume and a Recovery
+    volume. A container may have arbitrarily many system volumes in it, but it
+    must have only one Preboot volume and one Recovery volume, each with the
+    corresponding APFS volume role set (see <a class="Xr">diskutil(1)</a> for
+    information on roles). The Preboot and Recovery volumes contain information
+    which is tied to each system volume in the container. So for a system volume
+    to be bootable, that information needs to be set up in the Preboot and
+    Recovery volumes. A system which is part of a container that has these two
+    special volumes, and for which the requisite information is set up in those
+    volumes, will be referred to here as a <b class="Sy">valid system.</b></p>
+<p class="Pp">If the <var class="Ar">source</var> of a restore is an APFS image
+    (i.e. an image which contains an APFS container), then
+    <code class="Nm">asr</code> does different things depending on how
+    <var class="Ar">target</var> was specified:</p>
+<dl class="Bl-tag">
+  <dt>Volume Restore</dt>
+  <dd>If the <var class="Ar">target</var> is an individual volume within an
+      existing APFS container, then <code class="Nm">asr</code> will block
+      restore the APFS container to a file within that volume, after which it
+      will invert the volume within the restored container, erasing the previous
+      contents of the <var class="Ar">target</var> volume and replacing them
+      with the source volume contents. If the <var class="Ar">source</var>
+      container only has a single non-special volume (i.e. not Preboot or
+      Recovery), then that is the volume which will be inverted. If the
+      <var class="Ar">source</var> container has more than one non-special
+      volume, then either the <code class="Fl">--sourcevolumename</code> or
+      <code class="Fl">--sourcevolumeUUID</code> option must be present and must
+      specify the volume to invert. Additionally, if the volume being inverted
+      is a <b class="Sy">valid system</b> (as defined above), then the relevant
+      contents of both the Preboot and Recovery volumes will be copied from the
+      <var class="Ar">source</var> to the <var class="Ar">target</var>, creating
+      those volumes on the <var class="Ar">target</var> if necessary.</dd>
+  <dt>Volume Restore with Creation</dt>
+  <dd>If the <var class="Ar">target</var> is a synthesized APFS whole disk or
+      Apple_APFS partition, and the <code class="Fl">--erase</code> option is
+      not present, then <code class="Nm">asr</code> will create a new volume in
+      the given container, after which it will do a volume restore to that new
+      volume, as with the previous section. All other volumes in the container
+      are preserved.</dd>
+  <dt>Volume Restore with Erase</dt>
+  <dd>If the <var class="Ar">target</var> is a synthesized APFS whole disk or
+      any disk partition, and the <code class="Fl">--erase</code> option is
+      present, then <code class="Nm">asr</code> will erase the existing
+      partition, create a new APFS container and a new volume in it, after which
+      it will do a volume restore to that new volume, as with the previous
+      section.</dd>
+</dl>
+<p class="Pp">See the <b class="Sy">EXAMPLES</b> section below for some command
+    lines that show these operations.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REPLICATION_AND_THE_INVERTER"><a class="permalink" href="#REPLICATION_AND_THE_INVERTER">REPLICATION
+  AND THE INVERTER</a></h1>
+As of macOS Catalina, the standard mechanism for restoring APFS volumes is to
+  use the internal APFS replication capability. While this should be sufficient
+  for most needs, <code class="Nm">asr</code> does provide the ability to use a
+  legacy restore mechanism, which involves running the apfs_invert program.
+  Restoring with the inverter has some limitations (e.g. all volumes in the
+  target container must be unmounted, the source volume can't have any snapshots
+  in it, etc), so using the default APFS replication is usually the better
+  choice. However, in the event that invert restores are desired, that option
+  can be selected. The logic <code class="Nm">asr</code> uses for this is as
+  follows, from lowest to highest priority:
+<p class="Pp">- By default, use replication.</p>
+<p class="Pp">- Look for a preference in the domain com.apple.asr with key
+    &quot;ForceInvert&quot; and a Boolean value.</p>
+<p class="Pp">- Look for a <code class="Fl">--useReplication</code> or
+    <code class="Fl">--useInverter</code> option on the command line.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RESTORING_WITH_APFS_SNAPSHOTS"><a class="permalink" href="#RESTORING_WITH_APFS_SNAPSHOTS">RESTORING
+  WITH APFS SNAPSHOTS</a></h1>
+APFS volumes may contain snapshots, which are point-in-time captures of all
+  volume state (including directory hierarchy, file existence and file content).
+  To distinguish between a snapshot and the current state of a volume, we will
+  here refer to that current state as the &quot;live volume.&quot; Snapshots can
+  be identified by name or UUID. Names are unique within a single volume, but
+  two volumes can have snapshots with the same name that are unrelated in
+  content. By contrast, snapshot UUIDs are unique, in the sense that two
+  snapshots on different volumes that have the same UUID must refer to identical
+  content, a situation that will typically arise by restoring a snapshot, as
+  described in this section.
+<p class="Pp">In addition to restoring a live volume (either currently known to
+    the system or from an image), <code class="Nm">asr</code> also supports
+    restoring a snapshot from the source volume. The result of such a restore is
+    that the target volume ends up looking like the source volume at the time of
+    the given snapshot, rather than like the live source volume. Additionally,
+    the target volume will contain that state as a snapshot of its own, with the
+    same name and UUID as the restored snapshot in the source. See the
+    <b class="Sy">EXAMPLES</b> section below for some command lines that show
+    snapshot restores.</p>
+<p class="Pp"><code class="Nm">asr</code> also supports restoring the difference
+    between two snapshots, referred to as a &quot;snapshot delta.&quot; In this
+    case there must be both a &quot;from&quot; snapshot and a &quot;to&quot;
+    snapshot on the source volume, the target must be specified as a specific
+    volume rather than a whole container, and the target volume must already
+    contain a snapshot which is identical to the source's &quot;from&quot;
+    snapshot. The result of a snapshot delta restore is that the target ends up
+    looking like the source's &quot;to&quot; snapshot, similar to a regular
+    snapshot restore as described above. But the restore only needs to copy over
+    the difference between the two snapshots, so it may save considerable time
+    and/or network or bus resources. Note that a snapshot delta restore can
+    still discard data from the target volume, so <code class="Nm">asr</code>
+    does require using the <code class="Fl">--erase</code> option when doing a
+    snapshot delta restore. Again, see the <b class="Sy">EXAMPLES</b> section
+    below for some command line examples of snapshot delta restores.</p>
+<p class="Pp">Note that restoring with snapshots and snapshot deltas is only
+    allowed when using replication (see the <b class="Sy">REPLICATION AND THE
+    INVERTER</b> section above).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RESTORING_WITH_READ_ONLY_SYSTEM_VOLUMES"><a class="permalink" href="#RESTORING_WITH_READ_ONLY_SYSTEM_VOLUMES">RESTORING
+  WITH READ-ONLY SYSTEM VOLUMES</a></h1>
+macOS Catalina supports a Read-Only System Volume (ROSV) configuration, in which
+  the standard macOS system install is split across two volumes. The two are
+  referred to as the System and Data volumes, that is how their corresponding
+  APFS roles are set (see <a class="Xr">diskutil(1)</a> for more on APFS roles),
+  they are combined into a volume group, and the System volume gets mounted
+  read-only.
+<p class="Pp"><code class="Nm">asr</code> has support for restoring ROSV volume
+    groups. If the source is a disk image containing an ROSV volume group, or an
+    existing volume that is part of a volume group, then both volumes will be
+    restored to the target, and the target volumes will be combined as
+    appropriate into a new group on the target. Since the source and the target
+    may each be part of a group or not, there are several cases to consider:</p>
+<dl class="Bl-tag">
+  <dt>Creating New Volumes</dt>
+  <dd>If the specified <var class="Ar">target</var> is a container rather than a
+      volume, then new volumes will always be created, whether the source is a
+      single volume or part of a group.</dd>
+  <dt>Source is Group, Target is Single</dt>
+  <dd>The specified <var class="Ar">target</var> will be erased and replaced
+      with the System-role volume in the source group, and a new volume will be
+      created for the Data-role volume.</dd>
+  <dt>Source is Group, Target is Group</dt>
+  <dd>Both of the volumes in the <var class="Ar">target</var> group will be
+      replaced by the corresponding volumes in the <var class="Ar">source</var>
+      group.</dd>
+  <dt>Source is Single, Target is Group</dt>
+  <dd>The System-role volume in the <var class="Ar">target</var> is replaced by
+      the <var class="Ar">source</var> volume, and the Data-role volume in the
+      <var class="Ar">target</var> is deleted.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SNAPSHOTS_AND_ROSV_VOLUME_GROUPS"><a class="permalink" href="#SNAPSHOTS_AND_ROSV_VOLUME_GROUPS">SNAPSHOTS
+  AND ROSV VOLUME GROUPS</a></h1>
+<code class="Nm">asr</code> can restore snapshots and snapshot deltas from any
+  volume in a volume group, but the behavior is different between snapshot
+  restores and snapshot delta restores.
+<p class="Pp">When doing a snapshot restore (i.e. using the
+    <code class="Fl">--toSnapshot</code> option without the
+    <code class="Fl">--fromSnapshot</code> option), each volume in the source
+    volume group is examined to see if it contains the specified &quot;to&quot;
+    snapshot. Each volume in the group which contains the snapshot will be
+    copied as a snapshot replication, as described in the
+    <b class="Sy">RESTORING WITH APFS SNAPSHOTS</b> section, above. Each volume
+    in the group which does not contain the snapshot will be copied as a live
+    volume replication. So all volumes in the group are restored, and only those
+    which contain the given &quot;to&quot; snapshot will have a snapshot restore
+    performed. Note that if the &quot;to&quot; snapshot is specified by name,
+    multiple volumes in the source group may have a snapshot with that name,
+    though those snapshots need not be related in any way.</p>
+<p class="Pp">By contrast, snapshot delta restores (i.e. using both the
+    <code class="Fl">--toSnapshot</code> and
+    <code class="Fl">--fromSnapshot</code> options) are only ever performed on a
+    single volume. The source volume can be any volume (i.e. it need not have
+    any particular role), but whether or not it's in a group, that will be the
+    only volume restored. So if there are multiple volumes which have snapshots
+    with the same names and you want to do a snapshot delta restore for all of
+    them, then you must invoke asr once for each such volume.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUFFERING"><a class="permalink" href="#BUFFERING">BUFFERING</a></h1>
+The following options control how <code class="Nm">asr</code> uses memory. These
+  options can have a significant impact on performance.
+  <code class="Nm">asr</code> is optimized for copying between devices
+  (different disk drives, from a network volume to a local disk, etc). As such,
+  <code class="Nm">asr</code> defaults to using eight one megabyte buffers.
+  These buffers are wired down (occupying physical memory). For partition to
+  partition copies on the same device, one large buffer (e.g. 32 MB) is much
+  faster than the default eight medium sized ones. For multicast, 4 256k buffers
+  are the default. Custom buffering for multicast operation is not recommended.
+<p class="Pp"><code class="Fl">--csumbuffers</code> and
+    <code class="Fl">--csumbuffersize</code> allow a different buffer
+    configuration for checksumming operations. One checksum buffer offers the
+    best performance. The default is 1 1MB buffer. Custom checksum buffering is
+    not recommended.</p>
+<p class="Pp">Like <a class="Xr">mkfile(8)</a>, <var class="Ar">size</var>
+    defaults to bytes but can be followed by a multiplier character (e.g.
+  'm').</p>
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#-buffers"><code class="Fl" id="-buffers">--buffers</code></a>
+    <var class="Ar">num</var></dt>
+  <dd>specifies that <var class="Ar">num</var> buffers should be used.</dd>
+  <dt><a class="permalink" href="#-buffersize"><code class="Fl" id="-buffersize">--buffersize</code></a>
+    <var class="Ar">size</var></dt>
+  <dd>specifies the size of each buffer.</dd>
+  <dt><a class="permalink" href="#-csumbuffers"><code class="Fl" id="-csumbuffers">--csumbuffers</code></a>
+    <var class="Ar">num</var></dt>
+  <dd>specifies that <var class="Ar">num</var> buffers should be used for
+      checksumming operations (which only affect the target). Custom checksum
+      buffering is not recommended.</dd>
+  <dt><a class="permalink" href="#-csumbuffersize"><code class="Fl" id="-csumbuffersize">--csumbuffersize</code></a>
+    <var class="Ar">size</var></dt>
+  <dd>specifies the size of each buffer used for checksumming. Custom checksum
+      buffering is not recommended.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OTHER_OPTIONS"><a class="permalink" href="#OTHER_OPTIONS">OTHER
+  OPTIONS</a></h1>
+<dl class="Bl-tag Bl-compact">
+  <dt><a class="permalink" href="#-verbose"><code class="Fl" id="-verbose">--verbose</code></a></dt>
+  <dd>enables verbose progress and error messages.</dd>
+  <dt><a class="permalink" href="#-debug"><code class="Fl" id="-debug">--debug</code></a></dt>
+  <dd>enables other progress and error messages.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<i class="Em">Volume cloning:</i>
+<div class="Bd Bd-indent">sudo asr restore --source /Volumes/Classic --target
+  /Volumes/install --erase</div>
+<p class="Pp"><i class="Em">Restoring:</i></p>
+<div class="Bd Bd-indent"><code class="Li">sudo asr restore -s
+  &lt;compressedimage&gt; -t &lt;targetvol&gt; --erase</code></div>
+<p class="Pp">Will erase the target and potentially do a block copy restore.</p>
+<p class="Pp"><i class="Em">Multicast server:</i></p>
+<div class="Bd Bd-indent">asr server --source &lt;compressedimage&gt; --config
+  &lt;configuration.plist&gt;</div>
+<p class="Pp">Will start up a multicast server for the specified image, using
+    the parameters in the configuration.plist. The image will not start
+    multicasting on the network until a client attempts to start a restore. The
+    server will continue to multicast the image until the process is
+  terminated.</p>
+<p class="Pp"><i class="Em">An example multicast configuration file:</i></p>
+<div class="Bd Bd-indent">defaults write /tmp/streamconfig &#x201C;Data
+  Rate&#x201D; -int 6000000</div>
+<div class="Bd Bd-indent">defaults write /tmp/streamconfig &#x201C;Multicast
+  Address&#x201D; &lt;mcastaddr&gt;</div>
+<div class="Bd Bd-indent">(will create the file /tmp/streamconfig.plist)</div>
+<div class="Bd Bd-indent">&lt;mcastaddr&gt; should be appropriate for your
+  network infrastructure and policy, usually from a range assigned by your
+  network administrator.</div>
+<p class="Pp"><i class="Em">Multicast client</i></p>
+<div class="Bd Bd-indent">sudo asr restore --source asr://&lt;hostname&gt;
+  --target &lt;targetvol&gt; --erase</div>
+<p class="Pp"><i class="Em">Multicast client restoring to a file</i></p>
+<div class="Bd Bd-indent">sudo asr restore --source asr://&lt;hostname&gt;
+  --file &lt;file&gt; --erase</div>
+<p class="Pp">Will receive the multicast stream from &lt;hostname&gt; and save
+    it to a file. If &lt;file&gt; is a directory, the image of the streamed disk
+    image will be used the save the file. --erase causes any existing file with
+    the same name to be overwritten.</p>
+<p class="Pp"><i class="Em">Restoring a single APFS volume</i></p>
+<div class="Bd Bd-indent">sudo asr restore -s &lt;APFS image&gt; -t
+  /Volumes/MyAPFSVolume --erase</div>
+<p class="Pp">In this case the contents of MyAPFSVolume will be replaced by the
+    contents of the source container's single APFS volume, possibly including
+    any associated data for the Preboot and Recovery volumes, if the source is a
+    <b class="Sy">valid system</b>. If the source has more than one non-special
+    volume, this is an error. No other volumes in the target will be
+  affected.</p>
+<p class="Pp"><i class="Em">Restoring one of many APFS volumes</i></p>
+<div class="Bd Bd-indent">sudo asr restore -s &lt;APFS image&gt;
+  --sourcevolumename SourceVolume -t /Volumes/MyAPFSVolume --erase</div>
+<p class="Pp">This tells <code class="Nm">asr</code> to select the volume named
+    &quot;SourceVolume&quot; from the given APFS image. If there is no volume
+    with that name, or if there are more than one with that name, it is an
+    error. Use the <b class="Sy">info</b> verb to see the volume names and UUIDs
+    for an image. No other volumes in the target will be affected.</p>
+<p class="Pp"><i class="Em">Creating a new APFS volume on the fly</i></p>
+<div class="Bd Bd-indent">sudo asr restore -s &lt;APFS image&gt;
+  --sourcevolumename SourceVolume -t /dev/disk2</div>
+<p class="Pp">Here we get the same effect as the last example, except that
+    <code class="Nm">asr</code> will create a new volume on the target APFS
+    container disk, given by /dev/disk2, and use that newly created volume as
+    the target. Any volumes which already existed in the container will still be
+    there after the restore.</p>
+<p class="Pp"><i class="Em">Overwriting the existing container</i></p>
+<div class="Bd Bd-indent">sudo asr restore -s &lt;APFS image&gt;
+  --sourcevolumename SourceVolume -t /dev/disk2 --erase</div>
+<p class="Pp">Like the last example, we restore to a new volume on the target
+    APFS container disk. However in this case we are erasing the target, so any
+    volumes which already existed are destroyed.</p>
+<p class="Pp"><i class="Em">Looking at an image's volume names/UUIDs</i></p>
+<div class="Bd Bd-indent">asr info -s &lt;APFS image&gt;</div>
+<p class="Pp">Assuming this image has been previously scanned (using the
+    <b class="Sy">imagescan</b> verb), this will display the volumes' names and
+    UUIDs so they can be used with the
+    <code class="Fl">--sourcevolumename</code> or
+    <code class="Fl">--sourcevolumeUUID</code> options.</p>
+<p class="Pp"><i class="Em">Restoring a snapshot</i></p>
+<div class="Bd Bd-indent">sudo asr restore -s &lt;APFS image&gt; -t /dev/disk2
+  --toSnapshot Snap1</div>
+<p class="Pp">This assumes that the image volume has a snapshot named Snap1.
+    During the restore, <code class="Nm">asr</code> will create a new volume in
+    the container at /dev/disk2 and use that volume as the target of the
+    restore. The resulting target volume will have the same contents as Snap1 on
+    the source volume, and it will also have a snapshot with the same name
+    (Snap1) and UUID as Snap1 on the source. This snapshot will match the live
+    target volume right after the restore; the live volume can subsequently
+    change, but the snapshot will remain the same.</p>
+<p class="Pp"><i class="Em">Restoring a snapshot delta</i></p>
+<div class="Bd Bd-indent">sudo asr restore -s &lt;APFS image&gt; -t
+  /Volumes/Target --erase --fromSnapshot Snap1 --toSnapshot Snap2</div>
+<p class="Pp">This assumes that the image volume has a snapshot named Snap1 and
+    another snapshot named Snap2. Furthermore the target volume (mounted here at
+    &quot;/Volumes/Target&quot;) must also contain Snap1, with the same UUID and
+    content. The result of the restore will be that the target volume will have
+    the same contents as Snap2 on the source volume, and it will also gain a
+    snapshot with the same name (Snap2) and UUID as Snap2 on the source. The
+    restore will only need to copy the difference between the two snapshots,
+    rather than the entire contents of Snap2.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HOW_TO_USE_ASR"><a class="permalink" href="#HOW_TO_USE_ASR">HOW
+  TO USE ASR</a></h1>
+<code class="Nm">asr</code> requires a properly created disk image for most
+  efficient operation. This image is most easily made with the Disk Utility
+  application's &quot;Image from Folder&quot; function in OS X 10.3. The Disk
+  Copy from OS X 10.2.3 (v55.6) or later can also be used.
+<p class="Pp">Basic steps for imaging and restoring a volume:</p>
+<ol class="Bl-enum">
+  <li>Set up the source volume the way you want it.</li>
+  <li>Use Disk Utility's &quot;File -&gt; New Image -&gt; Image from
+      Folder...&quot; function and select the root of the volume. Save the image
+      as read-only or compressed. &quot;File-&gt;New Image-&gt;Image from
+      &lt;device&gt;&quot; is not recommended for restorable images.</li>
+  <li>Scan the image with &quot;Images -&gt; Scan Image for
+    Restore...&quot;</li>
+  <li>Select a volume and click on the &quot;Restore&quot; button. Then click on
+      the &quot;Image...&quot; button to select the image you have scanned.
+      Click Restore.</li>
+</ol>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BLOCK_COPY_RESTORE_REQUIREMENTS"><a class="permalink" href="#BLOCK_COPY_RESTORE_REQUIREMENTS">BLOCK
+  COPY RESTORE REQUIREMENTS</a></h1>
+<code class="Nm">asr</code> can block copy restore HFS+/HFSX filesystems and
+  resize the source filesystem to fit in the target's partition if the source
+  filesystem data blocks will fit within the target partition's space (resizing
+  the filesystem geometry as appropriate).
+<p class="Pp">HFS+ can be used as the source of a block copy to either an HFS+
+    or HFSX destination. However, an HFSX source can only be used to block copy
+    to an HFSX destination. This is because case collision of file names could
+    occur when converting from an HFSX filesystem to HFS+.</p>
+<p class="Pp">Certain non-HFS+/HFSX filesystems will block copy restore, but the
+    target partition will be resized to match the size of the source
+    image/partition size, with no filesystem resizing occurring.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMPATIBILITY"><a class="permalink" href="#COMPATIBILITY">COMPATIBILITY</a></h1>
+<code class="Nm">asr</code> maintains compatibility with previous syntax, e.g.
+<p class="Pp"></p>
+<ul class="Bl-item Bl-compact">
+  <li><code class="Nm">asr</code> <code class="Fl">-source</code>
+      <var class="Ar">source</var> <code class="Fl">-target</code>
+      <var class="Ar">target</var> [<var class="Ar">options</var>]</li>
+  <li><code class="Nm">asr</code> <code class="Fl">-source</code>
+      <var class="Ar">source</var> <code class="Fl">-server</code>
+      <var class="Ar">configuration</var> [<var class="Ar">options</var>]</li>
+  <li><code class="Nm">asr</code> <code class="Fl">-source</code>
+      <var class="Ar">asr://source</var> <code class="Fl">-file</code>
+      <var class="Ar">file</var> [<var class="Ar">options</var>]</li>
+  <li><code class="Nm">asr</code> <code class="Fl">-imagescan</code>
+      [<var class="Ar">options</var>] <var class="Ar">image</var></li>
+  <li><code class="Nm">asr</code> <code class="Fl">-h</code> |
+      <var class="Ar">file ...</var> <code class="Fl">-v</code></li>
+</ul>
+<p class="Pp">where <code class="Fl">-source,</code>
+    <code class="Fl">-target,</code> and <code class="Fl">-file</code> are
+    equivalent to <code class="Fl">--source,</code>
+    <code class="Fl">--target,</code> and <code class="Fl">--file</code>
+    respectively, and all [<var class="Ar">options</var>] are equivalent to
+    their -- descriptions. <code class="Nm">asr</code>
+    <code class="Fl">-server</code> <var class="Ar">configuration</var> is
+    superseded by <code class="Nm">asr</code> <b class="Sy">server</b>
+    <code class="Fl">--config</code> <var class="Ar">configuration</var>. The
+    following deprecated options also remain:</p>
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#nocheck"><code class="Fl" id="nocheck">-nocheck</code></a></dt>
+  <dd>this option is deprecated, but remains for script compatibility. Use
+      <code class="Fl">-noverify</code> instead.</dd>
+  <dt><a class="permalink" href="#blockonly"><code class="Fl" id="blockonly">-blockonly</code></a></dt>
+  <dd>this option is deprecated, but remains for script compatibility. On by
+      default. Note that if an image scanned with
+      <code class="Fl">-blockonly</code> cannot be block-copied to a particular
+      <var class="Ar">target</var> an error will occur, since the file-copy
+      information was omitted.</dd>
+</dl>
+<p class="Pp"><b class="Sy">Note:</b> Compatibility with previous syntax is not
+    guaranteed in the next major OS release.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ERRORS"><a class="permalink" href="#ERRORS">ERRORS</a></h1>
+<code class="Nm">asr</code> will exit with status 1 if it cannot complete the
+  requested operation. A human readable error message will be printed in most
+  cases. If <code class="Nm">asr</code> has already started writing to the
+  target volume when the error occurs, then it will erase the target, leaving it
+  in a valid (but empty) state. It will, however, leave it unmounted.
+<p class="Pp">Some of the error messages which <code class="Nm">asr</code>
+    prints are generated by the underlying subsystems that it uses, and their
+    meaning is not always obvious. Here are some useful guidelines:</p>
+<ol class="Bl-enum">
+  <li><code class="Nm">asr</code> does some preflight testing before it starts
+      actually copying data. Errors that show up during this preflighting are
+      usually clear (e.g. &quot;There is not enough space in volume
+      &quot;Macintosh HD&quot; to do the restore.&quot;)</li>
+  <li>If an error occurs during the copy, it might be because there is
+      corruption in the source image file. Try running &quot;hdiutil
+      verify&quot; with the image. A common error message which indicates this
+      is &quot;codec overrun&quot;.</li>
+  <li>Errors which occur during the copy and which don't have an obvious cause
+      (i.e. the error message is difficult to interpret) may be transient in
+      nature (e.g. there was an I/O error on the disk), and it is worth simply
+      trying the restore again.</li>
+</ol>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+Apple Software Restore got its start as a field service restoration tool used to
+  reconfigure computers' software to 'factory' state. It later became a more
+  general software restore mechanism and software installation helper
+  application for various Apple computer products. ASR has been used in
+  manufacturing processes and in shipping computers' System Software Installers.
+<p class="Pp">For Mac OS X, asr was rewritten as a command line tool for
+    manufacturing and professional customers. <code class="Nm">asr</code> is the
+    backend for the Mac OS X Software Restore application that shipped on
+    Macintosh computers as well as the Scan and Restore functionality in Disk
+    Utility.</p>
+<p class="Pp">Multicast support was added to allow multiple clients to erase
+    restore an image from a multicast network stream.</p>
+<p class="Pp">Per its history, most functionality in <code class="Nm">asr</code>
+    is limited to HFS+ volumes.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">hdiutil(1)</a>, <a class="Xr">df(1)</a>,
+  <a class="Xr">bless(8)</a>, <a class="Xr">ditto(1)</a>, and
+  <a class="Xr">what(1)</a>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">23 October 2012</td>
+    <td class="foot-os">Mac OS X</td>
+  </tr>
+</table>
+</body>
+</html>

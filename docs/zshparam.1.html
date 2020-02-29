@@ -1,0 +1,1715 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>ZSHPARAM(1)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">ZSHPARAM(1)</td>
+    <td class="head-vol">General Commands Manual</td>
+    <td class="head-rtitle">ZSHPARAM(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+zshparam - zsh parameters
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+A parameter has a name, a value, and a number of attributes. A name may be any
+  sequence of alphanumeric characters and underscores, or the single characters
+  `<b>*</b>', `<b>@</b>', `<b>#</b>', `<b>?</b>', `<b>-</b>', `<b>$</b>', or
+  `<b>!</b>'. A parameter whose name begins with an alphanumeric or underscore
+  is also referred to as a <i>variable</i>.
+<p class="Pp">The attributes of a parameter determine the <i>type</i> of its
+    value, often referred to as the parameter type or variable type, and also
+    control other processing that may be applied to the value when it is
+    referenced. The value type may be a <i>scalar</i> (a string, an integer, or
+    a floating point number), an array (indexed numerically), or an
+    <i>associative</i> array (an unordered set of name-value pairs, indexed by
+    name, also referred to as a <i>hash</i>).</p>
+<p class="Pp">Named scalar parameters may have the <i>exported</i>, <b>-x</b>,
+    attribute, to copy them into the process environment, which is then passed
+    from the shell to any new processes that it starts. Exported parameters are
+    called <i>environment variables</i>. The shell also <i>imports</i>
+    environment variables at startup time and automatically marks the
+    corresponding parameters as exported. Some environment variables are not
+    imported for reasons of security or because they would interfere with the
+    correct operation of other shell features.</p>
+<p class="Pp">Parameters may also be <i>special</i>, that is, they have a
+    predetermined meaning to the shell. Special parameters cannot have their
+    type changed or their readonly attribute turned off, and if a special
+    parameter is unset, then later recreated, the special properties will be
+    retained.</p>
+<p class="Pp">To declare the type of a parameter, or to assign a string or
+    numeric value to a scalar parameter, use the <b>typeset</b> builtin.</p>
+<p class="Pp">The value of a scalar parameter may also be assigned by
+  writing:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<i>name</i><b>=</b><i>value</i>
+</pre>
+</div>
+<p class="Pp">In scalar assignment, <i>value</i> is expanded as a single string,
+    in which the elements of arrays are joined together; filename expansion is
+    not performed unless the option <b>GLOB_ASSIGN</b> is set.</p>
+<p class="Pp">When the integer attribute, <b>-i</b>, or a floating point
+    attribute, <b>-E</b> or <b>-F</b>, is set for <i>name</i>, the <i>value</i>
+    is subject to arithmetic evaluation. Furthermore, by replacing `<b>=</b>'
+    with `<b>+=</b>', a parameter can be incremented or appended to. See the
+    section `Array Parameters' and <i>Arithmetic Evaluation</i> (in
+    <i>zshmisc</i>(1)) for additional forms of assignment.</p>
+<p class="Pp">Note that assignment may implicitly change the attributes of a
+    parameter. For example, assigning a number to a variable in arithmetic
+    evaluation may change its type to integer or float, and with
+    <b>GLOB_ASSIGN</b> assigning a pattern to a variable may change its type to
+    an array.</p>
+<p class="Pp">To reference the value of a parameter, write `<b>$</b><i>name</i>'
+    or `<b>${</b><i>name</i><b>}</b>'. See <i>Parameter Expansion</i> in
+    <i>zshexpn</i>(1) for complete details. That section also explains the
+    effect of the difference between scalar and array assignment on parameter
+    expansion.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ARRAY_PARAMETERS"><a class="permalink" href="#ARRAY_PARAMETERS">ARRAY
+  PARAMETERS</a></h1>
+To assign an array value, write one of:
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>set -A</b> <i>name</i> <i>value</i> ...
+</pre>
+</div>
+<div class="Bd-indent">
+<pre>
+<i>name</i><b>=(</b><i>value</i> ...<b>)</b>
+</pre>
+</div>
+<div class="Bd-indent">
+<pre>
+<i>name</i><b>=(</b><b>[</b><i>key</i><b>]=</b><i>value</i> ...<b>)</b>
+</pre>
+</div>
+<p class="Pp">If no parameter <i>name</i> exists, an ordinary array parameter is
+    created. If the parameter <i>name</i> exists and is a scalar, it is replaced
+    by a new array.</p>
+<p class="Pp">In the third form, <i>key</i> is an expression that will be
+    evaluated in arithmetic context (in its simplest form, an integer) that
+    gives the index of the element to be assigned with <i>value</i>. In this
+    form any elements not explicitly mentioned that come before the largest
+    index to which a value is assigned are assigned an empty string. The indices
+    may be in any order. Note that this syntax is strict: <b>[</b> and <b>]=</b>
+    must not be quoted, and <i>key</i> may not consist of the unquoted string
+    <b>]=</b>, but is otherwise treated as a simple string. The enhanced forms
+    of subscript expression that may be used when directly subscripting a
+    variable name, described in the section Array Subscripts below, are not
+    available.</p>
+<p class="Pp">The syntaxes with and without the explicit key may be mixed. An
+    implicit <i>key</i> is deduced by incrementing the index from the previously
+    assigned element. Note that it is not treated as an error if latter
+    assignments in this form overwrite earlier assignments.</p>
+<p class="Pp">For example, assuming the option <b>KSH_ARRAYS</b> is not set, the
+    following:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>array=(one [3]=three four)</b>
+</pre>
+</div>
+<p class="Pp">causes the array variable <b>array</b> to contain four elements
+    <b>one</b>, an empty string, <b>three</b> and <b>four</b>, in that
+  order.</p>
+<p class="Pp">In the forms where only <i>value</i> is specified, full command
+    line expansion is performed.</p>
+<p class="Pp">In the <b>[</b><i>key</i><b>]=</b><i>value</i> form, both
+    <i>key</i> and <i>value</i> undergo all forms of expansion allowed for
+    single word shell expansions (this does not include filename generation);
+    these are as performed by the parameter expansion flag <b>(e)</b> as
+    described in <i>zshparam</i>(1). Nested parentheses may surround
+    <i>value</i> and are included as part of the value, which is joined into a
+    plain string; this differs from ksh which allows the values themselves to be
+    arrays. A future version of zsh may support that. To cause the brackets to
+    be interpreted as a character class for filename generation, and therefore
+    to treat the resulting list of files as a set of values, quote the equal
+    sign using any form of quoting. Example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<i>name</i><b>=(</b><b>[a-z]'='*)</b>
+</pre>
+</div>
+<p class="Pp">To append to an array without changing the existing values, use
+    one of the following:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<i>name</i><b>+=(</b><i>value</i> ...<b>)</b>
+</pre>
+</div>
+<div class="Bd-indent">
+<pre>
+<i>name</i><b>+=(</b><b>[</b><i>key</i><b>]=</b><i>value</i> ...<b>)</b>
+</pre>
+</div>
+<p class="Pp">In the second form <i>key</i> may specify an existing index as
+    well as an index off the end of the old array; any existing value is
+    overwritten by <i>value</i>. Also, it is possible to use
+    <b>[</b><i>key</i><b>]+=</b><i>value</i> to append to the existing value at
+    that index.</p>
+<p class="Pp">Within the parentheses on the right hand side of either form of
+    the assignment, newlines and semicolons are treated the same as white space,
+    separating individual <i>value</i>s. Any consecutive sequence of such
+    characters has the same effect.</p>
+<p class="Pp">Ordinary array parameters may also be explicitly declared
+  with:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>typeset -a</b> <i>name</i>
+</pre>
+</div>
+<p class="Pp">Associative arrays <i>must</i> be declared before assignment, by
+    using:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>typeset -A</b> <i>name</i>
+</pre>
+</div>
+<p class="Pp">When <i>name</i> refers to an associative array, the list in an
+    assignment is interpreted as alternating keys and values:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>set -A</b> <i>name</i> <i>key</i> <i>value</i> ...
+</pre>
+</div>
+<div class="Bd-indent">
+<pre>
+<i>name</i><b>=(</b><i>key</i> <i>value</i> ...<b>)</b>
+</pre>
+</div>
+<div class="Bd-indent">
+<pre>
+<i>name</i><b>=(</b><b>[</b><i>key</i><b>]=</b><i>value</i> ...<b>)</b>
+</pre>
+</div>
+<p class="Pp">Note that only one of the two syntaxes above may be used in any
+    given assignment; the forms may not be mixed. This is unlike the case of
+    numerically indexed arrays.</p>
+<p class="Pp">Every <i>key</i> must have a <i>value</i> in this case. Note that
+    this assigns to the entire array, deleting any elements that do not appear
+    in the list. The append syntax may also be used with an associative
+  array:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<i>name</i><b>+=(</b><i>key</i> <i>value</i> ...<b>)</b>
+</pre>
+</div>
+<div class="Bd-indent">
+<pre>
+<i>name</i><b>+=(</b><b>[</b><i>key</i><b>]=</b><i>value</i> ...<b>)</b>
+</pre>
+</div>
+<p class="Pp">This adds a new key/value pair if the key is not already present,
+    and replaces the value for the existing key if it is. In the second form it
+    is also possible to use <b>[</b><i>key</i><b>]+=</b><i>value</i> to append
+    to the existing value at that key. Expansion is performed identically to the
+    corresponding forms for normal arrays, as described above.</p>
+<p class="Pp">To create an empty array (including associative arrays), use one
+    of:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>set -A</b> <i>name</i>
+</pre>
+</div>
+<div class="Bd-indent">
+<pre>
+<i>name</i><b>=()</b>
+</pre>
+</div>
+<section class="Ss">
+<h2 class="Ss" id="Array_Subscripts"><a class="permalink" href="#Array_Subscripts">Array
+  Subscripts</a></h2>
+Individual elements of an array may be selected using a subscript. A subscript
+  of the form `<b>[</b><i>exp</i><b>]</b>' selects the single element
+  <i>exp</i>, where <i>exp</i> is an arithmetic expression which will be subject
+  to arithmetic expansion as if it were surrounded by `<b>$((</b>...<b>))</b>'.
+  The elements are numbered beginning with 1, unless the <b>KSH_ARRAYS</b>
+  option is set in which case they are numbered from zero.
+<p class="Pp">Subscripts may be used inside braces used to delimit a parameter
+    name, thus `<b>${foo[2]}</b>' is equivalent to `<b>$foo[2]</b>'. If the
+    <b>KSH_ARRAYS</b> option is set, the braced form is the only one that works,
+    as bracketed expressions otherwise are not treated as subscripts.</p>
+<p class="Pp">If the <b>KSH_ARRAYS</b> option is not set, then by default
+    accesses to an array element with a subscript that evaluates to zero return
+    an empty string, while an attempt to write such an element is treated as an
+    error. For backward compatibility the <b>KSH_ZERO_SUBSCRIPT</b> option can
+    be set to cause subscript values 0 and 1 to be equivalent; see the
+    description of the option in <i>zshoptions</i>(1).</p>
+<p class="Pp">The same subscripting syntax is used for associative arrays,
+    except that no arithmetic expansion is applied to <i>exp</i>. However, the
+    parsing rules for arithmetic expressions still apply, which affects the way
+    that certain special characters must be protected from interpretation. See
+    <i>Subscript Parsing</i> below for details.</p>
+<p class="Pp">A subscript of the form `<b>[*]</b>' or `<b>[@]</b>' evaluates to
+    all elements of an array; there is no difference between the two except when
+    they appear within double quotes. `<b>&quot;$foo[*]&quot;</b>' evaluates to
+    `<b>&quot;$foo[1] $foo[2] </b>...<b>&quot;</b>', whereas
+    `<b>&quot;$foo[@]&quot;</b>' evaluates to `<b>&quot;$foo[1]&quot;
+    &quot;$foo[2]&quot; </b>...'. For associative arrays, `<b>[*]</b>' or
+    `<b>[@]</b>' evaluate to all the values, in no particular order. Note that
+    this does not substitute the keys; see the documentation for the `<b>k</b>'
+    flag under <i>Parameter Expansion Flags</i> in <i>zshexpn</i>(1) for
+    complete details. When an array parameter is referenced as
+    `<b>$</b><i>name</i>' (with no subscript) it evaluates to
+    `<b>$</b><i>name</i><b>[*]</b>', unless the <b>KSH_ARRAYS</b> option is set
+    in which case it evaluates to `<b>${</b><i>name</i><b>[0]}</b>' (for an
+    associative array, this means the value of the key `<b>0</b>', which may not
+    exist even if there are values for other keys).</p>
+<p class="Pp">A subscript of the form
+    `<b>[</b><i>exp1</i><b>,</b><i>exp2</i><b>]</b>' selects all elements in the
+    range <i>exp1</i> to <i>exp2</i>, inclusive. (Associative arrays are
+    unordered, and so do not support ranges.) If one of the subscripts evaluates
+    to a negative number, say <b>-</b><i>n</i>, then the <i>n</i>th element from
+    the end of the array is used. Thus `<b>$foo[-3]</b>' is the third element
+    from the end of the array <b>foo</b>, and `<b>$foo[1,-1]</b>' is the same as
+    `<b>$foo[*]</b>'.</p>
+<p class="Pp">Subscripting may also be performed on non-array values, in which
+    case the subscripts specify a substring to be extracted. For example, if
+    <b>FOO</b> is set to `<b>foobar</b>', then `<b>echo $FOO[2,5]</b>' prints
+    `<b>ooba</b>'. Note that some forms of subscripting described below perform
+    pattern matching, and in that case the substring extends from the start of
+    the match of the first subscript to the end of the match of the second
+    subscript. For example,</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>string=&quot;abcdefghijklm&quot;</b>
+<b>print ${string[(r)d?,(r)h?]}</b>
+</pre>
+</div>
+<p class="Pp">prints `<b>defghi</b>'. This is an obvious generalisation of the
+    rule for single-character matches. For a single subscript, only a single
+    character is referenced (not the range of characters covered by the
+  match).</p>
+<p class="Pp">Note that in substring operations the second subscript is handled
+    differently by the <b>r</b> and <b>R</b> subscript flags: the former takes
+    the shortest match as the length and the latter the longest match. Hence in
+    the former case a <b>*</b> at the end is redundant while in the latter case
+    it matches the whole remainder of the string. This does not affect the
+    result of the single subscript case as here the length of the match is
+    irrelevant.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Array_Element_Assignment"><a class="permalink" href="#Array_Element_Assignment">Array
+  Element Assignment</a></h2>
+A subscript may be used on the left side of an assignment like so:
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<i>name</i><b>[</b><i>exp</i><b>]=</b><i>value</i>
+</pre>
+</div>
+<p class="Pp">In this form of assignment the element or range specified by
+    <i>exp</i> is replaced by the expression on the right side. An array (but
+    not an associative array) may be created by assignment to a range or
+    element. Arrays do not nest, so assigning a parenthesized list of values to
+    an element or range changes the number of elements in the array, shifting
+    the other elements to accommodate the new values. (This is not supported for
+    associative arrays.)</p>
+<p class="Pp">This syntax also works as an argument to the <b>typeset</b>
+    command:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>typeset</b> <b>&quot;</b><i>name</i><b>[</b><i>exp</i><b>]&quot;=</b><i>value</i>
+</pre>
+</div>
+<p class="Pp">The <i>value</i> may <i>not</i> be a parenthesized list in this
+    case; only single-element assignments may be made with <b>typeset</b>. Note
+    that quotes are necessary in this case to prevent the brackets from being
+    interpreted as filename generation operators. The <b>noglob</b> precommand
+    modifier could be used instead.</p>
+<p class="Pp">To delete an element of an ordinary array, assign `<b>()</b>' to
+    that element. To delete an element of an associative array, use the
+    <b>unset</b> command:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>unset</b> <b>&quot;</b><i>name</i><b>[</b><i>exp</i><b>]&quot;</b>
+</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Subscript_Flags"><a class="permalink" href="#Subscript_Flags">Subscript
+  Flags</a></h2>
+If the opening bracket, or the comma in a range, in any subscript expression is
+  directly followed by an opening parenthesis, the string up to the matching
+  closing one is considered to be a list of flags, as in
+  `<i>name</i><b>[(</b><i>flags</i><b>)</b><i>exp</i><b>]</b>'.
+<p class="Pp">The flags <b>s</b>, <b>n</b> and <b>b</b> take an argument; the
+    delimiter is shown below as `<b>:</b>', but any character, or the matching
+    pairs `<b>(</b>...<b>)</b>', `<b>{</b>...<b>}</b>', `<b>[</b>...<b>]</b>',
+    or `<b>&lt;</b>...<b>&gt;</b>', may be used, but note that
+    `<b>&lt;</b>...<b>&gt;</b>' can only be used if the subscript is inside a
+    double quoted expression or a parameter substitution enclosed in braces as
+    otherwise the expression is interpreted as a redirection.</p>
+<p class="Pp">The flags currently understood are:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>w</b></dt>
+  <dd>If the parameter subscripted is a scalar then this flag makes subscripting
+      work on words instead of characters. The default word separator is
+      whitespace. When combined with the <b>i</b> or <b>I</b> flag, the effect
+      is to produce the index of the first character of the first/last word
+      which matches the given pattern; note that a failed match in this case
+      always yields 0.</dd>
+  <dt><b>s:</b><i>string</i><b>:</b></dt>
+  <dd>This gives the <i>string</i> that separates words (for use with the
+      <b>w</b> flag). The delimiter character <b>:</b> is arbitrary; see
+    above.</dd>
+  <dt><b>p</b></dt>
+  <dd>Recognize the same escape sequences as the <b>print</b> builtin in the
+      string argument of a subsequent `<b>s</b>' flag.</dd>
+  <dt><b>f</b></dt>
+  <dd>If the parameter subscripted is a scalar then this flag makes subscripting
+      work on lines instead of characters, i.e. with elements separated by
+      newlines. This is a shorthand for `<b>pws:\n:</b>'.</dd>
+  <dt><b>r</b></dt>
+  <dd>Reverse subscripting: if this flag is given, the <i>exp</i> is taken as a
+      pattern and the result is the first matching array element, substring or
+      word (if the parameter is an array, if it is a scalar, or if it is a
+      scalar and the `<b>w</b>' flag is given, respectively). The subscript used
+      is the number of the matching element, so that pairs of subscripts such as
+      `<b>$foo[(r)??,3]</b>' and `<b>$foo[(r)??,(r)f*]</b>' are possible if the
+      parameter is not an associative array. If the parameter is an associative
+      array, only the value part of each pair is compared to the pattern, and
+      the result is that value.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If a search through an ordinary array failed, the search sets the
+    subscript to one past the end of the array, and hence
+    <b>${array[(r)</b><i>pattern</i><b>]}</b> will substitute the empty string.
+    Thus the success of a search can be tested by using the <b>(i)</b> flag, for
+    example (assuming the option <b>KSH_ARRAYS</b> is not in effect):</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>[[ ${array[(i)pattern]} -le ${#array} ]]</b>
+</pre>
+</div>
+<p class="Pp">If <b>KSH_ARRAYS</b> is in effect, the <b>-le</b> should be
+    replaced by <b>-lt</b>.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>R</b></dt>
+  <dd>Like `<b>r</b>', but gives the last match. For associative arrays, gives
+      all possible matches. May be used for assigning to ordinary array
+      elements, but not for assigning to associative arrays. On failure, for
+      normal arrays this has the effect of returning the element corresponding
+      to subscript 0; this is empty unless one of the options <b>KSH_ARRAYS</b>
+      or <b>KSH_ZERO_SUBSCRIPT</b> is in effect.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Note that in subscripts with both `<b>r</b>' and `<b>R</b>'
+    pattern characters are active even if they were substituted for a parameter
+    (regardless of the setting of <b>GLOB_SUBST</b> which controls this feature
+    in normal pattern matching). The flag `<b>e</b>' can be added to inhibit
+    pattern matching. As this flag does not inhibit other forms of substitution,
+    care is still required; using a parameter to hold the key has the desired
+    effect:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>key2='original key'</b>
+<b>print ${array[(Re)$key2]}</b>
+</pre>
+</div>
+</div>
+<dl class="Bl-tag">
+  <dt><b>i</b></dt>
+  <dd>Like `<b>r</b>', but gives the index of the match instead; this may not be
+      combined with a second argument. On the left side of an assignment,
+      behaves like `<b>r</b>'. For associative arrays, the key part of each pair
+      is compared to the pattern, and the first matching key found is the
+      result. On failure substitutes the length of the array plus one, as
+      discussed under the description of `<b>r</b>', or the empty string for an
+      associative array.</dd>
+  <dt><b>I</b></dt>
+  <dd>Like `<b>i</b>', but gives the index of the last match, or all possible
+      matching keys in an associative array. On failure substitutes 0, or the
+      empty string for an associative array. This flag is best when testing for
+      values or keys that do not exist.</dd>
+  <dt><b>k</b></dt>
+  <dd>If used in a subscript on an associative array, this flag causes the keys
+      to be interpreted as patterns, and returns the value for the first key
+      found where <i>exp</i> is matched by the key. Note this could be any such
+      key as no ordering of associative arrays is defined. This flag does not
+      work on the left side of an assignment to an associative array element. If
+      used on another type of parameter, this behaves like `<b>r</b>'.</dd>
+  <dt><b>K</b></dt>
+  <dd>On an associative array this is like `<b>k</b>' but returns all values
+      where <i>exp</i> is matched by the keys. On other types of parameters this
+      has the same effect as `<b>R</b>'.</dd>
+  <dt><b>n:</b><i>expr</i><b>:</b></dt>
+  <dd>If combined with `<b>r</b>', `<b>R</b>', `<b>i</b>' or `<b>I</b>', makes
+      them give the <i>n</i>th or <i>n</i>th last match (if <i>expr</i>
+      evaluates to <i>n</i>). This flag is ignored when the array is
+      associative. The delimiter character <b>:</b> is arbitrary; see
+    above.</dd>
+  <dt><b>b:</b><i>expr</i><b>:</b></dt>
+  <dd>If combined with `<b>r</b>', `<b>R</b>', `<b>i</b>' or `<b>I</b>', makes
+      them begin at the <i>n</i>th or <i>n</i>th last element, word, or
+      character (if <i>expr</i> evaluates to <i>n</i>). This flag is ignored
+      when the array is associative. The delimiter character <b>:</b> is
+      arbitrary; see above.</dd>
+  <dt><b>e</b></dt>
+  <dd>This flag causes any pattern matching that would be performed on the
+      subscript to use plain string matching instead. Hence
+      `<b>${array[(re)*]}</b>' matches only the array element whose value is
+      <b>*</b>. Note that other forms of substitution such as parameter
+      substitution are not inhibited.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">This flag can also be used to force <b>*</b> or <b>@</b> to be
+    interpreted as a single key rather than as a reference to all values. It may
+    be used for either purpose on the left side of an assignment.</p>
+</div>
+<p class="Pp">See <i>Parameter Expansion Flags</i> (<i>zshexpn</i>(1)) for
+    additional ways to manipulate the results of array subscripting.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Subscript_Parsing"><a class="permalink" href="#Subscript_Parsing">Subscript
+  Parsing</a></h2>
+This discussion applies mainly to associative array key strings and to patterns
+  used for reverse subscripting (the `<b>r</b>', `<b>R</b>', `<b>i</b>', etc.
+  flags), but it may also affect parameter substitutions that appear as part of
+  an arithmetic expression in an ordinary subscript.
+<p class="Pp">To avoid subscript parsing limitations in assignments to
+    associative array elements, use the append syntax:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>aa+=('key with &quot;*strange*&quot; characters' 'value string')</b>
+</pre>
+</div>
+<p class="Pp">The basic rule to remember when writing a subscript expression is
+    that all text between the opening `<b>[</b>' and the closing `<b>]</b>' is
+    interpreted <i>as if</i> it were in double quotes (see <i>zshmisc</i>(1)).
+    However, unlike double quotes which normally cannot nest, subscript
+    expressions may appear inside double-quoted strings or inside other
+    subscript expressions (or both!), so the rules have two important
+    differences.</p>
+<p class="Pp">The first difference is that brackets (`<b>[</b>' and `<b>]</b>')
+    must appear as balanced pairs in a subscript expression unless they are
+    preceded by a backslash (`<b>\</b>'). Therefore, within a subscript
+    expression (and unlike true double-quoting) the sequence `<b>\[</b>' becomes
+    `<b>[</b>', and similarly `<b>\]</b>' becomes `<b>]</b>'. This applies even
+    in cases where a backslash is not normally required; for example, the
+    pattern `<b>[^[]</b>' (to match any character other than an open bracket)
+    should be written `<b>[^\[]</b>' in a reverse-subscript pattern. However,
+    note that `<b>\[^\[\]</b>' and even `<b>\[^[]</b>' mean the <i>same</i>
+    thing, because backslashes are always stripped when they appear before
+    brackets!</p>
+<p class="Pp">The same rule applies to parentheses (`<b>(</b>' and `<b>)</b>')
+    and braces (`<b>{</b>' and `<b>}</b>'): they must appear either in balanced
+    pairs or preceded by a backslash, and backslashes that protect parentheses
+    or braces are removed during parsing. This is because parameter expansions
+    may be surrounded by balanced braces, and subscript flags are introduced by
+    balanced parentheses.</p>
+<p class="Pp">The second difference is that a double-quote (`<b>&quot;</b>') may
+    appear as part of a subscript expression without being preceded by a
+    backslash, and therefore that the two characters `<b>\&quot;</b>' remain as
+    two characters in the subscript (in true double-quoting, `<b>\&quot;</b>'
+    becomes `<b>&quot;</b>'). However, because of the standard shell quoting
+    rules, any double-quotes that appear must occur in balanced pairs unless
+    preceded by a backslash. This makes it more difficult to write a subscript
+    expression that contains an odd number of double-quote characters, but the
+    reason for this difference is so that when a subscript expression appears
+    inside true double-quotes, one can still write `<b>\&quot;</b>' (rather than
+    `<b>\\\&quot;</b>') for `<b>&quot;</b>'.</p>
+<p class="Pp">To use an odd number of double quotes as a key in an assignment,
+    use the <b>typeset</b> builtin and an enclosing pair of double quotes; to
+    refer to the value of that key, again use double quotes:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>typeset -A aa</b>
+<b>typeset &quot;aa[one\&quot;two\&quot;three\&quot;quotes]&quot;=QQQ</b>
+<b>print &quot;$aa[one\&quot;two\&quot;three\&quot;quotes]&quot;</b>
+</pre>
+</div>
+<p class="Pp">It is important to note that the quoting rules do not change when
+    a parameter expansion with a subscript is nested inside another subscript
+    expression. That is, it is not necessary to use additional backslashes
+    within the inner subscript expression; they are removed only once, from the
+    innermost subscript outwards. Parameters are also expanded from the
+    innermost subscript first, as each expansion is encountered left to right in
+    the outer expression.</p>
+<p class="Pp">A further complication arises from a way in which subscript
+    parsing is <i>not</i> different from double quote parsing. As in true
+    double-quoting, the sequences `<b>\*</b>', and `<b>\@</b>' remain as two
+    characters when they appear in a subscript expression. To use a literal
+    `<b>*</b>' or `<b>@</b>' as an associative array key, the `<b>e</b>' flag
+    must be used:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>typeset -A aa</b>
+<b>aa[(e)*]=star</b>
+<b>print $aa[(e)*]</b>
+</pre>
+</div>
+<p class="Pp">A last detail must be considered when reverse subscripting is
+    performed. Parameters appearing in the subscript expression are first
+    expanded and then the complete expression is interpreted as a pattern. This
+    has two effects: first, parameters behave as if <b>GLOB_SUBST</b> were on
+    (and it cannot be turned off); second, backslashes are interpreted twice,
+    once when parsing the array subscript and again when parsing the pattern. In
+    a reverse subscript, it's necessary to use <i>four</i> backslashes to cause
+    a single backslash to match literally in the pattern. For complex patterns,
+    it is often easiest to assign the desired pattern to a parameter and then
+    refer to that parameter in the subscript, because then the backslashes,
+    brackets, parentheses, etc., are seen only when the complete expression is
+    converted to a pattern. To match the value of a parameter literally in a
+    reverse subscript, rather than as a pattern, use
+    `<b>${(q</b><b>)</b><i>name</i><b>}</b>' (see <i>zshexpn</i>(1)) to quote
+    the expanded value.</p>
+<p class="Pp">Note that the `<b>k</b>' and `<b>K</b>' flags are reverse
+    subscripting for an ordinary array, but are <i>not</i> reverse subscripting
+    for an associative array! (For an associative array, the keys in the array
+    itself are interpreted as patterns by those flags; the subscript is a plain
+    string in that case.)</p>
+<p class="Pp">One final note, not directly related to subscripting: the numeric
+    names of positional parameters (described below) are parsed specially, so
+    for example `<b>$2foo</b>' is equivalent to `<b>${2}foo</b>'. Therefore, to
+    use subscript syntax to extract a substring from a positional parameter, the
+    expansion must be surrounded by braces; for example, `<b>${2[3,5]}</b>'
+    evaluates to the third through fifth characters of the second positional
+    parameter, but `<b>$2[3,5]</b>' is the entire second parameter concatenated
+    with the filename generation pattern `<b>[3,5]</b>'.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="POSITIONAL_PARAMETERS"><a class="permalink" href="#POSITIONAL_PARAMETERS">POSITIONAL
+  PARAMETERS</a></h1>
+The positional parameters provide access to the command-line arguments of a
+  shell function, shell script, or the shell itself; see the section
+  `Invocation', and also the section `Functions'. The parameter <i>n</i>, where
+  <i>n</i> is a number, is the <i>n</i>th positional parameter. The parameter
+  `<b>$0</b>' is a special case, see the section `Parameters Set By The Shell'.
+<p class="Pp">The parameters <b>*</b>, <b>@</b> and <b>argv</b> are arrays
+    containing all the positional parameters; thus
+    `<b>$argv[</b><i>n</i><b>]</b>', etc., is equivalent to simply
+    `<b>$</b><i>n</i>'. Note that the options <b>KSH_ARRAYS</b> or
+    <b>KSH_ZERO_SUBSCRIPT</b> apply to these arrays as well, so with either of
+    those options set, `<b>${argv[0]}</b>' is equivalent to `<b>$1</b>' and so
+    on.</p>
+<p class="Pp">Positional parameters may be changed after the shell or function
+    starts by using the <b>set</b> builtin, by assigning to the <b>argv</b>
+    array, or by direct assignment of the form `<i>n</i><b>=</b><i>value</i>'
+    where <i>n</i> is the number of the positional parameter to be changed. This
+    also creates (with empty values) any of the positions from 1 to <i>n</i>
+    that do not already have values. Note that, because the positional
+    parameters form an array, an array assignment of the form
+    `<i>n</i><b>=(</b><i>value</i> ...<b>)</b>' is allowed, and has the effect
+    of shifting all the values at positions greater than <i>n</i> by as many
+    positions as necessary to accommodate the new values.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LOCAL_PARAMETERS"><a class="permalink" href="#LOCAL_PARAMETERS">LOCAL
+  PARAMETERS</a></h1>
+Shell function executions delimit scopes for shell parameters. (Parameters are
+  dynamically scoped.) The <b>typeset</b> builtin, and its alternative forms
+  <b>declare</b>, <b>integer</b>, <b>local</b> and <b>readonly</b> (but not
+  <b>export</b>), can be used to declare a parameter as being local to the
+  innermost scope.
+<p class="Pp">When a parameter is read or assigned to, the innermost existing
+    parameter of that name is used. (That is, the local parameter hides any
+    less-local parameter.) However, assigning to a non-existent parameter, or
+    declaring a new parameter with <b>export</b>, causes it to be created in the
+    <i>outer</i>most scope.</p>
+<p class="Pp">Local parameters disappear when their scope ends. <b>unset</b> can
+    be used to delete a parameter while it is still in scope; any outer
+    parameter of the same name remains hidden.</p>
+<p class="Pp">Special parameters may also be made local; they retain their
+    special attributes unless either the existing or the newly-created parameter
+    has the <b>-h</b> (hide) attribute. This may have unexpected effects: there
+    is no default value, so if there is no assignment at the point the variable
+    is made local, it will be set to an empty value (or zero in the case of
+    integers). The following:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>typeset PATH=/new/directory:$PATH</b>
+</pre>
+</div>
+<p class="Pp">is valid for temporarily allowing the shell or programmes called
+    from it to find the programs in <b>/new/directory</b> inside a function.</p>
+<p class="Pp">Note that the restriction in older versions of zsh that local
+    parameters were never exported has been removed.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PARAMETERS_SET_BY_THE_SHELL"><a class="permalink" href="#PARAMETERS_SET_BY_THE_SHELL">PARAMETERS
+  SET BY THE SHELL</a></h1>
+In the parameter lists that follow, the mark `&lt;S&gt;' indicates that the
+  parameter is special. `&lt;Z&gt;' indicates that the parameter does not exist
+  when the shell initializes in <b>sh</b> or <b>ksh</b> emulation mode.
+<p class="Pp">The following parameters are automatically set by the shell:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>!</b> &lt;S&gt;</dt>
+  <dd>The process ID of the last command started in the background with
+      <b>&amp;</b>, or put into the background with the <b>bg</b> builtin.</dd>
+  <dt><b>#</b> &lt;S&gt;</dt>
+  <dd>The number of positional parameters in decimal. Note that some confusion
+      may occur with the syntax <b>$#</b><i>param</i> which substitutes the
+      length of <i>param</i>. Use <b>${#}</b> to resolve ambiguities. In
+      particular, the sequence `<b>$#-</b><i>...</i>' in an arithmetic
+      expression is interpreted as the length of the parameter <b>-</b>,
+    q.v.</dd>
+  <dt><b>ARGC</b> &lt;S&gt; &lt;Z&gt;</dt>
+  <dd>Same as <b>#</b>.</dd>
+  <dt><b>$</b> &lt;S&gt;</dt>
+  <dd>The process ID of this shell. Note that this indicates the original shell
+      started by invoking <b>zsh</b>; all processes forked from the shells
+      without executing a new program, such as subshells started by
+      <b>(</b><i>...</i><b>)</b>, substitute the same value.</dd>
+  <dt><b>-</b> &lt;S&gt;</dt>
+  <dd>Flags supplied to the shell on invocation or by the <b>set</b> or
+      <b>setopt</b> commands.</dd>
+  <dt><b>*</b> &lt;S&gt;</dt>
+  <dd>An array containing the positional parameters.</dd>
+  <dt><b>argv</b> &lt;S&gt; &lt;Z&gt;</dt>
+  <dd>Same as <b>*</b>. Assigning to <b>argv</b> changes the local positional
+      parameters, but <b>argv</b> is <i>not</i> itself a local parameter.
+      Deleting <b>argv</b> with <b>unset</b> in any function deletes it
+      everywhere, although only the innermost positional parameter array is
+      deleted (so <b>*</b> and <b>@</b> in other scopes are not affected).</dd>
+  <dt><b>@</b> &lt;S&gt;</dt>
+  <dd>Same as <b>argv[@]</b>, even when <b>argv</b> is not set.</dd>
+  <dt><b>?</b> &lt;S&gt;</dt>
+  <dd>The exit status returned by the last command.</dd>
+  <dt><b>0</b> &lt;S&gt;</dt>
+  <dd>The name used to invoke the current shell, or as set by the <b>-c</b>
+      command line option upon invocation. If the <b>FUNCTION_ARGZERO</b> option
+      is set, <b>$0</b> is set upon entry to a shell function to the name of the
+      function, and upon entry to a sourced script to the name of the script,
+      and reset to its previous value when the function or script returns.</dd>
+  <dt><b>status</b> &lt;S&gt; &lt;Z&gt;</dt>
+  <dd>Same as <b>?</b>.</dd>
+  <dt><b>pipestatus</b> &lt;S&gt; &lt;Z&gt;</dt>
+  <dd>An array containing the exit statuses returned by all commands in the last
+      pipeline.</dd>
+  <dt><b>_</b> &lt;S&gt;</dt>
+  <dd>The last argument of the previous command. Also, this parameter is set in
+      the environment of every command executed to the full pathname of the
+      command.</dd>
+  <dt><b>CPUTYPE</b></dt>
+  <dd>The machine type (microprocessor class or machine model), as determined at
+      run time.</dd>
+  <dt><b>EGID</b> &lt;S&gt;</dt>
+  <dd>The effective group ID of the shell process. If you have sufficient
+      privileges, you may change the effective group ID of the shell process by
+      assigning to this parameter. Also (assuming sufficient privileges), you
+      may start a single command with a different effective group ID by
+      `<b>(EGID=</b><i>gid</i><b>; command)</b>'</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If this is made local, it is not implicitly set to 0, but may be
+    explicitly set locally.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>EUID</b> &lt;S&gt;</dt>
+  <dd>The effective user ID of the shell process. If you have sufficient
+      privileges, you may change the effective user ID of the shell process by
+      assigning to this parameter. Also (assuming sufficient privileges), you
+      may start a single command with a different effective user ID by
+      `<b>(EUID=</b><i>uid</i><b>; command)</b>'</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If this is made local, it is not implicitly set to 0, but may be
+    explicitly set locally.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>ERRNO</b> &lt;S&gt;</dt>
+  <dd>The value of errno (see <i>errno</i>(3)) as set by the most recently
+      failed system call. This value is system dependent and is intended for
+      debugging purposes. It is also useful with the <b>zsh/system</b> module
+      which allows the number to be turned into a name or message.</dd>
+  <dt><b>FUNCNEST</b> &lt;S&gt;</dt>
+  <dd>Integer. If greater than or equal to zero, the maximum nesting depth of
+      shell functions. When it is exceeded, an error is raised at the point
+      where a function is called. The default value is determined when the shell
+      is configured, but is typically 500. Increasing the value increases the
+      danger of a runaway function recursion causing the shell to crash. Setting
+      a negative value turns off the check.</dd>
+  <dt><b>GID</b> &lt;S&gt;</dt>
+  <dd>The real group ID of the shell process. If you have sufficient privileges,
+      you may change the group ID of the shell process by assigning to this
+      parameter. Also (assuming sufficient privileges), you may start a single
+      command under a different group ID by `<b>(GID=</b><i>gid</i><b>;
+      command)</b>'</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If this is made local, it is not implicitly set to 0, but may be
+    explicitly set locally.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>HISTCMD</b></dt>
+  <dd>The current history event number in an interactive shell, in other words
+      the event number for the command that caused <b>$HISTCMD</b> to be read.
+      If the current history event modifies the history, <b>HISTCMD</b> changes
+      to the new maximum history event number.</dd>
+  <dt><b>HOST</b></dt>
+  <dd>The current hostname.</dd>
+  <dt><b>LINENO</b> &lt;S&gt;</dt>
+  <dd>The line number of the current line within the current script, sourced
+      file, or shell function being executed, whichever was started most
+      recently. Note that in the case of shell functions the line number refers
+      to the function as it appeared in the original definition, not necessarily
+      as displayed by the <b>functions</b> builtin.</dd>
+  <dt><b>LOGNAME</b></dt>
+  <dd>If the corresponding variable is not set in the environment of the shell,
+      it is initialized to the login name corresponding to the current login
+      session. This parameter is exported by default but this can be disabled
+      using the <b>typeset</b> builtin. The value is set to the string returned
+      by the <i>getlogin</i>(3) system call if that is available.</dd>
+  <dt><b>MACHTYPE</b></dt>
+  <dd>The machine type (microprocessor class or machine model), as determined at
+      compile time.</dd>
+  <dt><b>OLDPWD</b></dt>
+  <dd>The previous working directory. This is set when the shell initializes and
+      whenever the directory changes.</dd>
+  <dt><b>OPTARG</b> &lt;S&gt;</dt>
+  <dd>The value of the last option argument processed by the <b>getopts</b>
+      command.</dd>
+  <dt><b>OPTIND</b> &lt;S&gt;</dt>
+  <dd>The index of the last option argument processed by the <b>getopts</b>
+      command.</dd>
+  <dt><b>OSTYPE</b></dt>
+  <dd>The operating system, as determined at compile time.</dd>
+  <dt><b>PPID</b> &lt;S&gt;</dt>
+  <dd>The process ID of the parent of the shell. As for <b>$$</b>, the value
+      indicates the parent of the original shell and does not change in
+      subshells.</dd>
+  <dt><b>PWD</b></dt>
+  <dd>The present working directory. This is set when the shell initializes and
+      whenever the directory changes.</dd>
+  <dt><b>RANDOM</b> &lt;S&gt;</dt>
+  <dd>A pseudo-random integer from 0 to 32767, newly generated each time this
+      parameter is referenced. The random number generator can be seeded by
+      assigning a numeric value to <b>RANDOM</b>.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">The values of <b>RANDOM</b> form an intentionally-repeatable
+    pseudo-random sequence; subshells that reference <b>RANDOM</b> will result
+    in identical pseudo-random values unless the value of <b>RANDOM</b> is
+    referenced or seeded in the parent shell in between subshell
+  invocations.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>SECONDS</b> &lt;S&gt;</dt>
+  <dd>The number of seconds since shell invocation. If this parameter is
+      assigned a value, then the value returned upon reference will be the value
+      that was assigned plus the number of seconds since the assignment.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Unlike other special parameters, the type of the <b>SECONDS</b>
+    parameter can be changed using the <b>typeset</b> command. Only integer and
+    one of the floating point types are allowed. For example, `<b>typeset -F
+    SECONDS</b>' causes the value to be reported as a floating point number. The
+    value is available to microsecond accuracy, although the shell may show more
+    or fewer digits depending on the use of <b>typeset</b>. See the
+    documentation for the builtin <b>typeset</b> in <i>zshbuiltins</i>(1) for
+    more details.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>SHLVL</b> &lt;S&gt;</dt>
+  <dd>Incremented by one each time a new shell is started.</dd>
+  <dt><b>signals</b></dt>
+  <dd>An array containing the names of the signals. Note that with the standard
+      zsh numbering of array indices, where the first element has index 1, the
+      signals are offset by 1 from the signal number used by the operating
+      system. For example, on typical Unix-like systems <b>HUP</b> is signal
+      number 1, but is referred to as <b>$signals[2]</b>. This is because of
+      <b>EXIT</b> at position 1 in the array, which is used internally by zsh
+      but is not known to the operating system.</dd>
+  <dt><b>TRY_BLOCK_ERROR</b> &lt;S&gt;</dt>
+  <dd>In an <b>always</b> block, indicates whether the preceding list of code
+      caused an error. The value is 1 to indicate an error, 0 otherwise. It may
+      be reset, clearing the error condition. See <i>Complex Commands</i> in
+      <i>zshmisc</i>(1)</dd>
+  <dt><b>TRY_BLOCK_INTERRUPT</b> &lt;S&gt;</dt>
+  <dd>This variable works in a similar way to <b>TRY_BLOCK_ERROR</b>, but
+      represents the status of an interrupt from the signal SIGINT, which
+      typically comes from the keyboard when the user types <b>^C</b>. If set to
+      0, any such interrupt will be reset; otherwise, the interrupt is
+      propagated after the <b>always</b> block.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Note that it is possible that an interrupt arrives during the
+    execution of the <b>always</b> block; this interrupt is also propagated.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>TTY</b></dt>
+  <dd>The name of the tty associated with the shell, if any.</dd>
+  <dt><b>TTYIDLE</b> &lt;S&gt;</dt>
+  <dd>The idle time of the tty associated with the shell in seconds or -1 if
+      there is no such tty.</dd>
+  <dt><b>UID</b> &lt;S&gt;</dt>
+  <dd>The real user ID of the shell process. If you have sufficient privileges,
+      you may change the user ID of the shell by assigning to this parameter.
+      Also (assuming sufficient privileges), you may start a single command
+      under a different user ID by `<b>(UID=</b><i>uid</i><b>;
+    command)</b>'</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If this is made local, it is not implicitly set to 0, but may be
+    explicitly set locally.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>USERNAME</b> &lt;S&gt;</dt>
+  <dd>The username corresponding to the real user ID of the shell process. If
+      you have sufficient privileges, you may change the username (and also the
+      user ID and group ID) of the shell by assigning to this parameter. Also
+      (assuming sufficient privileges), you may start a single command under a
+      different username (and user ID and group ID) by
+      `<b>(USERNAME=</b><i>username</i><b>; command)</b>'</dd>
+  <dt><b>VENDOR</b></dt>
+  <dd>The vendor, as determined at compile time.</dd>
+  <dt><b>zsh_eval_context</b> &lt;S&gt; &lt;Z&gt; (<b>ZSH_EVAL_CONTEXT</b>
+    &lt;S&gt;)</dt>
+  <dd>An array (colon-separated list) indicating the context of shell code that
+      is being run. Each time a piece of shell code that is stored within the
+      shell is executed a string is temporarily appended to the array to
+      indicate the type of operation that is being performed. Read in order the
+      array gives an indication of the stack of operations being performed with
+      the most immediate context last.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Note that the variable does not give information on syntactic
+    context such as pipelines or subshells. Use <b>$ZSH_SUBSHELL</b> to detect
+    subshells.</p>
+<p class="Pp">The context is one of the following:</p>
+<dl class="Bl-tag">
+  <dt><b>cmdarg</b></dt>
+  <dd>Code specified by the <b>-c</b> option to the command line that invoked
+      the shell.</dd>
+  <dt><b>cmdsubst</b></dt>
+  <dd>Command substitution using the <b>`</b><i>...</i><b>`</b> or
+      <b>$(</b><i>...</i><b>)</b> construct.</dd>
+  <dt><b>equalsubst</b></dt>
+  <dd>File substitution using the <b>=(</b><i>...</i><b>)</b> construct.</dd>
+  <dt><b>eval</b></dt>
+  <dd>Code executed by the <b>eval</b> builtin.</dd>
+  <dt><b>evalautofunc</b></dt>
+  <dd>Code executed with the <b>KSH_AUTOLOAD</b> mechanism in order to define an
+      autoloaded function.</dd>
+  <dt><b>fc</b></dt>
+  <dd>Code from the shell history executed by the <b>-e</b> option to the
+      <b>fc</b> builtin.</dd>
+  <dt><b>file</b></dt>
+  <dd>Lines of code being read directly from a file, for example by the
+      <b>source</b> builtin.</dd>
+  <dt><b>filecode</b></dt>
+  <dd>Lines of code being read from a <b>.zwc</b> file instead of directly from
+      the source file.</dd>
+  <dt><b>globqual</b></dt>
+  <dd>Code executed by the <b>e</b> or <b>+</b> glob qualifier.</dd>
+  <dt><b>globsort</b></dt>
+  <dd>Code executed to order files by the <b>o</b> glob qualifier.</dd>
+  <dt><b>insubst</b></dt>
+  <dd>File substitution using the <b>&lt;(</b><i>...</i><b>)</b> construct.</dd>
+  <dt><b>loadautofunc</b></dt>
+  <dd>Code read directly from a file to define an autoloaded function.</dd>
+  <dt><b>outsubst</b></dt>
+  <dd>File substitution using the <b>&gt;(</b><i>...</i><b>)</b> construct.</dd>
+  <dt><b>sched</b></dt>
+  <dd>Code executed by the <b>sched</b> builtin.</dd>
+  <dt><b>shfunc</b></dt>
+  <dd>A shell function.</dd>
+  <dt><b>stty</b></dt>
+  <dd>Code passed to <b>stty</b> by the <b>STTY</b> environment variable.
+      Normally this is passed directly to the system's <b>stty</b> command, so
+      this value is unlikely to be seen in practice.</dd>
+  <dt><b>style</b></dt>
+  <dd>Code executed as part of a style retrieved by the <b>zstyle</b> builtin
+      from the <b>zsh/zutil</b> module.</dd>
+  <dt><b>toplevel</b></dt>
+  <dd>The highest execution level of a script or interactive shell.</dd>
+  <dt><b>trap</b></dt>
+  <dd>Code executed as a trap defined by the <b>trap</b> builtin. Traps defined
+      as functions have the context <b>shfunc</b>. As traps are asynchronous
+      they may have a different hierarchy from other code.</dd>
+  <dt><b>zpty</b></dt>
+  <dd>Code executed by the <b>zpty</b> builtin from the <b>zsh/zpty</b>
+    module.</dd>
+  <dt><b>zregexparse-guard</b></dt>
+  <dd>Code executed as a guard by the <b>zregexparse</b> command from the
+      <b>zsh/zutil</b> module.</dd>
+  <dt><b>zregexparse-action</b></dt>
+  <dd>Code executed as an action by the <b>zregexparse</b> command from the
+      <b>zsh/zutil</b> module.</dd>
+</dl>
+</div>
+<dl class="Bl-tag">
+  <dt><b>ZSH_ARGZERO</b></dt>
+  <dd>If zsh was invoked to run a script, this is the name of the script.
+      Otherwise, it is the name used to invoke the current shell. This is the
+      same as the value of <b>$0</b> when the <b>POSIX_ARGZERO</b> option is
+      set, but is always available.</dd>
+  <dt><b>ZSH_EXECUTION_STRING</b></dt>
+  <dd>If the shell was started with the option <b>-c</b>, this contains the
+      argument passed to the option. Otherwise it is not set.</dd>
+  <dt><b>ZSH_NAME</b></dt>
+  <dd>Expands to the basename of the command used to invoke this instance of
+      zsh.</dd>
+  <dt><b>ZSH_PATCHLEVEL</b></dt>
+  <dd>The output of `<b>git describe --tags --long</b>' for the zsh repository
+      used to build the shell. This is most useful in order to keep track of
+      versions of the shell during development between releases; hence most
+      users should not use it and should instead rely on
+    <b>$ZSH_VERSION</b>.</dd>
+  <dt><b>zsh_scheduled_events</b></dt>
+  <dd>See the section `The zsh/sched Module' in <i>zshmodules</i>(1).</dd>
+  <dt><b>ZSH_SCRIPT</b></dt>
+  <dd>If zsh was invoked to run a script, this is the name of the script,
+      otherwise it is unset.</dd>
+  <dt><b>ZSH_SUBSHELL</b></dt>
+  <dd>Readonly integer. Initially zero, incremented each time the shell forks to
+      create a subshell for executing code. Hence `<b>(print $ZSH_SUBSHELL)</b>'
+      and `<b>print $(print $ZSH_SUBSHELL)</b>' output 1, while `<b>( (print
+      $ZSH_SUBSHELL) )</b>' outputs 2.</dd>
+  <dt><b>ZSH_VERSION</b></dt>
+  <dd>The version number of the release of zsh.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PARAMETERS_USED_BY_THE_SHELL"><a class="permalink" href="#PARAMETERS_USED_BY_THE_SHELL">PARAMETERS
+  USED BY THE SHELL</a></h1>
+The following parameters are used by the shell. Again, `&lt;S&gt;' indicates
+  that the parameter is special and `&lt;Z&gt;' indicates that the parameter
+  does not exist when the shell initializes in <b>sh</b> or <b>ksh</b> emulation
+  mode.
+<p class="Pp">In cases where there are two parameters with an upper- and
+    lowercase form of the same name, such as <b>path</b> and <b>PATH</b>, the
+    lowercase form is an array and the uppercase form is a scalar with the
+    elements of the array joined together by colons. These are similar to tied
+    parameters created via `<b>typeset -T</b>'. The normal use for the
+    colon-separated form is for exporting to the environment, while the array
+    form is easier to manipulate within the shell. Note that unsetting either of
+    the pair will unset the other; they retain their special properties when
+    recreated, and recreating one of the pair will recreate the other.</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>ARGV0</b></dt>
+  <dd>If exported, its value is used as the <b>argv[0]</b> of external commands.
+      Usually used in constructs like `<b>ARGV0=emacs nethack</b>'.</dd>
+  <dt><b>BAUD</b></dt>
+  <dd>The rate in bits per second at which data reaches the terminal. The line
+      editor will use this value in order to compensate for a slow terminal by
+      delaying updates to the display until necessary. If the parameter is unset
+      or the value is zero the compensation mechanism is turned off. The
+      parameter is not set by default.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">This parameter may be profitably set in some circumstances, e.g.
+    for slow modems dialing into a communications server, or on a slow wide area
+    network. It should be set to the baud rate of the slowest part of the link
+    for best performance.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>cdpath</b> &lt;S&gt; &lt;Z&gt; (<b>CDPATH</b> &lt;S&gt;)</dt>
+  <dd>An array (colon-separated list) of directories specifying the search path
+      for the <b>cd</b> command.</dd>
+  <dt><b>COLUMNS</b> &lt;S&gt;</dt>
+  <dd>The number of columns for this terminal session. Used for printing select
+      lists and for the line editor.</dd>
+  <dt><b>CORRECT_IGNORE</b></dt>
+  <dd>If set, is treated as a pattern during spelling correction. Any potential
+      correction that matches the pattern is ignored. For example, if the value
+      is `<b>_*</b>' then completion functions (which, by convention, have names
+      beginning with `<b>_</b>') will never be offered as spelling corrections.
+      The pattern does not apply to the correction of file names, as applied by
+      the <b>CORRECT_ALL</b> option (so with the example just given files
+      beginning with `<b>_</b>' in the current directory would still be
+      completed).</dd>
+  <dt><b>CORRECT_IGNORE_FILE</b></dt>
+  <dd>If set, is treated as a pattern during spelling correction of file names.
+      Any file name that matches the pattern is never offered as a correction.
+      For example, if the value is `<b>.*</b>' then dot file names will never be
+      offered as spelling corrections. This is useful with the
+      <b>CORRECT_ALL</b> option.</dd>
+  <dt><b>DIRSTACKSIZE</b></dt>
+  <dd>The maximum size of the directory stack, by default there is no limit. If
+      the stack gets larger than this, it will be truncated automatically. This
+      is useful with the <b>AUTO_PUSHD</b> option.</dd>
+  <dt><b>ENV</b></dt>
+  <dd>If the <b>ENV</b> environment variable is set when zsh is invoked as
+      <b>sh</b> or <b>ksh</b>, <b>$ENV</b> is sourced after the profile scripts.
+      The value of <b>ENV</b> is subjected to parameter expansion, command
+      substitution, and arithmetic expansion before being interpreted as a
+      pathname. Note that <b>ENV</b> is <i>not</i> used unless the shell is
+      interactive and zsh is emulating <b>sh</b> or <b>ksh</b>.</dd>
+  <dt><b>FCEDIT</b></dt>
+  <dd>The default editor for the <b>fc</b> builtin. If <b>FCEDIT</b> is not set,
+      the parameter <b>EDITOR</b> is used; if that is not set either, a builtin
+      default, usually <b>vi</b>, is used.</dd>
+  <dt><b>fignore</b> &lt;S&gt; &lt;Z&gt; (<b>FIGNORE</b> &lt;S&gt;)</dt>
+  <dd>An array (colon separated list) containing the suffixes of files to be
+      ignored during filename completion. However, if completion only generates
+      files with suffixes in this list, then these files are completed
+    anyway.</dd>
+  <dt><b>fpath</b> &lt;S&gt; &lt;Z&gt; (<b>FPATH</b> &lt;S&gt;)</dt>
+  <dd>An array (colon separated list) of directories specifying the search path
+      for function definitions. This path is searched when a function with the
+      <b>-u</b> attribute is referenced. If an executable file is found, then it
+      is read and executed in the current environment.</dd>
+  <dt><b>histchars</b> &lt;S&gt;</dt>
+  <dd>Three characters used by the shell's history and lexical analysis
+      mechanism. The first character signals the start of a history expansion
+      (default `<b>!</b>'). The second character signals the start of a quick
+      history substitution (default `<b>^</b>'). The third character is the
+      comment character (default `<b>#</b>').</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">The characters must be in the ASCII character set; any attempt to
+    set <b>histchars</b> to characters with a locale-dependent meaning will be
+    rejected with an error message.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>HISTCHARS</b> &lt;S&gt; &lt;Z&gt;</dt>
+  <dd>Same as <b>histchars</b>. (Deprecated.)</dd>
+  <dt><b>HISTFILE</b></dt>
+  <dd>The file to save the history in when an interactive shell exits. If unset,
+      the history is not saved.</dd>
+  <dt><b>HISTORY_IGNORE</b></dt>
+  <dd>If set, is treated as a pattern at the time history files are written. Any
+      potential history entry that matches the pattern is skipped. For example,
+      if the value is `<b>fc *</b>' then commands that invoke the interactive
+      history editor are never written to the history file.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Note that <b>HISTORY_IGNORE</b> defines a single pattern: to
+    specify alternatives use the
+    `<b>(</b><i>first</i><b>|</b><i>second</i><b>|</b><i>...</i><b>)</b>'
+    syntax.</p>
+<p class="Pp">Compare the <b>HIST_NO_STORE</b> option or the
+    <b>zshaddhistory</b> hook, either of which would prevent such commands from
+    being added to the interactive history at all. If you wish to use
+    <b>HISTORY_IGNORE</b> to stop history being added in the first place, you
+    can define the following hook:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>zshaddhistory() {</b>
+<b>  emulate -L zsh</b>
+<b>  ## uncomment if HISTORY_IGNORE</b>
+<b>  ## should use EXTENDED_GLOB syntax</b>
+<b>  # setopt extendedglob</b>
+<b>  [[ $1 != ${~HISTORY_IGNORE} ]]</b>
+<b>}</b>
+</pre>
+</div>
+</div>
+<dl class="Bl-tag">
+  <dt><b>HISTSIZE</b> &lt;S&gt;</dt>
+  <dd>The maximum number of events stored in the internal history list. If you
+      use the <b>HIST_EXPIRE_DUPS_FIRST</b> option, setting this value larger
+      than the <b>SAVEHIST</b> size will give you the difference as a cushion
+      for saving duplicated history events.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If this is made local, it is not implicitly set to 0, but may be
+    explicitly set locally.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>HOME</b> &lt;S&gt;</dt>
+  <dd>The default argument for the <b>cd</b> command. This is not set
+      automatically by the shell in <b>sh</b>, <b>ksh</b> or <b>csh</b>
+      emulation, but it is typically present in the environment anyway, and if
+      it becomes set it has its usual special behaviour.</dd>
+  <dt><b>IFS</b> &lt;S&gt;</dt>
+  <dd>Internal field separators (by default space, tab, newline and NUL), that
+      are used to separate words which result from command or parameter
+      expansion and words read by the <b>read</b> builtin. Any characters from
+      the set space, tab and newline that appear in the IFS are called <i>IFS
+      white space</i>. One or more IFS white space characters or one non-IFS
+      white space character together with any adjacent IFS white space character
+      delimit a field. If an IFS white space character appears twice
+      consecutively in the IFS, this character is treated as if it were not an
+      IFS white space character.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If the parameter is unset, the default is used. Note this has a
+    different effect from setting the parameter to an empty string.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>KEYBOARD_HACK</b></dt>
+  <dd>This variable defines a character to be removed from the end of the
+      command line before interpreting it (interactive shells only). It is
+      intended to fix the problem with keys placed annoyingly close to return
+      and replaces the <b>SUNKEYBOARDHACK</b> option which did this for
+      backquotes only. Should the chosen character be one of singlequote,
+      doublequote or backquote, there must also be an odd number of them on the
+      command line for the last one to be removed.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">For backward compatibility, if the <b>SUNKEYBOARDHACK</b> option
+    is explicitly set, the value of <b>KEYBOARD_HACK</b> reverts to backquote.
+    If the option is explicitly unset, this variable is set to empty.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>KEYTIMEOUT</b></dt>
+  <dd>The time the shell waits, in hundredths of seconds, for another key to be
+      pressed when reading bound multi-character sequences.</dd>
+  <dt><b>LANG</b> &lt;S&gt;</dt>
+  <dd>This variable determines the locale category for any category not
+      specifically selected via a variable starting with `<b>LC_</b>'.</dd>
+  <dt><b>LC_ALL</b> &lt;S&gt;</dt>
+  <dd>This variable overrides the value of the `<b>LANG</b>' variable and the
+      value of any of the other variables starting with `<b>LC_</b>'.</dd>
+  <dt><b>LC_COLLATE</b> &lt;S&gt;</dt>
+  <dd>This variable determines the locale category for character collation
+      information within ranges in glob brackets and for sorting.</dd>
+  <dt><b>LC_CTYPE</b> &lt;S&gt;</dt>
+  <dd>This variable determines the locale category for character handling
+      functions. If the <b>MULTIBYTE</b> option is in effect this variable or
+      <b>LANG</b> should contain a value that reflects the character set in use,
+      even if it is a single-byte character set, unless only the 7-bit subset
+      (ASCII) is used. For example, if the character set is ISO-8859-1, a
+      suitable value might be <b>en_US.iso88591</b> (certain Linux
+      distributions) or <b>en_US.ISO8859-1</b> (MacOS).</dd>
+  <dt><b>LC_MESSAGES</b> &lt;S&gt;</dt>
+  <dd>This variable determines the language in which messages should be written.
+      Note that zsh does not use message catalogs.</dd>
+  <dt><b>LC_NUMERIC</b> &lt;S&gt;</dt>
+  <dd>This variable affects the decimal point character and thousands separator
+      character for the formatted input/output functions and string conversion
+      functions. Note that zsh ignores this setting when parsing floating point
+      mathematical expressions.</dd>
+  <dt><b>LC_TIME</b> &lt;S&gt;</dt>
+  <dd>This variable determines the locale category for date and time formatting
+      in prompt escape sequences.</dd>
+  <dt><b>LINES</b> &lt;S&gt;</dt>
+  <dd>The number of lines for this terminal session. Used for printing select
+      lists and for the line editor.</dd>
+  <dt><b>LISTMAX</b></dt>
+  <dd>In the line editor, the number of matches to list without asking first. If
+      the value is negative, the list will be shown if it spans at most as many
+      lines as given by the absolute value. If set to zero, the shell asks only
+      if the top of the listing would scroll off the screen.</dd>
+  <dt><b>LOGCHECK</b></dt>
+  <dd>The interval in seconds between checks for login/logout activity using the
+      <b>watch</b> parameter.</dd>
+  <dt><b>MAIL</b></dt>
+  <dd>If this parameter is set and <b>mailpath</b> is not set, the shell looks
+      for mail in the specified file.</dd>
+  <dt><b>MAILCHECK</b></dt>
+  <dd>The interval in seconds between checks for new mail.</dd>
+  <dt><b>mailpath</b> &lt;S&gt; &lt;Z&gt; (<b>MAILPATH</b> &lt;S&gt;)</dt>
+  <dd>An array (colon-separated list) of filenames to check for new mail. Each
+      filename can be followed by a `<b>?</b>' and a message that will be
+      printed. The message will undergo parameter expansion, command
+      substitution and arithmetic expansion with the variable <b>$_</b> defined
+      as the name of the file that has changed. The default message is `<b>You
+      have new mail</b>'. If an element is a directory instead of a file the
+      shell will recursively check every file in every subdirectory of the
+      element.</dd>
+  <dt><b>manpath</b> &lt;S&gt; &lt;Z&gt; (<b>MANPATH</b> &lt;S&gt;
+    &lt;Z&gt;)</dt>
+  <dd>An array (colon-separated list) whose value is not used by the shell. The
+      <b>manpath</b> array can be useful, however, since setting it also sets
+      <b>MANPATH</b>, and vice versa.</dd>
+  <dt><b>match</b></dt>
+  <dd></dd>
+  <dt><b>mbegin</b></dt>
+  <dd></dd>
+  <dt><b>mend</b></dt>
+  <dd>Arrays set by the shell when the <b>b</b> globbing flag is used in pattern
+      matches. See the subsection <i>Globbing flags</i> in the documentation for
+      <i>Filename Generation</i> in <i>zshexpn</i>(1).</dd>
+  <dt><b>MATCH</b></dt>
+  <dd></dd>
+  <dt><b>MBEGIN</b></dt>
+  <dd></dd>
+  <dt><b>MEND</b></dt>
+  <dd>Set by the shell when the <b>m</b> globbing flag is used in pattern
+      matches. See the subsection <i>Globbing flags</i> in the documentation for
+      <i>Filename Generation</i> in <i>zshexpn</i>(1).</dd>
+  <dt><b>module_path</b> &lt;S&gt; &lt;Z&gt; (<b>MODULE_PATH</b> &lt;S&gt;)</dt>
+  <dd>An array (colon-separated list) of directories that <b>zmodload</b>
+      searches for dynamically loadable modules. This is initialized to a
+      standard pathname, usually `<b>/usr/local/lib/zsh/$ZSH_VERSION</b>'. (The
+      `<b>/usr/local/lib</b>' part varies from installation to installation.)
+      For security reasons, any value set in the environment when the shell is
+      started will be ignored.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">These parameters only exist if the installation supports dynamic
+    module loading.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>NULLCMD</b> &lt;S&gt;</dt>
+  <dd>The command name to assume if a redirection is specified with no command.
+      Defaults to <b>cat</b>. For <b>sh</b>/<b>ksh</b> behavior, change this to
+      <b>:</b>. For <b>csh</b>-like behavior, unset this parameter; the shell
+      will print an error message if null commands are entered.</dd>
+  <dt><b>path</b> &lt;S&gt; &lt;Z&gt; (<b>PATH</b> &lt;S&gt;)</dt>
+  <dd>An array (colon-separated list) of directories to search for commands.
+      When this parameter is set, each directory is scanned and all files found
+      are put in a hash table.</dd>
+  <dt><b>POSTEDIT</b> &lt;S&gt;</dt>
+  <dd>This string is output whenever the line editor exits. It usually contains
+      termcap strings to reset the terminal.</dd>
+  <dt><b>PROMPT</b> &lt;S&gt; &lt;Z&gt;</dt>
+  <dd></dd>
+  <dt><b>PROMPT2</b> &lt;S&gt; &lt;Z&gt;</dt>
+  <dd></dd>
+  <dt><b>PROMPT3</b> &lt;S&gt; &lt;Z&gt;</dt>
+  <dd></dd>
+  <dt><b>PROMPT4</b> &lt;S&gt; &lt;Z&gt;</dt>
+  <dd>Same as <b>PS1</b>, <b>PS2</b>, <b>PS3</b> and <b>PS4</b>,
+    respectively.</dd>
+  <dt><b>prompt</b> &lt;S&gt; &lt;Z&gt;</dt>
+  <dd>Same as <b>PS1</b>.</dd>
+  <dt><b>PROMPT_EOL_MARK</b></dt>
+  <dd>When the <b>PROMPT_CR</b> and <b>PROMPT_SP</b> options are set, the
+      <b>PROMPT_EOL_MARK</b> parameter can be used to customize how the end of
+      partial lines are shown. This parameter undergoes prompt expansion, with
+      the <b>PROMPT_PERCENT</b> option set. If not set, the default behavior is
+      equivalent to the value `<b>%B%S%#%s%b</b>'.</dd>
+  <dt><b>PS1</b> &lt;S&gt;</dt>
+  <dd>The primary prompt string, printed before a command is read. It undergoes
+      a special form of expansion before being displayed; see EXPANSION OF
+      PROMPT SEQUENCES in <i>zshmisc</i>(1). The default is `<b>%m%# </b>'.</dd>
+  <dt><b>PS2</b> &lt;S&gt;</dt>
+  <dd>The secondary prompt, printed when the shell needs more information to
+      complete a command. It is expanded in the same way as <b>PS1</b>. The
+      default is `<b>%_&gt; </b>', which displays any shell constructs or
+      quotation marks which are currently being processed.</dd>
+  <dt><b>PS3</b> &lt;S&gt;</dt>
+  <dd>Selection prompt used within a <b>select</b> loop. It is expanded in the
+      same way as <b>PS1</b>. The default is `<b>?# </b>'.</dd>
+  <dt><b>PS4</b> &lt;S&gt;</dt>
+  <dd>The execution trace prompt. Default is `<b>+%N:%i&gt; </b>', which
+      displays the name of the current shell structure and the line number
+      within it. In sh or ksh emulation, the default is `<b>+ </b>'.</dd>
+  <dt><b>psvar</b> &lt;S&gt; &lt;Z&gt; (<b>PSVAR</b> &lt;S&gt;)</dt>
+  <dd>An array (colon-separated list) whose elements can be used in
+      <b>PROMPT</b> strings. Setting <b>psvar</b> also sets <b>PSVAR</b>, and
+      vice versa.</dd>
+  <dt><b>READNULLCMD</b> &lt;S&gt;</dt>
+  <dd>The command name to assume if a single input redirection is specified with
+      no command. Defaults to <b>more</b>.</dd>
+  <dt><b>REPORTMEMORY</b></dt>
+  <dd>If nonnegative, commands whose maximum resident set size (roughly
+      speaking, main memory usage) in kilobytes is greater than this value have
+      timing statistics reported. The format used to output statistics is the
+      value of the <b>TIMEFMT</b> parameter, which is the same as for the
+      <b>REPORTTIME</b> variable and the <b>time</b> builtin; note that by
+      default this does not output memory usage. Appending <b>&quot; max RSS
+      %M&quot;</b> to the value of <b>TIMEFMT</b> causes it to output the value
+      that triggered the report. If <b>REPORTTIME</b> is also in use, at most a
+      single report is printed for both triggers. This feature requires the
+      <b>getrusage()</b> system call, commonly supported by modern Unix-like
+      systems.</dd>
+  <dt><b>REPORTTIME</b></dt>
+  <dd>If nonnegative, commands whose combined user and system execution times
+      (measured in seconds) are greater than this value have timing statistics
+      printed for them. Output is suppressed for commands executed within the
+      line editor, including completion; commands explicitly marked with the
+      <b>time</b> keyword still cause the summary to be printed in this
+    case.</dd>
+  <dt><b>REPLY</b></dt>
+  <dd>This parameter is reserved by convention to pass string values between
+      shell scripts and shell builtins in situations where a function call or
+      redirection are impossible or undesirable. The <b>read</b> builtin and the
+      <b>select</b> complex command may set <b>REPLY</b>, and filename
+      generation both sets and examines its value when evaluating certain
+      expressions. Some modules also employ <b>REPLY</b> for similar
+    purposes.</dd>
+  <dt><b>reply</b></dt>
+  <dd>As <b>REPLY</b>, but for array values rather than strings.</dd>
+  <dt><b>RPROMPT</b> &lt;S&gt;</dt>
+  <dd></dd>
+  <dt><b>RPS1</b> &lt;S&gt;</dt>
+  <dd>This prompt is displayed on the right-hand side of the screen when the
+      primary prompt is being displayed on the left. This does not work if the
+      <b>SINGLE_LINE_ZLE</b> option is set. It is expanded in the same way as
+      <b>PS1</b>.</dd>
+  <dt><b>RPROMPT2</b> &lt;S&gt;</dt>
+  <dd></dd>
+  <dt><b>RPS2</b> &lt;S&gt;</dt>
+  <dd>This prompt is displayed on the right-hand side of the screen when the
+      secondary prompt is being displayed on the left. This does not work if the
+      <b>SINGLE_LINE_ZLE</b> option is set. It is expanded in the same way as
+      <b>PS2</b>.</dd>
+  <dt><b>SAVEHIST</b></dt>
+  <dd>The maximum number of history events to save in the history file.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If this is made local, it is not implicitly set to 0, but may be
+    explicitly set locally.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>SPROMPT</b> &lt;S&gt;</dt>
+  <dd>The prompt used for spelling correction. The sequence `<b>%R</b>' expands
+      to the string which presumably needs spelling correction, and `<b>%r</b>'
+      expands to the proposed correction. All other prompt escapes are also
+      allowed.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">The actions available at the prompt are <b>[nyae]</b>:</p>
+<dl class="Bl-tag">
+  <dt><b>n</b> (`no') (default)</dt>
+  <dd>Discard the correction and run the command.</dd>
+  <dt><b>y</b> (`yes')</dt>
+  <dd>Make the correction and run the command.</dd>
+  <dt><b>a</b> (`abort')</dt>
+  <dd>Discard the entire command line without running it.</dd>
+  <dt><b>e</b> (`edit')</dt>
+  <dd>Resume editing the command line.</dd>
+</dl>
+</div>
+<dl class="Bl-tag">
+  <dt><b>STTY</b></dt>
+  <dd>If this parameter is set in a command's environment, the shell runs the
+      <b>stty</b> command with the value of this parameter as arguments in order
+      to set up the terminal before executing the command. The modes apply only
+      to the command, and are reset when it finishes or is suspended. If the
+      command is suspended and continued later with the <b>fg</b> or <b>wait</b>
+      builtins it will see the modes specified by <b>STTY</b>, as if it were not
+      suspended. This (intentionally) does not apply if the command is continued
+      via `<b>kill</b> <b>-CONT</b>'. <b>STTY</b> is ignored if the command is
+      run in the background, or if it is in the environment of the shell but not
+      explicitly assigned to in the input line. This avoids running stty at
+      every external command by accidentally exporting it. Also note that
+      <b>STTY</b> should not be used for window size specifications; these will
+      not be local to the command.</dd>
+  <dt><b>TERM</b> &lt;S&gt;</dt>
+  <dd>The type of terminal in use. This is used when looking up termcap
+      sequences. An assignment to <b>TERM</b> causes zsh to re-initialize the
+      terminal, even if the value does not change (e.g., `<b>TERM=$TERM</b>').
+      It is necessary to make such an assignment upon any change to the terminal
+      definition database or terminal type in order for the new settings to take
+      effect.</dd>
+  <dt><b>TERMINFO</b> &lt;S&gt;</dt>
+  <dd>A reference to your terminfo database, used by the `terminfo' library when
+      the system has it; see <i>terminfo</i>(5). If set, this causes the shell
+      to reinitialise the terminal, making the workaround `<b>TERM=$TERM</b>'
+      unnecessary.</dd>
+  <dt><b>TERMINFO_DIRS</b> &lt;S&gt;</dt>
+  <dd>A colon-seprarated list of terminfo databases, used by the `terminfo'
+      library when the system has it; see <i>terminfo</i>(5). This variable is
+      only used by certain terminal libraries, in particular ncurses; see
+      <i>terminfo</i>(5) to check support on your system. If set, this causes
+      the shell to reinitialise the terminal, making the workaround
+      `<b>TERM=$TERM</b>' unnecessary. Note that unlike other colon-separated
+      arrays this is not tied to a zsh array.</dd>
+  <dt><b>TIMEFMT</b></dt>
+  <dd>The format of process time reports with the <b>time</b> keyword. The
+      default is `<b>%J %U user %S system %P cpu %*E total</b>'. Recognizes the
+      following escape sequences, although not all may be available on all
+      systems, and some that are available may not be useful:</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>%%</b></dt>
+  <dd>A `<b>%</b>'.</dd>
+  <dt><b>%U</b></dt>
+  <dd>CPU seconds spent in user mode.</dd>
+  <dt><b>%S</b></dt>
+  <dd>CPU seconds spent in kernel mode.</dd>
+  <dt><b>%E</b></dt>
+  <dd>Elapsed time in seconds.</dd>
+  <dt><b>%P</b></dt>
+  <dd>The CPU percentage, computed as 100*(<b>%U</b>+<b>%S</b>)/<b>%E</b>.</dd>
+  <dt><b>%W</b></dt>
+  <dd>Number of times the process was swapped.</dd>
+  <dt><b>%X</b></dt>
+  <dd>The average amount in (shared) text space used in kilobytes.</dd>
+  <dt><b>%D</b></dt>
+  <dd>The average amount in (unshared) data/stack space used in kilobytes.</dd>
+  <dt><b>%K</b></dt>
+  <dd>The total space used (<b>%X</b>+<b>%D</b>) in kilobytes.</dd>
+  <dt><b>%M</b></dt>
+  <dd>The maximum memory the process had in use at any time in kilobytes.</dd>
+  <dt><b>%F</b></dt>
+  <dd>The number of major page faults (page needed to be brought from
+    disk).</dd>
+  <dt><b>%R</b></dt>
+  <dd>The number of minor page faults.</dd>
+  <dt><b>%I</b></dt>
+  <dd>The number of input operations.</dd>
+  <dt><b>%O</b></dt>
+  <dd>The number of output operations.</dd>
+  <dt><b>%r</b></dt>
+  <dd>The number of socket messages received.</dd>
+  <dt><b>%s</b></dt>
+  <dd>The number of socket messages sent.</dd>
+  <dt><b>%k</b></dt>
+  <dd>The number of signals received.</dd>
+  <dt><b>%w</b></dt>
+  <dd>Number of voluntary context switches (waits).</dd>
+  <dt><b>%c</b></dt>
+  <dd>Number of involuntary context switches.</dd>
+  <dt><b>%J</b></dt>
+  <dd>The name of this job.</dd>
+</dl>
+<p class="Pp">A star may be inserted between the percent sign and flags printing
+    time (e.g., `<b>%*E</b>'); this causes the time to be printed in
+    `<i>hh</i><b>:</b><i>mm</i><b>:</b><i>ss</i><b>.</b><i>ttt</i>' format
+    (hours and minutes are only printed if they are not zero). Alternatively,
+    `<b>m</b>' or `<b>u</b>' may be used (e.g., `<b>%mE</b>') to produce time
+    output in milliseconds or microseconds, respectively.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>TMOUT</b></dt>
+  <dd>If this parameter is nonzero, the shell will receive an <b>ALRM</b> signal
+      if a command is not entered within the specified number of seconds after
+      issuing a prompt. If there is a trap on <b>SIGALRM</b>, it will be
+      executed and a new alarm is scheduled using the value of the <b>TMOUT</b>
+      parameter after executing the trap. If no trap is set, and the idle time
+      of the terminal is not less than the value of the <b>TMOUT</b> parameter,
+      zsh terminates. Otherwise a new alarm is scheduled to <b>TMOUT</b> seconds
+      after the last keypress.</dd>
+  <dt><b>TMPPREFIX</b></dt>
+  <dd>A pathname prefix which the shell will use for all temporary files. Note
+      that this should include an initial part for the file name as well as any
+      directory names. The default is `<b>/tmp/zsh</b>'.</dd>
+  <dt><b>TMPSUFFIX</b></dt>
+  <dd>A filename suffix which the shell will use for temporary files created by
+      process substitutions (e.g., `<b>=(</b><i>list</i><b>)</b><i>').</i>
+      <i>Note that the value should include a leading dot `</i><b>.</b><i>' if
+      intended</i> <i>to be interpreted as a file extension. The default is not
+      to append</i> <i>any suffix, thus this parameter should be assigned only
+      when needed</i> <i>and then unset again.</i></dd>
+  <dt><b>watch</b> &lt;S&gt; &lt;Z&gt; (<b>WATCH</b> &lt;S&gt;)</dt>
+  <dd>An array (colon-separated list) of login/logout events to report.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If it contains the single word `<b>all</b>', then all login/logout
+    events are reported. If it contains the single word `<b>notme</b>', then all
+    events are reported as with `<b>all</b>' except <b>$USERNAME</b>.</p>
+<p class="Pp">An entry in this list may consist of a username, an `<b>@</b>'
+    followed by a remote hostname, and a `<b>%</b>' followed by a line (tty).
+    Any of these may be a pattern (be sure to quote this during the assignment
+    to <b>watch</b> so that it does not immediately perform file generation);
+    the setting of the <b>EXTENDED_GLOB</b> option is respected. Any or all of
+    these components may be present in an entry; if a login/logout event matches
+    all of them, it is reported.</p>
+<p class="Pp">For example, with the <b>EXTENDED_GLOB</b> option set, the
+    following:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>watch=('^(pws|barts)')</b>
+</pre>
+</div>
+<p class="Pp">causes reports for activity assoicated with any user other than
+    <b>pws</b> or <b>barts</b>.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>WATCHFMT</b></dt>
+  <dd>The format of login/logout reports if the <b>watch</b> parameter is set.
+      Default is `<b>%n has %a %l from %m</b>'. Recognizes the following escape
+      sequences:</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>%n</b></dt>
+  <dd>The name of the user that logged in/out.</dd>
+  <dt><b>%a</b></dt>
+  <dd>The observed action, i.e. &quot;logged on&quot; or &quot;logged
+    off&quot;.</dd>
+  <dt><b>%l</b></dt>
+  <dd>The line (tty) the user is logged in on.</dd>
+  <dt><b>%M</b></dt>
+  <dd>The full hostname of the remote host.</dd>
+  <dt><b>%m</b></dt>
+  <dd>The hostname up to the first `<b>.</b>'. If only the IP address is
+      available or the utmp field contains the name of an X-windows display, the
+      whole name is printed.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"><i>NOTE:</i> The `<b>%m</b>' and `<b>%M</b>' escapes will work
+    only if there is a host name field in the utmp on your machine. Otherwise
+    they are treated as ordinary strings.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>%S</b> (<b>%s</b>)</dt>
+  <dd>Start (stop) standout mode.</dd>
+  <dt><b>%U</b> (<b>%u</b>)</dt>
+  <dd>Start (stop) underline mode.</dd>
+  <dt><b>%B</b> (<b>%b</b>)</dt>
+  <dd>Start (stop) boldface mode.</dd>
+  <dt><b>%t</b></dt>
+  <dd></dd>
+  <dt><b>%@</b></dt>
+  <dd>The time, in 12-hour, am/pm format.</dd>
+  <dt><b>%T</b></dt>
+  <dd>The time, in 24-hour format.</dd>
+  <dt><b>%w</b></dt>
+  <dd>The date in `<i>day</i><b>-</b><i>dd</i>' format.</dd>
+  <dt><b>%W</b></dt>
+  <dd>The date in `<i>mm</i><b>/</b><i>dd</i><b>/</b><i>yy</i>' format.</dd>
+  <dt><b>%D</b></dt>
+  <dd>The date in `<i>yy</i><b>-</b><i>mm</i><b>-</b><i>dd</i>' format.</dd>
+  <dt><b>%D{</b><i>string</i><b>}</b></dt>
+  <dd>The date formatted as <i>string</i> using the <b>strftime</b> function,
+      with zsh extensions as described by EXPANSION OF PROMPT SEQUENCES in
+      <i>zshmisc</i>(1).</dd>
+  <dt><b>%(</b><i>x</i><b>:</b><i>true-text</i><b>:</b><i>false-text</i><b>)</b></dt>
+  <dd>Specifies a ternary expression. The character following the <i>x</i> is
+      arbitrary; the same character is used to separate the text for the
+      &quot;true&quot; result from that for the &quot;false&quot; result. Both
+      the separator and the right parenthesis may be escaped with a backslash.
+      Ternary expressions may be nested.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">The test character <i>x</i> may be any one of `<b>l</b>',
+    `<b>n</b>', `<b>m</b>' or `<b>M</b>', which indicate a `true' result if the
+    corresponding escape sequence would return a non-empty value; or it may be
+    `<b>a</b>', which indicates a `true' result if the watched user has logged
+    in, or `false' if he has logged out. Other characters evaluate to neither
+    true nor false; the entire expression is omitted in this case.</p>
+<p class="Pp">If the result is `true', then the <i>true-text</i> is formatted
+    according to the rules above and printed, and the <i>false-text</i> is
+    skipped. If `false', the <i>true-text</i> is skipped and the
+    <i>false-text</i> is formatted and printed. Either or both of the branches
+    may be empty, but both separators must be present in any case.</p>
+</div>
+</div>
+<dl class="Bl-tag">
+  <dt><b>WORDCHARS</b> &lt;S&gt;</dt>
+  <dd>A list of non-alphanumeric characters considered part of a word by the
+      line editor.</dd>
+  <dt><b>ZBEEP</b></dt>
+  <dd>If set, this gives a string of characters, which can use all the same
+      codes as the <b>bindkey</b> command as described in the zsh/zle module
+      entry in <i>zshmodules</i>(1), that will be output to the terminal instead
+      of beeping. This may have a visible instead of an audible effect; for
+      example, the string `<b>\e[?5h\e[?5l</b>' on a vt100 or xterm will have
+      the effect of flashing reverse video on and off (if you usually use
+      reverse video, you should use the string `<b>\e[?5l\e[?5h</b>' instead).
+      This takes precedence over the <b>NOBEEP</b> option.</dd>
+  <dt><b>ZDOTDIR</b></dt>
+  <dd>The directory to search for shell startup files (.zshrc, etc), if not
+      <b>$HOME</b>.</dd>
+  <dt><b>zle_bracketed_paste</b></dt>
+  <dd>Many terminal emulators have a feature that allows applications to
+      identify when text is pasted into the terminal rather than being typed
+      normally. For ZLE, this means that special characters such as tabs and
+      newlines can be inserted instead of invoking editor commands. Furthermore,
+      pasted text forms a single undo event and if the region is active, pasted
+      text will replace the region.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">This two-element array contains the terminal escape sequences for
+    enabling and disabling the feature. These escape sequences are used to
+    enable bracketed paste when ZLE is active and disable it at other times.
+    Unsetting the parameter has the effect of ensuring that bracketed paste
+    remains disabled.</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>zle_highlight</b></dt>
+  <dd>An array describing contexts in which ZLE should highlight the input text.
+      See <i>Character Highlighting</i> in <i>zshzle</i>(1).</dd>
+  <dt><b>ZLE_LINE_ABORTED</b></dt>
+  <dd>This parameter is set by the line editor when an error occurs. It contains
+      the line that was being edited at the point of the error. `<b>print -zr --
+      $ZLE_LINE_ABORTED</b>' can be used to recover the line. Only the most
+      recent line of this kind is remembered.</dd>
+  <dt><b>ZLE_REMOVE_SUFFIX_CHARS</b></dt>
+  <dd></dd>
+  <dt><b>ZLE_SPACE_SUFFIX_CHARS</b></dt>
+  <dd>These parameters are used by the line editor. In certain circumstances
+      suffixes (typically space or slash) added by the completion system will be
+      removed automatically, either because the next editing command was not an
+      insertable character, or because the character was marked as requiring the
+      suffix to be removed.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">These variables can contain the sets of characters that will cause
+    the suffix to be removed. If <b>ZLE_REMOVE_SUFFIX_CHARS</b> is set, those
+    characters will cause the suffix to be removed; if
+    <b>ZLE_SPACE_SUFFIX_CHARS</b> is set, those characters will cause the suffix
+    to be removed and replaced by a space.</p>
+<p class="Pp">If <b>ZLE_REMOVE_SUFFIX_CHARS</b> is not set, the default
+    behaviour is equivalent to:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>ZLE_REMOVE_SUFFIX_CHARS=$' \t\n;&amp;|'</b>
+</pre>
+</div>
+<p class="Pp">If <b>ZLE_REMOVE_SUFFIX_CHARS</b> is set but is empty, no
+    characters have this behaviour. <b>ZLE_SPACE_SUFFIX_CHARS</b> takes
+    precedence, so that the following:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>ZLE_SPACE_SUFFIX_CHARS=$'&amp;|'</b>
+</pre>
+</div>
+<p class="Pp">causes the characters `<b>&amp;</b>' and `<b>|</b>' to remove the
+    suffix but to replace it with a space.</p>
+<p class="Pp">To illustrate the difference, suppose that the option
+    <b>AUTO_REMOVE_SLASH</b> is in effect and the directory <b>DIR</b> has just
+    been completed, with an appended <b>/</b>, following which the user types
+    `<b>&amp;</b>'. The default result is `<b>DIR&amp;</b>'. With
+    <b>ZLE_REMOVE_SUFFIX_CHARS</b> set but without including `<b>&amp;</b>' the
+    result is `<b>DIR/&amp;</b>'. With <b>ZLE_SPACE_SUFFIX_CHARS</b> set to
+    include `<b>&amp;</b>' the result is `<b>DIR &amp;</b>'.</p>
+<p class="Pp">Note that certain completions may provide their own suffix removal
+    or replacement behaviour which overrides the values described here. See the
+    completion system documentation in <i>zshcompsys</i>(1).</p>
+</div>
+<dl class="Bl-tag">
+  <dt><b>ZLE_RPROMPT_INDENT</b> &lt;S&gt;</dt>
+  <dd>If set, used to give the indentation between the right hand side of the
+      right prompt in the line editor as given by <b>RPS1</b> or <b>RPROMPT</b>
+      and the right hand side of the screen. If not set, the value 1 is
+    used.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Typically this will be used to set the value to 0 so that the
+    prompt appears flush with the right hand side of the screen. This is not the
+    default as many terminals do not handle this correctly, in particular when
+    the prompt appears at the extreme bottom right of the screen. Recent virtual
+    terminals are more likely to handle this case correctly. Some
+    experimentation is necessary.</p>
+</div>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">February 3, 2019</td>
+    <td class="foot-os">zsh 5.7.1</td>
+  </tr>
+</table>
+</body>
+</html>

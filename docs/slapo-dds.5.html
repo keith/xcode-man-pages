@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>SLAPO-DDS(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SLAPO-DDS(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">SLAPO-DDS(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+slapo-dds - Dynamic Directory Services overlay to slapd
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+/etc/openldap/slapd.conf
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The <b>dds</b> overlay to <b>slapd</b>(8) implements dynamic objects as per RFC
+  2589. The name <b>dds</b> stands for Dynamic Directory Services. It allows to
+  define dynamic objects, characterized by the <b>dynamicObject</b> objectClass.
+<p class="Pp">Dynamic objects have a limited lifetime, determined by a
+    time-to-live (TTL) that can be refreshed by means of a specific
+    <b>refresh</b> extended operation. This operation allows to set the Client
+    Refresh Period (CRP), namely the period between refreshes that is required
+    to preserve the dynamic object from expiration. The expiration time is
+    computed by adding the requested TTL to the current time. When dynamic
+    objects reach the end of their lifetime without being further refreshed,
+    they are automatically deleted. There is no guarantee of immediate deletion,
+    so clients should not count on it.</p>
+<p class="Pp">Dynamic objects can have subordinates, provided these also are
+    dynamic objects. RFC 2589 does not specify what the behavior of a dynamic
+    directory service should be when a dynamic object with (dynamic)
+    subordinates expires. In this implementation, the lifetime of dynamic
+    objects with subordinates is prolonged until all the dynamic subordinates
+    expire.</p>
+<p class="Pp"></p>
+<p class="Pp">This <b>slapd.conf</b>(5) directive adds the <b>dds</b> overlay to
+    the current database:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>overlay dds</b></dt>
+  <dd>
+    <p class="Pp"></p>
+  </dd>
+</dl>
+<p class="Pp">The database must have a <b>rootdn</b> specified, otherwise, the
+    <b>dds</b> overlay will not be able to delete expired objects. The
+    <b>dds</b> overlay may be used with any backend that implements the
+    <b>add</b>, <b>modify</b>, <b>search</b>, and <b>delete</b> operations.
+    Since its use may result in many internal entry lookups, adds and deletes,
+    it should be best used in conjunction with backends that have reasonably
+    good write performances.</p>
+<p class="Pp"></p>
+<p class="Pp">The config directives that are specific to the <b>dds</b> overlay
+    are prefixed by <b>dds-</b>, to avoid potential conflicts with directives
+    specific to the underlying database or to other stacked overlays.</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>dds-max-ttl &lt;ttl&gt;</b></dt>
+  <dd>Specifies the max TTL value. This is also the default TTL newly created
+      dynamic objects receive, unless <b>dds-default-ttl</b> is set. When the
+      client with a refresh extended operation requests a TTL higher than it,
+      sizeLimitExceeded is returned. This value must be between 86400 (1 day,
+      the default) and 31557600 (1 year plus 6 hours, as per RFC 2589).
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>dds-min-ttl &lt;ttl&gt;</b></dt>
+  <dd>Specifies the min TTL value; clients requesting a lower TTL by means of
+      the refresh extended operation actually obtain this value as CRP. If set
+      to 0 (the default), no lower limit is set.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>dds-default-ttl &lt;ttl&gt;</b></dt>
+  <dd>Specifies the default TTL value that newly created dynamic objects get. If
+      set to 0 (the default), the <b>dds-max-ttl</b> is used.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>dds-interval &lt;ttl&gt;</b></dt>
+  <dd>Specifies the interval between expiration checks; defaults to 1 hour.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>dds-tolerance &lt;ttl&gt;</b></dt>
+  <dd>Specifies an extra time that is added to the timer that actually wakes up
+      the thread that will delete an expired dynamic object. So the nominal
+      lifetime of the entry is that specified in the <b>entryTtl</b> attribute,
+      but its lifetime will actually be <b>entryTtl + tolerance</b>. Note that
+      there is no guarantee that the lifetime of a dynamic object will be
+      <i>exactly</i> the requested TTL; due to implementation details, it may be
+      longer, which is allowed by RFC 2589. By default, tolerance is 0.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>dds-max-dynamicObjects &lt;num&gt;</b></dt>
+  <dd>Specifies the maximum number of dynamic objects that can simultaneously
+      exist within a naming context. This allows to limit the amount of
+      resources (mostly in terms of run-queue size) that are used by dynamic
+      objects. By default, no limit is set.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>dds-state {TRUE|false}</b></dt>
+  <dd>Specifies if the Dynamic Directory Services feature is enabled or not. By
+      default it is; however, a proxy does not need to keep track of dynamic
+      objects itself, it only needs to inform the frontend that support for
+      dynamic objects is available.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACCESS_CONTROL"><a class="permalink" href="#ACCESS_CONTROL">ACCESS
+  CONTROL</a></h1>
+The <b>dds</b> overlay restricts the refresh operation by requiring
+  <b>manage</b> access to the <b>entryTtl</b> attribute (see
+  <b>slapd.access</b>(5) for details about the <b>manage</b> access privilege).
+  Since the <b>entryTtl</b> is an operational, NO-USER-MODIFICATION attribute,
+  no direct write access to it is possible. So the <b>dds</b> overlay turns
+  refresh extended operation into an internal modification to the value of the
+  <b>entryTtl</b> attribute with the <b>relax</b> control set.
+<p class="Pp">RFC 2589 recommends that anonymous clients should not be allowed
+    to refresh a dynamic object. This can be implemented by appropriately
+    crafting access control to obtain the desired effect.</p>
+<p class="Pp">Example: restrict refresh to authenticated clients</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+access to attrs=entryTtl
+	by users manage
+	by * read
+</pre>
+</div>
+Example: restrict refresh to the creator of the dynamic object
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+access to attrs=entryTtl
+	by dnattr=creatorsName manage
+	by * read
+</pre>
+</div>
+Another suggested usage of dynamic objects is to implement dynamic meetings; in
+  this case, all the participants to the meeting are allowed to refresh the
+  meeting object, but only the creator can delete it (otherwise it will be
+  deleted when the TTL expires)
+<p class="Pp">Example: assuming <i>participant</i> is a valid DN-valued
+    attribute, allow users to start a meeting and to join it; restrict refresh
+    to the participants; restrict delete to the creator</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+access to dn.base=&quot;cn=Meetings&quot;
+		attrs=children
+	by users write
+access to dn.onelevel=&quot;cn=Meetings&quot;
+		attrs=entry
+	by dnattr=creatorsName write
+	by * read
+access to dn.onelevel=&quot;cn=Meetings&quot;
+		attrs=participant
+	by dnattr=creatorsName write
+	by users selfwrite
+	by * read
+access to dn.onelevel=&quot;cn=Meetings&quot;
+		attrs=entryTtl
+	by dnattr=participant manage
+	by * read
+</pre>
+</div>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REPLICATION"><a class="permalink" href="#REPLICATION">REPLICATION</a></h1>
+This implementation of RFC 2589 provides a restricted interpretation of how
+  dynamic objects replicate. Only the master takes care of handling dynamic
+  object expiration, while replicas simply see the dynamic object as a plain
+  object.
+<p class="Pp">When replicating these objects, one needs to explicitly exclude
+    the <b>dynamicObject</b> class and the <b>entryTtl</b> attribute. This
+    implementation of RFC 2589 introduces a new operational attribute,
+    <b>entryExpireTimestamp</b>, that contains the expiration timestamp. This
+    must be excluded from replication as well.</p>
+<p class="Pp">The quick and dirty solution is to set <b>schemacheck=off</b> in
+    the syncrepl configuration and, optionally, exclude the operational
+    attributes from replication, using</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+syncrepl ...
+	exattrs=entryTtl,entryExpireTimestamp
+</pre>
+</div>
+<p class="Pp">In any case the overlay must be either statically built in or
+    run-time loaded by the consumer, so that it is aware of the
+    <b>entryExpireTimestamp</b> operational attribute; however, it must not be
+    configured in the shadow database. Currently, there is no means to remove
+    the <b>dynamicObject</b> class from the entry; this may be seen as a
+    feature, since it allows to see the dynamic properties of the object.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt>/etc/openldap/slapd.conf</dt>
+  <dd>default slapd configuration file</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>slapd.conf</b>(5), <b>slapd-config</b>(5), <b>slapd</b>(8).
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+Implemented by Pierangelo Masarati.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2011/11/24</td>
+    <td class="foot-os">OpenLDAP 2.4.28</td>
+  </tr>
+</table>
+</body>
+</html>

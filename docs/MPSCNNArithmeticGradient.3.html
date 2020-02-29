@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   -*- nroff -*-
+ -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>MPSCNNArithmeticGradient(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">MPSCNNArithmeticGradient(3)</td>
+    <td class="head-vol">MetalPerformanceShaders.framework</td>
+    <td class="head-rtitle">MPSCNNArithmeticGradient(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+MPSCNNArithmeticGradient
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">#import &lt;MPSCNNMath.h&gt;</p>
+<p class="Pp">Inherits <b>MPSCNNGradientKernel</b>.</p>
+<p class="Pp">Inherited by <b>MPSCNNAddGradient</b>,
+    <b>MPSCNNMultiplyGradient</b>, and <b>MPSCNNSubtractGradient</b>.</p>
+<section class="Ss">
+<h2 class="Ss" id="Instance_Methods"><a class="permalink" href="#Instance_Methods">Instance
+  Methods</a></h2>
+<br/>
+(nonnull instancetype) - <b>initWithDevice:</b>
+<br/>
+(nonnull instancetype) - <b>initWithDevice:isSecondarySourceFilter:</b>
+<br/>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Properties"><a class="permalink" href="#Properties">Properties</a></h2>
+<br/>
+float <b>primaryScale</b>
+<br/>
+float <b>secondaryScale</b>
+<br/>
+float <b>bias</b>
+<br/>
+NSUInteger <b>secondaryStrideInFeatureChannels</b>
+<br/>
+float <b>minimumValue</b>
+<br/>
+float <b>maximumValue</b>
+<br/>
+BOOL <b>isSecondarySourceFilter</b>
+<br/>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Additional_Inherited_Members"><a class="permalink" href="#Additional_Inherited_Members">Additional
+  Inherited Members</a></h2>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Detailed_Description"><a class="permalink" href="#Detailed_Description">Detailed
+  Description</a></h1>
+This depends on Metal.framework The <b>MPSCNNArithmeticGradient</b> filter is
+  the backward filter for the <b>MPSCNNArithmetic</b> forward filter.
+<p class="Pp">The forward filter takes two inputs, primary and secondary source
+    images, and produces a single output image. Thus, going backwards requires
+    two separate filters (one for the primary source image and one for the
+    secondary source image) that take multiple inputs and produce a single
+    output. The secondarySourceFilter property is used to indicate whether the
+    filter is operating on the primary or secondary source image from the
+    forward pass.</p>
+<p class="Pp">All the arithmetic gradient filters require the following inputs:
+    gradient image from the previous layer (going backwards) and all the
+    applicable input source images from the forward pass.</p>
+<p class="Pp">The forward filter takes the following additional parameters:</p>
+<ul class="Bl-bullet">
+  <li>primaryStrideInPixelsX, primaryStrideInPixelsY,
+      primaryStrideInFeatureChannels</li>
+  <li>secondaryStrideInPixelsX, secondaryStrideInPixelsY,
+      secondaryStrideInFeatureChannels These parameters can be used in the
+      forward filter to control broadcasting for the data stored in the primary
+      and secondary source images. For example, setting all strides for the
+      primary source image to 0 will result in the primarySource image being
+      treated as a single pixel. The only supported values are 0 or 1. The
+      default value of these parameters is 1.</li>
+</ul>
+<p class="Pp">The first input to the backward filter is the gradient image from
+    the previous layer (going backwards), so there are no broadcasting
+    parameters for this input. For the backward filter, the broadcasting
+    parameters for the second input must match the broadcasting parameters set
+    for the same image in the forward filter.</p>
+<p class="Pp">In the backward pass, broadcasting results in a reduction
+    operation (sum) across all of the applicable broadcasting dimensions (rows,
+    columns, feature channels, or any combination thereof) to produce the
+    destination image of the size that matches the primary/secondary input
+    images used in the forward pass.</p>
+<p class="Pp">In the case of no broadcasting, the following arithmetic gradient
+    operations are copy operations (that can be optimized away by the graph
+    interface):</p>
+<ul class="Bl-bullet">
+  <li>Add (primarySource, secondarySource)</li>
+  <li>Subtract (primarySource)</li>
+</ul>
+<p class="Pp">Similarly to the forward filter, this backward filter takes
+    additional parameters: primaryScale, secondaryScale, and bias. The default
+    value for primaryScale and secondaryScale is 1.0f. The default value for
+    bias is 0.0f. This filter applies primaryScale to the primary source image,
+    applies the secondaryScale to the secondary source image, where appropriate,
+    and applies bias to the result, i.e.: result = ((primaryScale * x) [insert
+    operation] (secondaryScale * y)) + bias.</p>
+<p class="Pp">The subtraction gradient filter for the secondary source image
+    requires that the primaryScale property is set to -1.0f (for x - y, d/dy(x -
+    y) = -1).</p>
+<p class="Pp">In the forward filter, there is support for clamping the result of
+    the available operations, where result = clamp(result, minimumValue,
+    maximumValue). The clamp backward operation is not supported in the
+    arithmetic gradient filters. If you require this functionality, it can be
+    implemented by performing a clamp backward operation before calling the
+    arithmetic gradient filters. You would need to apply the following function
+    on the incomping gradient input image: f(x) = ((minimumValue &lt; x)
+    &amp;&amp; (x &lt; maximumValue)) ? 1 : 0, where x is the original result
+    (before clamping) of the forward arithmetic filter.</p>
+<p class="Pp">The number of output feature channels remains the same as the
+    number of input feature channels.</p>
+<p class="Pp">You must use one of the sub-classes of
+  MPSImageArithmeticGradient.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Method_Documentation"><a class="permalink" href="#Method_Documentation">Method
+  Documentation</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="_-_(nonnull_instancetype)_initWithDevice:_(nonnull_id__MTLDevice__)_device"><a class="permalink" href="#_-_(nonnull_instancetype)_initWithDevice:_(nonnull_id__MTLDevice__)_device">-
+  (nonnull instancetype) initWithDevice: (nonnull id&lt; MTLDevice &gt;)
+  device</a></h2>
+Standard init with default properties per filter type
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>device</i> The device that the filter will be used on.
+  May not be NULL.</div>
+<p class="Pp"><b>Returns:</b></p>
+<div class="Bd-indent"><b>A</b> pointer to the newly initialized object. This
+  will fail, returning nil if the device is not supported. Devices must be
+  MTLFeatureSet_iOS_GPUFamily2_v1 or later.</div>
+<p class="Pp">Reimplemented from <b>MPSCNNGradientKernel</b>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(nonnull_instancetype)__fBinitWithDevice:_fP_(nonnull_id__MTLDevice__)_device(BOOL)_isSecondarySourceFilter"><a class="permalink" href="#_-_(nonnull_instancetype)__fBinitWithDevice:_fP_(nonnull_id__MTLDevice__)_device(BOOL)_isSecondarySourceFilter">-
+  (nonnull instancetype) <b>initWithDevice:</b> (nonnull id&lt; MTLDevice &gt;)
+  device(BOOL) isSecondarySourceFilter</a></h2>
+Reimplemented in <b>MPSCNNAddGradient</b>, <b>MPSCNNSubtractGradient</b>, and
+  <b>MPSCNNMultiplyGradient</b>.
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Property_Documentation"><a class="permalink" href="#Property_Documentation">Property
+  Documentation</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="_-_(float)_bias_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_(float)_bias_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  (float) bias [read]<b>, [write]</b>, [nonatomic]<b>, [assign]</b></a></h2>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_isSecondarySourceFilter_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_isSecondarySourceFilter_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  isSecondarySourceFilter [read]<b>, [nonatomic]</b>, [assign]<b></b></a></h2>
+The isSecondarySourceFilter property is used to indicate whether the arithmetic
+  gradient filter is operating on the primary or secondary source image from the
+  forward pass.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_maximumValue_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_maximumValue_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  maximumValue [read]<b>, [write]</b>, [nonatomic]<b>, [assign]</b></a></h2>
+maximumValue is used to clamp the result of an arithmetic operation: result =
+  clamp(result, minimumValue, maximumValue). The default value of maximumValue
+  is FLT_MAX.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_minimumValue_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_minimumValue_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  minimumValue [read]<b>, [write]</b>, [nonatomic]<b>, [assign]</b></a></h2>
+minimumValue is to clamp the result of an arithmetic operation: result =
+  clamp(result, minimumValue, maximumValue). The default value of minimumValue
+  is -FLT_MAX.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(float)_primaryScale_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_(float)_primaryScale_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  (float) primaryScale [read]<b>, [write]</b>, [nonatomic]<b>,
+  [assign]</b></a></h2>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(float)_secondaryScale_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_(float)_secondaryScale_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  (float) secondaryScale [read]<b>, [write]</b>, [nonatomic]<b>,
+  [assign]</b></a></h2>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(NSUInteger)_secondaryStrideInFeatureChannels_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_(NSUInteger)_secondaryStrideInFeatureChannels_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  (NSUInteger) secondaryStrideInFeatureChannels [read]<b>, [write]</b>,
+  [nonatomic]<b>, [assign]</b></a></h2>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Author"><a class="permalink" href="#Author">Author</a></h1>
+Generated automatically by Doxygen for MetalPerformanceShaders.framework from
+  the source code.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">Mon Jul 9 2018</td>
+    <td class="foot-os">Version MetalPerformanceShaders-119.3</td>
+  </tr>
+</table>
+</body>
+</html>

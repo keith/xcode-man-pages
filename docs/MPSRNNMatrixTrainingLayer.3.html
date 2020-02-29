@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   -*- nroff -*-
+ -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>MPSRNNMatrixTrainingLayer(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">MPSRNNMatrixTrainingLayer(3)</td>
+    <td class="head-vol">MetalPerformanceShaders.framework</td>
+    <td class="head-rtitle">MPSRNNMatrixTrainingLayer(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+MPSRNNMatrixTrainingLayer
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">#import &lt;MPSRNNLayer.h&gt;</p>
+<p class="Pp">Inherits <b>MPSKernel</b>.</p>
+<section class="Ss">
+<h2 class="Ss" id="Instance_Methods"><a class="permalink" href="#Instance_Methods">Instance
+  Methods</a></h2>
+<br/>
+(nonnull instancetype) - <b>initWithDevice:rnnDescriptor:trainableWeights:</b>
+<br/>
+(void) - <b>createWeightGradientMatrices:dataType:</b>
+<br/>
+(void) - <b>createTemporaryWeightGradientMatrices:dataType:commandBuffer:</b>
+<br/>
+(void) - <b>createWeightMatrices:</b>
+<br/>
+(nonnull instancetype) - <b>initWithDevice:</b>
+<br/>
+(void) -
+  <b>encodeCopyWeightsToCommandBuffer:weights:matrixId:matrix:copyFromWeightsToMatrix:matrixOffset:</b>
+<br/>
+(void) -
+  <b>encodeForwardSequenceToCommandBuffer:sourceMatrices:sourceOffsets:destinationMatrices:destinationOffsets:trainingStates:recurrentInputState:recurrentOutputStates:weights:</b>
+<br/>
+(void) -
+  <b>encodeForwardSequenceToCommandBuffer:sourceMatrices:destinationMatrices:trainingStates:weights:</b>
+<br/>
+(void) -
+  <b>encodeGradientSequenceToCommandBuffer:forwardSources:forwardSourceOffsets:sourceGradients:sourceGradientOffsets:destinationGradients:destinationOffsets:weightGradients:trainingStates:recurrentInputState:recurrentOutputStates:weights:</b>
+<br/>
+(void) -
+  <b>encodeGradientSequenceToCommandBuffer:forwardSources:sourceGradients:destinationGradients:weightGradients:trainingStates:weights:</b>
+<br/>
+(nullable instancetype) - <b>initWithCoder:device:</b>
+<br/>
+(nonnull instancetype) - <b>copyWithZone:device:</b>
+<br/>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Properties"><a class="permalink" href="#Properties">Properties</a></h2>
+<br/>
+NSUInteger <b>inputFeatureChannels</b>
+<br/>
+NSUInteger <b>outputFeatureChannels</b>
+<br/>
+BOOL <b>storeAllIntermediateStates</b>
+<br/>
+BOOL <b>recurrentOutputIsTemporary</b>
+<br/>
+BOOL <b>trainingStateIsTemporary</b>
+<br/>
+BOOL <b>accumulateWeightGradients</b>
+<br/>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Additional_Inherited_Members"><a class="permalink" href="#Additional_Inherited_Members">Additional
+  Inherited Members</a></h2>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Detailed_Description"><a class="permalink" href="#Detailed_Description">Detailed
+  Description</a></h1>
+This depends on Metal.framework The <b>MPSRNNMatrixTrainingLayer</b> specifies a
+  recurrent neural network layer for training on MPSMatrices.
+<p class="Pp"></p>
+<pre>
+        A MPSRNNMatrixTrainingLayer is initialized using a @ref MPSRNNLayerDescriptor, which further specifies the
+        recurrent network layer.
+        The input and output vectors in encode calls are stored as rows of the input and output matrices and
+        MPSRNNMatrixTrainingLayer supports matrices with decreasing number of rows: The row-indices identify the different
+        sequences that may be of different lengths - for example if we have three sequences:
+            ( x1, x2, x3 ), ( y1, y2, y3, y4 ) and ( z1, z2 )
+        of vectors xi, yi and zi, then these can be inserted together as a batch to the sequence encoding kernel by
+        using the matrices:
+</pre>
+<p class="Pp"></p>
+<pre>
+     ( y1 )        ( y2 )        ( y3 )        ( y4 )
+m1 = ( x1 ),  m2 = ( x2 ),  m3 = ( x3 ),  m4 =
+     ( z1 )        ( z2 )
+</pre>
+<p class="Pp">
+   The gradient computation pass is then achieved by passing the corresponding
+    gradient sequence from the previous layer ( dx1, dx2, dx3 ), ( dy1, dy2,
+    dy3, dy4 ) and ( dz1, dz2 ) as matrices</p>
+<p class="Pp"></p>
+<pre>
+      ( dy1 )         ( dy2 )         ( dy3 )         ( dy4 )
+dm1 = ( dx1 ),  dm2 = ( dx2 ),  dm3 = ( dx3 ),  dm4 =
+      ( dz1 )         ( dz2 )
+</pre>
+<p class="Pp">The mathematical operation described in the linear transformations
+    of <b>MPSRNNSingleGateDescriptor</b> <b>MPSLSTMDescriptor</b> and
+    <b>MPSGRUDescriptor</b> are y^T = W x^T &lt;=&gt; y = x W^T, where x is the
+    matrix containing the input vectors as rows, y is the matrix containing the
+    output vectors as rows and W is the weight matrix.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Method_Documentation"><a class="permalink" href="#Method_Documentation">Method
+  Documentation</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="_-_(nonnull_instancetype)_copyWithZone:_(nullable_NSZone_*)_zone(nullable_id__MTLDevice__)_device"><a class="permalink" href="#_-_(nonnull_instancetype)_copyWithZone:_(nullable_NSZone_*)_zone(nullable_id__MTLDevice__)_device">-
+  (nonnull instancetype) copyWithZone: (nullable NSZone *) zone(nullable id&lt;
+  MTLDevice &gt;) device</a></h2>
+Make a copy of this kernel for a new device -
+<p class="Pp"><b>See also:</b></p>
+<div class="Bd-indent"><b>MPSKernel</b></div>
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>zone</i> The NSZone in which to allocate the object
+<br/>
+<i>device</i> The device for the new <b>MPSKernel</b>. If nil, then use
+  self.device.</div>
+<p class="Pp"><b>Returns:</b></p>
+<div class="Bd-indent">a pointer to a copy of this <b>MPSKernel</b>. This will
+  fail, returning nil if the device is not supported. Devices must be
+  MTLFeatureSet_iOS_GPUFamily2_v1 or later.</div>
+<p class="Pp">Reimplemented from <b>MPSKernel</b>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(void)_createTemporaryWeightGradientMatrices:_(NSMutableArray___fBMPSMatrix_fP_*___*__nonnull)_matricesOut(_fBMPSDataType_fP)_dataType(nonnull_id__MTLCommandBuffer__)_commandBuffer"><a class="permalink" href="#_-_(void)_createTemporaryWeightGradientMatrices:_(NSMutableArray___fBMPSMatrix_fP_*___*__nonnull)_matricesOut(_fBMPSDataType_fP)_dataType(nonnull_id__MTLCommandBuffer__)_commandBuffer">-
+  (void) createTemporaryWeightGradientMatrices: (NSMutableArray&lt;
+  <b>MPSMatrix</b> * &gt; *__nonnull) matricesOut(<b>MPSDataType</b>)
+  dataType(nonnull id&lt; MTLCommandBuffer &gt;) commandBuffer</a></h2>
+As <b>createWeightGradientMatrices</b>, but the matrices will be temporary with
+  readCount = 1, which means that they become invalid after the first encode
+  call that reads them. Note also that as the matrices are temporary, their
+  storage mode will be private which means that you can only access the data
+  using a kernel on the GPU.
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>matricesOut</i> An array where the newly created
+  matrices will be stored, will be initialized to zero.
+<br/>
+<i>dataType</i> Datatype for the entries - currently MPSDataTypeFloat32 and
+  MPSDataTypeFloat16 are supported.
+<br/>
+<i>commandBuffer</i> The command buffer that the temporary matrices will live
+  on.</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(void)_createWeightGradientMatrices:_(NSMutableArray___fBMPSMatrix_fP_*___*__nonnull)_matricesOut(_fBMPSDataType_fP)_dataType"><a class="permalink" href="#_-_(void)_createWeightGradientMatrices:_(NSMutableArray___fBMPSMatrix_fP_*___*__nonnull)_matricesOut(_fBMPSDataType_fP)_dataType">-
+  (void) createWeightGradientMatrices: (NSMutableArray&lt; <b>MPSMatrix</b> *
+  &gt; *__nonnull) matricesOut(<b>MPSDataType</b>) dataType</a></h2>
+Initializes a set of matrices that can be used in training for weight and bias
+  gradient outputs in
+<p class="Pp"><b>See also:</b></p>
+<div class="Bd-indent">encodeBackwardSequenceToCommandBuffer. Can be also used
+  to easily create auxiliary matrices for example for ADAM and other advanced
+  optimization schemes. The layout and number of matrices is the same as for the
+  outputs of
+<p class="Pp">initWithDevice, but the data type may differ. NOTE: These matrices
+    cannot be used as weight matrices in the forward and backward encode calls,
+    but matrices from initWithDevice() or createWeightMatrices() should be used
+    instead.</p>
+</div>
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>matricesOut</i> An array where the newly created
+  matrices will be stored, will be initialized to zero.
+<br/>
+<i>dataType</i> Datatype for the entries - currently MPSDataTypeFloat32 and
+  MPSDataTypeFloat16 are supported.</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(void)_createWeightMatrices:_(NSMutableArray___fBMPSMatrix_fP_*___*__nonnull)_matricesOut"><a class="permalink" href="#_-_(void)_createWeightMatrices:_(NSMutableArray___fBMPSMatrix_fP_*___*__nonnull)_matricesOut">-
+  (void) createWeightMatrices: (NSMutableArray&lt; <b>MPSMatrix</b> * &gt;
+  *__nonnull) matricesOut</a></h2>
+Initializes a set of matrices that can be used in training for weight and bias
+  matrices in the forward and backward passes. The layout, datatype and number
+  of matrices is the same as for the outputs of
+<p class="Pp"><b>See also:</b></p>
+<div class="Bd-indent">initWithDevice.</div>
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>matricesOut</i> An array where the newly created
+  matrices will be stored, will be initialized to zero.</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(void)_encodeCopyWeightsToCommandBuffer:_(nonnull_id__MTLCommandBuffer__)_commandBuffer(NSArray___fBMPSMatrix_fP_*___*__nonnull)_weights(_fBMPSRNNMatrixId_fP)_matrixId(_fBMPSMatrix_fP_*__nonnull)_matrix(BOOL)_copyFromWeightsToMatrix(MTLOrigin)_matrixOffset"><a class="permalink" href="#_-_(void)_encodeCopyWeightsToCommandBuffer:_(nonnull_id__MTLCommandBuffer__)_commandBuffer(NSArray___fBMPSMatrix_fP_*___*__nonnull)_weights(_fBMPSRNNMatrixId_fP)_matrixId(_fBMPSMatrix_fP_*__nonnull)_matrix(BOOL)_copyFromWeightsToMatrix(MTLOrigin)_matrixOffset">-
+  (void) encodeCopyWeightsToCommandBuffer: (nonnull id&lt; MTLCommandBuffer
+  &gt;) commandBuffer(NSArray&lt; <b>MPSMatrix</b> * &gt; *__nonnull)
+  weights(<b>MPSRNNMatrixId</b>) matrixId(<b>MPSMatrix</b> *__nonnull)
+  matrix(BOOL) copyFromWeightsToMatrix(MTLOrigin) matrixOffset</a></h2>
+Encode a copy kernel that copies one matrix from the trainable weight set to a
+  matrix with standard layout, where the column index is the input feature
+  channel index (in forward direction) and row index is the output feature
+  channel index.
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>commandBuffer</i> <b>A</b> valid MTLCommandBuffer to
+  receive the encoded filter
+<br/>
+<i>weights</i> An array weights from</div>
+<p class="Pp"><b>See also:</b></p>
+<div class="Bd-indent">initWithDevice or
+<p class="Pp">createWeightMatrices.</p>
+</div>
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>matrixId</i> Which matrix to copy - has to be a valid
+  Id based on inputs defined in the rnnDescriptor of</div>
+<p class="Pp"><b>See also:</b></p>
+<div class="Bd-indent">initWithDevice.</div>
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>matrix</i> The destination or source matrix that is
+  used in the copy.
+<br/>
+<i>copyFromWeightsToMatrix</i> If YES then the copy direction is from the set of
+  trainable 'weights' to 'matrix', otherwise the copy is done from 'matrix' to
+  'weights'.
+<br/>
+<i>matrixOffset</i> <b>A</b> (valid) offset into matrix to be applied to the
+  copy operation.</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(void)_encodeForwardSequenceToCommandBuffer:_(nonnull_id__MTLCommandBuffer__)_commandBuffer(NSArray___fBMPSMatrix_fP_*___*__nonnull)_sourceMatrices(NSArray___fBMPSMatrix_fP_*___*__nonnull)_destinationMatrices(NSMutableArray___fBMPSRNNMatrixTrainingState_fP_*___*__nonnull)_trainingStates(NSArray___fBMPSMatrix_fP_*___*__nonnull)_weights"><a class="permalink" href="#_-_(void)_encodeForwardSequenceToCommandBuffer:_(nonnull_id__MTLCommandBuffer__)_commandBuffer(NSArray___fBMPSMatrix_fP_*___*__nonnull)_sourceMatrices(NSArray___fBMPSMatrix_fP_*___*__nonnull)_destinationMatrices(NSMutableArray___fBMPSRNNMatrixTrainingState_fP_*___*__nonnull)_trainingStates(NSArray___fBMPSMatrix_fP_*___*__nonnull)_weights">-
+  (void) encodeForwardSequenceToCommandBuffer: (nonnull id&lt; MTLCommandBuffer
+  &gt;) commandBuffer(NSArray&lt; <b>MPSMatrix</b> * &gt; *__nonnull)
+  sourceMatrices(NSArray&lt; <b>MPSMatrix</b> * &gt; *__nonnull)
+  destinationMatrices(NSMutableArray&lt; <b>MPSRNNMatrixTrainingState</b> * &gt;
+  *__nonnull) trainingStates(NSArray&lt; <b>MPSMatrix</b> * &gt; *__nonnull)
+  weights</a></h2>
+Encode an <b>MPSRNNMatrixTrainingLayer</b> forward pass kernel for a sequence of
+  inputs into a command buffer.
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>commandBuffer</i> <b>A</b> valid MTLCommandBuffer to
+  receive the encoded filter
+<br/>
+<i>sourceMatrices</i> An array of valid <b>MPSMatrix</b> objects containing the
+  sequence of source matrices.
+<br/>
+<i>destinationMatrices</i> An array valid MPSMatrices to be overwritten by
+  result matrix sequence. destinationMatrices may not alias sourceMatrices.
+<br/>
+<i>trainingStates</i> An array containing the training states to be passed to
+  the gradient computation encode function.
+<br/>
+<i>weights</i> An array of valid <b>MPSMatrix</b> objects containing the
+  weights, should be the array that was produced either by</div>
+<p class="Pp"><b>See also:</b></p>
+<div class="Bd-indent">initWithDevice or
+<p class="Pp">createWeightMatrices.</p>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(void)_encodeForwardSequenceToCommandBuffer:_(nonnull_id__MTLCommandBuffer__)_commandBuffer(NSArray___fBMPSMatrix_fP_*___*__nonnull)_sourceMatrices(NSUInteger_*__nullable)_sourceOffsets(NSArray___fBMPSMatrix_fP_*___*__nonnull)_destinationMatrices(NSUInteger_*__nullable)_destinationOffsets(NSMutableArray___fBMPSRNNMatrixTrainingState_fP_*___*__nonnull)_trainingStates(_fBMPSRNNRecurrentMatrixState_fP_*__nullable)_recurrentInputState(NSMutableArray___fBMPSRNNRecurrentMatrixState_fP_*___*__nullable)_recurrentOutputStates(NSArray___fBMPSMatrix_fP_*___*__nonnull)_weights"><a class="permalink" href="#_-_(void)_encodeForwardSequenceToCommandBuffer:_(nonnull_id__MTLCommandBuffer__)_commandBuffer(NSArray___fBMPSMatrix_fP_*___*__nonnull)_sourceMatrices(NSUInteger_*__nullable)_sourceOffsets(NSArray___fBMPSMatrix_fP_*___*__nonnull)_destinationMatrices(NSUInteger_*__nullable)_destinationOffsets(NSMutableArray___fBMPSRNNMatrixTrainingState_fP_*___*__nonnull)_trainingStates(_fBMPSRNNRecurrentMatrixState_fP_*__nullable)_recurrentInputState(NSMutableArray___fBMPSRNNRecurrentMatrixState_fP_*___*__nullable)_recurrentOutputStates(NSArray___fBMPSMatrix_fP_*___*__nonnull)_weights">-
+  (void) encodeForwardSequenceToCommandBuffer: (nonnull id&lt; MTLCommandBuffer
+  &gt;) commandBuffer(NSArray&lt; <b>MPSMatrix</b> * &gt; *__nonnull)
+  sourceMatrices(NSUInteger *__nullable) sourceOffsets(NSArray&lt;
+  <b>MPSMatrix</b> * &gt; *__nonnull) destinationMatrices(NSUInteger
+  *__nullable) destinationOffsets(NSMutableArray&lt;
+  <b>MPSRNNMatrixTrainingState</b> * &gt; *__nonnull)
+  trainingStates(<b>MPSRNNRecurrentMatrixState</b> *__nullable)
+  recurrentInputState(NSMutableArray&lt; <b>MPSRNNRecurrentMatrixState</b> *
+  &gt; *__nullable) recurrentOutputStates(NSArray&lt; <b>MPSMatrix</b> * &gt;
+  *__nonnull) weights</a></h2>
+Encode an <b>MPSRNNMatrixTrainingLayer</b> forward pass kernel for a sequence of
+  inputs into a command buffer.
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>commandBuffer</i> <b>A</b> valid MTLCommandBuffer to
+  receive the encoded filter
+<br/>
+<i>sourceMatrices</i> An array of valid <b>MPSMatrix</b> objects containing the
+  sequence of source matrices.
+<br/>
+<i>sourceOffsets</i> An array of byte-offsets into the sourceMatrices, if nil
+  zeros are assumed and if not nil must contain offset for every matrix in
+  sourceMatrices.
+<br/>
+<i>destinationMatrices</i> An array valid MPSMatrices to be overwritten by
+  result matrix sequence. destinationMatrices may not alias sourceMatrices.
+<br/>
+<i>destinationOffsets</i> An array of byte-offsets into the destinationMatrices,
+  if nil zeros are assumed and if not nil must contain offset for every matrix
+  in destinationMatrices.
+<br/>
+<i>trainingStates</i> An array containing the training states to be passed to
+  the gradient computation encode function.
+<br/>
+<i>recurrentInputState</i> An optional state containing the output matrices and
+  memory cells (for LSTMs) of the layer obtained from the previous input
+  matrices in a sequence of inputs. Has to be the output of a previous call to
+  this function or nil (assumed zero).
+<br/>
+<i>recurrentOutputStates</i> An array that will be appended with the recurrent
+  output states. May not be nil. If recurrentOutputIsTemporary is YES and then
+  all returned recurrent states will be temporary.</div>
+<p class="Pp"><b>See also:</b></p>
+<div class="Bd-indent"><b>MPSState</b>:isTemporary.</div>
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>weights</i> An array of valid <b>MPSMatrix</b> objects
+  containing the weights, should be the array that was produced either by</div>
+<p class="Pp"><b>See also:</b></p>
+<div class="Bd-indent">initWithDevice or
+<p class="Pp">createWeightMatrices.</p>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(void)_encodeGradientSequenceToCommandBuffer:_(nonnull_id__MTLCommandBuffer__)_commandBuffer(NSArray___fBMPSMatrix_fP_*___*__nonnull)_forwardSources(NSUInteger_*__nullable)_forwardSourceOffsets(NSArray___fBMPSMatrix_fP_*___*__nonnull)_sourceGradients(NSUInteger_*__nullable)_sourceGradientOffsets(NSArray___fBMPSMatrix_fP_*___*__nullable)_destinationGradients(NSUInteger_*__nullable)_destinationOffsets(NSArray___fBMPSMatrix_fP_*___*__nullable)_weightGradients(NSArray___fBMPSRNNMatrixTrainingState_fP_*___*__nonnull)_trainingStates(_fBMPSRNNRecurrentMatrixState_fP_*__nullable)_recurrentInputState(NSMutableArray___fBMPSRNNRecurrentMatrixState_fP_*___*__nullable)_recurrentOutputStates(NSArray___fBMPSMatrix_fP_*___*__nonnull)_weights"><a class="permalink" href="#_-_(void)_encodeGradientSequenceToCommandBuffer:_(nonnull_id__MTLCommandBuffer__)_commandBuffer(NSArray___fBMPSMatrix_fP_*___*__nonnull)_forwardSources(NSUInteger_*__nullable)_forwardSourceOffsets(NSArray___fBMPSMatrix_fP_*___*__nonnull)_sourceGradients(NSUInteger_*__nullable)_sourceGradientOffsets(NSArray___fBMPSMatrix_fP_*___*__nullable)_destinationGradients(NSUInteger_*__nullable)_destinationOffsets(NSArray___fBMPSMatrix_fP_*___*__nullable)_weightGradients(NSArray___fBMPSRNNMatrixTrainingState_fP_*___*__nonnull)_trainingStates(_fBMPSRNNRecurrentMatrixState_fP_*__nullable)_recurrentInputState(NSMutableArray___fBMPSRNNRecurrentMatrixState_fP_*___*__nullable)_recurrentOutputStates(NSArray___fBMPSMatrix_fP_*___*__nonnull)_weights">-
+  (void) encodeGradientSequenceToCommandBuffer: (nonnull id&lt; MTLCommandBuffer
+  &gt;) commandBuffer(NSArray&lt; <b>MPSMatrix</b> * &gt; *__nonnull)
+  forwardSources(NSUInteger *__nullable) forwardSourceOffsets(NSArray&lt;
+  <b>MPSMatrix</b> * &gt; *__nonnull) sourceGradients(NSUInteger *__nullable)
+  sourceGradientOffsets(NSArray&lt; <b>MPSMatrix</b> * &gt; *__nullable)
+  destinationGradients(NSUInteger *__nullable) destinationOffsets(NSArray&lt;
+  <b>MPSMatrix</b> * &gt; *__nullable) weightGradients(NSArray&lt;
+  <b>MPSRNNMatrixTrainingState</b> * &gt; *__nonnull)
+  trainingStates(<b>MPSRNNRecurrentMatrixState</b> *__nullable)
+  recurrentInputState(NSMutableArray&lt; <b>MPSRNNRecurrentMatrixState</b> *
+  &gt; *__nullable) recurrentOutputStates(NSArray&lt; <b>MPSMatrix</b> * &gt;
+  *__nonnull) weights</a></h2>
+Encode an <b>MPSRNNMatrixTrainingLayer</b> gradient pass kernel for a sequence
+  of input gradients into a command buffer. NOTE: The time sequence indexing
+  follows the array indexing in the inputs: sourceGradients[0] has to contain
+  the gradients corresponding to the first matrix in the forward pass
+  corresponding to the current subsequence, which is typically
+  sourceMatrices[0].
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>commandBuffer</i> <b>A</b> valid MTLCommandBuffer to
+  receive the encoded filter
+<br/>
+<i>forwardSources</i> An array of <b>MPSMatrix</b> objects containing the
+  sequence of source matrices of the forward pass.
+<br/>
+<i>forwardSourceOffsets</i> An array of byte-offsets into the forwardSources, if
+  nil zeros are assumed and if not nil must contain offset for every matrix in
+  forwardSources.
+<br/>
+<i>sourceGradients</i> An array of valid <b>MPSMatrix</b> objects containing the
+  sequence of source gradient matrices.
+<br/>
+<i>sourceGradientOffsets</i> An array of byte-offsets into the sourceGradients,
+  if nil zeros are assumed and if not nil must contain offset for every matrix
+  in sourceGradients.
+<br/>
+<i>destinationGradients</i> An array valid <b>MPSMatrix</b> objects that will
+  receive the backpropagated gradients, may be nil if not needed (for example
+  first layer in graph).
+<br/>
+<i>destinationOffsets</i> An array of byte-offsets into the
+  destinationGradients, if nil zeros are assumed and if not nil must contain
+  offset for every matrix in destinationGradients.
+<br/>
+<i>weightGradients</i> An array of valid <b>MPSMatrix</b> objects that will
+  receive the gradient wrt. weights and biases of the layer - should be the
+  array that was produced either by</div>
+<p class="Pp"><b>See also:</b></p>
+<div class="Bd-indent">initWithDevice or
+<p class="Pp">createWeightMatrices. May be nil in which case the gradients for
+    the weights are not computed.</p>
+</div>
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>trainingStates</i> An array containing the training
+  states from the forward pass - the array must contain the states corresponding
+  to the input gradients is sourceGradients.
+<br/>
+<i>recurrentInputState</i> An optional state containing the output matrices and
+  memory cells (for LSTMs) of the layer obtained from the previous input
+  gradients in a sequence of inputs. Has to be the output of a previous call to
+  this function or nil (assumed zero).
+<br/>
+<i>recurrentOutputStates</i> An array that will be appended with the recurrent
+  output states. Can be nil. If recurrentOutputIsTemporary is YES and then all
+  returned recurrent states will be temporary.</div>
+<p class="Pp"><b>See also:</b></p>
+<div class="Bd-indent"><b>MPSState</b>:isTemporary.</div>
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>weights</i> An array of valid <b>MPSMatrix</b> objects
+  containing the weights, should be the array that was produced either by</div>
+<p class="Pp"><b>See also:</b></p>
+<div class="Bd-indent">initWithDevice or
+<p class="Pp">createWeightMatrices.</p>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(void)_encodeGradientSequenceToCommandBuffer:_(nonnull_id__MTLCommandBuffer__)_commandBuffer(NSArray___fBMPSMatrix_fP_*___*__nonnull)_forwardSources(NSArray___fBMPSMatrix_fP_*___*__nonnull)_sourceGradients(NSArray___fBMPSMatrix_fP_*___*__nullable)_destinationGradients(NSArray___fBMPSMatrix_fP_*___*__nullable)_weightGradients(NSArray___fBMPSRNNMatrixTrainingState_fP_*___*__nonnull)_trainingStates(NSArray___fBMPSMatrix_fP_*___*__nonnull)_weights"><a class="permalink" href="#_-_(void)_encodeGradientSequenceToCommandBuffer:_(nonnull_id__MTLCommandBuffer__)_commandBuffer(NSArray___fBMPSMatrix_fP_*___*__nonnull)_forwardSources(NSArray___fBMPSMatrix_fP_*___*__nonnull)_sourceGradients(NSArray___fBMPSMatrix_fP_*___*__nullable)_destinationGradients(NSArray___fBMPSMatrix_fP_*___*__nullable)_weightGradients(NSArray___fBMPSRNNMatrixTrainingState_fP_*___*__nonnull)_trainingStates(NSArray___fBMPSMatrix_fP_*___*__nonnull)_weights">-
+  (void) encodeGradientSequenceToCommandBuffer: (nonnull id&lt; MTLCommandBuffer
+  &gt;) commandBuffer(NSArray&lt; <b>MPSMatrix</b> * &gt; *__nonnull)
+  forwardSources(NSArray&lt; <b>MPSMatrix</b> * &gt; *__nonnull)
+  sourceGradients(NSArray&lt; <b>MPSMatrix</b> * &gt; *__nullable)
+  destinationGradients(NSArray&lt; <b>MPSMatrix</b> * &gt; *__nullable)
+  weightGradients(NSArray&lt; <b>MPSRNNMatrixTrainingState</b> * &gt;
+  *__nonnull) trainingStates(NSArray&lt; <b>MPSMatrix</b> * &gt; *__nonnull)
+  weights</a></h2>
+Encode an <b>MPSRNNMatrixTrainingLayer</b> gradient pass kernel for a sequence
+  of input gradients into a command buffer. NOTE: The time sequence indexing
+  follows the array indexing in the inputs: sourceGradients[0] has to contain
+  the gradients corresponding to the first matrix in the forward pass
+  corresponding to the current subsequence, which is typically
+  sourceMatrices[0].
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>commandBuffer</i> <b>A</b> valid MTLCommandBuffer to
+  receive the encoded filter
+<br/>
+<i>forwardSources</i> An array of <b>MPSMatrix</b> objects containing the
+  sequence of source matrices of the forward pass.
+<br/>
+<i>sourceGradients</i> An array of <b>MPSMatrix</b> objects containing the
+  sequence of source gradient matrices.
+<br/>
+<i>destinationGradients</i> An array valid <b>MPSMatrix</b> objects that will
+  receive the backpropagated gradients, may be nil if not needed (for example
+  first layer in graph).
+<br/>
+<i>weightGradients</i> An array valid <b>MPSMatrix</b> objects that will receive
+  the gradient wrt. weights and biases of the layer - should be the array that
+  was produced either by</div>
+<p class="Pp"><b>See also:</b></p>
+<div class="Bd-indent">initWithDevice or
+<p class="Pp">createWeightMatrices. May be nil in which case the gradients for
+    the weights are not computed. NOTE: The weight gradients are accumulated on
+    top of existing values so</p>
+</div>
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>trainingStates</i> An array containing the training
+  states from the forward pass - the array must contain the states corresponding
+  to the input gradients is sourceGradients.
+<br/>
+<i>weights</i> An array of valid <b>MPSMatrix</b> objects containing the
+  weights, should be the array that was produced either by</div>
+<p class="Pp"><b>See also:</b></p>
+<div class="Bd-indent">initWithDevice or
+<p class="Pp">createWeightMatrices.</p>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(nullable_instancetype)__fBinitWithCoder:_fP_(NSCoder_*__nonnull)_aDecoder(nonnull_id__MTLDevice__)_device"><a class="permalink" href="#_-_(nullable_instancetype)__fBinitWithCoder:_fP_(NSCoder_*__nonnull)_aDecoder(nonnull_id__MTLDevice__)_device">-
+  (nullable instancetype) <b>initWithCoder:</b> (NSCoder *__nonnull)
+  aDecoder(nonnull id&lt; MTLDevice &gt;) device</a></h2>
+<b>NSSecureCoding</b> compatability See <b>MPSKernel::initWithCoder</b>.
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>aDecoder</i> The NSCoder subclass with your serialized
+  <b>MPSRNNMatrixTrainingLayer</b>
+<br/>
+<i>device</i> The MTLDevice on which to make the
+  <b>MPSRNNMatrixTrainingLayer</b></div>
+<p class="Pp"><b>Returns:</b></p>
+<div class="Bd-indent"><b>A</b> new <b>MPSRNNMatrixTrainingLayer</b> object, or
+  nil if failure.</div>
+<p class="Pp">Reimplemented from <b>MPSKernel</b>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(nonnull_instancetype)_initWithDevice:_(nonnull_id__MTLDevice__)_device"><a class="permalink" href="#_-_(nonnull_instancetype)_initWithDevice:_(nonnull_id__MTLDevice__)_device">-
+  (nonnull instancetype) initWithDevice: (nonnull id&lt; MTLDevice &gt;)
+  device</a></h2>
+Standard init with default properties per filter type
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>device</i> The device that the filter will be used on.
+  May not be NULL.</div>
+<p class="Pp"><b>Returns:</b></p>
+<div class="Bd-indent">a pointer to the newly initialized object. This will
+  fail, returning nil if the device is not supported. Devices must be
+  MTLFeatureSet_iOS_GPUFamily2_v1 or later.</div>
+<p class="Pp">Reimplemented from <b>MPSKernel</b>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(nonnull_instancetype)__fBinitWithDevice:_fP_(nonnull_id__MTLDevice__)_device(nonnull_const__fBMPSRNNDescriptor_fP_*)_rnnDescriptor(NSMutableArray___fBMPSMatrix_fP_*___*__nonnull)_trainableWeights"><a class="permalink" href="#_-_(nonnull_instancetype)__fBinitWithDevice:_fP_(nonnull_id__MTLDevice__)_device(nonnull_const__fBMPSRNNDescriptor_fP_*)_rnnDescriptor(NSMutableArray___fBMPSMatrix_fP_*___*__nonnull)_trainableWeights">-
+  (nonnull instancetype) <b>initWithDevice:</b> (nonnull id&lt; MTLDevice &gt;)
+  device(nonnull const <b>MPSRNNDescriptor</b> *)
+  rnnDescriptor(NSMutableArray&lt; <b>MPSMatrix</b> * &gt; *__nonnull)
+  trainableWeights</a></h2>
+Initializes a linear (fully connected) RNN kernel for training
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>device</i> The MTLDevice on which this
+  MPSRNNMatrixLayer filter will be used
+<br/>
+<i>rnnDescriptor</i> The descriptor that defines the RNN layer
+<br/>
+<i>trainableWeights</i> An array where to store the weights of the layer as
+  MPSMatrices. NOTE: The exact layout and number of matrices may vary between
+  platforms and therefore you should not save out these weights directly, but
+  instead use the function encodeCopyWeightsToCommandBuffer to identify the
+  weights and biases for serialization. Typically you should pass here an
+  initialized but empty NSMutableArray and when this function returns the array
+  will have been populated with the weight matrices needed in the encode-calls,
+  by using initial values from the datasources in rnnDescriptor.</div>
+<p class="Pp"><b>Returns:</b></p>
+<div class="Bd-indent"><b>A</b> valid <b>MPSRNNMatrixTrainingLayer</b> object or
+  nil, if failure.</div>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Property_Documentation"><a class="permalink" href="#Property_Documentation">Property
+  Documentation</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="_-_accumulateWeightGradients_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_accumulateWeightGradients_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  accumulateWeightGradients [read]<b>, [write]</b>, [nonatomic]<b>,
+  [assign]</b></a></h2>
+If yes then the computed weight gradients are accumulated on top of existing
+  values in calls to the gradient computation functions:
+  encodeGradientSequenceToCommandBuffer. Defaults to NO.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_inputFeatureChannels_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_inputFeatureChannels_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  inputFeatureChannels [read]<b>, [nonatomic]</b>, [assign]<b></b></a></h2>
+The number of feature channels input vector/matrix.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_outputFeatureChannels_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_outputFeatureChannels_fC__read__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  outputFeatureChannels [read]<b>, [nonatomic]</b>, [assign]<b></b></a></h2>
+The number of feature channels in the output vector/matrix.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_recurrentOutputIsTemporary_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_recurrentOutputIsTemporary_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  recurrentOutputIsTemporary [read]<b>, [write]</b>, [nonatomic]<b>,
+  [assign]</b></a></h2>
+How recurrent output states from <b>encodeForwardSequenceToCommandBuffer</b> and
+  encodeGradientSequenceToCommandBuffer are constructed. Defaults to NO. For
+  reference
+<p class="Pp"><b>See also:</b></p>
+<div class="Bd-indent"><b>MPSState</b>.</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_storeAllIntermediateStates_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_storeAllIntermediateStates_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  storeAllIntermediateStates [read]<b>, [write]</b>, [nonatomic]<b>,
+  [assign]</b></a></h2>
+If YES then calls to functions <b>encodeForwardSequenceToCommandBuffer</b> and
+  <b>encodeGradientSequenceToCommandBuffer</b> return every recurrent state in
+  the array: recurrentOutputStates. Defaults to NO.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_trainingStateIsTemporary_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_trainingStateIsTemporary_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  trainingStateIsTemporary [read]<b>, [write]</b>, [nonatomic]<b>,
+  [assign]</b></a></h2>
+How training output states from <b>encodeForwardSequenceToCommandBuffer</b> are
+  constructed. Defaults to NO. For reference
+<p class="Pp"><b>See also:</b></p>
+<div class="Bd-indent"><b>MPSState</b>.</div>
+<p class="Pp"></p>
+<p class="Pp"></p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Author"><a class="permalink" href="#Author">Author</a></h1>
+Generated automatically by Doxygen for MetalPerformanceShaders.framework from
+  the source code.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">Mon Jul 9 2018</td>
+    <td class="foot-os">Version MetalPerformanceShaders-119.3</td>
+  </tr>
+</table>
+</body>
+</html>

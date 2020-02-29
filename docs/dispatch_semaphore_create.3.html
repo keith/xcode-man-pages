@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   Copyright (c) 2008-2012 Apple Inc. All rights reserved.
+ -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>dispatch_semaphore_create(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">dispatch_semaphore_create(3)</td>
+    <td class="head-vol">Library Functions Manual</td>
+    <td class="head-rtitle">dispatch_semaphore_create(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">dispatch_semaphore_create</code>,
+  <code class="Nm">dispatch_semaphore_signal</code>,
+  <code class="Nm">dispatch_semaphore_wait</code> &#x2014;
+<div class="Nd">synchronized counting semaphore</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<code class="In">#include <a class="In">&lt;dispatch/dispatch.h&gt;</a></code>
+<p class="Pp"><var class="Ft">dispatch_semaphore_t</var>
+  <br/>
+  <code class="Fn">dispatch_semaphore_create</code>(<var class="Fa">long
+    count</var>);</p>
+<p class="Pp"><var class="Ft">long</var>
+  <br/>
+  <code class="Fn">dispatch_semaphore_signal</code>(<var class="Fa">dispatch_semaphore_t
+    semaphore</var>);</p>
+<p class="Pp"><var class="Ft">long</var>
+  <br/>
+  <code class="Fn">dispatch_semaphore_wait</code>(<var class="Fa">dispatch_semaphore_t
+    semaphore</var>, <var class="Fa">dispatch_time_t timeout</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+Dispatch semaphores are used to synchronize threads.
+<p class="Pp">The <code class="Fn">dispatch_semaphore_wait</code>() function
+    decrements the semaphore. If the resulting value is less than zero, it waits
+    for a signal from a thread that increments the semaphore by calling
+    <code class="Fn">dispatch_semaphore_signal</code>() before returning. The
+    <var class="Fa">timeout</var> parameter is creatable with the
+    <a class="Xr">dispatch_time(3)</a> or <a class="Xr">dispatch_walltime(3)</a>
+    functions. If the timeout is reached without a signal being received, the
+    semaphore is re-incremented before the function returns.</p>
+<p class="Pp">The <code class="Fn">dispatch_semaphore_signal</code>() function
+    increments the counting semaphore. If the previous value was less than zero,
+    it wakes one of the threads that are waiting in
+    <code class="Fn">dispatch_semaphore_wait</code>() before returning.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMPLETION_SYNCHRONIZATION"><a class="permalink" href="#COMPLETION_SYNCHRONIZATION">COMPLETION
+  SYNCHRONIZATION</a></h1>
+If the <var class="Fa">count</var> parameter is equal to zero, then the
+  semaphore is useful for synchronizing completion of work. For example:
+<div class="Bd Pp Bd-indent">
+<pre>
+sema = dispatch_semaphore_create(0);
+
+dispatch_async(queue, ^{
+	foo();
+	dispatch_semaphore_signal(sema);
+});
+
+bar();
+
+dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FINITE_RESOURCE_POOL"><a class="permalink" href="#FINITE_RESOURCE_POOL">FINITE
+  RESOURCE POOL</a></h1>
+If the <var class="Fa">count</var> parameter is greater than zero, then the
+  semaphore is useful for managing a finite pool of resources. For example, a
+  library that wants to limit Unix descriptor usage:
+<div class="Bd Pp Bd-indent">
+<pre>
+sema = dispatch_semaphore_create(getdtablesize() / 4);
+</pre>
+</div>
+<p class="Pp">At each Unix FD allocation:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+fd = open(&quot;/etc/services&quot;, O_RDONLY);
+</pre>
+</div>
+<p class="Pp">When each FD is closed:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+close(fd);
+dispatch_semaphore_signal(sema);
+</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+The <code class="Fn">dispatch_semaphore_create</code>() function returns NULL if
+  no memory is available or if the <var class="Fa">count</var> parameter is less
+  than zero.
+<p class="Pp">The <code class="Fn">dispatch_semaphore_signal</code>() function
+    returns non-zero when a thread is woken. Otherwise, zero is returned.</p>
+<p class="Pp">The <code class="Fn">dispatch_semaphore_wait</code>() function
+    returns zero upon success and non-zero after the timeout expires. If the
+    timeout is DISPATCH_TIME_FOREVER, then
+    <code class="Fn">dispatch_semaphore_wait</code>() waits forever and always
+    returns zero.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MEMORY_MODEL"><a class="permalink" href="#MEMORY_MODEL">MEMORY
+  MODEL</a></h1>
+Dispatch semaphores are retained and released via calls to
+  <code class="Fn">dispatch_retain</code>() and
+  <code class="Fn">dispatch_release</code>().
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
+Unbalanced dispatch semaphores cannot be released. For a given semaphore, calls
+  to <code class="Fn">dispatch_semaphore_signal</code>() and
+  <code class="Fn">dispatch_semaphore_wait</code>() must be balanced before
+  <code class="Fn">dispatch_release</code>() is called on it.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">dispatch(3)</a>, <a class="Xr">dispatch_object(3)</a>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">May 1, 2009</td>
+    <td class="foot-os">Darwin</td>
+  </tr>
+</table>
+</body>
+</html>

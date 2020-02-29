@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   **************************************************************************
+   *                                  _   _ ____  _
+   *  Project                     ___| | | |  _ \| |
+   *                             / __| | | | |_) | |
+   *                            | (__| |_| |  _ <| |___
+   *                             \___|\___/|_| \_\_____|
+   *
+   * Copyright (C) 1998 - 2018, Daniel Stenberg, <daniel@haxx.se>, et al.
+   *
+   * This software is licensed as described in the file COPYING, which
+   * you should have received as part of this distribution. The terms
+   * are also available at https://curl.haxx.se/docs/copyright.html.
+   *
+   * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+   * copies of the Software, and permit persons to whom the Software is
+   * furnished to do so, under the terms of the COPYING file.
+   *
+   * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+   * KIND, either express or implied.
+   *
+   **************************************************************************
+ -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>curl_multi_socket_action(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">curl_multi_socket_action(3)</td>
+    <td class="head-vol">libcurl Manual</td>
+    <td class="head-rtitle">curl_multi_socket_action(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<p class="Pp"></p>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+curl_multi_socket_action - reads/writes available data given an action
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>
+#include &lt;curl/curl.h&gt;
+CURLMcode curl_multi_socket_action(CURLM * multi_handle,
+                                   curl_socket_t sockfd,
+                                   int ev_bitmask,
+                                   int *running_handles);
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+When the application has detected action on a socket handled by libcurl, it
+  should call <i>curl_multi_socket_action(3)</i> with the <b>sockfd</b> argument
+  set to the socket with the action. When the events on a socket are known, they
+  can be passed as an events bitmask <b>ev_bitmask</b> by first setting
+  <b>ev_bitmask</b> to 0, and then adding using bitwise OR (|) any combination
+  of events to be chosen from CURL_CSELECT_IN, CURL_CSELECT_OUT or
+  CURL_CSELECT_ERR. When the events on a socket are unknown, pass 0 instead, and
+  libcurl will test the descriptor internally. It is also permissible to pass
+  CURL_SOCKET_TIMEOUT to the <b>sockfd</b> parameter in order to initiate the
+  whole process or when a timeout occurs.
+<p class="Pp">At return, <b>running_handles</b> points to the number of running
+    easy handles within the multi handle. When this number reaches zero, all
+    transfers are complete/done. When you call
+    <i>curl_multi_socket_action(3)</i> on a specific socket and the counter
+    decreases by one, it DOES NOT necessarily mean that this exact
+    socket/transfer is the one that completed. Use
+    <i>curl_multi_info_read(3)</i> to figure out which easy handle that
+    completed.</p>
+<p class="Pp">The <i>curl_multi_socket_action(3)</i> functions inform the
+    application about updates in the socket (file descriptor) status by doing
+    none, one, or multiple calls to the socket callback function set with the
+    <i>CURLMOPT_SOCKETFUNCTION(3)</i> option to <i>curl_multi_setopt(3)</i>.
+    They update the status with changes since the previous time the callback was
+    called.</p>
+<p class="Pp">Get the timeout time by setting the
+    <i>CURLMOPT_TIMERFUNCTION(3)</i> option with <i>curl_multi_setopt(3)</i>.
+    Your application will then get called with information on how long to wait
+    for socket actions at most before doing the timeout action: call the
+    <i>curl_multi_socket_action(3)</i> function with the <b>sockfd</b> argument
+    set to CURL_SOCKET_TIMEOUT. You can also use the
+    <i>curl_multi_timeout(3)</i> function to poll the value at any given time,
+    but for an event-based system using the callback is far better than relying
+    on polling the timeout value.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CALLBACK_DETAILS"><a class="permalink" href="#CALLBACK_DETAILS">CALLBACK
+  DETAILS</a></h1>
+The socket <b>callback</b> function uses a prototype like this
+<pre>
+  int curl_socket_callback(CURL *easy,      /* easy handle */
+                           curl_socket_t s, /* socket */
+                           int action,      /* see values below */
+                           void *userp,    /* private callback pointer */
+                           void *socketp); /* private socket pointer,
+                                              <b>NULL</b> if not
+                                              previously assigned with
+                                              <i>curl_multi_assign(3)</i> */
+</pre>
+The callback MUST return 0.
+<p class="Pp">The <i>easy</i> argument is a pointer to the easy handle that
+    deals with this particular socket. Note that a single handle may work with
+    several sockets simultaneously.</p>
+<p class="Pp">The <i>s</i> argument is the actual socket value as you use it
+    within your system.</p>
+<p class="Pp">The <i>action</i> argument to the callback has one of five
+  values:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>CURL_POLL_NONE (0)</dt>
+  <dd>register, not interested in readiness (yet)</dd>
+  <dt>CURL_POLL_IN (1)</dt>
+  <dd>register, interested in read readiness</dd>
+  <dt>CURL_POLL_OUT (2)</dt>
+  <dd>register, interested in write readiness</dd>
+  <dt>CURL_POLL_INOUT (3)</dt>
+  <dd>register, interested in both read and write readiness</dd>
+  <dt>CURL_POLL_REMOVE (4)</dt>
+  <dd>unregister</dd>
+</dl>
+</div>
+<p class="Pp">The <i>socketp</i> argument is a private pointer you have
+    previously set with <i>curl_multi_assign(3)</i> to be associated with the
+    <i>s</i> socket. If no pointer has been set, socketp will be NULL. This
+    argument is of course a service to applications that want to keep certain
+    data or structs that are strictly associated to the given socket.</p>
+<p class="Pp">The <i>userp</i> argument is a private pointer you have previously
+    set with <i>curl_multi_setopt(3)</i> and the <i>CURLMOPT_SOCKETDATA(3)</i>
+    option.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+CURLMcode type, general libcurl multi interface error code.
+<p class="Pp">Before version 7.20.0: If you receive
+    <i>CURLM_CALL_MULTI_PERFORM</i>, this basically means that you should call
+    <i>curl_multi_socket_action(3)</i> again before you wait for more actions on
+    libcurl's sockets. You don't have to do it immediately, but the return code
+    means that libcurl may have more data available to return or that there may
+    be more data to send off before it is &quot;satisfied&quot;.</p>
+<p class="Pp">The return code from this function is for the whole multi stack.
+    Problems still might have occurred on individual transfers even when one of
+    these functions return OK.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TYPICAL_USAGE"><a class="permalink" href="#TYPICAL_USAGE">TYPICAL
+  USAGE</a></h1>
+1. Create a multi handle
+<p class="Pp">2. Set the socket callback with
+  <i>CURLMOPT_SOCKETFUNCTION(3)</i></p>
+<p class="Pp">3. Set the timeout callback with <i>CURLMOPT_TIMERFUNCTION(3)</i>,
+    to get to know what timeout value to use when waiting for socket
+  activities.</p>
+<p class="Pp">4. Add easy handles with curl_multi_add_handle()</p>
+<p class="Pp">5. Provide some means to manage the sockets libcurl is using, so
+    you can check them for activity. This can be done through your application
+    code, or by way of an external library such as libevent or glib.</p>
+<p class="Pp">6. Call curl_multi_socket_action(..., CURL_SOCKET_TIMEOUT, 0, ...)
+    to kickstart everything. To get one or more callbacks called.</p>
+<p class="Pp">7. Wait for activity on any of libcurl's sockets, use the timeout
+    value your callback has been told.</p>
+<p class="Pp">8, When activity is detected, call curl_multi_socket_action() for
+    the socket(s) that got action. If no activity is detected and the timeout
+    expires, call <i>curl_multi_socket_action(3)</i> with
+    <i>CURL_SOCKET_TIMEOUT</i>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
+This function was added in libcurl 7.15.4, and is deemed stable since 7.16.0.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>curl_multi_cleanup</b>(3), <b>curl_multi_init</b>(3),
+  <b>curl_multi_fdset</b>(3), <b>curl_multi_info_read</b>(3), <b>the hiperfifo.c
+  example</b>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">June 30, 2018</td>
+    <td class="foot-os">libcurl 7.64.1</td>
+  </tr>
+</table>
+</body>
+</html>

@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   -*- nroff -*-
+ -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>MPSCNNYOLOLossDescriptor(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">MPSCNNYOLOLossDescriptor(3)</td>
+    <td class="head-vol">MetalPerformanceShaders.framework</td>
+    <td class="head-rtitle">MPSCNNYOLOLossDescriptor(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+MPSCNNYOLOLossDescriptor
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">#import &lt;MPSCNNLoss.h&gt;</p>
+<p class="Pp">Inherits NSObject, and &lt;NSCopying&gt;.</p>
+<section class="Ss">
+<h2 class="Ss" id="Instance_Methods"><a class="permalink" href="#Instance_Methods">Instance
+  Methods</a></h2>
+<br/>
+(nonnull instancetype) - <b>init</b>
+<br/>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Class_Methods"><a class="permalink" href="#Class_Methods">Class
+  Methods</a></h2>
+<br/>
+(nullable <b>MPSCNNYOLOLossDescriptor</b> *) +
+  <b>cnnLossDescriptorWithXYLossType:WHLossType:confidenceLossType:classesLossType:reductionType:anchorBoxes:numberOfAnchorBoxes:</b>
+<br/>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Properties"><a class="permalink" href="#Properties">Properties</a></h2>
+<br/>
+<b>MPSCNNLossDescriptor</b> * <b>XYLossDescriptor</b>
+<br/>
+<b>MPSCNNLossDescriptor</b> * <b>WHLossDescriptor</b>
+<br/>
+<b>MPSCNNLossDescriptor</b> * <b>confidenceLossDescriptor</b>
+<br/>
+<b>MPSCNNLossDescriptor</b> * <b>classesLossDescriptor</b>
+<br/>
+<b>MPSCNNReductionType</b> <b>reductionType</b>
+<br/>
+BOOL <b>rescore</b>
+<br/>
+float <b>scaleXY</b>
+<br/>
+float <b>scaleWH</b>
+<br/>
+float <b>scaleNoObject</b>
+<br/>
+float <b>scaleObject</b>
+<br/>
+float <b>scaleClass</b>
+<br/>
+float <b>minIOUForObjectPresence</b>
+<br/>
+float <b>maxIOUForObjectAbsence</b>
+<br/>
+NSUInteger <b>numberOfAnchorBoxes</b>
+<br/>
+NSData * <b>anchorBoxes</b>
+<br/>
+<br/>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Detailed_Description"><a class="permalink" href="#Detailed_Description">Detailed
+  Description</a></h1>
+This depends on Metal.framework. The <b>MPSCNNYOLOLossDescriptor</b> specifies a
+  loss filter descriptor that is used to create a <b>MPSCNNLoss</b> filter. The
+  <b>MPSCNNYOLOLoss</b> is a filter that has been specialized for object
+  detection tasks and follows a specific layout for the feature-channels of the
+  input, output, weight and label data.
+<p class="Pp">The layout of the data within the feature-channels is as
+  follows:</p>
+<p class="Pp"></p>
+<pre>
+Each anchorbox uses ( 2+2+1 + numberOfClasses = 5 + numberOfClasses ) feature channels.
+</pre>
+<p class="Pp">Therefore the total number of feature channels used is: (5 +
+    numberOfClasses) * numberOfAnchorBoxes. The first feature channel for
+    anchorbox index 'anchorIdx' is at fcIndex = (5 + numberOfClasses) *
+    anchorIdx, and the feature channels within each anchorbox are stored in the
+    layout: 'XYWHCFFFFFF...', where (XY) are the so-called raw x and y
+    coordinates of the bounding box within each gridcell and (WH) are the
+    corresponding width and height. 'C' signifies a confidence for having an
+    object in the cell and FFFFF... are the feature channel values for each
+    class of object to be classified in the object detector.</p>
+<p class="Pp">The YOLO-loss filter works by operating mostly independently on
+    each anchorbox:</p>
+<ul class="Bl-bullet">
+  <li>The XY-channels of the inputs are first transformed to relative XY-values
+      by applying the sigmoid-neuron on them, after which they are passed
+      through the loss function defined by <b>XYLossDescriptor</b>, which is
+      typically chosen to be the <b>MPSCNNLossTypeMeanSquaredError</b> type loss
+      function.</li>
+  <li>The WH-channels contain the raw width and height of the bounding box and
+      they are operated with the loss function defined by
+      <b>WHLossDescriptor</b>, which is typically of type
+      <b>MPSCNNLossTypeHuber</b>.</li>
+  <li>The C-channel contains the confidence value of having an object in the
+      bounding box and it is operated by the loss function defined by
+      <b>confidenceLossDescriptor</b>, which is typically chosen to be
+      <b>MPSCNNLossTypeSigmoidCrossEntropy</b>.</li>
+  <li>The FFFFF... (number of channels is number of classes) channels contains
+      the raw feature channels for object classes, used to identify which
+      objects are the most probable ones in the bounding box and these channels
+      are passed through the loss function defined by
+      <b>classesLossDescriptor</b>, which in typical cases is of the type
+      <b>MPSCNNLossTypeSoftMaxCrossEntropy</b>.</li>
+</ul>
+<p class="Pp">For details on how to set up the label values and anchorboxes see
+    https://arxiv.org/abs/1612.08242</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Method_Documentation"><a class="permalink" href="#Method_Documentation">Method
+  Documentation</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="+_(nullable__fBMPSCNNYOLOLossDescriptor_fP*)_cnnLossDescriptorWithXYLossType:_(_fBMPSCNNLossType_fP)_XYLossType(_fBMPSCNNLossType_fP)_WHLossType(_fBMPSCNNLossType_fP)_confidenceLossType(_fBMPSCNNLossType_fP)_classesLossType(_fBMPSCNNReductionType_fP)_reductionType(NSData_*__nonnull)_anchorBoxes(NSUInteger)_numberOfAnchorBoxes"><a class="permalink" href="#+_(nullable__fBMPSCNNYOLOLossDescriptor_fP*)_cnnLossDescriptorWithXYLossType:_(_fBMPSCNNLossType_fP)_XYLossType(_fBMPSCNNLossType_fP)_WHLossType(_fBMPSCNNLossType_fP)_confidenceLossType(_fBMPSCNNLossType_fP)_classesLossType(_fBMPSCNNReductionType_fP)_reductionType(NSData_*__nonnull)_anchorBoxes(NSUInteger)_numberOfAnchorBoxes">+
+  (nullable <b>MPSCNNYOLOLossDescriptor</b>*) cnnLossDescriptorWithXYLossType:
+  (<b>MPSCNNLossType</b>) XYLossType(<b>MPSCNNLossType</b>)
+  WHLossType(<b>MPSCNNLossType</b>) confidenceLossType(<b>MPSCNNLossType</b>)
+  classesLossType(<b>MPSCNNReductionType</b>) reductionType(NSData *__nonnull)
+  anchorBoxes(NSUInteger) numberOfAnchorBoxes</a></h2>
+Make a descriptor for a <b>MPSCNNYOLOLoss</b> object.
+<p class="Pp"><b>Parameters:</b></p>
+<div class="Bd-indent"><i>XYLossType</i> The type of spatial position loss
+  filter.
+<br/>
+<i>WHLossType</i> The type of spatial size loss filter.
+<br/>
+<i>confidenceLossType</i> The type of confidence filter.
+<br/>
+<i>classesLossType</i> The type of classes filter.
+<br/>
+<i>reductionType</i> The type of a reduction operation to apply.</div>
+<p class="Pp"><b>Returns:</b></p>
+<div class="Bd-indent"><b>A</b> valid <b>MPSCNNYOLOLossDescriptor</b> object or
+  nil, if failure.</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(nonnull_instancetype)_init"><a class="permalink" href="#_-_(nonnull_instancetype)_init">-
+  (nonnull instancetype) init </a></h2>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Property_Documentation"><a class="permalink" href="#Property_Documentation">Property
+  Documentation</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="_-_anchorBoxes_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__retain__fP"><a class="permalink" href="#_-_anchorBoxes_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__retain__fP">-
+  anchorBoxes [read]<b>, [write]</b>, [nonatomic]<b>, [retain]</b></a></h2>
+NSData containing the width and height for numberOfAnchorBoxes anchor boxes
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_classesLossDescriptor_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__retain__fP"><a class="permalink" href="#_-_classesLossDescriptor_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__retain__fP">-
+  classesLossDescriptor [read]<b>, [write]</b>, [nonatomic]<b>,
+  [retain]</b></a></h2>
+The type of a loss filter. This parameter specifies the type of a loss filter.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_confidenceLossDescriptor_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__retain__fP"><a class="permalink" href="#_-_confidenceLossDescriptor_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__retain__fP">-
+  confidenceLossDescriptor [read]<b>, [write]</b>, [nonatomic]<b>,
+  [retain]</b></a></h2>
+The type of a loss filter. This parameter specifies the type of a loss filter.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(float)_maxIOUForObjectAbsence_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_(float)_maxIOUForObjectAbsence_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  (float) maxIOUForObjectAbsence [read]<b>, [write]</b>, [nonatomic]<b>,
+  [assign]</b></a></h2>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_(float)_minIOUForObjectPresence_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_(float)_minIOUForObjectPresence_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  (float) minIOUForObjectPresence [read]<b>, [write]</b>, [nonatomic]<b>,
+  [assign]</b></a></h2>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_numberOfAnchorBoxes_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_numberOfAnchorBoxes_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  numberOfAnchorBoxes [read]<b>, [write]</b>, [nonatomic]<b>,
+  [assign]</b></a></h2>
+number of anchor boxes used to detect object per grid cell
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_reductionType_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_reductionType_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  reductionType [read]<b>, [write]</b>, [nonatomic]<b>, [assign]</b></a></h2>
+ReductionType shared accross all losses (so they may generate same sized output)
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_rescore_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_rescore_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  rescore [read]<b>, [write]</b>, [nonatomic]<b>, [assign]</b></a></h2>
+Rescore pertains to multiplying the confidence groundTruth with IOU
+  (intersection over union) of predicted bounding box and the groundTruth
+  boundingBox. Default is YES
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_scaleClass_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_scaleClass_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  scaleClass [read]<b>, [write]</b>, [nonatomic]<b>, [assign]</b></a></h2>
+scale factor for no object classes loss and loss gradient default is 2.0
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_scaleNoObject_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_scaleNoObject_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  scaleNoObject [read]<b>, [write]</b>, [nonatomic]<b>, [assign]</b></a></h2>
+scale factor for no object confidence loss and loss gradient default is 5.0
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_scaleObject_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_scaleObject_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  scaleObject [read]<b>, [write]</b>, [nonatomic]<b>, [assign]</b></a></h2>
+scale factor for no object confidence loss and loss gradient default is 100.0
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_scaleWH_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_scaleWH_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  scaleWH [read]<b>, [write]</b>, [nonatomic]<b>, [assign]</b></a></h2>
+scale factor for WH loss and loss gradient default is 10.0
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_scaleXY_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP"><a class="permalink" href="#_-_scaleXY_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__assign__fP">-
+  scaleXY [read]<b>, [write]</b>, [nonatomic]<b>, [assign]</b></a></h2>
+scale factor for XY loss and loss gradient default is 10.0
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_WHLossDescriptor_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__retain__fP"><a class="permalink" href="#_-_WHLossDescriptor_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__retain__fP">-
+  WHLossDescriptor [read]<b>, [write]</b>, [nonatomic]<b>, [retain]</b></a></h2>
+The type of a loss filter. This parameter specifies the type of a loss filter.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_-_XYLossDescriptor_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__retain__fP"><a class="permalink" href="#_-_XYLossDescriptor_fC__read__fP,__fC__write__fP,__fC__nonatomic__fP,__fC__retain__fP">-
+  XYLossDescriptor [read]<b>, [write]</b>, [nonatomic]<b>, [retain]</b></a></h2>
+The type of a loss filter. This parameter specifies the type of a loss filter.
+<p class="Pp"></p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Author"><a class="permalink" href="#Author">Author</a></h1>
+Generated automatically by Doxygen for MetalPerformanceShaders.framework from
+  the source code.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">Mon Jul 9 2018</td>
+    <td class="foot-os">Version MetalPerformanceShaders-119.3</td>
+  </tr>
+</table>
+</body>
+</html>

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   Copyright (c) 1995 David Hovemeyer <daveho@infocom.com>
+  
+   All rights reserved.
+  
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions
+   are met:
+   1. Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+   2. Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+  
+   THIS SOFTWARE IS PROVIDED BY THE DEVELOPERS ``AS IS'' AND ANY EXPRESS OR
+   IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+   OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+   IN NO EVENT SHALL THE DEVELOPERS BE LIABLE FOR ANY DIRECT, INDIRECT,
+   INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+   NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+   THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  
+   $FreeBSD: src/lib/libc/sys/semop.2,v 1.18 2003/01/25 21:27:37 alfred Exp $
+   -->
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>SEMOP(2)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SEMOP(2)</td>
+    <td class="head-vol">System Calls Manual</td>
+    <td class="head-rtitle">SEMOP(2)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">semop</code> &#x2014;
+<div class="Nd">atomic array of operations on a semaphore set</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<code class="In">#include &lt;<a class="In">sys/sem.h</a>&gt;</code>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">semop</code>(<var class="Fa">int semid</var>,
+    <var class="Fa">struct sembuf *sops</var>, <var class="Fa">size_t
+    nsops</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The <code class="Fn">semop</code>() system call atomically performs the array of
+  operations indicated by <var class="Fa">sops</var> on the semaphore set
+  indicated by <var class="Fa">semid</var>. The length of
+  <var class="Fa">sops</var> is indicated by <var class="Fa">nsops</var>. Each
+  operation is encoded in a <var class="Vt">struct sembuf</var>, which is
+  defined as follows:
+<div class="Bd Pp">
+<pre>
+struct sembuf {
+        u_short sem_num;        /* semaphore # */
+        short   sem_op;         /* semaphore operation */
+        short   sem_flg;        /* operation flags */
+};
+</pre>
+</div>
+<p class="Pp">For each element in <var class="Fa">sops</var>,
+    <var class="Va">sem_op</var> and <var class="Va">sem_flg</var> determine an
+    operation to be performed on semaphore number <var class="Va">sem_num</var>
+    in the set. The values <code class="Dv">SEM_UNDO</code> and
+    <code class="Dv">IPC_NOWAIT</code> may be <i class="Em">OR</i>'ed into the
+    <var class="Va">sem_flg</var> member in order to modify the behavior of the
+    given operation.</p>
+<p class="Pp">The operation performed depends as follows on the value of
+    <var class="Va">sem_op</var>:</p>
+<ul class="Bl-bullet">
+  <li>When <var class="Va">sem_op</var> is positive and the process has alter
+      permission, the semaphore's value is incremented by
+      <var class="Va">sem_op</var>'s value. If <code class="Dv">SEM_UNDO</code>
+      is specified, the semaphore's adjust on exit value is decremented by
+      <var class="Va">sem_op</var>'s value. A positive value for
+      <var class="Va">sem_op</var> generally corresponds to a process releasing
+      a resource associated with the semaphore.</li>
+  <li>The behavior when <var class="Va">sem_op</var> is negative and the process
+      has alter permission, depends on the current value of the semaphore:
+    <ul class="Bl-bullet">
+      <li>If the current value of the semaphore is greater than or equal to the
+          absolute value of <var class="Va">sem_op</var>, then the value is
+          decremented by the absolute value of <var class="Va">sem_op</var>. If
+          <code class="Dv">SEM_UNDO</code> is specified, the semaphore's adjust
+          on exit value is incremented by the absolute value of
+          <var class="Va">sem_op</var>.</li>
+      <li>If the current value of the semaphore is less than the absolute value
+          of <var class="Va">sem_op</var>, one of the following happens:
+        <ul class="Bl-bullet">
+          <li>If <code class="Dv">IPC_NOWAIT</code> was specified, then
+              <code class="Fn">semop</code>() returns immediately with a return
+              value of <code class="Er">EAGAIN</code>.</li>
+          <li>Otherwise, the calling process is put to sleep until one of the
+              following conditions is satisfied:
+            <ul class="Bl-bullet">
+              <li>Some other process removes the semaphore with the
+                  <code class="Dv">IPC_RMID</code> option of
+                  <a class="Xr">semctl(2)</a>. In this case,
+                  <code class="Fn">semop</code>() returns immediately with a
+                  return value of <code class="Er">EIDRM</code>.</li>
+              <li>The process receives a signal that is to be caught. In this
+                  case, the process will resume execution as defined by
+                  <a class="Xr">sigaction(2)</a>.</li>
+              <li>The semaphore's value is greater than or equal to the absolute
+                  value of <var class="Va">sem_op</var>. When this condition
+                  becomes true, the semaphore's value is decremented by the
+                  absolute value of <var class="Va">sem_op</var>, the
+                  semaphore's adjust on exit value is incremented by the
+                  absolute value of <var class="Va">sem_op</var>.</li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+    </ul>
+    <p class="Pp">A negative value for <var class="Va">sem_op</var> generally
+        means that a process is waiting for a resource to become available.</p>
+  </li>
+  <li>When <var class="Va">sem_op</var> is zero and the process has read
+      permission, one of the following will occur:
+    <ul class="Bl-bullet">
+      <li>If the current value of the semaphore is equal to zero then
+          <code class="Fn">semop</code>() can return immediately.</li>
+      <li>If <code class="Dv">IPC_NOWAIT</code> was specified, then
+          <code class="Fn">semop</code>() returns immediately with a return
+          value of <code class="Er">EAGAIN</code>.</li>
+      <li>Otherwise, the calling process is put to sleep until one of the
+          following conditions is satisfied:
+        <ul class="Bl-bullet">
+          <li>Some other process removes the semaphore with the
+              <code class="Dv">IPC_RMID</code> option of
+              <a class="Xr">semctl(2)</a>. In this case,
+              <code class="Fn">semop</code>() returns immediately with a return
+              value of <code class="Er">EIDRM</code>.</li>
+          <li>The process receives a signal that is to be caught. In this case,
+              the process will resume execution as defined by
+              <a class="Xr">sigaction(2)</a>.</li>
+          <li>The semaphore's value becomes zero.</li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+</ul>
+<p class="Pp">For each semaphore a process has in use, the kernel maintains an
+    &#x201C;adjust on exit&#x201D; value, as alluded to earlier. When a process
+    exits, either voluntarily or involuntarily, the adjust on exit value for
+    each semaphore is added to the semaphore's value. This can be used to insure
+    that a resource is released if a process terminates unexpectedly.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+The <code class="Fn">semop</code>() function returns the value&#x00A0;0 if
+  successful; otherwise the value&#x00A0;-1 is returned and the global variable
+  <var class="Va">errno</var> is set to indicate the error.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ERRORS"><a class="permalink" href="#ERRORS">ERRORS</a></h1>
+The <code class="Fn">semop</code>() system call will fail if:
+<dl class="Bl-tag">
+  <dt>[<a class="permalink" href="#E2BIG"><code class="Er" id="E2BIG">E2BIG</code></a>]</dt>
+  <dd>Too many operations are specified. [<code class="Dv">SEMOPM</code>]</dd>
+  <dt>[<a class="permalink" href="#EACCES"><code class="Er" id="EACCES">EACCES</code></a>]</dt>
+  <dd>Permission is denied, due to a mismatch between the operation and the mode
+      of the semaphore set.</dd>
+  <dt>[<a class="permalink" href="#EAGAIN"><code class="Er" id="EAGAIN">EAGAIN</code></a>]</dt>
+  <dd>The semaphore's value would result in the process being put to sleep and
+      <code class="Dv">IPC_NOWAIT</code> is specified.</dd>
+  <dt>[<a class="permalink" href="#EFBIG"><code class="Er" id="EFBIG">EFBIG</code></a>]</dt>
+  <dd><var class="Va">sem_num</var> is not in the range of valid semaphores for
+      the set.</dd>
+  <dt>[<a class="permalink" href="#EIDRM"><code class="Er" id="EIDRM">EIDRM</code></a>]</dt>
+  <dd>The semaphore set is removed from the system.</dd>
+  <dt>[<a class="permalink" href="#EINTR"><code class="Er" id="EINTR">EINTR</code></a>]</dt>
+  <dd>The <code class="Fn">semop</code>() system call is interrupted by a
+      signal.</dd>
+  <dt>[<a class="permalink" href="#EINVAL"><code class="Er" id="EINVAL">EINVAL</code></a>]</dt>
+  <dd>No semaphore set corresponds to <var class="Fa">semid</var>, or the
+      process would exceed the system-defined limit for the number of
+      per-process <code class="Dv">SEM_UNDO</code> structures.</dd>
+  <dt>[<a class="permalink" href="#ENOSPC"><code class="Er" id="ENOSPC">ENOSPC</code></a>]</dt>
+  <dd>The system <code class="Dv">SEM_UNDO</code> pool
+      [<code class="Dv">SEMMNU</code>] is full.</dd>
+  <dt>[<a class="permalink" href="#ERANGE"><code class="Er" id="ERANGE">ERANGE</code></a>]</dt>
+  <dd>The requested operation would cause either the semaphore's current value
+      [<code class="Dv">SEMVMX</code>] or its adjust-on-exit value
+      [<code class="Dv">SEMAEM</code>] to exceed the system-imposed limits.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LEGACY_SYNOPSIS"><a class="permalink" href="#LEGACY_SYNOPSIS">LEGACY
+  SYNOPSIS</a></h1>
+<code class="In">#include <a class="In">&lt;sys/types.h&gt;</a></code>
+  <code class="In">#include <a class="In">&lt;sys/ipc.h&gt;</a></code>
+  <code class="In">#include <a class="In">&lt;sys/sem.h&gt;</a></code>
+<p class="Pp">The include files
+    <code class="In">&lt;<a class="In">sys/types.h</a>&gt;</code> and
+    <code class="In">&lt;<a class="In">sys/ipc.h</a>&gt;</code> are
+  necessary.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">semctl(2)</a>, <a class="Xr">semget(2)</a>,
+  <a class="Xr">sigaction(2)</a>, <a class="Xr">compat(5)</a>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+The <code class="Fn">semop</code>() system call may block waiting for memory
+  even if <code class="Dv">IPC_NOWAIT</code> was specified.
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">September 22, 1995</td>
+    <td class="foot-os">Mac OS X 10.15</td>
+  </tr>
+</table>
+</body>
+</html>
