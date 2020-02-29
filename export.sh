@@ -9,8 +9,7 @@ set -euo pipefail
 
 xcode_path="$1"
 pushd "$xcode_path"
-
-output_dir="$(mktemp -d)"
+output_dir="$2"
 mkdir -p "$output_dir"
 
 mapfile -t directories < <(fd "\bman\b" -t d -E node_modules)
@@ -24,7 +23,7 @@ do
       continue
     fi
 
-    timeout 3 bsdman -Thtml "$file" > "$output_dir/$(basename "$file").html" \
+    timeout 5 bsdman -Thtml "$file" > "$output_dir/$(basename "$file").html" \
       || roff2html "$file" > "$output_dir/$(basename "$file").html" &
   done
 done
