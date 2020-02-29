@@ -5,9 +5,9 @@
        Title: git-fast-import
       Author: [FIXME: author] [see http://docbook.sf.net/el/author]
    Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-        Date: 02/24/2019
+        Date: 11/04/2019
       Manual: Git Manual
-      Source: Git 2.21.0
+      Source: Git 2.24.0
     Language: English
    -->
 <head>
@@ -327,6 +327,11 @@ fast-import accepts several commands to update the current repository and
 <div class="Bd-indent">Convert raw file data into a blob, for future use in a
   <b>commit</b> command. This command is optional and is not needed to perform
   an import.</div>
+<p class="Pp"><b>alias</b></p>
+<div class="Bd-indent">Record that a mark refers to a given object without first
+  creating any new object. Using --import-marks and referring to missing marks
+  will cause fast-import to fail, so aliases can provide a way to set otherwise
+  pruned commits to a valid value (e.g. the nearest non-pruned ancestor).</div>
 <p class="Pp"><b>checkpoint</b></p>
 <div class="Bd-indent">Forces fast-import to close the current packfile,
   generate its unique SHA-1 checksum and index, and start a new packfile. This
@@ -371,9 +376,10 @@ Create or update a branch with a new commit, recording one logical change to the
         original-oid?
         ('author' (SP &lt;name&gt;)? SP LT &lt;email&gt; GT SP &lt;when&gt; LF)?
         'committer' (SP &lt;name&gt;)? SP LT &lt;email&gt; GT SP &lt;when&gt; LF
+        ('encoding' SP &lt;encoding&gt;)?
         data
         ('from' SP &lt;commit-ish&gt; LF)?
-        ('merge' SP &lt;commit-ish&gt; LF)?
+        ('merge' SP &lt;commit-ish&gt; LF)*
         (filemodify | filedelete | filecopy | filerename | filedeleteall | notemodify)*
         LF?
 </pre>
@@ -403,7 +409,11 @@ Create or update a branch with a new commit, recording one logical change to the
     <b>notemodify</b> commands in the same commit, as <b>filedeleteall</b> wipes
     the branch clean (see below).</p>
 <p class="Pp">The <b>LF</b> after the command is optional (it used to be
-    required).</p>
+    required). Note that for reasons of backward compatibility, if the commit
+    ends with a <b>data</b> command (i.e. it has no <b>from</b>, <b>merge</b>,
+    <b>filemodify</b>, <b>filedelete</b>, <b>filecopy</b>, <b>filerename</b>,
+    <b>filedeleteall</b> or <b>notemodify</b> commands) then two <b>LF</b>
+    commands may appear at the end of the command instead of just one.</p>
 <p class="Pp"><b>author</b>
   <br/>
 </p>
@@ -433,6 +443,14 @@ Create or update a branch with a new commit, recording one logical change to the
     the date format that was selected by the --date-format=&lt;fmt&gt;
     command-line option. See &#x201C;Date Formats&#x201D; above for the set of
     supported formats, and their syntax.</p>
+</div>
+<p class="Pp"><b>encoding</b>
+  <br/>
+</p>
+<div class="Bd-indent">
+<p class="Pp">The optional <b>encoding</b> command indicates the encoding of the
+    commit message. Most commits are UTF-8 and the encoding is omitted, but this
+    allows importing commit messages into git without first reencoding them.</p>
 </div>
 <p class="Pp"><b>from</b>
   <br/>
@@ -782,6 +800,7 @@ Creates an annotated tag referring to a specific commit. To create lightweight
 <div class="Bd-indent">
 <pre>
         'tag' SP &lt;name&gt; LF
+        mark?
         'from' SP &lt;commit-ish&gt; LF
         original-oid?
         'tagger' (SP &lt;name&gt;)? SP LT &lt;email&gt; GT SP &lt;when&gt; LF
@@ -919,6 +938,22 @@ Supplies raw data (for use as blob/file content, commit messages, or annotated
 </div>
 </section>
 <section class="Ss">
+<h2 class="Ss" id="_fBalias_fR"><a class="permalink" href="#_fBalias_fR"><b>alias</b></a></h2>
+Record that a mark refers to a given object without first creating any new
+  object.
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+        'alias' LF
+        mark
+        'to' SP &lt;commit-ish&gt; LF
+        LF?
+</pre>
+</div>
+<p class="Pp">For a detailed description of <b>&lt;commit-ish&gt;</b> see above
+    under <b>from</b>.</p>
+</section>
+<section class="Ss">
 <h2 class="Ss" id="_fBcheckpoint_fR"><a class="permalink" href="#_fBcheckpoint_fR"><b>checkpoint</b></a></h2>
 Forces fast-import to close the current packfile, start a new one, and to save
   out all current branch refs, tags and marks.
@@ -985,9 +1020,6 @@ Causes fast-import to print the SHA-1 corresponding to a mark to stdout or to
         'get-mark' SP ':' &lt;idnum&gt; LF
 </pre>
 </div>
-<p class="Pp">This command can be used anywhere in the stream that comments are
-    accepted. In particular, the <b>get-mark</b> command can be used in the
-    middle of a commit but not in the middle of a <b>data</b> command.</p>
 <p class="Pp">See &#x201C;Responses To Commands&#x201D; below for details about
     how to read this output safely.</p>
 </section>
@@ -1014,9 +1046,10 @@ Causes fast-import to print a blob to a file descriptor previously arranged with
 &lt;contents&gt; LF
 </pre>
 </div>
-<p class="Pp">This command can be used anywhere in the stream that comments are
-    accepted. In particular, the <b>cat-blob</b> command can be used in the
-    middle of a commit but not in the middle of a <b>data</b> command.</p>
+<p class="Pp">This command can be used where a <b>filemodify</b> directive can
+    appear, allowing it to be used in the middle of a commit. For a
+    <b>filemodify</b> using an inline directive, it can also appear right before
+    the <b>data</b> directive.</p>
 <p class="Pp">See &#x201C;Responses To Commands&#x201D; below for details about
     how to read this output safely.</p>
 </section>
@@ -1026,8 +1059,8 @@ Prints information about the object at a path to a file descriptor previously
   arranged with the <b>--cat-blob-fd</b> argument. This allows printing a blob
   from the active commit (with <b>cat-blob</b>) or copying a blob or tree from a
   previous commit for use in the current one (with <b>filemodify</b>).
-<p class="Pp">The <b>ls</b> command can be used anywhere in the stream that
-    comments are accepted, including the middle of a commit.</p>
+<p class="Pp">The <b>ls</b> command can also be used where a <b>filemodify</b>
+    directive can appear, allowing it to be used in the middle of a commit.</p>
 <p class="Pp">Reading from the active commit</p>
 <div class="Bd-indent">This form can only be used in the middle of a
   <b>commit</b>. The path names a directory entry within fast-import&#x2019;s
@@ -1424,6 +1457,13 @@ When packing a blob fast-import always attempts to deltify against the last blob
     deltas are suboptimal (see above) then also adding the <b>-f</b> option to
     force recomputation of all deltas can significantly reduce the final
     packfile size (30-50% smaller can be quite typical).</p>
+<p class="Pp">Instead of running <b>git repack</b> you can also run <b>git gc
+    --aggressive</b>, which will also optimize other things after an import
+    (e.g. pack loose refs). As noted in the &quot;AGGRESSIVE&quot; section in
+    <b>git-gc</b>(1) the <b>--aggressive</b> option will find new deltas with
+    the <b>-f</b> option to <b>git-repack</b>(1). For the reasons elaborated on
+    above using <b>--aggressive</b> after a fast-import is one of the few cases
+    where it&#x2019;s known to be worthwhile.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="MEMORY_UTILIZATION"><a class="permalink" href="#MEMORY_UTILIZATION">MEMORY
@@ -1519,8 +1559,8 @@ Part of the <b>git</b>(1) suite
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">02/24/2019</td>
-    <td class="foot-os">Git 2.21.0</td>
+    <td class="foot-date">11/04/2019</td>
+    <td class="foot-os">Git 2.24.0</td>
   </tr>
 </table>
 </body>

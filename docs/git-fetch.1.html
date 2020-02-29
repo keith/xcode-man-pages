@@ -5,9 +5,9 @@
        Title: git-fetch
       Author: [FIXME: author] [see http://docbook.sf.net/el/author]
    Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-        Date: 02/24/2019
+        Date: 11/04/2019
       Manual: Git Manual
-      Source: Git 2.21.0
+      Source: Git 2.24.0
     Language: English
    -->
 <head>
@@ -139,6 +139,9 @@ Fetch branches and/or tags (collectively, &quot;refs&quot;) from one or more
 <p class="Pp">--multiple</p>
 <div class="Bd-indent">Allow several &lt;repository&gt; and &lt;group&gt;
   arguments to be specified. No &lt;refspec&gt;s may be specified.</div>
+<p class="Pp">--[no-]auto-gc</p>
+<div class="Bd-indent">Run <b>git gc --auto</b> at the end to perform garbage
+  collection if needed. This is enabled by default.</div>
 <p class="Pp">-p, --prune</p>
 <div class="Bd-indent">Before fetching, remove any remote-tracking references
   that no longer exist on the remote. Tags are not subject to pruning if they
@@ -187,13 +190,24 @@ Fetch branches and/or tags (collectively, &quot;refs&quot;) from one or more
   superproject retrieves a commit that updates the submodule&#x2019;s reference
   to a commit that isn&#x2019;t already in the local submodule clone.</div>
 <p class="Pp">-j, --jobs=&lt;n&gt;</p>
-<div class="Bd-indent">Number of parallel children to be used for fetching
-  submodules. Each will fetch from different submodules, such that fetching many
-  submodules will be faster. By default submodules will be fetched one at a
-  time.</div>
+<div class="Bd-indent">Number of parallel children to be used for all forms of
+  fetching.
+<p class="Pp">If the <b>--multiple</b> option was specified, the different
+    remotes will be fetched in parallel. If multiple submodules are fetched,
+    they will be fetched in parallel. To control them independently, use the
+    config settings <b>fetch.parallel</b> and <b>submodule.fetchJobs</b> (see
+    <b>git-config</b>(1)).</p>
+<p class="Pp">Typically, parallel recursive and multi-remote fetches will be
+    faster. By default fetches are performed sequentially, not in parallel.</p>
+</div>
 <p class="Pp">--no-recurse-submodules</p>
 <div class="Bd-indent">Disable recursive fetching of submodules (this has the
   same effect as using the <b>--recurse-submodules=no</b> option).</div>
+<p class="Pp">--set-upstream</p>
+<div class="Bd-indent">If the remote is fetched successfully, pull and add
+  upstream (tracking) reference, used by argument-less <b>git-pull</b>(1) and
+  other commands. For more information, see <b>branch.&lt;name&gt;.merge</b> and
+  <b>branch.&lt;name&gt;.remote</b> in <b>git-config</b>(1).</div>
 <p class="Pp">--submodule-prefix=&lt;path&gt;</p>
 <div class="Bd-indent">Prepend &lt;path&gt; to paths printed in informative
   messages such as &quot;Fetching submodule foo&quot;. This option is used
@@ -229,9 +243,21 @@ Fetch branches and/or tags (collectively, &quot;refs&quot;) from one or more
 <p class="Pp">-o &lt;option&gt;, --server-option=&lt;option&gt;</p>
 <div class="Bd-indent">Transmit the given string to the server when
   communicating using protocol version 2. The given string must not contain a
-  NUL or LF character. When multiple <b>--server-option=&lt;option&gt;</b> are
-  given, they are all sent to the other side in the order listed on the command
-  line.</div>
+  NUL or LF character. The server&#x2019;s handling of server options, including
+  unknown ones, is server-specific. When multiple
+  <b>--server-option=&lt;option&gt;</b> are given, they are all sent to the
+  other side in the order listed on the command line.</div>
+<p class="Pp">--show-forced-updates</p>
+<div class="Bd-indent">By default, git checks if a branch is force-updated
+  during fetch. This can be disabled through fetch.showForcedUpdates, but the
+  --show-forced-updates option guarantees this check occurs. See
+  <b>git-config</b>(1).</div>
+<p class="Pp">--no-show-forced-updates</p>
+<div class="Bd-indent">By default, git checks if a branch is force-updated
+  during fetch. Pass --no-show-forced-updates or set fetch.showForcedUpdates to
+  false to skip this check for performance reasons. If used during
+  <i>git-pull</i> the --ff-only option will still check for forced updates
+  before attempting a fast-forward update. See <b>git-config</b>(1).</div>
 <p class="Pp">-4, --ipv4</p>
 <div class="Bd-indent">Use IPv4 addresses only, ignoring IPv6 addresses.</div>
 <p class="Pp">-6, --ipv6</p>
@@ -358,7 +384,7 @@ In general, URLs contain information about the transport protocol, the address
 <div class="Bd-indent">&#x2022;&lt;transport&gt;::&lt;address&gt;</div>
 <p class="Pp">where &lt;address&gt; may be a path, a server and path, or an
     arbitrary URL-like string recognized by the specific remote helper being
-    invoked. See <b>gitremote-helpers</b>(1) for details.</p>
+    invoked. See <b>gitremote-helpers</b>(7) for details.</p>
 <p class="Pp">If there are a large number of similarly-named remote repositories
     and you want to use a different format for them (such that the URLs you use
     will be rewritten into URLs that work), you can create a configuration
@@ -713,7 +739,7 @@ $ git fetch origin +pu:pu maint:tmp
 <p class="Pp">This updates (or creates, as necessary) branches <b>pu</b> and
     <b>tmp</b> in the local repository by fetching from the branches
     (respectively) <b>pu</b> and <b>maint</b> from the remote repository.</p>
-<p class="Pp">The <b>pu</b> branch will be updated even if it is does not
+<p class="Pp">The <b>pu</b> branch will be updated even if it does not
     fast-forward, because it is prefixed with a plus sign; <b>tmp</b> will not
     be.</p>
 </div>
@@ -768,7 +794,7 @@ The fetch and push protocols are not designed to prevent one side from stealing
 <h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
 Using --recurse-submodules can only fetch new commits in already checked out
   submodules right now. When e.g. upstream added a new submodule in the just
-  fetched commits of the superproject the submodule itself can not be fetched,
+  fetched commits of the superproject the submodule itself cannot be fetched,
   making it impossible to check out that submodule later without having to do a
   fetch again. This is expected to be fixed in a future Git version.
 </section>
@@ -784,8 +810,8 @@ Part of the <b>git</b>(1) suite
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">02/24/2019</td>
-    <td class="foot-os">Git 2.21.0</td>
+    <td class="foot-date">11/04/2019</td>
+    <td class="foot-os">Git 2.24.0</td>
   </tr>
 </table>
 </body>

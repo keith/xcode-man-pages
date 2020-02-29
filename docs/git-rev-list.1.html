@@ -5,9 +5,9 @@
        Title: git-rev-list
       Author: [FIXME: author] [see http://docbook.sf.net/el/author]
    Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-        Date: 02/24/2019
+        Date: 11/04/2019
       Manual: Git Manual
-      Source: Git 2.21.0
+      Source: Git 2.24.0
     Language: English
    -->
 <head>
@@ -42,58 +42,7 @@ git-rev-list - Lists commit objects in reverse chronological order
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
 <pre>
-<i>git rev-list</i> [ --max-count=&lt;number&gt; ]
-             [ --skip=&lt;number&gt; ]
-             [ --max-age=&lt;timestamp&gt; ]
-             [ --min-age=&lt;timestamp&gt; ]
-             [ --sparse ]
-             [ --merges ]
-             [ --no-merges ]
-             [ --min-parents=&lt;number&gt; ]
-             [ --no-min-parents ]
-             [ --max-parents=&lt;number&gt; ]
-             [ --no-max-parents ]
-             [ --first-parent ]
-             [ --remove-empty ]
-             [ --full-history ]
-             [ --not ]
-             [ --all ]
-             [ --branches[=&lt;pattern&gt;] ]
-             [ --tags[=&lt;pattern&gt;] ]
-             [ --remotes[=&lt;pattern&gt;] ]
-             [ --glob=&lt;glob-pattern&gt; ]
-             [ --ignore-missing ]
-             [ --stdin ]
-             [ --quiet ]
-             [ --topo-order ]
-             [ --parents ]
-             [ --timestamp ]
-             [ --left-right ]
-             [ --left-only ]
-             [ --right-only ]
-             [ --cherry-mark ]
-             [ --cherry-pick ]
-             [ --encoding=&lt;encoding&gt; ]
-             [ --(author|committer|grep)=&lt;pattern&gt; ]
-             [ --regexp-ignore-case | -i ]
-             [ --extended-regexp | -E ]
-             [ --fixed-strings | -F ]
-             [ --date=&lt;format&gt;]
-             [ [ --objects | --objects-edge | --objects-edge-aggressive ]
-               [ --unpacked ]
-               [ --filter=&lt;filter-spec&gt; [ --filter-print-omitted ] ] ]
-             [ --missing=&lt;missing-action&gt; ]
-             [ --pretty | --header ]
-             [ --bisect ]
-             [ --bisect-vars ]
-             [ --bisect-all ]
-             [ --merge ]
-             [ --reverse ]
-             [ --walk-reflogs ]
-             [ --no-walk ] [ --do-walk ]
-             [ --count ]
-             [ --use-bitmap-index ]
-             &lt;commit&gt;... [ -- &lt;paths&gt;... ]
+<i>git rev-list</i> [&lt;options&gt;] &lt;commit&gt;... [[--] &lt;path&gt;...]
 </pre>
 <p class="Pp"></p>
 </section>
@@ -288,6 +237,12 @@ Besides specifying a range of commits that should be listed using the special
 <p class="Pp">--reflog</p>
 <div class="Bd-indent">Pretend as if all objects mentioned by reflogs are listed
   on the command line as <b>&lt;commit&gt;</b>.</div>
+<p class="Pp">--alternate-refs</p>
+<div class="Bd-indent">Pretend as if all objects mentioned as ref tips of
+  alternate repositories were listed on the command line. An alternate
+  repository is any repository whose object directory is specified in
+  <b>objects/info/alternates</b>. The set of included objects may be modified by
+  <b>core.alternateRefsCommand</b>, etc. See <b>git-config</b>(1).</div>
 <p class="Pp">--single-worktree</p>
 <div class="Bd-indent">By default, all working trees will be examined by the
   following options when there are more than one (see <b>git-worktree</b>(1)):
@@ -758,6 +713,14 @@ These options are mostly targeted for packing of Git repositories.
 <p class="Pp">--unpacked</p>
 <div class="Bd-indent">Only useful with <b>--objects</b>; print the object IDs
   that are not in packs.</div>
+<p class="Pp">--object-names</p>
+<div class="Bd-indent">Only useful with <b>--objects</b>; print the names of the
+  object IDs that are found. This is the default behavior.</div>
+<p class="Pp">--no-object-names</p>
+<div class="Bd-indent">Only useful with <b>--objects</b>; does not print the
+  names of the object IDs that are found. This inverts <b>--object-names</b>.
+  This flag allows the output to be more easily parsed by commands such as
+  <b>git-cat-file</b>(1).</div>
 <p class="Pp">--filter=&lt;filter-spec&gt;</p>
 <div class="Bd-indent">Only useful with one of the <b>--objects*</b>; omits
   objects (usually blobs) from the list of printed objects. The
@@ -771,8 +734,6 @@ These options are mostly targeted for packing of Git repositories.
     sparse-checkout specification contained in the blob (or blob-expression)
     <i>&lt;blob-ish&gt;</i> to omit blobs that would not be not required for a
     sparse checkout on the requested refs.</p>
-<p class="Pp">The form <i>--filter=sparse:path=&lt;path&gt;</i> similarly uses a
-    sparse-checkout specification contained in &lt;path&gt;.</p>
 <p class="Pp">The form <i>--filter=tree:&lt;depth&gt;</i> omits all blobs and
     trees whose depth from the root tree is &gt;= &lt;depth&gt; (minimum depth
     if an object is located at multiple depths in the commits traversed).
@@ -783,6 +744,24 @@ These options are mostly targeted for packing of Git repositories.
     object. &lt;depth&gt;=2 is like &lt;depth&gt;=1 while also including trees
     and blobs one more level removed from an explicitly-given commit or
   tree.</p>
+<p class="Pp">Note that the form <i>--filter=sparse:path=&lt;path&gt;</i> that
+    wants to read from an arbitrary path on the filesystem has been dropped for
+    security reasons.</p>
+<p class="Pp">Multiple <i>--filter=</i> flags can be specified to combine
+    filters. Only objects which are accepted by every filter are included.</p>
+<p class="Pp">The form
+    <i>--filter=combine:&lt;filter1&gt;+&lt;filter2&gt;+...&lt;filterN&gt;</i>
+    can also be used to combined several filters, but this is harder than just
+    repeating the <i>--filter</i> flag and is usually not necessary. Filters are
+    joined by <i>+</i> and individual filters are %-encoded (i.e. URL-encoded).
+    Besides the <i>+</i> and <i>%</i> characters, the following characters are
+    reserved and also must be encoded:
+    <b>~!@#$^&amp;*()[]{}\;&quot;,&lt;&gt;?</b><b>'`</b> as well as all
+    characters with ASCII code &lt;= <b>0x20</b>, which includes space and
+    newline.</p>
+<p class="Pp">Other arbitrary characters can also be encoded. For instance,
+    <i>combine:tree:3+blob:none</i> and <i>combine:tree%3A3+blob%3Anone</i> are
+    equivalent.</p>
 </div>
 <p class="Pp">--no-filter</p>
 <div class="Bd-indent">Turn off any previous <b>--filter=</b> argument.</div>
@@ -1165,200 +1144,226 @@ The title was &gt;&gt;t4119: test autocomputing -p&lt;n&gt; for traditional diff
 </div>
 <p class="Pp">The placeholders are:</p>
 <p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%H</i>: commit hash</div>
+<div class="Bd-indent">&#x2022;Placeholders that expand to a single literal
+  character:
+<p class="Pp"><i>%n</i></p>
+<div class="Bd-indent">newline</div>
+<p class="Pp"><i>%%</i></p>
+<div class="Bd-indent">a raw <i>%</i></div>
+<p class="Pp"><i>%x00</i></p>
+<div class="Bd-indent">print a byte from a hex code</div>
+</div>
 <p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%h</i>: abbreviated commit hash</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%T</i>: tree hash</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%t</i>: abbreviated tree hash</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%P</i>: parent hashes</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%p</i>: abbreviated parent hashes</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%an</i>: author name</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%aN</i>: author name (respecting .mailmap, see
-  <b>git-shortlog</b>(1) or <b>git-blame</b>(1))</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%ae</i>: author email</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%aE</i>: author email (respecting .mailmap,
-  see <b>git-shortlog</b>(1) or <b>git-blame</b>(1))</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%ad</i>: author date (format respects --date=
-  option)</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%aD</i>: author date, RFC2822 style</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%ar</i>: author date, relative</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%at</i>: author date, UNIX timestamp</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%ai</i>: author date, ISO 8601-like
-  format</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%aI</i>: author date, strict ISO 8601
-  format</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%cn</i>: committer name</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%cN</i>: committer name (respecting .mailmap,
-  see <b>git-shortlog</b>(1) or <b>git-blame</b>(1))</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%ce</i>: committer email</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%cE</i>: committer email (respecting .mailmap,
-  see <b>git-shortlog</b>(1) or <b>git-blame</b>(1))</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%cd</i>: committer date (format respects
-  --date= option)</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%cD</i>: committer date, RFC2822 style</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%cr</i>: committer date, relative</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%ct</i>: committer date, UNIX timestamp</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%ci</i>: committer date, ISO 8601-like
-  format</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%cI</i>: committer date, strict ISO 8601
-  format</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%d</i>: ref names, like the --decorate option
-  of <b>git-log</b>(1)</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%D</i>: ref names without the &quot; (&quot;,
-  &quot;)&quot; wrapping.</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%S</i>: ref name given on the command line by
-  which the commit was reached (like <b>git log --source</b>), only works with
-  <b>git log</b></div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%e</i>: encoding</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%s</i>: subject</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%f</i>: sanitized subject line, suitable for a
-  filename</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%b</i>: body</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%B</i>: raw body (unwrapped subject and
-  body)</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%GG</i>: raw verification message from GPG for
-  a signed commit</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%G?</i>: show &quot;G&quot; for a good (valid)
-  signature, &quot;B&quot; for a bad signature, &quot;U&quot; for a good
-  signature with unknown validity, &quot;X&quot; for a good signature that has
-  expired, &quot;Y&quot; for a good signature made by an expired key,
-  &quot;R&quot; for a good signature made by a revoked key, &quot;E&quot; if the
-  signature cannot be checked (e.g. missing key) and &quot;N&quot; for no
-  signature</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%GS</i>: show the name of the signer for a
-  signed commit</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%GK</i>: show the key used to sign a signed
-  commit</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%GF</i>: show the fingerprint of the key used
-  to sign a signed commit</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%GP</i>: show the fingerprint of the primary
-  key whose subkey was used to sign a signed commit</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%gD</i>: reflog selector, e.g.,
-  <b>refs/stash@{1}</b> or <b>refs/stash@{2 minutes ago</b>}; the format follows
-  the rules described for the <b>-g</b> option. The portion before the <b>@</b>
-  is the refname as given on the command line (so <b>git log -g
-  refs/heads/master</b> would yield <b>refs/heads/master@{0}</b>).</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%gd</i>: shortened reflog selector; same as
-  <b>%gD</b>, but the refname portion is shortened for human readability (so
-  <b>refs/heads/master</b> becomes just <b>master</b>).</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%gn</i>: reflog identity name</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%gN</i>: reflog identity name (respecting
-  .mailmap, see <b>git-shortlog</b>(1) or <b>git-blame</b>(1))</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%ge</i>: reflog identity email</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%gE</i>: reflog identity email (respecting
-  .mailmap, see <b>git-shortlog</b>(1) or <b>git-blame</b>(1))</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%gs</i>: reflog subject</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%Cred</i>: switch color to red</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%Cgreen</i>: switch color to green</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%Cblue</i>: switch color to blue</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%Creset</i>: reset color</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%C(...)</i>: color specification, as described
-  under Values in the &quot;CONFIGURATION FILE&quot; section of
-  <b>git-config</b>(1). By default, colors are shown only when enabled for log
-  output (by <b>color.diff</b>, <b>color.ui</b>, or <b>--color</b>, and
-  respecting the <b>auto</b> settings of the former if we are going to a
-  terminal). <b>%C(auto,...)</b> is accepted as a historical synonym for the
-  default (e.g., <b>%C(auto,red)</b>). Specifying <b>%C(always,...)</b> will
-  show the colors even when color is not otherwise enabled (though consider just
-  using <b>--color=always</b> to enable color for the whole output, including
-  this format and anything else git might color). <b>auto</b> alone (i.e.
-  <b>%C(auto)</b>) will turn on auto coloring on the next placeholders until the
-  color is switched again.</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%m</i>: left (<b>&lt;</b>), right
-  (<b>&gt;</b>) or boundary (<b>-</b>) mark</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%n</i>: newline</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%%</i>: a raw <i>%</i></div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%x00</i>: print a byte from a hex code</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%w([&lt;w&gt;[,&lt;i1&gt;[,&lt;i2&gt;]]])</i>:
-  switch line wrapping, like the -w option of <b>git-shortlog</b>(1).</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%&lt;(&lt;N&gt;[,trunc|ltrunc|mtrunc])</i>:
-  make the next placeholder take at least N columns, padding spaces on the right
-  if necessary. Optionally truncate at the beginning (ltrunc), the middle
-  (mtrunc) or the end (trunc) if the output is longer than N columns. Note that
-  truncating only works correctly with N &gt;= 2.</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%&lt;|(&lt;N&gt;)</i>: make the next
-  placeholder take at least until Nth columns, padding spaces on the right if
-  necessary</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%&gt;(&lt;N&gt;)</i>,
-  <i>%&gt;|(&lt;N&gt;)</i>: similar to <i>%&lt;(&lt;N&gt;)</i>,
+<div class="Bd-indent">&#x2022;Placeholders that affect formatting of later
+  placeholders:
+<p class="Pp"><i>%Cred</i></p>
+<div class="Bd-indent">switch color to red</div>
+<p class="Pp"><i>%Cgreen</i></p>
+<div class="Bd-indent">switch color to green</div>
+<p class="Pp"><i>%Cblue</i></p>
+<div class="Bd-indent">switch color to blue</div>
+<p class="Pp"><i>%Creset</i></p>
+<div class="Bd-indent">reset color</div>
+<p class="Pp"><i>%C(...)</i></p>
+<div class="Bd-indent">color specification, as described under Values in the
+  &quot;CONFIGURATION FILE&quot; section of <b>git-config</b>(1). By default,
+  colors are shown only when enabled for log output (by <b>color.diff</b>,
+  <b>color.ui</b>, or <b>--color</b>, and respecting the <b>auto</b> settings of
+  the former if we are going to a terminal). <b>%C(auto,...)</b> is accepted as
+  a historical synonym for the default (e.g., <b>%C(auto,red)</b>). Specifying
+  <b>%C(always,...)</b> will show the colors even when color is not otherwise
+  enabled (though consider just using <b>--color=always</b> to enable color for
+  the whole output, including this format and anything else git might color).
+  <b>auto</b> alone (i.e. <b>%C(auto)</b>) will turn on auto coloring on the
+  next placeholders until the color is switched again.</div>
+<p class="Pp"><i>%m</i></p>
+<div class="Bd-indent">left (<b>&lt;</b>), right (<b>&gt;</b>) or boundary
+  (<b>-</b>) mark</div>
+<p class="Pp"><i>%w([&lt;w&gt;[,&lt;i1&gt;[,&lt;i2&gt;]]])</i></p>
+<div class="Bd-indent">switch line wrapping, like the -w option of
+  <b>git-shortlog</b>(1).</div>
+<p class="Pp"><i>%&lt;(&lt;N&gt;[,trunc|ltrunc|mtrunc])</i></p>
+<div class="Bd-indent">make the next placeholder take at least N columns,
+  padding spaces on the right if necessary. Optionally truncate at the beginning
+  (ltrunc), the middle (mtrunc) or the end (trunc) if the output is longer than
+  N columns. Note that truncating only works correctly with N &gt;= 2.</div>
+<p class="Pp"><i>%&lt;|(&lt;N&gt;)</i></p>
+<div class="Bd-indent">make the next placeholder take at least until Nth
+  columns, padding spaces on the right if necessary</div>
+<p class="Pp"><i>%&gt;(&lt;N&gt;)</i>, <i>%&gt;|(&lt;N&gt;)</i></p>
+<div class="Bd-indent">similar to <i>%&lt;(&lt;N&gt;)</i>,
   <i>%&lt;|(&lt;N&gt;)</i> respectively, but padding spaces on the left</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%&gt;&gt;(&lt;N&gt;)</i>,
-  <i>%&gt;&gt;|(&lt;N&gt;)</i>: similar to <i>%&gt;(&lt;N&gt;)</i>,
+<p class="Pp"><i>%&gt;&gt;(&lt;N&gt;)</i>, <i>%&gt;&gt;|(&lt;N&gt;)</i></p>
+<div class="Bd-indent">similar to <i>%&gt;(&lt;N&gt;)</i>,
   <i>%&gt;|(&lt;N&gt;)</i> respectively, except that if the next placeholder
   takes more spaces than given and there are spaces on its left, use those
   spaces</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>%&gt;&lt;(&lt;N&gt;)</i>,
-  <i>%&gt;&lt;|(&lt;N&gt;)</i>: similar to <i>%&lt;(&lt;N&gt;)</i>,
+<p class="Pp"><i>%&gt;&lt;(&lt;N&gt;)</i>, <i>%&gt;&lt;|(&lt;N&gt;)</i></p>
+<div class="Bd-indent">similar to <i>%&lt;(&lt;N&gt;)</i>,
   <i>%&lt;|(&lt;N&gt;)</i> respectively, but padding both sides (i.e. the text
   is centered)</div>
+</div>
 <p class="Pp"></p>
-<div class="Bd-indent">&#x2022;%(trailers[:options]): display the trailers of
-  the body as interpreted by <b>git-interpret-trailers</b>(1). The
-  <b>trailers</b> string may be followed by a colon and zero or more
-  comma-separated options. If the <b>only</b> option is given, omit non-trailer
-  lines from the trailer block. If the <b>unfold</b> option is given, behave as
-  if interpret-trailer&#x2019;s <b>--unfold</b> option was given. E.g.,
-  <b>%(trailers:only,unfold)</b> to do both.</div>
+<div class="Bd-indent">&#x2022;Placeholders that expand to information extracted
+  from the commit:
+<p class="Pp"><i>%H</i></p>
+<div class="Bd-indent">commit hash</div>
+<p class="Pp"><i>%h</i></p>
+<div class="Bd-indent">abbreviated commit hash</div>
+<p class="Pp"><i>%T</i></p>
+<div class="Bd-indent">tree hash</div>
+<p class="Pp"><i>%t</i></p>
+<div class="Bd-indent">abbreviated tree hash</div>
+<p class="Pp"><i>%P</i></p>
+<div class="Bd-indent">parent hashes</div>
+<p class="Pp"><i>%p</i></p>
+<div class="Bd-indent">abbreviated parent hashes</div>
+<p class="Pp"><i>%an</i></p>
+<div class="Bd-indent">author name</div>
+<p class="Pp"><i>%aN</i></p>
+<div class="Bd-indent">author name (respecting .mailmap, see
+  <b>git-shortlog</b>(1) or <b>git-blame</b>(1))</div>
+<p class="Pp"><i>%ae</i></p>
+<div class="Bd-indent">author email</div>
+<p class="Pp"><i>%aE</i></p>
+<div class="Bd-indent">author email (respecting .mailmap, see
+  <b>git-shortlog</b>(1) or <b>git-blame</b>(1))</div>
+<p class="Pp"><i>%ad</i></p>
+<div class="Bd-indent">author date (format respects --date= option)</div>
+<p class="Pp"><i>%aD</i></p>
+<div class="Bd-indent">author date, RFC2822 style</div>
+<p class="Pp"><i>%ar</i></p>
+<div class="Bd-indent">author date, relative</div>
+<p class="Pp"><i>%at</i></p>
+<div class="Bd-indent">author date, UNIX timestamp</div>
+<p class="Pp"><i>%ai</i></p>
+<div class="Bd-indent">author date, ISO 8601-like format</div>
+<p class="Pp"><i>%aI</i></p>
+<div class="Bd-indent">author date, strict ISO 8601 format</div>
+<p class="Pp"><i>%cn</i></p>
+<div class="Bd-indent">committer name</div>
+<p class="Pp"><i>%cN</i></p>
+<div class="Bd-indent">committer name (respecting .mailmap, see
+  <b>git-shortlog</b>(1) or <b>git-blame</b>(1))</div>
+<p class="Pp"><i>%ce</i></p>
+<div class="Bd-indent">committer email</div>
+<p class="Pp"><i>%cE</i></p>
+<div class="Bd-indent">committer email (respecting .mailmap, see
+  <b>git-shortlog</b>(1) or <b>git-blame</b>(1))</div>
+<p class="Pp"><i>%cd</i></p>
+<div class="Bd-indent">committer date (format respects --date= option)</div>
+<p class="Pp"><i>%cD</i></p>
+<div class="Bd-indent">committer date, RFC2822 style</div>
+<p class="Pp"><i>%cr</i></p>
+<div class="Bd-indent">committer date, relative</div>
+<p class="Pp"><i>%ct</i></p>
+<div class="Bd-indent">committer date, UNIX timestamp</div>
+<p class="Pp"><i>%ci</i></p>
+<div class="Bd-indent">committer date, ISO 8601-like format</div>
+<p class="Pp"><i>%cI</i></p>
+<div class="Bd-indent">committer date, strict ISO 8601 format</div>
+<p class="Pp"><i>%d</i></p>
+<div class="Bd-indent">ref names, like the --decorate option of
+  <b>git-log</b>(1)</div>
+<p class="Pp"><i>%D</i></p>
+<div class="Bd-indent">ref names without the &quot; (&quot;, &quot;)&quot;
+  wrapping.</div>
+<p class="Pp"><i>%S</i></p>
+<div class="Bd-indent">ref name given on the command line by which the commit
+  was reached (like <b>git log --source</b>), only works with <b>git
+  log</b></div>
+<p class="Pp"><i>%e</i></p>
+<div class="Bd-indent">encoding</div>
+<p class="Pp"><i>%s</i></p>
+<div class="Bd-indent">subject</div>
+<p class="Pp"><i>%f</i></p>
+<div class="Bd-indent">sanitized subject line, suitable for a filename</div>
+<p class="Pp"><i>%b</i></p>
+<div class="Bd-indent">body</div>
+<p class="Pp"><i>%B</i></p>
+<div class="Bd-indent">raw body (unwrapped subject and body)</div>
+<p class="Pp"><i>%GG</i></p>
+<div class="Bd-indent">raw verification message from GPG for a signed
+  commit</div>
+<p class="Pp"><i>%G?</i></p>
+<div class="Bd-indent">show &quot;G&quot; for a good (valid) signature,
+  &quot;B&quot; for a bad signature, &quot;U&quot; for a good signature with
+  unknown validity, &quot;X&quot; for a good signature that has expired,
+  &quot;Y&quot; for a good signature made by an expired key, &quot;R&quot; for a
+  good signature made by a revoked key, &quot;E&quot; if the signature cannot be
+  checked (e.g. missing key) and &quot;N&quot; for no signature</div>
+<p class="Pp"><i>%GS</i></p>
+<div class="Bd-indent">show the name of the signer for a signed commit</div>
+<p class="Pp"><i>%GK</i></p>
+<div class="Bd-indent">show the key used to sign a signed commit</div>
+<p class="Pp"><i>%GF</i></p>
+<div class="Bd-indent">show the fingerprint of the key used to sign a signed
+  commit</div>
+<p class="Pp"><i>%GP</i></p>
+<div class="Bd-indent">show the fingerprint of the primary key whose subkey was
+  used to sign a signed commit</div>
+<p class="Pp"><i>%gD</i></p>
+<div class="Bd-indent">reflog selector, e.g., <b>refs/stash@{1}</b> or
+  <b>refs/stash@{2 minutes ago}</b>; the format follows the rules described for
+  the <b>-g</b> option. The portion before the <b>@</b> is the refname as given
+  on the command line (so <b>git log -g refs/heads/master</b> would yield
+  <b>refs/heads/master@{0}</b>).</div>
+<p class="Pp"><i>%gd</i></p>
+<div class="Bd-indent">shortened reflog selector; same as <b>%gD</b>, but the
+  refname portion is shortened for human readability (so
+  <b>refs/heads/master</b> becomes just <b>master</b>).</div>
+<p class="Pp"><i>%gn</i></p>
+<div class="Bd-indent">reflog identity name</div>
+<p class="Pp"><i>%gN</i></p>
+<div class="Bd-indent">reflog identity name (respecting .mailmap, see
+  <b>git-shortlog</b>(1) or <b>git-blame</b>(1))</div>
+<p class="Pp"><i>%ge</i></p>
+<div class="Bd-indent">reflog identity email</div>
+<p class="Pp"><i>%gE</i></p>
+<div class="Bd-indent">reflog identity email (respecting .mailmap, see
+  <b>git-shortlog</b>(1) or <b>git-blame</b>(1))</div>
+<p class="Pp"><i>%gs</i></p>
+<div class="Bd-indent">reflog subject</div>
+<p class="Pp"><i>%(trailers[:options])</i></p>
+<div class="Bd-indent">display the trailers of the body as interpreted by
+  <b>git-interpret-trailers</b>(1). The <b>trailers</b> string may be followed
+  by a colon and zero or more comma-separated options:
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<i>key=&lt;K&gt;</i>: only show trailers with
+  specified key. Matching is done case-insensitively and trailing colon is
+  optional. If option is given multiple times trailer lines matching any of the
+  keys are shown. This option automatically enables the <b>only</b> option so
+  that non-trailer lines in the trailer block are hidden. If that is not desired
+  it can be disabled with <b>only=false</b>. E.g.,
+  <b>%(trailers:key=Reviewed-by)</b> shows trailer lines with key
+  <b>Reviewed-by</b>.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<i>only[=val]</i>: select whether non-trailer
+  lines from the trailer block should be included. The <b>only</b> keyword may
+  optionally be followed by an equal sign and one of <b>true</b>, <b>on</b>,
+  <b>yes</b> to omit or <b>false</b>, <b>off</b>, <b>no</b> to show the
+  non-trailer lines. If option is given without value it is enabled. If given
+  multiple times the last value is used.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<i>separator=&lt;SEP&gt;</i>: specify a separator
+  inserted between trailer lines. When this option is not given each trailer
+  line is terminated with a line feed character. The string SEP may contain the
+  literal formatting codes described above. To use comma as separator one must
+  use <b>%x2C</b> as it would otherwise be parsed as next option. If separator
+  option is given multiple times only the last one is used. E.g.,
+  <b>%(trailers:key=Ticket,separator=%x2C )</b> shows all trailer lines whose
+  key is &quot;Ticket&quot; separated by a comma and a space.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<i>unfold[=val]</i>: make it behave as if
+  interpret-trailer&#x2019;s <b>--unfold</b> option was given. In same way as to
+  for <b>only</b> it can be followed by an equal sign and explicit value. E.g.,
+  <b>%(trailers:only,unfold=true)</b> unfolds and shows all trailer lines.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<i>valueonly[=val]</i>: skip over the key part of
+  the trailer line and only show the value part. Also this optionally allows
+  explicit value.</div>
+</div>
+</div>
 </div>
 <p class="Pp"></p>
 <div class="Bd-indent">
@@ -1423,8 +1428,8 @@ Part of the <b>git</b>(1) suite
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">02/24/2019</td>
-    <td class="foot-os">Git 2.21.0</td>
+    <td class="foot-date">11/04/2019</td>
+    <td class="foot-os">Git 2.24.0</td>
   </tr>
 </table>
 </body>

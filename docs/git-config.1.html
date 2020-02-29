@@ -5,9 +5,9 @@
        Title: git-config
       Author: [FIXME: author] [see http://docbook.sf.net/el/author]
    Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-        Date: 02/24/2019
+        Date: 11/04/2019
       Manual: Git Manual
-      Source: Git 2.21.0
+      Source: Git 2.24.0
     Language: English
    -->
 <head>
@@ -250,7 +250,8 @@ You can query/set/replace/unset options with this command. The name is actually
   standard output. The optional <b>default</b> parameter is used instead, if
   there is no color configured for <b>name</b>.
 <p class="Pp"><b>--type=color [--default=&lt;default&gt;]</b> is preferred over
-    <b>--get-color</b>.</p>
+    <b>--get-color</b> (but note that <b>--get-color</b> will omit the trailing
+    newline printed by <b>--type=color</b>).</p>
 </div>
 <p class="Pp">-e, --edit</p>
 <div class="Bd-indent">Opens an editor to modify the specified config file;
@@ -338,38 +339,18 @@ Given a .git/config like this:
 # a '#' or ';' character indicates
 # a comment
 #
-</pre>
-</div>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre>
 ; core variables
 [core]
         ; Don't trust file modes
         filemode = false
-</pre>
-</div>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre>
 ; Our diff algorithm
 [diff]
         external = /usr/local/bin/diff-wrapper
         renames = true
-</pre>
-</div>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre>
 ; Proxy settings
 [core]
         gitproxy=proxy-command for kernel.org
         gitproxy=default-proxy ; for all the rest
-</pre>
-</div>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre>
 ; HTTP
 [http]
         sslVerify
@@ -378,6 +359,7 @@ Given a .git/config like this:
         cookieFile = /tmp/cookie.txt
 </pre>
 </div>
+<p class="Pp"></p>
 <p class="Pp">you can set the filemode to true with</p>
 <p class="Pp"></p>
 <div class="Bd-indent">
@@ -637,6 +619,18 @@ You can include a config file from another conditionally by setting a
 <p class="Pp"><b>gitdir/i</b></p>
 <div class="Bd-indent">This is the same as <b>gitdir</b> except that matching is
   done case-insensitively (e.g. on case-insensitive file sytems)</div>
+<p class="Pp"><b>onbranch</b></p>
+<div class="Bd-indent">The data that follows the keyword <b>onbranch:</b> is
+  taken to be a pattern with standard globbing wildcards and two additional
+  ones, <b>**/</b> and <b>/**</b>, that can match multiple path components. If
+  we are in a worktree where the name of the branch that is currently checked
+  out matches the pattern, the include condition is met.
+<p class="Pp">If the pattern ends with <b>/</b>, <b>**</b> will be automatically
+    added. For example, the pattern <b>foo/</b> becomes <b>foo/**</b>. In other
+    words, it matches all branches that begin with <b>foo/</b>. This is useful
+    if your branches are organized hierarchically and you would like to apply a
+    configuration to all the branches in that hierarchy.</p>
+</div>
 <p class="Pp">A few more notes on matching via <b>gitdir</b> and
     <b>gitdir/i</b>:</p>
 <p class="Pp"></p>
@@ -664,74 +658,45 @@ You can include a config file from another conditionally by setting a
 [core]
         ; Don't trust file modes
         filemode = false
-</pre>
-</div>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre>
 # Our diff algorithm
 [diff]
         external = /usr/local/bin/diff-wrapper
         renames = true
-</pre>
-</div>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre>
 [branch &quot;devel&quot;]
         remote = origin
         merge = refs/heads/devel
-</pre>
-</div>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre>
 # Proxy settings
 [core]
         gitProxy=&quot;ssh&quot; for &quot;kernel.org&quot;
         gitProxy=default-proxy ; for the rest
-</pre>
-</div>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre>
 [include]
         path = /path/to/foo.inc ; include by absolute path
         path = foo.inc ; find &quot;foo.inc&quot; relative to the current file
         path = ~/foo.inc ; find &quot;foo.inc&quot; in your `$HOME` directory
-</pre>
-</div>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre>
 ; include if $GIT_DIR is /path/to/foo/.git
 [includeIf &quot;gitdir:/path/to/foo/.git&quot;]
         path = /path/to/foo.inc
-</pre>
-</div>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre>
 ; include for all repositories inside /path/to/group
 [includeIf &quot;gitdir:/path/to/group/&quot;]
         path = /path/to/foo.inc
-</pre>
-</div>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre>
 ; include for all repositories inside $HOME/to/group
 [includeIf &quot;gitdir:~/to/group/&quot;]
         path = /path/to/foo.inc
-</pre>
-</div>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre>
 ; relative paths are always relative to the including
 ; file (if the condition is true); their location is not
 ; affected by the condition
 [includeIf &quot;gitdir:/path/to/group/&quot;]
+        path = foo.inc
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+; include only if we are in a worktree where foo-branch is
+; currently checked out
+[includeIf &quot;onbranch:foo-branch&quot;]
         path = foo.inc
 </pre>
 </div>
@@ -813,6 +778,10 @@ Note that this list is non-comprehensive and not necessarily complete. For
   designed to aid new users. All <i>advice.*</i> variables default to
   <i>true</i>, and you can tell Git that you do not need help by setting these
   to <i>false</i>:
+<p class="Pp">fetchShowForcedUpdates</p>
+<div class="Bd-indent">Advice shown when <b>git-fetch</b>(1) takes a long time
+  to calculate forced updates after ref updates, or to warn that the check is
+  disabled.</div>
 <p class="Pp">pushUpdateRejected</p>
 <div class="Bd-indent">Set this variable to <i>false</i> if you want to disable
   <i>pushNonFFCurrent</i>, <i>pushNonFFMatching</i>, <i>pushAlreadyExists</i>,
@@ -841,11 +810,17 @@ Note that this list is non-comprehensive and not necessarily complete. For
   based on the source and destination refs what remote ref namespace the source
   belongs in, but where we can still suggest that the user push to either
   refs/heads/* or refs/tags/* based on the type of the source object.</div>
+<p class="Pp">statusAheadBehind</p>
+<div class="Bd-indent">Shown when <b>git-status</b>(1) computes the ahead/behind
+  counts for a local ref compared to its remote tracking ref, and that
+  calculation takes longer than expected. Will not appear if
+  <b>status.aheadBehind</b> is false or the option <b>--no-ahead-behind</b> is
+  given.</div>
 <p class="Pp">statusHints</p>
 <div class="Bd-indent">Show directions on how to proceed from the current state
   in the output of <b>git-status</b>(1), in the template shown when writing
   commit messages in <b>git-commit</b>(1), and in the help message shown by
-  <b>git-checkout</b>(1) when switching branch.</div>
+  <b>git-switch</b>(1) or <b>git-checkout</b>(1) when switching branch.</div>
 <p class="Pp">statusUoption</p>
 <div class="Bd-indent">Advise to consider using the <b>-u</b> option to
   <b>git-status</b>(1) when the command takes more than 2 seconds to enumerate
@@ -860,18 +835,21 @@ Note that this list is non-comprehensive and not necessarily complete. For
 <p class="Pp">resolveConflict</p>
 <div class="Bd-indent">Advice shown by various commands when conflicts prevent
   the operation from being performed.</div>
+<p class="Pp">sequencerInUse</p>
+<div class="Bd-indent">Advice shown when a sequencer command is already in
+  progress.</div>
 <p class="Pp">implicitIdentity</p>
 <div class="Bd-indent">Advice on how to set your identity configuration when
   your information is guessed from the system username and domain name.</div>
 <p class="Pp">detachedHead</p>
-<div class="Bd-indent">Advice shown when you used <b>git-checkout</b>(1) to move
-  to the detach HEAD state, to instruct how to create a local branch after the
-  fact.</div>
+<div class="Bd-indent">Advice shown when you used <b>git-switch</b>(1) or
+  <b>git-checkout</b>(1) to move to the detach HEAD state, to instruct how to
+  create a local branch after the fact.</div>
 <p class="Pp">checkoutAmbiguousRemoteBranchName</p>
 <div class="Bd-indent">Advice shown when the argument to <b>git-checkout</b>(1)
-  ambiguously resolves to a remote tracking branch on more than one remote in
-  situations where an unambiguous argument would have otherwise caused a
-  remote-tracking branch to be checked out. See the
+  and <b>git-switch</b>(1) ambiguously resolves to a remote tracking branch on
+  more than one remote in situations where an unambiguous argument would have
+  otherwise caused a remote-tracking branch to be checked out. See the
   <b>checkout.defaultRemote</b> configuration variable for how to set a given
   remote to used by default in some situations where this advice would be
   printed.</div>
@@ -890,6 +868,9 @@ Note that this list is non-comprehensive and not necessarily complete. For
 <p class="Pp">waitingForEditor</p>
 <div class="Bd-indent">Print a message to the terminal whenever Git is waiting
   for editor input from the user.</div>
+<p class="Pp">nestedTag</p>
+<div class="Bd-indent">Advice shown if a user attempts to recursively tag a tag
+  object.</div>
 </div>
 <p class="Pp">core.fileMode</p>
 <div class="Bd-indent">Tells Git if the executable bit of files in the working
@@ -963,7 +944,9 @@ Note that this list is non-comprehensive and not necessarily complete. For
   <b>keep</b>. It will automatically be added if set to <b>true</b>. And it will
   automatically be removed, if set to <b>false</b>. Before setting it to
   <b>true</b>, you should check that mtime is working properly on your system.
-  See <b>git-update-index</b>(1). <b>keep</b> by default.</div>
+  See <b>git-update-index</b>(1). <b>keep</b> by default, unless
+  <b>feature.manyFiles</b> is enabled which sets this setting to <b>true</b> by
+  default.</div>
 <p class="Pp">core.checkStat</p>
 <div class="Bd-indent">When missing or is set to <b>default</b>, many fields in
   the stat structure are checked to detect if a file has been modified since Git
@@ -1242,7 +1225,7 @@ Note that this list is non-comprehensive and not necessarily complete. For
 <p class="Pp">core.excludesFile</p>
 <div class="Bd-indent">Specifies the pathname to the file that contains patterns
   to describe paths that are not meant to be tracked, in addition to
-  <i>.gitignore</i> (per-directory) and <i>.git/info/exclude</i>. Defaults to
+  <b>.gitignore</b> (per-directory) and <b>.git/info/exclude</b>. Defaults to
   <b>$XDG_CONFIG_HOME/git/ignore</b>. If <b>$XDG_CONFIG_HOME</b> is either not
   set or empty, <b>$HOME/.config/git/ignore</b> is used instead. See
   <b>gitignore</b>(5).</div>
@@ -1255,18 +1238,18 @@ Note that this list is non-comprehensive and not necessarily complete. For
   prompt. The external program shall be given a suitable prompt as command-line
   argument and write the password on its STDOUT.</div>
 <p class="Pp">core.attributesFile</p>
-<div class="Bd-indent">In addition to <i>.gitattributes</i> (per-directory) and
-  <i>.git/info/attributes</i>, Git looks into this file for attributes (see
+<div class="Bd-indent">In addition to <b>.gitattributes</b> (per-directory) and
+  <b>.git/info/attributes</b>, Git looks into this file for attributes (see
   <b>gitattributes</b>(5)). Path expansions are made the same way as for
   <b>core.excludesFile</b>. Its default value is
   <b>$XDG_CONFIG_HOME/git/attributes</b>. If <b>$XDG_CONFIG_HOME</b> is either
   not set or empty, <b>$HOME/.config/git/attributes</b> is used instead.</div>
 <p class="Pp">core.hooksPath</p>
 <div class="Bd-indent">By default Git will look for your hooks in the
-  <i>$GIT_DIR/hooks</i> directory. Set this to different path, e.g.
-  <i>/etc/git/hooks</i>, and Git will try to find your hooks in that directory,
-  e.g. <i>/etc/git/hooks/pre-receive</i> instead of in
-  <i>$GIT_DIR/hooks/pre-receive</i>.
+  <b>$GIT_DIR/hooks</b> directory. Set this to different path, e.g.
+  <b>/etc/git/hooks</b>, and Git will try to find your hooks in that directory,
+  e.g. <b>/etc/git/hooks/pre-receive</b> instead of in
+  <b>$GIT_DIR/hooks/pre-receive</b>.
 <p class="Pp">The path can be either absolute or relative. A relative path is
     taken as relative to the directory where the hooks are run (see the
     &quot;DESCRIPTION&quot; section of <b>githooks</b>(5)).</p>
@@ -1399,7 +1382,7 @@ Note that this list is non-comprehensive and not necessarily complete. For
 </div>
 <p class="Pp">core.commitGraph</p>
 <div class="Bd-indent">If true, then git will read the commit-graph file (if it
-  exists) to parse the graph structure of commits. Defaults to false. See
+  exists) to parse the graph structure of commits. Defaults to true. See
   <b>git-commit-graph</b>(1) for more information.</div>
 <p class="Pp">core.useReplaceRefs</p>
 <div class="Bd-indent">If set to <b>false</b>, behave as if the
@@ -1427,20 +1410,29 @@ Note that this list is non-comprehensive and not necessarily complete. For
   configuration variables.</div>
 <p class="Pp">alias.*</p>
 <div class="Bd-indent">Command aliases for the <b>git</b>(1) command wrapper -
-  e.g. after defining &quot;alias.last = cat-file commit HEAD&quot;, the
-  invocation &quot;git last&quot; is equivalent to &quot;git cat-file commit
-  HEAD&quot;. To avoid confusion and troubles with script usage, aliases that
-  hide existing Git commands are ignored. Arguments are split by spaces, the
-  usual shell quoting and escaping is supported. A quote pair or a backslash can
-  be used to quote them.
+  e.g. after defining <b>alias.last = cat-file commit HEAD</b>, the invocation
+  <b>git last</b> is equivalent to <b>git cat-file commit HEAD</b>. To avoid
+  confusion and troubles with script usage, aliases that hide existing Git
+  commands are ignored. Arguments are split by spaces, the usual shell quoting
+  and escaping is supported. A quote pair or a backslash can be used to quote
+  them.
+<p class="Pp">Note that the first word of an alias does not necessarily have to
+    be a command. It can be a command-line option that will be passed into the
+    invocation of <b>git</b>. In particular, this is useful when used with
+    <b>-c</b> to pass in one-time configurations or <b>-p</b> to force
+    pagination. For example, <b>loud-rebase = -c commit.verbose=true rebase</b>
+    can be defined such that running <b>git loud-rebase</b> would be equivalent
+    to <b>git -c commit.verbose=true rebase</b>. Also, <b>ps = -p status</b>
+    would be a helpful alias since <b>git ps</b> would paginate the output of
+    <b>git status</b> where the original command does not.</p>
 <p class="Pp">If the alias expansion is prefixed with an exclamation point, it
-    will be treated as a shell command. For example, defining &quot;alias.new =
-    !gitk --all --not ORIG_HEAD&quot;, the invocation &quot;git new&quot; is
-    equivalent to running the shell command &quot;gitk --all --not
-    ORIG_HEAD&quot;. Note that shell commands will be executed from the
-    top-level directory of a repository, which may not necessarily be the
-    current directory. <b>GIT_PREFIX</b> is set as returned by running <i>git
-    rev-parse --show-prefix</i> from the original current directory. See
+    will be treated as a shell command. For example, defining <b>alias.new =
+    !gitk --all --not ORIG_HEAD</b>, the invocation <b>git new</b> is equivalent
+    to running the shell command <b>gitk --all --not ORIG_HEAD</b>. Note that
+    shell commands will be executed from the top-level directory of a
+    repository, which may not necessarily be the current directory.
+    <b>GIT_PREFIX</b> is set as returned by running <b>git rev-parse
+    --show-prefix</b> from the original current directory. See
     <b>git-rev-parse</b>(1).</p>
 </div>
 <p class="Pp">am.keepcr</p>
@@ -1482,20 +1474,36 @@ Note that this list is non-comprehensive and not necessarily complete. For
 <p class="Pp">blame.showRoot</p>
 <div class="Bd-indent">Do not treat root commits as boundaries in
   <b>git-blame</b>(1). This option defaults to false.</div>
+<p class="Pp">blame.ignoreRevsFile</p>
+<div class="Bd-indent">Ignore revisions listed in the file, one unabbreviated
+  object name per line, in <b>git-blame</b>(1). Whitespace and comments
+  beginning with <b>#</b> are ignored. This option may be repeated multiple
+  times. Empty file names will reset the list of ignored revisions. This option
+  will be handled before the command line option
+  <b>--ignore-revs-file</b>.</div>
+<p class="Pp">blame.markUnblamables</p>
+<div class="Bd-indent">Mark lines that were changed by an ignored revision that
+  we could not attribute to another commit with a <i>*</i> in the output of
+  <b>git-blame</b>(1).</div>
+<p class="Pp">blame.markIgnoredLines</p>
+<div class="Bd-indent">Mark lines that were changed by an ignored revision that
+  we attributed to another commit with a <i>?</i> in the output of
+  <b>git-blame</b>(1).</div>
 <p class="Pp">branch.autoSetupMerge</p>
-<div class="Bd-indent">Tells <i>git branch</i> and <i>git checkout</i> to set up
-  new branches so that <b>git-pull</b>(1) will appropriately merge from the
-  starting point branch. Note that even if this option is not set, this behavior
-  can be chosen per-branch using the <b>--track</b> and <b>--no-track</b>
-  options. The valid settings are: <b>false</b> &#x2014; no automatic setup is
-  done; <b>true</b> &#x2014; automatic setup is done when the starting point is
-  a remote-tracking branch; <b>always</b> &#x2014; automatic setup is done when
-  the starting point is either a local branch or remote-tracking branch. This
-  option defaults to true.</div>
+<div class="Bd-indent">Tells <i>git branch</i>, <i>git switch</i> and <i>git
+  checkout</i> to set up new branches so that <b>git-pull</b>(1) will
+  appropriately merge from the starting point branch. Note that even if this
+  option is not set, this behavior can be chosen per-branch using the
+  <b>--track</b> and <b>--no-track</b> options. The valid settings are:
+  <b>false</b> &#x2014; no automatic setup is done; <b>true</b> &#x2014;
+  automatic setup is done when the starting point is a remote-tracking branch;
+  <b>always</b> &#x2014; automatic setup is done when the starting point is
+  either a local branch or remote-tracking branch. This option defaults to
+  true.</div>
 <p class="Pp">branch.autoSetupRebase</p>
-<div class="Bd-indent">When a new branch is created with <i>git branch</i> or
-  <i>git checkout</i> that tracks another branch, this variable tells Git to set
-  up pull to rebase instead of merge (see
+<div class="Bd-indent">When a new branch is created with <i>git branch</i>,
+  <i>git switch</i> or <i>git checkout</i> that tracks another branch, this
+  variable tells Git to set up pull to rebase instead of merge (see
   &quot;branch.&lt;name&gt;.rebase&quot;). When <b>never</b>, rebase is never
   automatically set to true. When <b>local</b>, rebase is set to true for
   tracked branches of other local branches. When <b>remote</b>, rebase is set to
@@ -1556,9 +1564,10 @@ Note that this list is non-comprehensive and not necessarily complete. For
 <p class="Pp">When <b>merges</b>, pass the <b>--rebase-merges</b> option to
     <i>git rebase</i> so that the local merge commits are included in the rebase
     (see <b>git-rebase</b>(1) for details).</p>
-<p class="Pp">When preserve, also pass <b>--preserve-merges</b> along to <i>git
-    rebase</i> so that locally committed merge commits will not be flattened by
-    running <i>git pull</i>.</p>
+<p class="Pp">When <b>preserve</b> (deprecated in favor of <b>merges</b>), also
+    pass <b>--preserve-merges</b> along to <i>git rebase</i> so that locally
+    committed merge commits will not be flattened by running <i>git
+  pull</i>.</p>
 <p class="Pp">When the value is <b>interactive</b>, the rebase is run in
     interactive mode.</p>
 <p class="Pp"><b>NOTE</b>: this is a possibly dangerous operation; do <b>not</b>
@@ -1578,26 +1587,20 @@ Note that this list is non-comprehensive and not necessarily complete. For
   browse HTML help (see <b>-w</b> option in <b>git-help</b>(1)) or a working
   repository in gitweb (see <b>git-instaweb</b>(1)).</div>
 <p class="Pp">checkout.defaultRemote</p>
-<div class="Bd-indent">When you run <i>git checkout &lt;something&gt;</i> and
-  only have one remote, it may implicitly fall back on checking out and tracking
-  e.g. <i>origin/&lt;something&gt;</i>. This stops working as soon as you have
-  more than one remote with a <i>&lt;something&gt;</i> reference. This setting
-  allows for setting the name of a preferred remote that should always win when
-  it comes to disambiguation. The typical use-case is to set this to
-  <b>origin</b>.
-<p class="Pp">Currently this is used by <b>git-checkout</b>(1) when <i>git
-    checkout &lt;something&gt;</i> will checkout the <i>&lt;something&gt;</i>
+<div class="Bd-indent">When you run <i>git checkout &lt;something&gt;</i> or
+  <i>git switch &lt;something&gt;</i> and only have one remote, it may
+  implicitly fall back on checking out and tracking e.g.
+  <i>origin/&lt;something&gt;</i>. This stops working as soon as you have more
+  than one remote with a <i>&lt;something&gt;</i> reference. This setting allows
+  for setting the name of a preferred remote that should always win when it
+  comes to disambiguation. The typical use-case is to set this to <b>origin</b>.
+<p class="Pp">Currently this is used by <b>git-switch</b>(1) and
+    <b>git-checkout</b>(1) when <i>git checkout &lt;something&gt;</i> or <i>git
+    switch &lt;something&gt;</i> will checkout the <i>&lt;something&gt;</i>
     branch on another remote, and by <b>git-worktree</b>(1) when <i>git worktree
     add</i> refers to a remote branch. This setting might be used for other
     checkout-like commands or functionality in the future.</p>
 </div>
-<p class="Pp">checkout.optimizeNewBranch</p>
-<div class="Bd-indent">Optimizes the performance of &quot;git checkout -b
-  &lt;new_branch&gt;&quot; when using sparse-checkout. When set to true, git
-  will not update the repo based on the current sparse-checkout settings. This
-  means it will not update the skip-worktree bit in the index nor add/remove
-  files in the working directory to reflect the current sparse checkout settings
-  nor will it show the local changes.</div>
 <p class="Pp">clean.requireForce</p>
 <div class="Bd-indent">A boolean to make git-clean do nothing unless given -f,
   -i or -n. Defaults to true.</div>
@@ -1615,7 +1618,7 @@ Note that this list is non-comprehensive and not necessarily complete. For
 <p class="Pp">This setting should be set to a comma-separated list of color and
     date settings, starting and ending with a color, the dates should be set
     from oldest to newest. The metadata will be colored given the colors if the
-    the line was introduced before the given timestamp, overwriting older
+    line was introduced before the given timestamp, overwriting older
     timestamped colors.</p>
 <p class="Pp">Instead of an absolute timestamp relative timestamps work as well,
     e.g. 2.weeks.ago is valid to address anything older than 2 weeks.</p>
@@ -1884,7 +1887,7 @@ Note that this list is non-comprehensive and not necessarily complete. For
 <p class="Pp">diff.dirstat</p>
 <div class="Bd-indent">A comma separated list of <b>--dirstat</b> parameters
   specifying the default behavior of the <b>--dirstat</b> option to
-  <b>git-diff</b>(1)` and friends. The defaults can be overridden on the command
+  <b>git-diff</b>(1) and friends. The defaults can be overridden on the command
   line (using <b>--dirstat=&lt;param1,param2,...&gt;</b>). The fallback defaults
   (when not changed by <b>diff.dirstat</b>) are <b>changes,noncumulative,3</b>.
   The following parameters are available:
@@ -1944,12 +1947,12 @@ Note that this list is non-comprehensive and not necessarily complete. For
 <p class="Pp">diff.ignoreSubmodules</p>
 <div class="Bd-indent">Sets the default value of --ignore-submodules. Note that
   this affects only <i>git diff</i> Porcelain, and not lower level <i>diff</i>
-  commands such as <i>git diff-files</i>. <i>git checkout</i> also honors this
-  setting when reporting uncommitted changes. Setting it to <i>all</i> disables
-  the submodule summary normally shown by <i>git commit</i> and <i>git
-  status</i> when <b>status.submoduleSummary</b> is set unless it is overridden
-  by using the --ignore-submodules command-line option. The <i>git submodule</i>
-  commands are not affected by this setting.</div>
+  commands such as <i>git diff-files</i>. <i>git checkout</i> and <i>git
+  switch</i> also honor this setting when reporting uncommitted changes. Setting
+  it to <i>all</i> disables the submodule summary normally shown by <i>git
+  commit</i> and <i>git status</i> when <b>status.submoduleSummary</b> is set
+  unless it is overridden by using the --ignore-submodules command-line option.
+  The <i>git submodule</i> commands are not affected by this setting.</div>
 <p class="Pp">diff.mnemonicPrefix</p>
 <div class="Bd-indent">If set, <i>git diff</i> uses a prefix pair that is
   different from the standard &quot;a/&quot; and &quot;b/&quot; depending on
@@ -2073,6 +2076,8 @@ Note that this list is non-comprehensive and not necessarily complete. For
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;p4merge</div>
 <p class="Pp"></p>
+<div class="Bd-indent">&#x2022;smerge</div>
+<p class="Pp"></p>
 <div class="Bd-indent">&#x2022;tkdiff</div>
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;vimdiff</div>
@@ -2086,7 +2091,7 @@ Note that this list is non-comprehensive and not necessarily complete. For
 <div class="Bd-indent">&#x2022;xxdiff</div>
 </div>
 <p class="Pp">diff.indentHeuristic</p>
-<div class="Bd-indent">Set this option to <b>true</b> to enable experimental
+<div class="Bd-indent">Set this option to <b>false</b> to disable the default
   heuristics that shift diff hunk boundaries to make patches easier to
   read.</div>
 <p class="Pp">diff.algorithm</p>
@@ -2142,6 +2147,49 @@ Note that this list is non-comprehensive and not necessarily complete. For
   the pack from a fast-import can make the import operation complete faster,
   especially on slow filesystems. If not set, the value of
   <b>transfer.unpackLimit</b> is used instead.</div>
+<p class="Pp">feature.*</p>
+<div class="Bd-indent">The config settings that start with <b>feature.</b>
+  modify the defaults of a group of other config settings. These groups are
+  created by the Git developer community as recommended defaults and are subject
+  to change. In particular, new config options may be added with different
+  defaults.</div>
+<p class="Pp">feature.experimental</p>
+<div class="Bd-indent">Enable config options that are new to Git, and are being
+  considered for future defaults. Config settings included here may be added or
+  removed with each release, including minor version updates. These settings may
+  have unintended interactions since they are so new. Please enable this setting
+  if you are interested in providing feedback on experimental features. The new
+  default values are:
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>pack.useSparse=true</b> uses a new algorithm
+  when constructing a pack-file which can improve <b>git push</b> performance in
+  repos with many files.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>fetch.negotiationAlgorithm=skipping</b> may
+  improve fetch negotiation times by skipping more commits at a time, reducing
+  the number of round trips.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>fetch.writeCommitGraph=true</b> writes a
+  commit-graph after every <b>git fetch</b> command that downloads a pack-file
+  from a remote. Using the <b>--split</b> option, most executions will create a
+  very small commit-graph file on top of the existing commit-graph file(s).
+  Occasionally, these files will merge and the write may take longer. Having an
+  updated commit-graph file helps performance of many Git commands, including
+  <b>git merge-base</b>, <b>git push -f</b>, and <b>git log --graph</b>.</div>
+</div>
+<p class="Pp">feature.manyFiles</p>
+<div class="Bd-indent">Enable config options that optimize for repos with many
+  files in the working directory. With many files, commands such as <b>git
+  status</b> and <b>git checkout</b> may be slow and these new defaults improve
+  performance:
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>index.version=4</b> enables path-prefix
+  compression in the index.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>core.untrackedCache=true</b> enables the
+  untracked cache. This setting assumes that mtime is working on your
+  machine.</div>
+</div>
 <p class="Pp">fetch.recurseSubmodules</p>
 <div class="Bd-indent">This option can be either set to a boolean value or to
   <i>on-demand</i>. Setting it to a boolean changes the behavior of fetch and
@@ -2194,11 +2242,33 @@ Note that this list is non-comprehensive and not necessarily complete. For
   in an effort to converge faster, but may result in a larger-than-necessary
   packfile; The default is &quot;default&quot; which instructs Git to use the
   default algorithm that never skips commits (unless the server has acknowledged
-  it or one of its descendants). Unknown values will cause <i>git fetch</i> to
-  error out.
+  it or one of its descendants). If <b>feature.experimental</b> is enabled, then
+  this setting defaults to &quot;skipping&quot;. Unknown values will cause
+  <i>git fetch</i> to error out.
 <p class="Pp">See also the <b>--negotiation-tip</b> option for
     <b>git-fetch</b>(1).</p>
 </div>
+<p class="Pp">fetch.showForcedUpdates</p>
+<div class="Bd-indent">Set to false to enable <b>--no-show-forced-updates</b> in
+  <b>git-fetch</b>(1) and <b>git-pull</b>(1) commands. Defaults to true.</div>
+<p class="Pp">fetch.parallel</p>
+<div class="Bd-indent">Specifies the maximal number of fetch operations to be
+  run in parallel at a time (submodules, or remotes when the <b>--multiple</b>
+  option of <b>git-fetch</b>(1) is in effect).
+<p class="Pp">A value of 0 will give some reasonable default. If unset, it
+    defaults to 1.</p>
+<p class="Pp">For submodules, this setting can be overridden using the
+    <b>submodule.fetchJobs</b> config setting.</p>
+</div>
+<p class="Pp">fetch.writeCommitGraph</p>
+<div class="Bd-indent">Set to true to write a commit-graph after every <b>git
+  fetch</b> command that downloads a pack-file from a remote. Using the
+  <b>--split</b> option, most executions will create a very small commit-graph
+  file on top of the existing commit-graph file(s). Occasionally, these files
+  will merge and the write may take longer. Having an updated commit-graph file
+  helps performance of many Git commands, including <b>git merge-base</b>,
+  <b>git push -f</b>, and <b>git log --graph</b>. Defaults to false, unless
+  <b>feature.experimental</b> is true.</div>
 <p class="Pp">format.attach</p>
 <div class="Bd-indent">Enable multipart/mixed attachments as the default for
   <i>format-patch</i>. The value can also be a double quoted string which will
@@ -2265,13 +2335,26 @@ Note that this list is non-comprehensive and not necessarily complete. For
 <div class="Bd-indent">A boolean that controls whether to generate a
   cover-letter when format-patch is invoked, but in addition can be set to
   &quot;auto&quot;, to generate a cover-letter only when there&#x2019;s more
-  than one patch.</div>
+  than one patch. Default is false.</div>
 <p class="Pp">format.outputDirectory</p>
 <div class="Bd-indent">Set a custom directory to store the resulting files
-  instead of the current working directory.</div>
+  instead of the current working directory. All directory components will be
+  created.</div>
 <p class="Pp">format.useAutoBase</p>
 <div class="Bd-indent">A boolean value which lets you enable the
   <b>--base=auto</b> option of format-patch by default.</div>
+<p class="Pp">format.notes</p>
+<div class="Bd-indent">Provides the default value for the <b>--notes</b> option
+  to format-patch. Accepts a boolean value, or a ref which specifies where to
+  get notes. If false, format-patch defaults to <b>--no-notes</b>. If true,
+  format-patch defaults to <b>--notes</b>. If set to a non-boolean value,
+  format-patch defaults to <b>--notes=&lt;ref&gt;</b>, where <b>ref</b> is the
+  non-boolean value. Defaults to false.
+<p class="Pp">If one wishes to use the ref <b>ref/notes/true</b>, please use
+    that literal instead.</p>
+<p class="Pp">This configuration can be specified multiple times in order to
+    allow multiple notes refs to be included.</p>
+</div>
 <p class="Pp">filter.&lt;driver&gt;.clean</p>
 <div class="Bd-indent">The command which is used to convert the content of a
   worktree file to a blob upon checkin. See <b>gitattributes</b>(5) for
@@ -2343,20 +2426,37 @@ Note that this list is non-comprehensive and not necessarily complete. For
 </div>
 <p class="Pp">gc.aggressiveDepth</p>
 <div class="Bd-indent">The depth parameter used in the delta compression
-  algorithm used by <i>git gc --aggressive</i>. This defaults to 50.</div>
+  algorithm used by <i>git gc --aggressive</i>. This defaults to 50, which is
+  the default for the <b>--depth</b> option when <b>--aggressive</b>
+  isn&#x2019;t in use.
+<p class="Pp">See the documentation for the <b>--depth</b> option in
+    <b>git-repack</b>(1) for more details.</p>
+</div>
 <p class="Pp">gc.aggressiveWindow</p>
 <div class="Bd-indent">The window size parameter used in the delta compression
-  algorithm used by <i>git gc --aggressive</i>. This defaults to 250.</div>
+  algorithm used by <i>git gc --aggressive</i>. This defaults to 250, which is a
+  much more aggressive window size than the default <b>--window</b> of 10.
+<p class="Pp">See the documentation for the <b>--window</b> option in
+    <b>git-repack</b>(1) for more details.</p>
+</div>
 <p class="Pp">gc.auto</p>
 <div class="Bd-indent">When there are approximately more than this many loose
   objects in the repository, <b>git gc --auto</b> will pack them. Some Porcelain
   commands use this command to perform a light-weight garbage collection from
-  time to time. The default value is 6700. Setting this to 0 disables it.</div>
+  time to time. The default value is 6700.
+<p class="Pp">Setting this to 0 disables not only automatic packing based on the
+    number of loose objects, but any other heuristic <b>git gc --auto</b> will
+    otherwise use to determine if there&#x2019;s work to do, such as
+    <b>gc.autoPackLimit</b>.</p>
+</div>
 <p class="Pp">gc.autoPackLimit</p>
 <div class="Bd-indent">When there are more than this many packs that are not
   marked with <b>*.keep</b> file in the repository, <b>git gc --auto</b>
   consolidates them into one larger pack. The default value is 50. Setting this
-  to 0 disables it.</div>
+  to 0 disables it. Setting <b>gc.auto</b> to 0 will also disable this.
+<p class="Pp">See the <b>gc.bigPackThreshold</b> configuration variable below.
+    When in use, it&#x2019;ll affect how the auto pack limit works.</p>
+</div>
 <p class="Pp">gc.autoDetach</p>
 <div class="Bd-indent">Make <b>git gc --auto</b> return immediately and run in
   background if the system supports it. Default is true.</div>
@@ -2371,12 +2471,16 @@ Note that this list is non-comprehensive and not necessarily complete. For
     the base pack will be repacked. After this the number of packs should go
     below gc.autoPackLimit and gc.bigPackThreshold should be respected
   again.</p>
+<p class="Pp">If the amount of memory estimated for <b>git repack</b> to run
+    smoothly is not available and <b>gc.bigPackThreshold</b> is not set, the
+    largest pack will also be excluded (this is the equivalent of running <b>git
+    gc</b> with <b>--keep-base-pack</b>).</p>
 </div>
 <p class="Pp">gc.writeCommitGraph</p>
 <div class="Bd-indent">If true, then gc will rewrite the commit-graph file when
-  <b>git-gc</b>(1) is run. When using <b>git-gc</b>(1) <i>--auto</i> the
-  commit-graph will be updated if housekeeping is required. Default is false.
-  See <b>git-commit-graph</b>(1) for details.</div>
+  <b>git-gc</b>(1) is run. When using <b>git gc --auto</b> the commit-graph will
+  be updated if housekeeping is required. Default is true. See
+  <b>git-commit-graph</b>(1) for details.</div>
 <p class="Pp">gc.logExpiry</p>
 <div class="Bd-indent">If the file gc.log exists, then <b>git gc --auto</b> will
   print its content and exit with status zero instead of running unless that
@@ -2415,7 +2519,13 @@ Note that this list is non-comprehensive and not necessarily complete. For
   days. The value &quot;now&quot; expires all entries immediately, and
   &quot;never&quot; suppresses expiration altogether. With
   &quot;&lt;pattern&gt;&quot; (e.g. &quot;refs/stash&quot;) in the middle, the
-  setting applies only to the refs that match the &lt;pattern&gt;.</div>
+  setting applies only to the refs that match the &lt;pattern&gt;.
+<p class="Pp">These types of entries are generally created as a result of using
+    <b>git commit --amend</b> or <b>git rebase</b> and are the commits prior to
+    the amend or rebase occurring. Since these changes are not part of the
+    current project most users will want to expire them sooner, which is why the
+    default is more aggressive than <b>gc.reflogExpire</b>.</p>
+</div>
 <p class="Pp">gc.rerereResolved</p>
 <div class="Bd-indent">Records of conflicted merge you resolved earlier are kept
   for this many days when <i>git rerere gc</i> is run. You can also use more
@@ -2514,7 +2624,7 @@ Note that this list is non-comprehensive and not necessarily complete. For
 <div class="Bd-indent">Use this custom program instead of &quot;<b>gpg</b>&quot;
   found on <b>$PATH</b> when making or verifying a PGP signature. The program
   must support the same command-line interface as GPG, namely, to verify a
-  detached signature, &quot;<b>gpg --verify $file - &lt;$signature</b>&quot; is
+  detached signature, &quot;<b>gpg --verify $signature - &lt;$file</b>&quot; is
   run, and the program is expected to signal a good signature by exiting with
   code 0, and to generate an ASCII-armored detached signature, the standard
   input of &quot;<b>gpg -bsau $key</b>&quot; is fed with the contents to be
@@ -2973,7 +3083,8 @@ Note that this list is non-comprehensive and not necessarily complete. For
   <i>false</i> will disable multithreading. Defaults to <i>true</i>.</div>
 <p class="Pp">index.version</p>
 <div class="Bd-indent">Specify the version with which new index files should be
-  initialized. This does not affect existing repositories.</div>
+  initialized. This does not affect existing repositories. If
+  <b>feature.manyFiles</b> is enabled, then the default is 4.</div>
 <p class="Pp">init.templateDir</p>
 <div class="Bd-indent">Specify the directory from which templates will be
   copied. (See the &quot;TEMPLATE DIRECTORY&quot; section of
@@ -2997,10 +3108,10 @@ Note that this list is non-comprehensive and not necessarily complete. For
 <div class="Bd-indent">In interactive commands, allow the user to provide
   one-letter input with a single key (i.e., without hitting enter). Currently
   this is used by the <b>--patch</b> mode of <b>git-add</b>(1),
-  <b>git-checkout</b>(1), <b>git-commit</b>(1), <b>git-reset</b>(1), and
-  <b>git-stash</b>(1). Note that this setting is silently ignored if portable
-  keystroke input is not available; requires the Perl module
-  Term::ReadKey.</div>
+  <b>git-checkout</b>(1), <b>git-restore</b>(1), <b>git-commit</b>(1),
+  <b>git-reset</b>(1), and <b>git-stash</b>(1). Note that this setting is
+  silently ignored if portable keystroke input is not available; requires the
+  Perl module Term::ReadKey.</div>
 <p class="Pp">interactive.diffFilter</p>
 <div class="Bd-indent">When an interactive command (such as <b>git add
   --patch</b>) shows a colorized diff, git will pipe the diff through the shell
@@ -3043,7 +3154,8 @@ Note that this list is non-comprehensive and not necessarily complete. For
   <b>git-whatchanged</b>(1) assume <b>--show-signature</b>.</div>
 <p class="Pp">log.mailmap</p>
 <div class="Bd-indent">If true, makes <b>git-log</b>(1), <b>git-show</b>(1), and
-  <b>git-whatchanged</b>(1) assume <b>--use-mailmap</b>.</div>
+  <b>git-whatchanged</b>(1) assume <b>--use-mailmap</b>, otherwise assume
+  <b>--no-use-mailmap</b>. True by default.</div>
 <p class="Pp">mailinfo.scissors</p>
 <div class="Bd-indent">If true, makes <b>git-mailinfo</b>(1) (and therefore
   <b>git-am</b>(1)) act by default as if the --scissors option was provided on
@@ -3115,10 +3227,20 @@ Note that this list is non-comprehensive and not necessarily complete. For
   diff.renameLimit. This setting has no effect if rename detection is turned
   off.</div>
 <p class="Pp">merge.renames</p>
-<div class="Bd-indent">Whether and how Git detects renames. If set to
-  &quot;false&quot;, rename detection is disabled. If set to &quot;true&quot;,
-  basic rename detection is enabled. Defaults to the value of
-  diff.renames.</div>
+<div class="Bd-indent">Whether Git detects renames. If set to &quot;false&quot;,
+  rename detection is disabled. If set to &quot;true&quot;, basic rename
+  detection is enabled. Defaults to the value of diff.renames.</div>
+<p class="Pp">merge.directoryRenames</p>
+<div class="Bd-indent">Whether Git detects directory renames, affecting what
+  happens at merge time to new files added to a directory on one side of history
+  when that directory was renamed on the other side of history. If
+  merge.directoryRenames is set to &quot;false&quot;, directory rename detection
+  is disabled, meaning that such new files will be left behind in the old
+  directory. If set to &quot;true&quot;, directory rename detection is enabled,
+  meaning that such new files will be moved into the new directory. If set to
+  &quot;conflict&quot;, a conflict will be reported for such paths. If
+  merge.renames is false, merge.directoryRenames is ignored and treated as
+  false. Defaults to &quot;conflict&quot;.</div>
 <p class="Pp">merge.renormalize</p>
 <div class="Bd-indent">Tell Git that canonical representation of files in the
   repository has changed over time (e.g. earlier commits record text files with
@@ -3177,6 +3299,8 @@ Note that this list is non-comprehensive and not necessarily complete. For
 <div class="Bd-indent">&#x2022;opendiff</div>
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;p4merge</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;smerge</div>
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;tkdiff</div>
 <p class="Pp"></p>
@@ -3400,7 +3524,8 @@ Note that this list is non-comprehensive and not necessarily complete. For
   objects. This can have significant performance benefits when computing a pack
   to send a small change. However, it is possible that extra objects are added
   to the pack-file if the included commits contain certain types of direct
-  renames.</div>
+  renames. Default is <b>false</b> unless <b>feature.experimental</b> is
+  enabled.</div>
 <p class="Pp">pack.writeBitmaps (deprecated)</p>
 <div class="Bd-indent">This is a deprecated synonym for
   <b>repack.writeBitmaps</b>.</div>
@@ -3410,10 +3535,8 @@ Note that this list is non-comprehensive and not necessarily complete. For
   feed git&#x2019;s delta heuristics, potentially leading to better deltas
   between bitmapped and non-bitmapped objects (e.g., when serving a fetch
   between an older, bitmapped pack and objects that have been pushed since the
-  last gc). The downside is that it consumes 4 bytes per object of disk space,
-  and that JGit&#x2019;s bitmap implementation does not understand it, causing
-  it to complain if Git and JGit are used on the same repository. Defaults to
-  false.</div>
+  last gc). The downside is that it consumes 4 bytes per object of disk space.
+  Defaults to true.</div>
 <p class="Pp">pager.&lt;cmd&gt;</p>
 <div class="Bd-indent">If the value is boolean, turns on or off pagination of
   the output of a particular Git subcommand when writing to a tty. Otherwise,
@@ -3505,9 +3628,10 @@ Note that this list is non-comprehensive and not necessarily complete. For
 <p class="Pp">When <b>merges</b>, pass the <b>--rebase-merges</b> option to
     <i>git rebase</i> so that the local merge commits are included in the rebase
     (see <b>git-rebase</b>(1) for details).</p>
-<p class="Pp">When preserve, also pass <b>--preserve-merges</b> along to <i>git
-    rebase</i> so that locally committed merge commits will not be flattened by
-    running <i>git pull</i>.</p>
+<p class="Pp">When <b>preserve</b> (deprecated in favor of <b>merges</b>), also
+    pass <b>--preserve-merges</b> along to <i>git rebase</i> so that locally
+    committed merge commits will not be flattened by running <i>git
+  pull</i>.</p>
 <p class="Pp">When the value is <b>interactive</b>, the rebase is run in
     interactive mode.</p>
 <p class="Pp"><b>NOTE</b>: this is a possibly dangerous operation; do <b>not</b>
@@ -3611,17 +3735,11 @@ Note that this list is non-comprehensive and not necessarily complete. For
   time of push by specifying
   <i>--recurse-submodules=check|on-demand|no</i>.</div>
 <p class="Pp">rebase.useBuiltin</p>
-<div class="Bd-indent">Set to <b>false</b> to use the legacy shellscript
-  implementation of <b>git-rebase</b>(1). Is <b>true</b> by default, which means
-  use the built-in rewrite of it in C.
-<p class="Pp">The C rewrite is first included with Git version 2.20. This option
-    serves an an escape hatch to re-enable the legacy version in case any bugs
-    are found in the rewrite. This option and the shellscript version of
-    <b>git-rebase</b>(1) will be removed in some future release.</p>
-<p class="Pp">If you find some reason to set this option to <b>false</b> other
-    than one-off testing you should report the behavior difference as a bug in
-    git.</p>
-</div>
+<div class="Bd-indent">Unused configuration variable. Used in Git versions 2.20
+  and 2.21 as an escape hatch to enable the legacy shellscript implementation of
+  rebase. Now the built-in rewrite of it in C is always used. Setting this will
+  emit a warning, to alert any remaining users that setting this now does
+  nothing.</div>
 <p class="Pp">rebase.stat</p>
 <div class="Bd-indent">Whether to show a diffstat of what changed upstream since
   the last rebase. False by default.</div>
@@ -3842,6 +3960,12 @@ Note that this list is non-comprehensive and not necessarily complete. For
 <p class="Pp">See also <b>remote.&lt;name&gt;.prune</b> and the PRUNING section
     of <b>git-fetch</b>(1).</p>
 </div>
+<p class="Pp">remote.&lt;name&gt;.promisor</p>
+<div class="Bd-indent">When set to true, this remote will be used to fetch
+  promisor objects.</div>
+<p class="Pp">remote.&lt;name&gt;.partialclonefilter</p>
+<div class="Bd-indent">The filter that will be applied when fetching from this
+  promisor remote.</div>
 <p class="Pp">remotes.&lt;group&gt;</p>
 <div class="Bd-indent">The list of remotes which are fetched by &quot;git remote
   update &lt;group&gt;&quot;. See <b>git-remote</b>(1).</div>
@@ -3866,7 +3990,7 @@ Note that this list is non-comprehensive and not necessarily complete. For
   up the &quot;counting objects&quot; phase of subsequent packs created for
   clones and fetches, at the cost of some disk space and extra time spent on the
   initial repack. This has no effect if multiple packfiles are created. Defaults
-  to false.</div>
+  to true on bare repos, false otherwise.</div>
 <p class="Pp">rerere.autoUpdate</p>
 <div class="Bd-indent">When set to true, <b>git-rerere</b> updates the index
   with the resulting contents after it cleanly resolves conflicts using
@@ -3991,6 +4115,10 @@ Note that this list is non-comprehensive and not necessarily complete. For
 <div class="Bd-indent">Set to true to enable --branch by default in
   <b>git-status</b>(1). The option --no-branch takes precedence over this
   variable.</div>
+<p class="Pp">status.aheadBehind</p>
+<div class="Bd-indent">Set to true to enable <b>--ahead-behind</b> and false to
+  enable <b>--no-ahead-behind</b> by default in <b>git-status</b>(1) for
+  non-porcelain status formats. Defaults to true.</div>
 <p class="Pp">status.displayCommentPrefix</p>
 <div class="Bd-indent">If set to true, <b>git-status</b>(1) will insert a
   comment prefix before each output line (starting with <b>core.commentChar</b>,
@@ -4041,6 +4169,19 @@ Note that this list is non-comprehensive and not necessarily complete. For
   --ignore-submodules=dirty command-line option or the <i>git submodule
   summary</i> command, which shows a similar output but does not honor these
   settings.</div>
+<p class="Pp">stash.useBuiltin</p>
+<div class="Bd-indent">Set to <b>false</b> to use the legacy shell script
+  implementation of <b>git-stash</b>(1). Is <b>true</b> by default, which means
+  use the built-in rewrite of it in C.
+<p class="Pp">The C rewrite is first included with Git version 2.22 (and Git for
+    Windows version 2.19). This option serves as an escape hatch to re-enable
+    the legacy version in case any bugs are found in the rewrite. This option
+    and the shell script version of <b>git-stash</b>(1) will be removed in some
+    future release.</p>
+<p class="Pp">If you find some reason to set this option to <b>false</b>, other
+    than one-off testing, you should report the behavior difference as a bug in
+    Git (see <b>https://git-scm.com/community</b> for details).</p>
+</div>
 <p class="Pp">stash.showPatch</p>
 <div class="Bd-indent">If this is set to true, the <b>git stash show</b> command
   without an option will show the stash entry in patch form. Defaults to false.
@@ -4125,12 +4266,87 @@ Note that this list is non-comprehensive and not necessarily complete. For
 <div class="Bd-indent">This variable controls the sort ordering of tags when
   displayed by <b>git-tag</b>(1). Without the &quot;--sort=&lt;value&gt;&quot;
   option provided, the value of this variable will be used as the default.</div>
+<p class="Pp">tag.gpgSign</p>
+<div class="Bd-indent">A boolean to specify whether all tags should be GPG
+  signed. Use of this option when running in an automated script can result in a
+  large number of tags being signed. It is therefore convenient to use an agent
+  to avoid typing your gpg passphrase several times. Note that this option
+  doesn&#x2019;t affects tag signing behavior enabled by &quot;-u
+  &lt;keyid&gt;&quot; or &quot;--local-user=&lt;keyid&gt;&quot; options.</div>
 <p class="Pp">tar.umask</p>
 <div class="Bd-indent">This variable can be used to restrict the permission bits
   of tar archive entries. The default is 0002, which turns off the world write
   bit. The special value &quot;user&quot; indicates that the archiving
   user&#x2019;s umask will be used instead. See umask(2) and
   <b>git-archive</b>(1).</div>
+<p class="Pp">Trace2 config settings are only read from the system and global
+    config files; repository local and worktree config files and <b>-c</b>
+    command line arguments are not respected.</p>
+<p class="Pp">trace2.normalTarget</p>
+<div class="Bd-indent">This variable controls the normal target destination. It
+  may be overridden by the <b>GIT_TRACE2</b> environment variable. The following
+  table shows possible values.</div>
+<p class="Pp">trace2.perfTarget</p>
+<div class="Bd-indent">This variable controls the performance target
+  destination. It may be overridden by the <b>GIT_TRACE2_PERF</b> environment
+  variable. The following table shows possible values.</div>
+<p class="Pp">trace2.eventTarget</p>
+<div class="Bd-indent">This variable controls the event target destination. It
+  may be overridden by the <b>GIT_TRACE2_EVENT</b> environment variable. The
+  following table shows possible values.
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>0</b> or <b>false</b> - Disables the
+  target.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>1</b> or <b>true</b> - Writes to
+  <b>STDERR</b>.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>[2-9]</b> - Writes to the already opened file
+  descriptor.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>&lt;absolute-pathname&gt;</b> - Writes to the
+  file in append mode. If the target already exists and is a directory, the
+  traces will be written to files (one per process) underneath the given
+  directory.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>af_unix:[&lt;socket_type&gt;:]&lt;absolute-pathname&gt;</b>
+  - Write to a Unix DomainSocket (on platforms that support them). Socket type
+  can be either <b>stream</b> or <b>dgram</b>; if omitted Git will try
+  both.</div>
+</div>
+<p class="Pp">trace2.normalBrief</p>
+<div class="Bd-indent">Boolean. When true <b>time</b>, <b>filename</b>, and
+  <b>line</b> fields are omitted from normal output. May be overridden by the
+  <b>GIT_TRACE2_BRIEF</b> environment variable. Defaults to false.</div>
+<p class="Pp">trace2.perfBrief</p>
+<div class="Bd-indent">Boolean. When true <b>time</b>, <b>filename</b>, and
+  <b>line</b> fields are omitted from PERF output. May be overridden by the
+  <b>GIT_TRACE2_PERF_BRIEF</b> environment variable. Defaults to false.</div>
+<p class="Pp">trace2.eventBrief</p>
+<div class="Bd-indent">Boolean. When true <b>time</b>, <b>filename</b>, and
+  <b>line</b> fields are omitted from event output. May be overridden by the
+  <b>GIT_TRACE2_EVENT_BRIEF</b> environment variable. Defaults to false.</div>
+<p class="Pp">trace2.eventNesting</p>
+<div class="Bd-indent">Integer. Specifies desired depth of nested regions in the
+  event output. Regions deeper than this value will be omitted. May be
+  overridden by the <b>GIT_TRACE2_EVENT_NESTING</b> environment variable.
+  Defaults to 2.</div>
+<p class="Pp">trace2.configParams</p>
+<div class="Bd-indent">A comma-separated list of patterns of
+  &quot;important&quot; config settings that should be recorded in the trace2
+  output. For example, <b>core.*,remote.*.url</b> would cause the trace2 output
+  to contain events listing each configured remote. May be overridden by the
+  <b>GIT_TRACE2_CONFIG_PARAMS</b> environment variable. Unset by default.</div>
+<p class="Pp">trace2.destinationDebug</p>
+<div class="Bd-indent">Boolean. When true Git will print error messages when a
+  trace target destination cannot be opened for writing. By default, these
+  errors are suppressed and tracing is silently disabled. May be overridden by
+  the <b>GIT_TRACE2_DST_DEBUG</b> environment variable.</div>
+<p class="Pp">trace2.maxFiles</p>
+<div class="Bd-indent">Integer. When writing trace files to a target directory,
+  do not write additional traces if we would exceed this many files. Instead,
+  write a sentinel file that will block further tracing to this directory.
+  Defaults to 0, which disables this check.</div>
 <p class="Pp">transfer.fsckObjects</p>
 <div class="Bd-indent">When <b>fetch.fsckObjects</b> or
   <b>receive.fsckObjects</b> are not set, the value of this variable is used
@@ -4147,8 +4363,8 @@ Note that this list is non-comprehensive and not necessarily complete. For
     <b>git-receive-pack</b>(1). On the fetch side, malformed objects will
     instead be left unreferenced in the repository.</p>
 <p class="Pp">Due to the non-quarantine nature of the <b>fetch.fsckObjects</b>
-    implementation it can not be relied upon to leave the object store clean
-    like <b>receive.fsckObjects</b> can.</p>
+    implementation it cannot be relied upon to leave the object store clean like
+    <b>receive.fsckObjects</b> can.</p>
 <p class="Pp">As objects are unpacked they&#x2019;re written to the object
     store, so there can be cases where malicious objects get introduced even
     though the &quot;fetch&quot; failed, only to have a subsequent
@@ -4284,16 +4500,17 @@ Note that this list is non-comprehensive and not necessarily complete. For
   never-before-seen repository on the site. When more than one pushInsteadOf
   strings match a given URL, the longest match is used. If a remote has an
   explicit pushurl, Git will ignore this setting for that remote.</div>
-<p class="Pp">user.email</p>
-<div class="Bd-indent">Your email address to be recorded in any newly created
-  commits. Can be overridden by the <b>GIT_AUTHOR_EMAIL</b>,
-  <b>GIT_COMMITTER_EMAIL</b>, and <b>EMAIL</b> environment variables. See
-  <b>git-commit-tree</b>(1).</div>
-<p class="Pp">user.name</p>
-<div class="Bd-indent">Your full name to be recorded in any newly created
-  commits. Can be overridden by the <b>GIT_AUTHOR_NAME</b> and
-  <b>GIT_COMMITTER_NAME</b> environment variables. See
-  <b>git-commit-tree</b>(1).</div>
+<p class="Pp">user.name, user.email, author.name, author.email, committer.name,
+    committer.email</p>
+<div class="Bd-indent">The <b>user.name</b> and <b>user.email</b> variables
+  determine what ends up in the <b>author</b> and <b>committer</b> field of
+  commit objects. If you need the <b>author</b> or <b>committer</b> to be
+  different, the <b>author.name</b>, <b>author.email</b>, <b>committer.name</b>
+  or <b>committer.email</b> variables can be set. Also, all of these can be
+  overridden by the <b>GIT_AUTHOR_NAME</b>, <b>GIT_AUTHOR_EMAIL</b>,
+  <b>GIT_COMMITTER_NAME</b>, <b>GIT_COMMITTER_EMAIL</b> and <b>EMAIL</b>
+  environment variables. See <b>git-commit-tree</b>(1) for more
+  information.</div>
 <p class="Pp">user.useConfigOnly</p>
 <div class="Bd-indent">Instruct Git to avoid trying to guess defaults for
   <b>user.email</b> and <b>user.name</b>, and instead retrieve the values only
@@ -4398,8 +4615,8 @@ Part of the <b>git</b>(1) suite
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">02/24/2019</td>
-    <td class="foot-os">Git 2.21.0</td>
+    <td class="foot-date">11/04/2019</td>
+    <td class="foot-os">Git 2.24.0</td>
   </tr>
 </table>
 </body>

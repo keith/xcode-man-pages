@@ -35,7 +35,7 @@
    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
    THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   
-   $OpenBSD: ssh_config.5,v 1.286 2018/10/03 06:38:35 djm Exp $
+   $OpenBSD: ssh_config.5,v 1.304 2019/09/13 04:52:34 djm Exp $
  -->
 <head>
   <meta charset="utf-8"/>
@@ -126,22 +126,31 @@
       specified using one or more criteria or the single token
       <code class="Cm">all</code> which always matches. The available criteria
       keywords are: <code class="Cm">canonical</code>,
-      <code class="Cm">exec</code>, <code class="Cm">host</code>,
-      <code class="Cm">originalhost</code>, <code class="Cm">user</code>, and
-      <code class="Cm">localuser</code>. The <code class="Cm">all</code>
-      criteria must appear alone or immediately after
-      <code class="Cm">canonical</code>. Other criteria may be combined
-      arbitrarily. All criteria but <code class="Cm">all</code> and
-      <code class="Cm">canonical</code> require an argument. Criteria may be
-      negated by prepending an exclamation mark (&#x2018;!&#x2019;).
+      <code class="Cm">final</code>, <code class="Cm">exec</code>,
+      <code class="Cm">host</code>, <code class="Cm">originalhost</code>,
+      <code class="Cm">user</code>, and <code class="Cm">localuser</code>. The
+      <code class="Cm">all</code> criteria must appear alone or immediately
+      after <code class="Cm">canonical</code> or <code class="Cm">final</code>.
+      Other criteria may be combined arbitrarily. All criteria but
+      <code class="Cm">all</code>, <code class="Cm">canonical</code>, and
+      <code class="Cm">final</code> require an argument. Criteria may be negated
+      by prepending an exclamation mark (&#x2018;!&#x2019;).
     <p class="Pp">The <code class="Cm">canonical</code> keyword matches only
         when the configuration file is being re-parsed after hostname
         canonicalization (see the <code class="Cm">CanonicalizeHostname</code>
-        option.) This may be useful to specify conditions that work with
-        canonical host names only. The <code class="Cm">exec</code> keyword
-        executes the specified command under the user's shell. If the command
-        returns a zero exit status then the condition is considered true.
-        Commands containing whitespace characters must be quoted. Arguments to
+        option). This may be useful to specify conditions that work with
+        canonical host names only.</p>
+    <p class="Pp">The <code class="Cm">final</code> keyword requests that the
+        configuration be re-parsed (regardless of whether
+        <code class="Cm">CanonicalizeHostname</code> is enabled), and matches
+        only during this final pass. If
+        <code class="Cm">CanonicalizeHostname</code> is enabled, then
+        <code class="Cm">canonical</code> and <code class="Cm">final</code>
+        match during the same pass.</p>
+    <p class="Pp">The <code class="Cm">exec</code> keyword executes the
+        specified command under the user's shell. If the command returns a zero
+        exit status then the condition is considered true. Commands containing
+        whitespace characters must be quoted. Arguments to
         <code class="Cm">exec</code> accept the tokens described in the
         <a class="Sx" href="#TOKENS">TOKENS</a> section.</p>
     <p class="Pp">The other keywords' criteria must be single entries or
@@ -244,7 +253,7 @@
       certificate authorities (CAs). The default is:
     <div class="Bd Pp Bd-indent">
     <pre>
-ecdsa-sha2-nistp256.ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
+ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
 ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
     </pre>
     </div>
@@ -281,12 +290,13 @@ ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
       <code class="Cm">no</code>, the check will not be executed.</dd>
   <dt><a class="permalink" href="#Ciphers"><code class="Cm" id="Ciphers">Ciphers</code></a></dt>
   <dd>Specifies the ciphers allowed and their order of preference. Multiple
-      ciphers must be comma-separated. If the specified value begins with a
+      ciphers must be comma-separated. If the specified list begins with a
       &#x2018;+&#x2019; character, then the specified ciphers will be appended
-      to the default set instead of replacing them. If the specified value
-      begins with a &#x2018;-&#x2019; character, then the specified ciphers
-      (including wildcards) will be removed from the default set instead of
-      replacing them.
+      to the default set instead of replacing them. If the specified list begins
+      with a &#x2018;-&#x2019; character, then the specified ciphers (including
+      wildcards) will be removed from the default set instead of replacing them.
+      If the specified list begins with a &#x2018;^&#x2019; character, then the
+      specified ciphers will be placed at the head of the default set.
     <p class="Pp">The supported ciphers are:</p>
     <div class="Bd Pp Bd-indent">
     <pre>
@@ -332,9 +342,9 @@ aes128-gcm@openssh.com,aes256-gcm@openssh.com
       connection sometimes fails. The default is 1.</dd>
   <dt><a class="permalink" href="#ConnectTimeout"><code class="Cm" id="ConnectTimeout">ConnectTimeout</code></a></dt>
   <dd>Specifies the timeout (in seconds) used when connecting to the SSH server,
-      instead of using the default system TCP timeout. This value is used only
-      when the target is down or really unreachable, not when it refuses the
-      connection.</dd>
+      instead of using the default system TCP timeout. This timeout is applied
+      both to establishing the connection and to performing the initial SSH
+      protocol handshake and key exchange.</dd>
   <dt><a class="permalink" href="#ControlMaster"><code class="Cm" id="ControlMaster">ControlMaster</code></a></dt>
   <dd>Enables the sharing of multiple sessions over a single network connection.
       When set to <code class="Cm">yes</code>, <a class="Xr">ssh(1)</a> will
@@ -515,12 +525,14 @@ aes128-gcm@openssh.com,aes256-gcm@openssh.com
       <code class="Cm">no</code> (the default).</dd>
   <dt><a class="permalink" href="#HostbasedKeyTypes"><code class="Cm" id="HostbasedKeyTypes">HostbasedKeyTypes</code></a></dt>
   <dd>Specifies the key types that will be used for hostbased authentication as
-      a comma-separated list of patterns. Alternately if the specified value
+      a comma-separated list of patterns. Alternately if the specified list
       begins with a &#x2018;+&#x2019; character, then the specified key types
       will be appended to the default set instead of replacing them. If the
-      specified value begins with a &#x2018;-&#x2019; character, then the
+      specified list begins with a &#x2018;-&#x2019; character, then the
       specified key types (including wildcards) will be removed from the default
-      set instead of replacing them. The default for this option is:
+      set instead of replacing them. If the specified list begins with a
+      &#x2018;^&#x2019; character, then the specified key types will be placed
+      at the head of the default set. The default for this option is:
     <div class="Bd Pp Bd-indent">
     <pre>
 ecdsa-sha2-nistp256-cert-v01@openssh.com,
@@ -538,12 +550,14 @@ ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
   </dd>
   <dt><a class="permalink" href="#HostKeyAlgorithms"><code class="Cm" id="HostKeyAlgorithms">HostKeyAlgorithms</code></a></dt>
   <dd>Specifies the host key algorithms that the client wants to use in order of
-      preference. Alternately if the specified value begins with a
+      preference. Alternately if the specified list begins with a
       &#x2018;+&#x2019; character, then the specified key types will be appended
-      to the default set instead of replacing them. If the specified value
-      begins with a &#x2018;-&#x2019; character, then the specified key types
+      to the default set instead of replacing them. If the specified list begins
+      with a &#x2018;-&#x2019; character, then the specified key types
       (including wildcards) will be removed from the default set instead of
-      replacing them. The default for this option is:
+      replacing them. If the specified list begins with a &#x2018;^&#x2019;
+      character, then the specified key types will be placed at the head of the
+      default set. The default for this option is:
     <div class="Bd Pp Bd-indent">
     <pre>
 ecdsa-sha2-nistp256-cert-v01@openssh.com,
@@ -566,19 +580,19 @@ ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
       looking up or saving the host key in the host key database files and when
       validating host certificates. This option is useful for tunneling SSH
       connections or for multiple servers running on a single host.</dd>
-  <dt><a class="permalink" href="#HostName"><code class="Cm" id="HostName">HostName</code></a></dt>
+  <dt><a class="permalink" href="#Hostname"><code class="Cm" id="Hostname">Hostname</code></a></dt>
   <dd>Specifies the real host name to log into. This can be used to specify
       nicknames or abbreviations for hosts. Arguments to
-      <code class="Cm">HostName</code> accept the tokens described in the
+      <code class="Cm">Hostname</code> accept the tokens described in the
       <a class="Sx" href="#TOKENS">TOKENS</a> section. Numeric IP addresses are
       also permitted (both on the command line and in
-      <code class="Cm">HostName</code> specifications). The default is the name
+      <code class="Cm">Hostname</code> specifications). The default is the name
       given on the command line.</dd>
   <dt><a class="permalink" href="#IdentitiesOnly"><code class="Cm" id="IdentitiesOnly">IdentitiesOnly</code></a></dt>
-  <dd>Specifies that <a class="Xr">ssh(1)</a> should only use the authentication
-      identity and certificate files explicitly configured in the
-      <code class="Nm">ssh_config</code> files or passed on the
-      <a class="Xr">ssh(1)</a> command-line, even if
+  <dd>Specifies that <a class="Xr">ssh(1)</a> should only use the configured
+      authentication identity and certificate files (either the default files,
+      or those explicitly configured in the <code class="Nm">ssh_config</code>
+      files or passed on the <a class="Xr">ssh(1)</a> command-line), even if
       <a class="Xr">ssh-agent(1)</a> or a <code class="Cm">PKCS11Provider</code>
       offers more identities. The argument to this keyword must be
       <code class="Cm">yes</code> or <code class="Cm">no</code> (the default).
@@ -681,12 +695,14 @@ ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
       of: <code class="Cm">bsdauth</code> and <code class="Cm">pam</code>.</dd>
   <dt><a class="permalink" href="#KexAlgorithms"><code class="Cm" id="KexAlgorithms">KexAlgorithms</code></a></dt>
   <dd>Specifies the available KEX (Key Exchange) algorithms. Multiple algorithms
-      must be comma-separated. Alternately if the specified value begins with a
+      must be comma-separated. If the specified list begins with a
       &#x2018;+&#x2019; character, then the specified methods will be appended
-      to the default set instead of replacing them. If the specified value
-      begins with a &#x2018;-&#x2019; character, then the specified methods
-      (including wildcards) will be removed from the default set instead of
-      replacing them. The default is:
+      to the default set instead of replacing them. If the specified list begins
+      with a &#x2018;-&#x2019; character, then the specified methods (including
+      wildcards) will be removed from the default set instead of replacing them.
+      If the specified list begins with a &#x2018;^&#x2019; character, then the
+      specified methods will be placed at the head of the default set. The
+      default is:
     <div class="Bd Pp Bd-indent">
     <pre>
 curve25519-sha256,curve25519-sha256@libssh.org,
@@ -694,7 +710,6 @@ ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,
 diffie-hellman-group-exchange-sha256,
 diffie-hellman-group16-sha512,
 diffie-hellman-group18-sha512,
-diffie-hellman-group-exchange-sha1,
 diffie-hellman-group14-sha256,
 diffie-hellman-group14-sha1
     </pre>
@@ -740,12 +755,14 @@ diffie-hellman-group14-sha1
   <dt><a class="permalink" href="#MACs"><code class="Cm" id="MACs">MACs</code></a></dt>
   <dd>Specifies the MAC (message authentication code) algorithms in order of
       preference. The MAC algorithm is used for data integrity protection.
-      Multiple algorithms must be comma-separated. If the specified value begins
+      Multiple algorithms must be comma-separated. If the specified list begins
       with a &#x2018;+&#x2019; character, then the specified algorithms will be
       appended to the default set instead of replacing them. If the specified
-      value begins with a &#x2018;-&#x2019; character, then the specified
+      list begins with a &#x2018;-&#x2019; character, then the specified
       algorithms (including wildcards) will be removed from the default set
-      instead of replacing them.
+      instead of replacing them. If the specified list begins with a
+      &#x2018;^&#x2019; character, then the specified algorithms will be placed
+      at the head of the default set.
     <p class="Pp">The algorithms that contain &#x201C;-etm&#x201D; calculate the
         MAC after encryption (encrypt-then-mac). These are considered safer and
         their use recommended.</p>
@@ -780,10 +797,11 @@ hmac-sha2-256,hmac-sha2-512,hmac-sha1
       <code class="Cm">yes</code> or <code class="Cm">no</code> (the
     default).</dd>
   <dt><a class="permalink" href="#PKCS11Provider"><code class="Cm" id="PKCS11Provider">PKCS11Provider</code></a></dt>
-  <dd>Specifies which PKCS#11 provider to use. The argument to this keyword is
-      the PKCS#11 shared library <a class="Xr">ssh(1)</a> should use to
-      communicate with a PKCS#11 token providing the user's private RSA
-    key.</dd>
+  <dd>Specifies which PKCS#11 provider to use or <code class="Cm">none</code> to
+      indicate that no provider should be used (the default). The argument to
+      this keyword is a path to the PKCS#11 shared library
+      <a class="Xr">ssh(1)</a> should use to communicate with a PKCS#11 token
+      providing keys for user authentication.</dd>
   <dt><a class="permalink" href="#Port"><code class="Cm" id="Port">Port</code></a></dt>
   <dd>Specifies the port number to connect on the remote host. The default is
       22.</dd>
@@ -810,11 +828,11 @@ keyboard-interactive,password
         input and write to its standard output. It should eventually connect an
         <a class="Xr">sshd(8)</a> server running on some machine, or execute
         <code class="Ic">sshd -i</code> somewhere. Host key management will be
-        done using the HostName of the host being connected (defaulting to the
-        name typed by the user). Setting the command to
-        <code class="Cm">none</code> disables this option entirely. Note that
-        <code class="Cm">CheckHostIP</code> is not available for connects with a
-        proxy command.</p>
+        done using the <code class="Cm">Hostname</code> of the host being
+        connected (defaulting to the name typed by the user). Setting the
+        command to <code class="Cm">none</code> disables this option entirely.
+        Note that <code class="Cm">CheckHostIP</code> is not available for
+        connects with a proxy command.</p>
     <p class="Pp">This directive is useful in conjunction with
         <a class="Xr">nc(1)</a> and its proxy support. For example, the
         following directive would connect via an HTTP proxy at 192.0.2.0:</p>
@@ -836,6 +854,10 @@ ProxyCommand /usr/bin/nc -X connect -x 192.0.2.0:8080 %h %p
     <p class="Pp">Note that this option will compete with the
         <code class="Cm">ProxyCommand</code> option - whichever is specified
         first will prevent later instances of the other from taking effect.</p>
+    <p class="Pp">Note also that the configuration for the destination host
+        (either supplied via the command-line or the configuration file) is not
+        generally applied to jump hosts. <span class="Pa">~/.ssh/config</span>
+        should be used if specific configuration is required for jump hosts.</p>
   </dd>
   <dt><a class="permalink" href="#ProxyUseFdpass"><code class="Cm" id="ProxyUseFdpass">ProxyUseFdpass</code></a></dt>
   <dd>Specifies that <code class="Cm">ProxyCommand</code> will pass a connected
@@ -843,12 +865,14 @@ ProxyCommand /usr/bin/nc -X connect -x 192.0.2.0:8080 %h %p
       execute and pass data. The default is <code class="Cm">no</code>.</dd>
   <dt><a class="permalink" href="#PubkeyAcceptedKeyTypes"><code class="Cm" id="PubkeyAcceptedKeyTypes">PubkeyAcceptedKeyTypes</code></a></dt>
   <dd>Specifies the key types that will be used for public key authentication as
-      a comma-separated list of patterns. Alternately if the specified value
-      begins with a &#x2018;+&#x2019; character, then the key types after it
-      will be appended to the default instead of replacing it. If the specified
-      value begins with a &#x2018;-&#x2019; character, then the specified key
-      types (including wildcards) will be removed from the default set instead
-      of replacing them. The default for this option is:
+      a comma-separated list of patterns. If the specified list begins with a
+      &#x2018;+&#x2019; character, then the key types after it will be appended
+      to the default instead of replacing it. If the specified list begins with
+      a &#x2018;-&#x2019; character, then the specified key types (including
+      wildcards) will be removed from the default set instead of replacing them.
+      If the specified list begins with a &#x2018;^&#x2019; character, then the
+      specified key types will be placed at the head of the default set. The
+      default for this option is:
     <div class="Bd Pp Bd-indent">
     <pre>
 ecdsa-sha2-nistp256-cert-v01@openssh.com,
@@ -876,9 +900,8 @@ ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
       &#x2018;M&#x2019;, or &#x2018;G&#x2019; to indicate Kilobytes, Megabytes,
       or Gigabytes, respectively. The default is between &#x2018;1G&#x2019; and
       &#x2018;4G&#x2019;, depending on the cipher. The optional second value is
-      specified in seconds and may use any of the units documented in the
-      <a class="Sx" href="#TIME_FORMATS">TIME FORMATS</a> section of
-      <a class="Xr">sshd_config(5)</a>. The default value for
+      specified in seconds and may use any of the units documented in the TIME
+      FORMATS section of <a class="Xr">sshd_config(5)</a>. The default value for
       <code class="Cm">RekeyLimit</code> is <code class="Cm">default
       none</code>, which means that rekeying is performed after the cipher's
       default amount of data has been sent or received and no time based
@@ -961,7 +984,7 @@ ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
       spoofable. The TCP keepalive option enabled by
       <code class="Cm">TCPKeepAlive</code> is spoofable. The server alive
       mechanism is valuable when the client or server depend on knowing when a
-      connection has become inactive.
+      connection has become unresponsive.
     <p class="Pp">The default value is 3. If, for example,
         <code class="Cm">ServerAliveInterval</code> (see below) is set to 15 and
         <code class="Cm">ServerAliveCountMax</code> is left at the default, if
@@ -1191,14 +1214,14 @@ Arguments to some keywords can make use of tokens, which are expanded at
     %h, %i, %l, %r, and %u.</p>
 <p class="Pp"><code class="Cm">ControlPath</code> accepts the tokens %%, %C, %h,
     %i, %L, %l, %n, %p, %r, and %u.</p>
-<p class="Pp"><code class="Cm">HostName</code> accepts the tokens %% and %h.</p>
+<p class="Pp"><code class="Cm">Hostname</code> accepts the tokens %% and %h.</p>
 <p class="Pp"><code class="Cm">IdentityAgent</code> and
     <code class="Cm">IdentityFile</code> accept the tokens %%, %d, %h, %i, %l,
     %r, and %u.</p>
 <p class="Pp"><code class="Cm">LocalCommand</code> accepts the tokens %%, %C,
     %d, %h, %i, %l, %n, %p, %r, %T, and %u.</p>
 <p class="Pp"><code class="Cm">ProxyCommand</code> accepts the tokens %%, %h,
-    %p, and %r.</p>
+    %n, %p, and %r.</p>
 <p class="Pp"><code class="Cm">RemoteCommand</code> accepts the tokens %%, %C,
     %d, %h, %i, %l, %n, %p, %r, and %u.</p>
 </section>
@@ -1209,7 +1232,7 @@ Arguments to some keywords can make use of tokens, which are expanded at
   <dd>This is the per-user configuration file. The format of this file is
       described above. This file is used by the SSH client. Because of the
       potential for abuse, this file must have strict permissions: read/write
-      for the user, and not accessible by others.</dd>
+      for the user, and not writable by others.</dd>
   <dt><span class="Pa">/etc/ssh/ssh_config</span></dt>
   <dd>Systemwide configuration file. This file provides defaults for those
       values that are not specified in the user's configuration file, and for
@@ -1235,7 +1258,7 @@ OpenSSH is a derivative of the original and free ssh 1.2.12 release by
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">October 3, 2018</td>
+    <td class="foot-date">September 13, 2019</td>
     <td class="foot-os">Mac OS X 10.15</td>
   </tr>
 </table>

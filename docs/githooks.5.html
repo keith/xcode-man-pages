@@ -5,9 +5,9 @@
        Title: githooks
       Author: [FIXME: author] [see http://docbook.sf.net/el/author]
    Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-        Date: 02/24/2019
+        Date: 11/04/2019
       Manual: Git Manual
-      Source: Git 2.21.0
+      Source: Git 2.24.0
     Language: English
    -->
 <head>
@@ -110,6 +110,26 @@ This hook is invoked by <b>git-commit</b>(1), and can be bypassed with the
 <p class="Pp">All the <b>git commit</b> hooks are invoked with the environment
     variable <b>GIT_EDITOR=:</b> if the command will not bring up an editor to
     modify the commit message.</p>
+<p class="Pp">The default <i>pre-commit</i> hook, when enabled&#x2014;and with
+    the <b>hooks.allownonascii</b> config option unset or set to
+    false&#x2014;prevents the use of non-ASCII filenames.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="pre_-merge_-commit"><a class="permalink" href="#pre_-merge_-commit">pre-merge-commit</a></h2>
+This hook is invoked by <b>git-merge</b>(1), and can be bypassed with the
+  <b>--no-verify</b> option. It takes no parameters, and is invoked after the
+  merge has been carried out successfully and before obtaining the proposed
+  commit log message to make a commit. Exiting with a non-zero status from this
+  script causes the <b>git merge</b> command to abort before creating a commit.
+<p class="Pp">The default <i>pre-merge-commit</i> hook, when enabled, runs the
+    <i>pre-commit</i> hook, if the latter is enabled.</p>
+<p class="Pp">This hook is invoked with the environment variable
+    <b>GIT_EDITOR=:</b> if the command will not bring up an editor to modify the
+    commit message.</p>
+<p class="Pp">If the merge cannot be carried out automatically, the conflicts
+    need to be resolved and the result committed separately (see
+    <b>git-merge</b>(1)). At that point, this hook will not be executed, but the
+    <i>pre-commit</i> hook will, if it is enabled.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="prepare_-commit_-msg"><a class="permalink" href="#prepare_-commit_-msg">prepare-commit-msg</a></h2>
@@ -163,12 +183,13 @@ This hook is called by <b>git-rebase</b>(1) and can be used to prevent a branch
 </section>
 <section class="Ss">
 <h2 class="Ss" id="post_-checkout"><a class="permalink" href="#post_-checkout">post-checkout</a></h2>
-This hook is invoked when a <b>git-checkout</b>(1) is run after having updated
-  the worktree. The hook is given three parameters: the ref of the previous
-  HEAD, the ref of the new HEAD (which may or may not have changed), and a flag
-  indicating whether the checkout was a branch checkout (changing branches,
-  flag=1) or a file checkout (retrieving a file from the index, flag=0). This
-  hook cannot affect the outcome of <b>git checkout</b>.
+This hook is invoked when a <b>git-checkout</b>(1) or <b>git-switch</b>(1) is
+  run after having updated the worktree. The hook is given three parameters: the
+  ref of the previous HEAD, the ref of the new HEAD (which may or may not have
+  changed), and a flag indicating whether the checkout was a branch checkout
+  (changing branches, flag=1) or a file checkout (retrieving a file from the
+  index, flag=0). This hook cannot affect the outcome of <b>git switch</b> or
+  <b>git checkout</b>.
 <p class="Pp">It is also run after <b>git-clone</b>(1), unless the
     <b>--no-checkout</b> (<b>-n</b>) option is used. The first parameter given
     to the hook is the null-ref, the second the ref of the new HEAD and the flag
@@ -366,9 +387,10 @@ This hook is invoked by <b>git-receive-pack</b>(1) when it reacts to <b>git
 <p class="Pp">For example, the hook can simply run <b>git read-tree -u -m HEAD
     &quot;$1&quot;</b> in order to emulate <b>git fetch</b> that is run in the
     reverse direction with <b>git push</b>, as the two-tree form of <b>git
-    read-tree -u -m</b> is essentially the same as <b>git checkout</b> that
-    switches branches while keeping the local changes in the working tree that
-    do not interfere with the difference between the branches.</p>
+    read-tree -u -m</b> is essentially the same as <b>git switch</b> or <b>git
+    checkout</b> that switches branches while keeping the local changes in the
+    working tree that do not interfere with the difference between the
+  branches.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="pre_-auto_-gc"><a class="permalink" href="#pre_-auto_-gc">pre-auto-gc</a></h2>
@@ -379,10 +401,11 @@ This hook is invoked by <b>git gc --auto</b> (see <b>git-gc</b>(1)). It takes no
 <section class="Ss">
 <h2 class="Ss" id="post_-rewrite"><a class="permalink" href="#post_-rewrite">post-rewrite</a></h2>
 This hook is invoked by commands that rewrite commits (<b>git-commit</b>(1) when
-  called with <b>--amend</b> and <b>git-rebase</b>(1); currently <b>git
-  filter-branch</b> does <i>not</i> call it!). Its first argument denotes the
-  command it was invoked by: currently one of <b>amend</b> or <b>rebase</b>.
-  Further command-dependent arguments may be passed in the future.
+  called with <b>--amend</b> and <b>git-rebase</b>(1); however, full-history
+  (re)writing tools like <b>git-fast-import</b>(1) or <b>git-filter-repo</b>[1]
+  typically do not call it!). Its first argument denotes the command it was
+  invoked by: currently one of <b>amend</b> or <b>rebase</b>. Further
+  command-dependent arguments may be passed in the future.
 <p class="Pp">The hook receives a list of the rewritten commits on stdin, in the
     format</p>
 <p class="Pp"></p>
@@ -443,16 +466,39 @@ This hook is invoked by <b>git-p4 submit</b>. It takes no parameters and nothing
   <b>git-p4 submit</b> from launching. Run <b>git-p4 submit --help</b> for
   details.
 </section>
+<section class="Ss">
+<h2 class="Ss" id="post_-index_-change"><a class="permalink" href="#post_-index_-change">post-index-change</a></h2>
+This hook is invoked when the index is written in read-cache.c
+  do_write_locked_index.
+<p class="Pp">The first parameter passed to the hook is the indicator for the
+    working directory being updated. &quot;1&quot; meaning working directory was
+    updated or &quot;0&quot; when the working directory was not updated.</p>
+<p class="Pp">The second parameter passed to the hook is the indicator for
+    whether or not the index was updated and the skip-worktree bit could have
+    changed. &quot;1&quot; meaning skip-worktree bits could have been updated
+    and &quot;0&quot; meaning they were not.</p>
+<p class="Pp">Only one parameter should be set to &quot;1&quot; when the hook
+    runs. The hook running passing &quot;1&quot;, &quot;1&quot; should not be
+    possible.</p>
+</section>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="GIT"><a class="permalink" href="#GIT">GIT</a></h1>
 Part of the <b>git</b>(1) suite
 </section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<dl class="Bl-tag">
+  <dt> 1.</dt>
+  <dd>git-filter-repo</dd>
+</dl>
+<div class="Bd-indent">https://github.com/newren/git-filter-repo</div>
+</section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">02/24/2019</td>
-    <td class="foot-os">Git 2.21.0</td>
+    <td class="foot-date">11/04/2019</td>
+    <td class="foot-os">Git 2.24.0</td>
   </tr>
 </table>
 </body>

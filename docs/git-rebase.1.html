@@ -5,9 +5,9 @@
        Title: git-rebase
       Author: [FIXME: author] [see http://docbook.sf.net/el/author]
    Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-        Date: 02/24/2019
+        Date: 11/04/2019
       Manual: Git Manual
-      Source: Git 2.21.0
+      Source: Git 2.24.0
     Language: English
    -->
 <head>
@@ -42,18 +42,18 @@ git-rebase - Reapply commits on top of another base tip
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
 <pre>
-<i>git rebase</i> [-i | --interactive] [&lt;options&gt;] [--exec &lt;cmd&gt;] [--onto &lt;newbase&gt;]
-        [&lt;upstream&gt; [&lt;branch&gt;]]
+<i>git rebase</i> [-i | --interactive] [&lt;options&gt;] [--exec &lt;cmd&gt;]
+        [--onto &lt;newbase&gt; | --keep-base] [&lt;upstream&gt; [&lt;branch&gt;]]
 <i>git rebase</i> [-i | --interactive] [&lt;options&gt;] [--exec &lt;cmd&gt;] [--onto &lt;newbase&gt;]
         --root [&lt;branch&gt;]
-<i>git rebase</i> --continue | --skip | --abort | --quit | --edit-todo | --show-current-patch
+<i>git rebase</i> (--continue | --skip | --abort | --quit | --edit-todo | --show-current-patch)
 </pre>
 <p class="Pp"></p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
 If &lt;branch&gt; is specified, <i>git rebase</i> will perform an automatic
-  <b>git checkout &lt;branch&gt;</b> before doing anything else. Otherwise it
+  <b>git switch &lt;branch&gt;</b> before doing anything else. Otherwise it
   remains on the current branch.
 <p class="Pp">If &lt;upstream&gt; is not specified, the upstream configured in
     branch.&lt;name&gt;.remote and branch.&lt;name&gt;.merge options will be
@@ -267,17 +267,11 @@ git rebase --abort
 <section class="Sh">
 <h1 class="Sh" id="CONFIGURATION"><a class="permalink" href="#CONFIGURATION">CONFIGURATION</a></h1>
 rebase.useBuiltin
-<div class="Bd-indent">Set to <b>false</b> to use the legacy shellscript
-  implementation of <b>git-rebase</b>(1). Is <b>true</b> by default, which means
-  use the built-in rewrite of it in C.
-<p class="Pp">The C rewrite is first included with Git version 2.20. This option
-    serves an an escape hatch to re-enable the legacy version in case any bugs
-    are found in the rewrite. This option and the shellscript version of
-    <b>git-rebase</b>(1) will be removed in some future release.</p>
-<p class="Pp">If you find some reason to set this option to <b>false</b> other
-    than one-off testing you should report the behavior difference as a bug in
-    git.</p>
-</div>
+<div class="Bd-indent">Unused configuration variable. Used in Git versions 2.20
+  and 2.21 as an escape hatch to enable the legacy shellscript implementation of
+  rebase. Now the built-in rewrite of it in C is always used. Setting this will
+  emit a warning, to alert any remaining users that setting this now does
+  nothing.</div>
 <p class="Pp">rebase.stat</p>
 <div class="Bd-indent">Whether to show a diffstat of what changed upstream since
   the last rebase. False by default.</div>
@@ -340,6 +334,22 @@ rebase.useBuiltin
 <p class="Pp">As a special case, you may use &quot;A...B&quot; as a shortcut for
     the merge base of A and B if there is exactly one merge base. You can leave
     out at most one of A and B, in which case it defaults to HEAD.</p>
+</div>
+<p class="Pp">--keep-base</p>
+<div class="Bd-indent">Set the starting point at which to create the new commits
+  to the merge base of &lt;upstream&gt; &lt;branch&gt;. Running <i>git rebase
+  --keep-base &lt;upstream&gt; &lt;branch&gt;</i> is equivalent to running
+  <i>git rebase --onto &lt;upstream&gt;... &lt;upstream&gt;</i>.
+<p class="Pp">This option is useful in the case where one is developing a
+    feature on top of an upstream branch. While the feature is being worked on,
+    the upstream branch may advance and it may not be the best idea to keep
+    rebasing on top of the upstream but to keep the base commit as-is.</p>
+<p class="Pp">Although both this option and --fork-point find the merge base
+    between &lt;upstream&gt; and &lt;branch&gt;, this option uses the merge base
+    as the <i>starting point</i> on which new commits will be created, whereas
+    --fork-point uses the merge base to determine the <i>set of commits</i>
+    which will be rebased.</p>
+<p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
 </div>
 <p class="Pp">&lt;upstream&gt;</p>
 <div class="Bd-indent">Upstream branch to compare against. May be any valid
@@ -407,6 +417,9 @@ rebase.useBuiltin
   noted above for the <b>-m</b> option.
 <p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
 </div>
+<p class="Pp">--rerere-autoupdate, --no-rerere-autoupdate</p>
+<div class="Bd-indent">Allow the rerere mechanism to update the index with the
+  result of auto-conflict resolution if possible.</div>
 <p class="Pp">-S[&lt;keyid&gt;], --gpg-sign[=&lt;keyid&gt;]</p>
 <div class="Bd-indent">GPG-sign commits. The <b>keyid</b> argument is optional
   and defaults to the committer identity; if specified, it must be stuck to the
@@ -457,6 +470,10 @@ rebase.useBuiltin
 <p class="Pp">If either &lt;upstream&gt; or --root is given on the command line,
     then the default is <b>--no-fork-point</b>, otherwise the default is
     <b>--fork-point</b>.</p>
+<p class="Pp">If your branch was based on &lt;upstream&gt; but &lt;upstream&gt;
+    was rewound and your branch contains commits which were dropped, this option
+    can be used with <b>--keep-base</b> in order to drop those commits from your
+    branch.</p>
 </div>
 <p class="Pp">--ignore-whitespace, --whitespace=&lt;option&gt;</p>
 <div class="Bd-indent">These flag are passed to the <i>git apply</i> program
@@ -493,14 +510,14 @@ rebase.useBuiltin
 <p class="Pp">By default, or when <b>no-rebase-cousins</b> was specified,
     commits which do not have <b>&lt;upstream&gt;</b> as direct ancestor will
     keep their original branch point, i.e. commits that would be excluded by
-    gitlink:git-log[1]'s <b>--ancestry-path</b> option will keep their original
+    <b>git-log</b>(1)'s <b>--ancestry-path</b> option will keep their original
     ancestry by default. If the <b>rebase-cousins</b> mode is turned on, such
     commits are instead rebased onto <b>&lt;upstream&gt;</b> (or
     <b>&lt;onto&gt;</b>, if specified).</p>
-<p class="Pp">The <b>--rebase-merges</b> mode is similar in spirit to
-    <b>--preserve-merges</b>, but in contrast to that option works well in
-    interactive rebases: commits can be reordered, inserted and dropped at
-  will.</p>
+<p class="Pp">The <b>--rebase-merges</b> mode is similar in spirit to the
+    deprecated <b>--preserve-merges</b>, but in contrast to that option works
+    well in interactive rebases: commits can be reordered, inserted and dropped
+    at will.</p>
 <p class="Pp">It is currently only possible to recreate the merge commits using
     the <b>recursive</b> merge strategy; Different merge strategies can be used
     only via explicit <b>exec git merge -s &lt;strategy&gt; [...]</b>
@@ -508,9 +525,10 @@ rebase.useBuiltin
 <p class="Pp">See also REBASING MERGES and INCOMPATIBLE OPTIONS below.</p>
 </div>
 <p class="Pp">-p, --preserve-merges</p>
-<div class="Bd-indent">Recreate merge commits instead of flattening the history
-  by replaying commits a merge commit introduces. Merge conflict resolutions or
-  manual amendments to merge commits are not preserved.
+<div class="Bd-indent">[DEPRECATED: use <b>--rebase-merges</b> instead] Recreate
+  merge commits instead of flattening the history by replaying commits a merge
+  commit introduces. Merge conflict resolutions or manual amendments to merge
+  commits are not preserved.
 <p class="Pp">This uses the <b>--interactive</b> machinery internally, but
     combining it with the <b>--interactive</b> option explicitly is generally
     not a good idea unless you know what you are doing (see BUGS below).</p>
@@ -627,9 +645,9 @@ The following options:
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;--preserve-merges and --rebase-merges</div>
 <p class="Pp"></p>
-<div class="Bd-indent">&#x2022;--rebase-merges and --strategy</div>
+<div class="Bd-indent">&#x2022;--keep-base and --onto</div>
 <p class="Pp"></p>
-<div class="Bd-indent">&#x2022;--rebase-merges and --strategy-option</div>
+<div class="Bd-indent">&#x2022;--keep-base and --root</div>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="BEHAVIORAL_DIFFERENCES"><a class="permalink" href="#BEHAVIORAL_DIFFERENCES">BEHAVIORAL
@@ -874,8 +892,8 @@ $ git rebase -i HEAD~5
 </div>
 <p class="Pp"></p>
 <p class="Pp">And move the first patch to the end of the list.</p>
-<p class="Pp">You might want to preserve merges, if you have a history like
-    this:</p>
+<p class="Pp">You might want to recreate merge commits, e.g. if you have a
+    history like this:</p>
 <p class="Pp"></p>
 <div class="Bd-indent">
 <pre>
@@ -893,7 +911,7 @@ $ git rebase -i HEAD~5
 <p class="Pp"></p>
 <div class="Bd-indent">
 <pre>
-$ git rebase -i -p --onto Q O
+$ git rebase -i -r --onto Q O
 </pre>
 </div>
 <p class="Pp"></p>
@@ -1047,7 +1065,7 @@ Rebasing (or any other form of rewriting) a branch that others have based work
 <div class="Bd-indent">This happens if the <i>subsystem</i> rebase had
   conflicts, or used <b>--interactive</b> to omit, edit, squash, or fixup
   commits; or if the upstream used one of <b>commit --amend</b>, <b>reset</b>,
-  or <b>filter-branch</b>.</div>
+  or a full history rewriting command like <b></b><b>filter-repo</b>[2].</div>
 <section class="Ss">
 <h2 class="Ss" id="The_easy_case"><a class="permalink" href="#The_easy_case">The
   easy case</a></h2>
@@ -1094,7 +1112,7 @@ Things get more complicated if the <i>subsystem</i> changes do not exactly
 </div>
 <p class="Pp">The idea is to manually tell <i>git rebase</i> &quot;where the old
     <i>subsystem</i> ended and your <i>topic</i> began&quot;, that is, what the
-    old merge-base between them was. You will have to find a way to name the
+    old merge base between them was. You will have to find a way to name the
     last commit of the old <i>subsystem</i>, for example:</p>
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;With the <i>subsystem</i> reflog: after <i>git
@@ -1252,11 +1270,12 @@ merge cmake
 </section>
 <section class="Sh">
 <h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
-The todo list presented by <b>--preserve-merges --interactive</b> does not
-  represent the topology of the revision graph. Editing commits and rewording
-  their commit messages should work fine, but attempts to reorder commits tend
-  to produce counterintuitive results. Use <b>--rebase-merges</b> in such
-  scenarios instead.
+The todo list presented by the deprecated <b>--preserve-merges --interactive</b>
+  does not represent the topology of the revision graph (use
+  <b>--rebase-merges</b> instead). Editing commits and rewording their commit
+  messages should work fine, but attempts to reorder commits tend to produce
+  counterintuitive results. Use <b>--rebase-merges</b> in such scenarios
+  instead.
 <p class="Pp">For example, an attempt to rearrange</p>
 <p class="Pp"></p>
 <div class="Bd-indent">
@@ -1296,12 +1315,17 @@ Part of the <b>git</b>(1) suite
   <dd>revert-a-faulty-merge How-To</dd>
 </dl>
 <div class="Bd-indent">git-htmldocs/howto/revert-a-faulty-merge.html</div>
+<dl class="Bl-tag">
+  <dt> 2.</dt>
+  <dd><b>filter-repo</b></dd>
+</dl>
+<div class="Bd-indent">https://github.com/newren/git-filter-repo</div>
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">02/24/2019</td>
-    <td class="foot-os">Git 2.21.0</td>
+    <td class="foot-date">11/04/2019</td>
+    <td class="foot-os">Git 2.24.0</td>
   </tr>
 </table>
 </body>

@@ -5,9 +5,9 @@
        Title: git-merge
       Author: [FIXME: author] [see http://docbook.sf.net/el/author]
    Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-        Date: 02/24/2019
+        Date: 11/04/2019
       Manual: Git Manual
-      Source: Git 2.21.0
+      Source: Git 2.24.0
     Language: English
    -->
 <head>
@@ -43,11 +43,10 @@ git-merge - Join two or more development histories together
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
 <pre>
 <i>git merge</i> [-n] [--stat] [--no-commit] [--squash] [--[no-]edit]
-        [-s &lt;strategy&gt;] [-X &lt;strategy-option&gt;] [-S[&lt;keyid&gt;]]
+        [--no-verify] [-s &lt;strategy&gt;] [-X &lt;strategy-option&gt;] [-S[&lt;keyid&gt;]]
         [--[no-]allow-unrelated-histories]
         [--[no-]rerere-autoupdate] [-m &lt;msg&gt;] [-F &lt;file&gt;] [&lt;commit&gt;...]
-<i>git merge</i> --abort
-<i>git merge</i> --continue
+<i>git merge</i> (--continue | --abort | --quit)
 </pre>
 <p class="Pp"></p>
 </section>
@@ -100,9 +99,13 @@ Incorporates changes from the named commits (since the time their histories
 --commit, --no-commit
 <div class="Bd-indent">Perform the merge and commit the result. This option can
   be used to override --no-commit.
-<p class="Pp">With --no-commit perform the merge but pretend the merge failed
-    and do not autocommit, to give the user a chance to inspect and further
-    tweak the merge result before committing.</p>
+<p class="Pp">With --no-commit perform the merge and stop just before creating a
+    merge commit, to give the user a chance to inspect and further tweak the
+    merge result before committing.</p>
+<p class="Pp">Note that fast-forward updates do not create a merge commit and
+    therefore there is no way to stop those merges with --no-commit. Thus, if
+    you want to ensure your branch is not changed or updated by the merge
+    command, use --no-ff with --no-commit.</p>
 </div>
 <p class="Pp">--edit, -e, --no-edit</p>
 <div class="Bd-indent">Invoke an editor before committing successful mechanical
@@ -119,19 +122,28 @@ Incorporates changes from the named commits (since the time their histories
     <b>GIT_MERGE_AUTOEDIT</b> can be set to <b>no</b> at the beginning of
   them.</p>
 </div>
-<p class="Pp">--ff</p>
-<div class="Bd-indent">When the merge resolves as a fast-forward, only update
-  the branch pointer, without creating a merge commit. This is the default
-  behavior.</div>
-<p class="Pp">--no-ff</p>
-<div class="Bd-indent">Create a merge commit even when the merge resolves as a
-  fast-forward. This is the default behaviour when merging an annotated (and
-  possibly signed) tag that is not stored in its natural place in
-  <i>refs/tags/</i> hierarchy.</div>
-<p class="Pp">--ff-only</p>
-<div class="Bd-indent">Refuse to merge and exit with a non-zero status unless
-  the current <b>HEAD</b> is already up to date or the merge can be resolved as
-  a fast-forward.</div>
+<p class="Pp">--cleanup=&lt;mode&gt;</p>
+<div class="Bd-indent">This option determines how the merge message will be
+  cleaned up before commiting. See <b>git-commit</b>(1) for more details. In
+  addition, if the <i>&lt;mode&gt;</i> is given a value of <b>scissors</b>,
+  scissors will be appended to <b>MERGE_MSG</b> before being passed on to the
+  commit machinery in the case of a merge conflict.</div>
+<p class="Pp">--ff, --no-ff, --ff-only</p>
+<div class="Bd-indent">Specifies how a merge is handled when the merged-in
+  history is already a descendant of the current history. <b>--ff</b> is the
+  default unless merging an annotated (and possibly signed) tag that is not
+  stored in its natural place in the <b>refs/tags/</b> hierarchy, in which case
+  <b>--no-ff</b> is assumed.
+<p class="Pp">With <b>--ff</b>, when possible resolve the merge as a
+    fast-forward (only update the branch pointer to match the merged branch; do
+    not create a merge commit). When not possible (when the merged-in history is
+    not a descendant of the current history), create a merge commit.</p>
+<p class="Pp">With <b>--no-ff</b>, create a merge commit in all cases, even when
+    the merge could instead be resolved as a fast-forward.</p>
+<p class="Pp">With <b>--ff-only</b>, resolve the merge as a fast-forward when
+    possible. When not possible, refuse to merge and exit with a non-zero
+    status.</p>
+</div>
 <p class="Pp">-S[&lt;keyid&gt;], --gpg-sign[=&lt;keyid&gt;]</p>
 <div class="Bd-indent">GPG-sign the resulting merge commit. The <b>keyid</b>
   argument is optional and defaults to the committer identity; if specified, it
@@ -166,7 +178,11 @@ Incorporates changes from the named commits (since the time their histories
   same as merging another branch (or more in case of an octopus).
 <p class="Pp">With --no-squash perform the merge and commit the result. This
     option can be used to override --squash.</p>
+<p class="Pp">With --squash, --commit is not allowed, and will fail.</p>
 </div>
+<p class="Pp">--no-verify</p>
+<div class="Bd-indent">This option bypasses the pre-merge and commit-msg hooks.
+  See also <b>githooks</b>(5).</div>
 <p class="Pp">-s &lt;strategy&gt;, --strategy=&lt;strategy&gt;</p>
 <div class="Bd-indent">Use the given merge strategy; can be supplied more than
   once to specify them in the order they should be tried. If there is no
@@ -214,9 +230,12 @@ Incorporates changes from the named commits (since the time their histories
 <p class="Pp">If <b>--log</b> is specified, a shortlog of the commits being
     merged will be appended to the specified message.</p>
 </div>
-<p class="Pp">--[no-]rerere-autoupdate</p>
+<p class="Pp">--rerere-autoupdate, --no-rerere-autoupdate</p>
 <div class="Bd-indent">Allow the rerere mechanism to update the index with the
   result of auto-conflict resolution if possible.</div>
+<p class="Pp">--overwrite-ignore, --no-overwrite-ignore</p>
+<div class="Bd-indent">Silently overwrite ignored files from the merge result.
+  This is the default behavior. Use <b>--no-overwrite-ignore</b> to abort.</div>
 <p class="Pp">--abort</p>
 <div class="Bd-indent">Abort the current conflict resolution process, and try to
   reconstruct the pre-merge state.
@@ -227,6 +246,9 @@ Incorporates changes from the named commits (since the time their histories
 <p class="Pp"><i>git merge --abort</i> is equivalent to <i>git reset --merge</i>
     when <b>MERGE_HEAD</b> is present.</p>
 </div>
+<p class="Pp">--quit</p>
+<div class="Bd-indent">Forget about the current merge in progress. Leave the
+  index and the working tree as-is.</div>
 <p class="Pp">--continue</p>
 <div class="Bd-indent">After a <i>git merge</i> stops due to conflicts you can
   conclude the merge by running <i>git merge --continue</i> (see &quot;HOW TO
@@ -632,10 +654,20 @@ merge.conflictStyle
   diff.renameLimit. This setting has no effect if rename detection is turned
   off.</div>
 <p class="Pp">merge.renames</p>
-<div class="Bd-indent">Whether and how Git detects renames. If set to
-  &quot;false&quot;, rename detection is disabled. If set to &quot;true&quot;,
-  basic rename detection is enabled. Defaults to the value of
-  diff.renames.</div>
+<div class="Bd-indent">Whether Git detects renames. If set to &quot;false&quot;,
+  rename detection is disabled. If set to &quot;true&quot;, basic rename
+  detection is enabled. Defaults to the value of diff.renames.</div>
+<p class="Pp">merge.directoryRenames</p>
+<div class="Bd-indent">Whether Git detects directory renames, affecting what
+  happens at merge time to new files added to a directory on one side of history
+  when that directory was renamed on the other side of history. If
+  merge.directoryRenames is set to &quot;false&quot;, directory rename detection
+  is disabled, meaning that such new files will be left behind in the old
+  directory. If set to &quot;true&quot;, directory rename detection is enabled,
+  meaning that such new files will be moved into the new directory. If set to
+  &quot;conflict&quot;, a conflict will be reported for such paths. If
+  merge.renames is false, merge.directoryRenames is ignored and treated as
+  false. Defaults to &quot;conflict&quot;.</div>
 <p class="Pp">merge.renormalize</p>
 <div class="Bd-indent">Tell Git that canonical representation of files in the
   repository has changed over time (e.g. earlier commits record text files with
@@ -695,6 +727,8 @@ merge.conflictStyle
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;p4merge</div>
 <p class="Pp"></p>
+<div class="Bd-indent">&#x2022;smerge</div>
+<p class="Pp"></p>
 <div class="Bd-indent">&#x2022;tkdiff</div>
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;tortoisemerge</div>
@@ -746,8 +780,8 @@ Part of the <b>git</b>(1) suite
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">02/24/2019</td>
-    <td class="foot-os">Git 2.21.0</td>
+    <td class="foot-date">11/04/2019</td>
+    <td class="foot-os">Git 2.24.0</td>
   </tr>
 </table>
 </body>
