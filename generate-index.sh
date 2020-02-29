@@ -2,12 +2,15 @@
 
 set -euo pipefail
 
+version="$1"
 header="<!DOCTYPE html>
 <html>
 <head>
   <title>Xcode's man pages</title>
 </head>
-<body>"
+<body>
+<h1>Xcode $version</h1>
+"
 
 footer="</body>"
 

@@ -7,10 +7,16 @@ if [[ $# -ne 1 ]]; then
   exit 1
 fi
 
+xcode_path="$1"
 output_dir="$PWD/docs"
-readme="$(cat "$output_dir/README.md")"
 rm -rf "$output_dir"
-./export.sh "$1" "$output_dir"
+
+./export.sh "$xcode_path" "$output_dir"
+version="$(./get-xcode-version.sh "$xcode_path")"
+
 pushd "$output_dir"
-../generate-index.sh
-echo "$readme" > README.md
+../generate-index.sh "$version"
+echo "---
+permalink: /index.html
+---
+" > README.md
