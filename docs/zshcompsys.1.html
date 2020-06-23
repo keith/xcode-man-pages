@@ -1403,14 +1403,8 @@ Note that the values of several of these styles represent boolean values. Any of
   <dd>If this is set for the <b>descriptions</b> tag, its value is used as a
       string to display above matches in completion lists. The sequence
       `<b>%d</b>' in this string will be replaced with a short description of
-      what these matches are. This string may also contain the following
-      sequences to specify output attributes as described in the section
-      EXPANSION OF PROMPT SEQUENCES in <i>zshmisc</i>(1): `<b>%B</b>',
-      `<b>%S</b>', `<b>%U</b>', `<b>%F</b>', `<b>%K</b>' and their lower case
-      counterparts, as well as `<b>%{</b>...<b>%}</b>'. `<b>%F</b>', `<b>%K</b>'
-      and `<b>%{</b>...<b>%}</b>' take arguments in the same form as prompt
-      expansion. Note that the sequence `<b>%G</b>' is not available; an
-      argument to `<b>%{</b>' should be used instead.</dd>
+      what these matches are. This string may also contain the output attribute
+      sequences understood by <b>compadd -X</b> (see <i>zshcompwid</i>(1)).</dd>
 </dl>
 <div class="Bd-indent">
 <p class="Pp">The style is tested with each tag valid for the current completion
@@ -1823,6 +1817,12 @@ Note that the values of several of these styles represent boolean values. Any of
       specification. The value should be in the form described in the section
       `Completion Matching Control' in <i>zshcompwid</i>(1). For examples of
       this, see the description of the <b>tag-order</b> style.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">For notes comparing the use of this and the <b>matcher-list</b>
+    style, see under the description of the <b>tag-order</b> style.</p>
+</div>
+<dl class="Bl-tag">
   <dt><b>matcher-list</b></dt>
   <dd>This style can be set to a list of match specifications that are to be
       applied everywhere. Match specifications are described in the section
@@ -1895,6 +1895,8 @@ Note that the values of several of these styles represent boolean values. Any of
     <b>NO_CASE_GLOB</b> is in effect, the matching for files is performed
     case-insensitively in any case. However, any matcher must explicitly specify
     case-insensitive matching if that is required.</p>
+<p class="Pp">For notes comparing the use of this and the <b>matcher</b> style,
+    see under the description of the <b>tag-order</b> style.</p>
 </div>
 <dl class="Bl-tag">
   <dt><b>max-errors</b></dt>
@@ -2271,21 +2273,22 @@ Note that the values of several of these styles represent boolean values. Any of
       the original string are both added as matches and menu completion is
       started, making it easy to select either of them.</dd>
   <dt><b>sort</b></dt>
-  <dd>Many completion widgets call <b>_description</b> at some point which
-      decides whether the matches are added sorted or unsorted (often indirectly
-      via <b>_wanted</b> or <b>_requested</b>). This style can be set explicitly
-      to one of the usual `true' or `false' values as an override. If it is not
-      set for the context, the standard behaviour of the calling widget is
-    used.</dd>
+  <dd>This allows the standard ordering of matches to be overridden.</dd>
 </dl>
 <div class="Bd-indent">
+<p class="Pp">If its value is `<b>true</b>' or `<b>false</b>', sorting is
+    enabled or disabled. Additionally the values associated with the `<b>-o</b>'
+    option to <b>compadd</b> can also be listed: <b>match</b>, <b>nosort</b>,
+    <b>numeric</b>, <b>reverse</b>. If it is not set for the context, the
+    standard behaviour of the calling widget is used.</p>
 <p class="Pp">The style is tested first against the full context including the
     tag, and if that fails to produce a value against the context without the
     tag.</p>
-<p class="Pp">If the calling widget explicitly requests unsorted matches, this
-    is usually honoured. However, the default (unsorted) behaviour of completion
-    for the command history may be overridden by setting the style to
-  `true'.</p>
+<p class="Pp">In many cases where a calling widget explicitly selects a
+    particular ordering in lieu of the default, a value of `<b>true</b>' is not
+    honoured. An example of where this is not the case is for command history
+    where the default of sorting matches chronologically may be overridden by
+    setting the style to `true'.</p>
 <p class="Pp">In the <b>_expand</b> completer, if it is set to `true', the
     expansions generated will always be sorted. If it is set to `<b>menu</b>',
     then the expansions are only sorted when they are offered as single strings
@@ -4165,11 +4168,12 @@ Descriptions follow for utility functions that may be useful when writing
     convention is not enforced). The description for the corresponding set of
     matches is passed to the function in <i>descr</i>.</p>
 <p class="Pp">The styles tested are: <b>format</b>, <b>hidden</b>,
-    <b>matcher</b>, <b>ignored-patterns</b> and <b>group-name</b>. The
-    <b>format</b> style is first tested for the given <i>tag</i> and then for
-    the <b>descriptions</b> tag if no value was found, while the remainder are
-    only tested for the tag given as the first argument. The function also calls
-    <b>_setup</b> which tests some more styles.</p>
+    <b>matcher</b>, <b>ignore-line</b>, <b>ignored-patterns</b>,
+    <b>group-name</b> and <b>sort</b>. The <b>format</b> style is first tested
+    for the given <i>tag</i> and then for the <b>descriptions</b> tag if no
+    value was found, while the remainder are only tested for the tag given as
+    the first argument. The function also calls <b>_setup</b> which tests some
+    more styles.</p>
 <p class="Pp">The string returned by the <b>format</b> style (if any) will be
     modified so that the sequence `<b>%d</b>' is replaced by the <i>descr</i>
     given as the third argument without any leading or trailing white space. If,
@@ -4272,9 +4276,12 @@ Descriptions follow for utility functions that may be useful when writing
 </div>
 <dl class="Bl-tag">
   <dt><b>_files</b></dt>
-  <dd>The function <b>_files</b> calls <b>_path_files</b> with all the arguments
-      it was passed except for <b>-g</b> and <b>-/</b>. The use of these two
-      options depends on the setting of the <b>file-patterns</b> style.</dd>
+  <dd>The function <b>_files</b> is a wrapper around <b>_path_files</b>. It
+      supports all of the same functionality, with some enhancements -- notably,
+      it respects the <b>list-dirs-first</b> style, and it allows users to
+      override the behaviour of the <b>-g</b> and <b>-/</b> options with the
+      <b>file-patterns</b> style. <b>_files</b> should therefore be preferred
+      over <b>_path_files</b> in most cases.</dd>
 </dl>
 <div class="Bd-indent">
 <p class="Pp">This function accepts the full set of options allowed by
@@ -4350,7 +4357,8 @@ Descriptions follow for utility functions that may be useful when writing
 <p class="Pp">If the <b>-r</b> option is given, no style is used; the
     <i>descr</i> is taken literally as the string to display. This is most
     useful when the <i>descr</i> comes from a pre-processed argument list which
-    already contains an expanded description.</p>
+    already contains an expanded description. Note that this option does not
+    disable the `<b>%</b>'-sequence parsing done by <b>compadd</b>.</p>
 <p class="Pp">The <b>-12VJ</b> options and the <i>group</i> are passed to
     <b>compadd</b> and hence determine the group the message string is added
   to.</p>
@@ -4427,7 +4435,7 @@ Descriptions follow for utility functions that may be useful when writing
 </div>
 </div>
 <dl class="Bl-tag">
-  <dt><b>_normal</b></dt>
+  <dt><b>_normal</b> [ <b>-P</b> | <b>-p</b> <i>precommand</i> ]</dt>
   <dd>This is the standard function called to handle completion outside any
       special <b>-</b><i>context</i><b>-</b>. It is called both to complete the
       command word and also the arguments for a command. In the second case,
@@ -4439,10 +4447,20 @@ Descriptions follow for utility functions that may be useful when writing
 <p class="Pp">A second use is to reexamine the command line specified by the
     <b>$words</b> array and the <b>$CURRENT</b> parameter after those have been
     modified. For example, the function <b>_precommand</b>, which completes
-    after pre-command specifiers such as <b>nohup</b>, removes the first word
+    after precommand specifiers such as <b>nohup</b>, removes the first word
     from the <b>words</b> array, decrements the <b>CURRENT</b> parameter, then
-    calls <b>_normal</b> again. The effect is that `<b>nohup</b> <i>cmd ...</i>'
-    is treated in the same way as `<i>cmd ...</i>'.</p>
+    calls `<b>_normal -p $service</b>'. The effect is that `<b>nohup</b> <i>cmd
+    ...</i>' is treated in the same way as `<i>cmd ...</i>'.</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>-P</b></dt>
+  <dd>Reset the list of precommands. This option should be used if completing a
+      command line which allows internal commands (e.g. builtins and functions)
+      regardless of prior precommands (e.g. `<b>zsh -c</b>').</dd>
+  <dt><b>-p</b> <i>precommand</i></dt>
+  <dd>Append <i>precommand</i> to the list of precommands. This option should be
+      used in nearly all cases in which <b>-P</b> is not applicable.</dd>
+</dl>
 <p class="Pp">If the command name matches one of the patterns given by one of
     the options <b>-p</b> or <b>-P</b> to <b>compdef</b>, the corresponding
     completion function is called and then the parameter <b>_compskip</b> is
@@ -4913,8 +4931,8 @@ Descriptions follow for utility functions that may be useful when writing
     determine which values are already present on the command line and hence are
     not to be completed again. If the <b>-w</b> option is given, other arguments
     are examined as well.</p>
-<p class="Pp">The first non-option argument is used as a string to print as a
-    description before listing the values.</p>
+<p class="Pp">The first non-option argument, <i>desc</i>, is used as a string to
+    print as a description before listing the values.</p>
 <p class="Pp">All other arguments describe the possible values and their
     arguments in the same format used for the description of options by the
     <b>_arguments</b> function (see above). The only differences are that no
@@ -5089,8 +5107,8 @@ In the source distribution, the files are contained in various subdirectories of
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">February 3, 2019</td>
-    <td class="foot-os">zsh 5.7.1</td>
+    <td class="foot-date">February 14, 2020</td>
+    <td class="foot-os">zsh 5.8</td>
   </tr>
 </table>
 </body>

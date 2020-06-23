@@ -1134,6 +1134,25 @@ The <b>zsh/files</b> module makes available some common commands for file
   <dt><b>chgrp</b> [ <b>-hRs</b> ] <i>group</i> <i>filename</i> ...</dt>
   <dd>Changes group of files specified. This is equivalent to <b>chown</b> with
       a <i>user-spec</i> argument of `<b>:</b><i>group</i>'.</dd>
+  <dt><b>chmod</b> [ <b>-Rs</b> ] <i>mode</i> <i>filename</i> ...</dt>
+  <dd>Changes mode of files specified.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">The specified <i>mode</i> must be in octal.</p>
+<p class="Pp">The <b>-R</b> option causes <b>chmod</b> to recursively descend
+    into directories, changing the mode of all files in the directory after
+    changing the mode of the directory itself.</p>
+<p class="Pp">The <b>-s</b> option is a zsh extension to <b>chmod</b>
+    functionality. It enables paranoid behaviour, intended to avoid security
+    problems involving a <b>chmod</b> being tricked into affecting files other
+    than the ones intended. It will refuse to follow symbolic links, so that
+    (for example) ``<b>chmod 600 /tmp/foo/passwd</b>'' can't accidentally chmod
+    <b>/etc/passwd</b> if <b>/tmp/foo</b> happens to be a link to <b>/etc</b>.
+    It will also check where it is after leaving directories, so that a
+    recursive chmod of a deep directory tree can't end up recursively chmoding
+    <b>/usr</b> as a result of directories being moved up the tree.</p>
+</div>
+<dl class="Bl-tag">
   <dt><b>chown</b> [ <b>-hRs</b> ] <i>user-spec</i> <i>filename</i> ...</dt>
   <dd>Changes ownership and group of files specified.</dd>
 </dl>
@@ -1231,23 +1250,25 @@ The <b>zsh/files</b> module makes available some common commands for file
     <b>cp</b> and <b>rm</b> manually. This may change in a future version.</p>
 </div>
 <dl class="Bl-tag">
-  <dt><b>rm</b> [ <b>-dfirs</b> ] <i>filename</i> ...</dt>
+  <dt><b>rm</b> [ <b>-dfiRrs</b> ] <i>filename</i> ...</dt>
   <dd>Removes files and directories specified.</dd>
 </dl>
 <div class="Bd-indent">
 <p class="Pp">Normally, <b>rm</b> will not remove directories (except with the
-    <b>-r</b> option). The <b>-d</b> option causes <b>rm</b> to try removing
-    directories with <b>unlink</b> (see <i>unlink</i>(2)), the same method used
-    for files. Typically only the super-user can actually succeed in unlinking
-    directories in this way. <b>-d</b> takes precedence over <b>-r</b>.</p>
+    <b>-R</b> or <b>-r</b> options). The <b>-d</b> option causes <b>rm</b> to
+    try removing directories with <b>unlink</b> (see <i>unlink</i>(2)), the same
+    method used for files. Typically only the super-user can actually succeed in
+    unlinking directories in this way. <b>-d</b> takes precedence over <b>-R</b>
+    and <b>-r</b>.</p>
 <p class="Pp">By default, the user will be queried before removing any file that
     the user cannot write to, but writable files will be silently removed. The
     <b>-i</b> option causes the user to be queried about removing any files. The
     <b>-f</b> option causes files to be silently deleted, without querying, and
     suppresses all error indications. <b>-f</b> takes precedence.</p>
-<p class="Pp">The <b>-r</b> option causes <b>rm</b> to recursively descend into
-    directories, deleting all files in the directory before removing the
-    directory with the <b>rmdir</b> system call (see <i>rmdir</i>(2)).</p>
+<p class="Pp">The <b>-R</b> and <b>-r</b> options cause <b>rm</b> to recursively
+    descend into directories, deleting all files in the directory before
+    removing the directory with the <b>rmdir</b> system call (see
+    <i>rmdir</i>(2)).</p>
 <p class="Pp">The <b>-s</b> option is a zsh extension to <b>rm</b>
     functionality. It enables paranoid behaviour, intended to avoid common
     security problems involving a root-run <b>rm</b> being tricked into removing
@@ -1306,7 +1327,7 @@ The <b>zsh/mapfile</b> module provides one special associative array parameter
 <div class="Bd-indent">
 <p class="Pp">When the array is accessed as a whole, the keys are the names of
     files in the current directory, and the values are empty (to save a huge
-    overhead in memory). Thus <b>${(k)mapfile}</b> has the same affect as the
+    overhead in memory). Thus <b>${(k)mapfile}</b> has the same effect as the
     glob operator <b>*(D)</b>, since files beginning with a dot are not special.
     Care must be taken with expressions such as <b>rm ${(k)mapfile}</b>, which
     will delete every file in the current directory without the usual `<b>rm
@@ -1552,7 +1573,7 @@ The <b>zsh/parameter</b> module gives access to some of the internal hash tables
     prompt or an autoload function whose path has not yet been resolved, this is
     the empty string. However, the hash element is reported as defined just so
     long as the function is present: the keys to this hash are the same as those
-    to <b>$funcions</b>.</p>
+    to <b>$functions</b>.</p>
 </div>
 <dl class="Bl-tag">
   <dt><b>dis_functions_source</b></dt>
@@ -2040,7 +2061,8 @@ The <b>zsh/net/socket</b> module makes available one builtin command:
     <i>filename</i></dt>
   <dd><b>zsocket -l</b> will open a socket listening on <i>filename</i>. The
       shell parameter <b>REPLY</b> will be set to the file descriptor associated
-      with that listener.</dd>
+      with that listener. The file descriptor remains open in subshells and
+      forked external executables.</dd>
 </dl>
 <div class="Bd-indent">
 <p class="Pp">If <b>-d</b> is specified, its argument will be taken as the
@@ -2052,7 +2074,9 @@ The <b>zsh/net/socket</b> module makes available one builtin command:
     <i>listenfd</i></dt>
   <dd><b>zsocket -a</b> will accept an incoming connection to the socket
       associated with <i>listenfd</i>. The shell parameter <b>REPLY</b> will be
-      set to the file descriptor associated with the inbound connection.</dd>
+      set to the file descriptor associated with the inbound connection. The
+      file descriptor remains open in subshells and forked external
+    executables.</dd>
 </dl>
 <div class="Bd-indent">
 <p class="Pp">If <b>-d</b> is specified, its argument will be taken as the
@@ -2250,7 +2274,8 @@ The <b>zsh/system</b> module makes available various builtin commands and
     options. Note that, depending on the system, some may not be available.</p>
 <dl class="Bl-tag">
   <dt><b>cloexec</b></dt>
-  <dd>mark file to be closed when other programs are executed</dd>
+  <dd>mark file to be closed when other programs are executed (else the file
+      descriptor remains open in subshells and forked external executables)</dd>
   <dt><b>create</b></dt>
   <dd></dd>
   <dt><b>creat</b></dt>
@@ -2380,7 +2405,11 @@ The <b>zsh/system</b> module makes available various builtin commands and
     the file descriptor. The lock terminates when the shell process that created
     the lock exits; it is therefore often convenient to create file locks within
     subshells, since the lock is automatically released when the subshell exits.
-    Status 0 is returned if the lock succeeds, else status 1.</p>
+    Note that use of the <b>print</b> builtin with the <b>-u</b> option will, as
+    a side effect, release the lock, as will redirection to the file in the
+    shell holding the lock. To work around this use a subshell, e.g. `<b>(print
+    message) &gt;&gt; </b><i>file</i>'. Status 0 is returned if the lock
+    succeeds, else status 1.</p>
 <p class="Pp">In the second form the file descriptor given by the arithmetic
     expression <i>fd_expr</i> is closed, releasing a lock. The file descriptor
     can be queried by using the `<b>-f</b> <i>var</i>' form during the lock; on
@@ -3229,7 +3258,7 @@ The <b>zsh/zpty</b> module offers one builtin:
     to be monitored with ZLE descriptor handlers (see <i>zshzle</i>(1)) or
     manipulated with <b>sysread</b> and <b>syswrite</b> (see THE ZSH/SYSTEM
     MODULE in <i>zshmodules</i>(1)). <i>Warning</i>: Use of <b>sysread</b> and
-    <b>syswrite</b> is <i>not</i> recommended, use <b>zpty -r</b> and <b>zpty
+    <b>syswrite</b> is <i>not</i> recommended; use <b>zpty -r</b> and <b>zpty
     -w</b> unless you know exactly what you are doing.</p>
 </div>
 <dl class="Bl-tag">
@@ -3365,7 +3394,7 @@ The <b>zsh/zselect</b> module makes available one builtin command:
 The <b>zsh/zutil</b> module only adds some builtins:
 <p class="Pp"></p>
 <dl class="Bl-tag">
-  <dt><b>zstyle</b> [ <b>-L</b> [ <i>pattern</i> [ <i>style</i> ] ] ]</dt>
+  <dt><b>zstyle</b> [ <b>-L</b> [ <i>metapattern</i> [ <i>style</i> ] ] ]</dt>
   <dd></dd>
   <dt><b>zstyle</b> [ <b>-e</b> | <b>-</b> | <b>-</b><b>-</b> ] <i>pattern</i>
     <i>style</i> <i>string</i> ...</dt>
@@ -3384,31 +3413,61 @@ The <b>zsh/zutil</b> module only adds some builtins:
   <dd>This builtin command is used to define and lookup styles. Styles are pairs
       of names and values, where the values consist of any number of strings.
       They are stored together with patterns and lookup is done by giving a
-      string, called the `context', which is compared to the patterns. The
-      definition stored for the first matching pattern will be returned.</dd>
+      string, called the `<i>context</i>', which is matched against the
+      patterns. The definition stored for the most specific pattern that matches
+      will be returned.</dd>
 </dl>
 <div class="Bd-indent">
-<p class="Pp">For ordering of comparisons, patterns are searched from most
-    specific to least specific, and patterns that are equally specific keep the
-    order in which they were defined. A pattern is considered to be more
-    specific than another if it contains more components (substrings separated
-    by colons) or if the patterns for the components are more specific, where
-    simple strings are considered to be more specific than patterns and complex
-    patterns are considered to be more specific than the pattern `<b>*</b>'.</p>
-<p class="Pp">The first form (without arguments) lists the definitions. Styles
-    are shown in alphabetic order and patterns are shown in the order
-    <b>zstyle</b> will test them.</p>
-<p class="Pp">If the <b>-L</b> option is given, listing is done in the form of
-    calls to <b>zstyle</b>. The optional first argument is a pattern which will
-    be matched against the string supplied as the pattern for the context; note
-    that this means, for example, `<b>zstyle -L &quot;:completion:*&quot;</b>'
-    will match any supplied pattern beginning `<b>:completion:</b>', not just
-    <b>&quot;:completion:*&quot;</b>: use <b>&quot;:completion:\*&quot;</b> to
-    match that. The optional second argument limits the output to a specific
-    <i>style</i> (not a pattern). <b>-L</b> is not compatible with any other
-    options.</p>
-<p class="Pp">The other forms are the following:</p>
+<p class="Pp">A pattern is considered to be more specific than another if it
+    contains more components (substrings separated by colons) or if the patterns
+    for the components are more specific, where simple strings are considered to
+    be more specific than patterns and complex patterns are considered to be
+    more specific than the pattern `<b>*</b>'. A `<b>*</b>' in the pattern will
+    match zero or more characters in the context; colons are not treated
+    specially in this regard. If two patterns are equally specific, the tie is
+    broken in favour of the pattern that was defined first.</p>
+<p class="Pp"><i>Example</i></p>
+<p class="Pp">For example, to define your preferred form of precipitation
+    depending on which city you're in, you might set the following in your
+    <b>zshrc</b>:</p>
 <p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>zstyle ':weather:europe:*' preferred-precipitation rain</b>
+<b>zstyle ':weather:europe:germany:* preferred-precipitation none</b>
+<b>zstyle ':weather:europe:germany:*:munich' preferred-precipitation snow</b>
+</pre>
+</div>
+<p class="Pp">Then, the fictional `<b>weather</b>' plugin might run under the
+    hood a command such as</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>zstyle -s &quot;:weather:${continent}:${country}:${county}:${city}&quot; preferred-precipitation REPLY</b>
+</pre>
+</div>
+<p class="Pp">in order to retrieve your preference into the scalar variable
+    <b>$REPLY</b>.</p>
+<p class="Pp"><i>Usage</i></p>
+<p class="Pp">The forms that operate on patterns are the following.</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>zstyle</b> [ <b>-L</b> [ <i>metapattern</i> [ <i>style</i> ] ] ]</dt>
+  <dd>Without arguments, lists style definitions. Styles are shown in alphabetic
+      order and patterns are shown in the order <b>zstyle</b> will test
+    them.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">If the <b>-L</b> option is given, listing is done in the form of
+    calls to <b>zstyle</b>. The optional first argument, <i>metapattern</i>, is
+    a pattern which will be matched against the string supplied as
+    <i>pattern</i> when the style was defined. Note: this means, for example,
+    `<b>zstyle -L &quot;:completion:*&quot;</b>' will match any supplied pattern
+    beginning `<b>:completion:</b>', not just <b>&quot;:completion:*&quot;</b>:
+    use <b>':completion:\*'</b> to match that. The optional second argument
+    limits the output to a specific <i>style</i> (not a pattern). <b>-L</b> is
+    not compatible with any other options.</p>
+</div>
 <dl class="Bl-tag">
   <dt><b>zstyle</b> [ <b>-</b> | <b>-</b><b>-</b> | <b>-e</b> ] <i>pattern</i>
     <i>style</i> <i>string</i> ...</dt>
@@ -3433,7 +3492,8 @@ The <b>zsh/zutil</b> module only adds some builtins:
       for that pattern are returned and with both a <i>pattern</i> and a
       <i>style</i>, the value strings of that combination is returned.</dd>
 </dl>
-<p class="Pp">The other forms can be used to look up or test patterns.</p>
+<p class="Pp">The other forms can be used to look up or test styles for a given
+    context.</p>
 <p class="Pp"></p>
 <dl class="Bl-tag">
   <dt><b>zstyle -s</b> <i>context</i> <i>style</i> <i>name</i> [ <i>sep</i>
@@ -3441,16 +3501,32 @@ The <b>zsh/zutil</b> module only adds some builtins:
   <dd>The parameter <i>name</i> is set to the value of the style interpreted as
       a string. If the value contains several strings they are concatenated with
       spaces (or with the <i>sep</i> string if that is given) between them.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Return <b>0</b> if the style is set, <b>1</b> otherwise.</p>
+</div>
+<dl class="Bl-tag">
   <dt><b>zstyle -b</b> <i>context</i> <i>style</i> <i>name</i></dt>
   <dd>The value is stored in <i>name</i> as a boolean, i.e. as the string
       `<b>yes</b>' if the value has only one string and that string is equal to
       one of `<b>yes</b>', `<b>true</b>', `<b>on</b>', or `<b>1</b>'. If the
       value is any other string or has more than one string, the parameter is
       set to `<b>no</b>'.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Return <b>0</b> if <i>name</i> is set to `<b>yes</b>', <b>1</b>
+    otherwise.</p>
+</div>
+<dl class="Bl-tag">
   <dt><b>zstyle -a</b> <i>context</i> <i>style</i> <i>name</i></dt>
   <dd>The value is stored in <i>name</i> as an array. If <i>name</i> is declared
       as an associative array, the first, third, etc. strings are used as the
       keys and the other strings are used as the values.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Return <b>0</b> if the style is set, <b>1</b> otherwise.</p>
+</div>
+<dl class="Bl-tag">
   <dt><b>zstyle -t</b> <i>context</i> <i>style</i> [ <i>string</i> ... ]</dt>
   <dd></dd>
   <dt><b>zstyle -T</b> <i>context</i> <i>style</i> [ <i>string</i> ... ]</dt>
@@ -3543,8 +3619,9 @@ The <b>zsh/zutil</b> module only adds some builtins:
   <dt><b>zregexparse</b></dt>
   <dd>This implements some internals of the <b>_regex_arguments</b>
     function.</dd>
-  <dt><b>zparseopts</b> [ <b>-D</b> <b>-K</b> <b>-M</b> <b>-E</b> ] [ <b>-a</b>
-    <i>array</i> ] [ <b>-A</b> <i>assoc</i> ] [ <b>-</b> ] <i>spec</i> ...</dt>
+  <dt><b>zparseopts</b> [ <b>-D</b> <b>-E</b> <b>-F</b> <b>-K</b> <b>-M</b> ] [
+    <b>-a</b> <i>array</i> ] [ <b>-A</b> <i>assoc</i> ] [ <b>-</b> ] <i>spec</i>
+    ...</dt>
   <dd>This builtin simplifies the parsing of options in positional parameters,
       i.e. the set of arguments given by <b>$*</b>. Each <i>spec</i> describes
       one option and must be of the form `<i>opt</i>[<b>=</b><i>array</i>]'. If
@@ -3561,7 +3638,7 @@ The <b>zsh/zutil</b> module only adds some builtins:
 <p class="Pp">Unless the <b>-E</b> option is given, parsing stops at the first
     string that isn't described by one of the <i>spec</i>s. Even with <b>-E</b>,
     parsing always stops at a positional parameter equal to `<b>-</b>' or
-    `<b>-</b><b>-</b>'.</p>
+    `<b>-</b><b>-</b>'. See also <b>-F</b>.</p>
 <p class="Pp">The <i>opt</i> description must be one of the following. Any of
     the special characters can appear in the option name provided it is preceded
     by a backslash.</p>
@@ -3604,9 +3681,22 @@ The <b>zsh/zutil</b> module only adds some builtins:
 <p class="Pp">A `<b>+</b>' as described above may appear between the <i>name</i>
     and the first colon.</p>
 </div>
+<p class="Pp">In all cases, option-arguments must appear either immediately
+    following the option in the same positional parameter or in the next one.
+    Even an optional argument may appear in the next parameter, unless it begins
+    with a `<b>-</b>'. There is no special handling of `<b>=</b>' as with
+    GNU-style argument parsers; given the <i>spec</i> `<b>-foo:</b>', the
+    positional parameter `<b>-</b><b>-foo=bar</b>' is parsed as
+    `<b>-</b><b>-foo</b>' with an argument of `<b>=bar</b>'.</p>
+<p class="Pp">When the names of two options that take no arguments overlap, the
+    longest one wins, so that parsing for the <i>spec</i>s `<b>-foo -foobar</b>'
+    (for example) is unambiguous. However, due to the aforementioned handling of
+    option-arguments, ambiguities may arise when at least one overlapping
+    <i>spec</i> takes an argument, as in `<b>-foo: -foobar</b>'. In that case,
+    the last matching <i>spec</i> wins.</p>
 <p class="Pp">The options of <b>zparseopts</b> itself cannot be stacked because,
     for example, the stack `<b>-DEK</b>' is indistinguishable from a <i>spec</i>
-    for the GNU-style long option `<b>--DEK</b>'. The options of
+    for the GNU-style long option `<b>-</b><b>-DEK</b>'. The options of
     <b>zparseopts</b> itself are:</p>
 <p class="Pp"></p>
 <dl class="Bl-tag">
@@ -3620,8 +3710,30 @@ The <b>zsh/zutil</b> module only adds some builtins:
   <dt><b>-D</b></dt>
   <dd>If this option is given, all options found are removed from the positional
       parameters of the calling shell or shell function, up to but not including
-      any not described by the <i>spec</i>s. This is similar to using the
-      <b>shift</b> builtin.</dd>
+      any not described by the <i>spec</i>s. If the first such parameter is
+      `<b>-</b>' or `<b>-</b><b>-</b>', it is removed as well. This is similar
+      to using the <b>shift</b> builtin.</dd>
+  <dt><b>-E</b></dt>
+  <dd>This changes the parsing rules to <i>not</i> stop at the first string that
+      isn't described by one of the <i>spec</i>s. It can be used to test for or
+      (if used together with <b>-D</b>) extract options and their arguments,
+      ignoring all other options and arguments that may be in the positional
+      parameters. As indicated above, parsing still stops at the first
+      `<b>-</b>' or `<b>-</b><b>-</b>' not described by a <i>spec</i>, but it is
+      not removed when used with <b>-D</b>.</dd>
+  <dt><b>-F</b></dt>
+  <dd>If this option is given, <b>zparseopts</b> immediately stops at the first
+      option-like parameter not described by one of the <i>spec</i>s, prints an
+      error message, and returns status 1. Removal (<b>-D</b>) and extraction
+      (<b>-E</b>) are not performed, and option arrays are not updated. This
+      provides basic validation for the given options.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Note that the appearance in the positional parameters of an option
+    without its required argument always aborts parsing and returns an error as
+    described above regardless of whether this option is used.</p>
+</div>
+<dl class="Bl-tag">
   <dt><b>-K</b></dt>
   <dd>With this option, the arrays specified with the <b>-a</b> option and with
       the `<b>=</b><i>array</i>' forms are kept unchanged when none of the
@@ -3639,12 +3751,6 @@ The <b>zsh/zutil</b> module only adds some builtins:
       values are stored, not the way <b>$*</b> is parsed, so results may be
       unpredictable if the `<i>name</i><b>+</b>' specifier is used
       inconsistently.</dd>
-  <dt><b>-E</b></dt>
-  <dd>This changes the parsing rules to <i>not</i> stop at the first string that
-      isn't described by one of the <i>spec</i>s. It can be used to test for or
-      (if used together with <b>-D</b>) extract options and their arguments,
-      ignoring all other options and arguments that may be in the positional
-      parameters.</dd>
 </dl>
 <p class="Pp">For example,</p>
 <p class="Pp"></p>
@@ -3702,8 +3808,8 @@ The <b>zsh/zutil</b> module only adds some builtins:
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">February 3, 2019</td>
-    <td class="foot-os">zsh 5.7.1</td>
+    <td class="foot-date">February 14, 2020</td>
+    <td class="foot-os">zsh 5.8</td>
   </tr>
 </table>
 </body>

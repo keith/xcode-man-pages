@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>linkguard(3) (ps1)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">linkguard(3)</td>
+    <td class="head-vol">Library Functions Manual (ps1)</td>
+    <td class="head-rtitle">linkguard(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">linkguard_blacklist</code> &#x2014;
+<div class="Nd">protect a process from unwanted dynamic linkage</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<code class="In">#include &lt;<a class="In">linkguard.h</a>&gt;</code>
+<p class="Pp"><code class="Fn">linkguard_blacklist</code>(<var class="Fa" style="white-space: nowrap;">const
+    char *name</var>);</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+Linkage graphs naturally grow in complexity.
+  <code class="Nm">linkguard_blacklist</code> provides a mechanism for
+  restricting this growth.
+<p class="Pp">The <var class="Ar">name</var> argument is a the filename
+    (specifically the last path component) of a dynamic library that you do not
+    want to link. e.g. &quot;UIKit&quot;, &quot;libswiftCore.dylib&quot;, etc.
+    <var class="Ar">name</var> must be a C string literal.</p>
+<p class="Pp"><code class="Nm">linkguard_blacklist</code> does not have to be
+    called inside of a function scope. Regardless of where it is used, no
+    executable code will be added to your binary. The blacklisted image names
+    are stored in a new constant data section, called __linkguard. The blacklist
+    is automatically enforced at runtime by liblinkguard.dylib, whenever
+    <a class="Xr">dyld(1)</a> loads new images.</p>
+<p class="Pp">When a blacklisted image is loaded,
+    <a class="Xr">os_log_fault(3)</a> is called with the reason ``Blacklisted
+    library [...] was loaded.'', generating a crash report.</p>
+<p class="Pp"><code class="Nm">linkguard_blacklist</code> has no behavioral
+    impact on customer installs, because liblinkguard.dylib is not mastered into
+    customer builds. This is why it must be weak linked.</p>
+<p class="Pp">liblinkguard.dylib can be injected into an already running process
+    to test a blacklist without needing to relink the binary. See
+    <a class="Sx" href="#LINKGUARD_BLACKLIST">LINKGUARD_BLACKLIST</a>.</p>
+<p class="Pp"><code class="Nm">linkguard_blacklist</code> is disabled when
+    processes are launched by Xcode.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
+<code class="Nm">linkguard_blacklist</code> is only available to executables.
+<br/>
+Libraries cannot use <code class="Nm">linkguard_blacklist</code>.
+<p class="Pp">liblinkguard.dylib must be linked weakly.</p>
+<p class="Pp">Filenames are not entirely unambiguous ways to refer to linked
+    images. If you end up in a world where you are trying to blacklist one of
+    many libraries sharing the same filename, may god have mercy on your
+  soul.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
+<dl class="Bl-tag">
+  <dt><var class="Va">LINKGUARD_BLACKLIST</var></dt>
+  <dd>This environment variable overrides any existing blacklist in the process.
+      When set, it is enforced as the one true blacklist. It should contain a
+      comma separated list of image filenames.
+    <div class="Bd">
+    <pre>
+(e.g. &quot;UIKit,libswiftCore.dylib&quot;)
+    </pre>
+    </div>
+    <p class="Pp">This environment variable can be changed at any time, as it is
+        checked when new images are loaded.</p>
+  </dd>
+  <dt><var class="Va">LINKGUARD_DISABLE</var></dt>
+  <dd>If this environment variable is set to anything,
+      <code class="Nm">linkguard_blacklist</code> will have no effect.
+    <p class="Pp">This variable must be inherited from the environment, and will
+        not work if set at runtime.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INSPECTION"><a class="permalink" href="#INSPECTION">INSPECTION</a></h1>
+Since the blacklist is stored in the __linkguard section of the binary, it is
+  quite easy to extract the NULL delimited blacklist from a binary using
+  <a class="Xr">objdump(1)</a>:
+<div class="Bd Pp">
+<pre>
+% objdump -j __linkguard -s example_binary
+example_binary:	file format Mach-O 64-bit x86-64
+
+Contents of section __linkguard:
+ 100001000 00000000 00000000 55494b69 74006c69  ........UIKit.li
+ 100001010 62737769 6674436f 72652e64 796c6962  bswiftCore.dylib
+ 100001020 00                                   .
+</pre>
+</div>
+<p class="Pp">The first 8 bytes (4 bytes on 32-bit) are part of a mechanism that
+    ensures liblinkguard.dylib is only ever weak linked.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">dyld(1)</a>, <a class="Xr">objdump(1)</a>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">4/20/20</td>
+    <td class="foot-os">Darwin</td>
+  </tr>
+</table>
+</body>
+</html>
