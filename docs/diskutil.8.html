@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <!-- This is an automatically generated file.  Do not edit.
-   Copyright (c) 1998-2019 Apple Inc. All rights reserved.
+   Copyright (c) 1998-2020 Apple Inc. All rights reserved.
   
    This file contains Original Code and/or Modifications of Original Code
    as defined in and that are subject to the Apple Public Source License
@@ -61,15 +61,21 @@
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
 <code class="Nm">diskutil</code> manipulates the structure of local disks. It
-  provides information about, and allows the administration of, the partitioning
+  provides information about, and allows the administration of, partitioning
   schemes, layouts, and formats of disks. This includes hard disks, solid state
   disks, optical discs, disk images, APFS volumes, CoreStorage volumes, and
   AppleRAID sets. It generally manipulates whole volumes instead of individual
   files and directories.
 </section>
 <section class="Sh">
+<h1 class="Sh" id="CAUTION"><a class="permalink" href="#CAUTION">CAUTION</a></h1>
+Many <code class="Nm">diskutil</code> commands, if improperly used, can result
+  in data loss. Most commands do not present confirmation prompts. You should
+  back up your data before using any of these commands.
+</section>
+<section class="Sh">
 <h1 class="Sh" id="VERBS"><a class="permalink" href="#VERBS">VERBS</a></h1>
-Each verb is listed with its description and individual arguments.
+Each command verb is listed with its description and individual arguments.
 <dl class="Bl-hang">
   <dt><b class="Sy">list</b> [<code class="Nm">-plist</code>]</dt>
   <dd>[<code class="Nm">internal</code> | <code class="Nm">external</code>]
@@ -174,18 +180,30 @@ Each verb is listed with its description and individual arguments.
       RAID or direct data. Additionally, removable media will become eligible
       for safe manual removal; automatically-removable media will begin its
       physical (motorized) eject sequence.</dd>
-  <dt><b class="Sy">mount</b> [<code class="Nm">readOnly</code>]</dt>
-  <dd>[<code class="Nm">-mountPoint</code> <var class="Ar">path</var>]
+  <dt><b class="Sy">mount</b> [<b class="Sy">readOnly</b>]</dt>
+  <dd>[<b class="Sy">nobrowse</b>] [<b class="Sy">-mountOptions</b>
+      <var class="Ar">option</var> [, <var class="Ar">option</var>]]
+      [<b class="Sy">-mountPoint</b> <var class="Ar">path</var>]
       <var class="Ar">device</var>
     <br/>
-    Mount a single volume. If <b class="Sy">readOnly</b> is specified, then the
-      file system is mounted read-only, even if the volume's underlying file
-      system and/or device and/or media supports writing; even the super-user
-      may not write to it; this is the same as the <b class="Sy">rdonly</b>
-      option to <b class="Sy">mount</b> (8). If a <b class="Sy">-mountPoint</b>
-      is specified, then that path, rather than the standard path of
-      /Volumes/VolumeName, will be used as the view into the volume file
-      content; a directory at that path must already exist.</dd>
+    Mount a single volume.
+    <p class="Pp">If <b class="Sy">readOnly</b> is specified, then the file
+        system is mounted read-only, even if writing is supported or allowed by
+        the volume's underlying file system, device, media, or user (e.g. the
+        super-user). If <b class="Sy">nobrowse</b> is specified, then the file
+        system is mounted with a recommendation to prevent display (e.g. by the
+        Finder) to the end user. These options are equivalent to passing
+        <b class="Sy">rdonly</b> or <b class="Sy">nobrowse</b> as &quot;-o&quot;
+        arguments to the appropriate file system bundle's
+        <b class="Sy">mount</b> (8) program. If <b class="Sy">-mountOptions</b>
+        is specified, then the argument strings you specify will be passed (by
+        diskarbitrationd) verbatim to &quot;-o&quot;; multiple arguments must be
+        separated with commas.</p>
+    <p class="Pp">If <b class="Sy">-mountPoint</b> is specified, then your path,
+        rather than the standard path of /Volumes/VolumeName or
+        /System/Volumes/VolumeName, will be used as the view into the volume
+        file content; a directory at that path must already exist.</p>
+  </dd>
   <dt><b class="Sy">mountDisk</b> <var class="Ar">device</var></dt>
   <dd>
     <br/>
@@ -439,11 +457,13 @@ Each verb is listed with its description and individual arguments.
     <p class="Pp"><var class="Ar">Level</var> should be one of the
       following:</p>
     <ul class="Bl-bullet Bd-indent">
-      <li>0 - Single-pass zero-fill erase.</li>
-      <li>1 - Single-pass random-fill erase.</li>
-      <li>2 - US DoD 7-pass secure erase.</li>
-      <li>3 - Gutmann algorithm 35-pass secure erase.</li>
-      <li>4 - US DoE algorithm 3-pass secure erase.</li>
+      <li>0 - Single-pass zero fill erase.</li>
+      <li>1 - Single-pass random fill erase.</li>
+      <li>2 - Seven-pass erase, consisting of zero fills and all-ones fills plus
+          a final random fill.</li>
+      <li>3 - Gutmann algorithm 35-pass erase.</li>
+      <li>4 - Three-pass erase, consisting of two random fills plus a final zero
+          fill.</li>
     </ul>
     <p class="Pp">NOTE: This kind of secure erase is no longer considered safe.
         Modern devices have wear-leveling, block-sparing, and
@@ -657,6 +677,39 @@ Each verb is listed with its description and individual arguments.
         first one, must be unmountable. Ownership of the affected disk is
         required.</p>
   </dd>
+  <dt><b class="Sy">addPartition</b></dt>
+  <dd><var class="Ar">device</var> <var class="Ar">format</var>
+      <var class="Ar">name</var> <var class="Ar">size</var>
+    <br/>
+    Create a new partition following an existing partition. The new partition
+      will start immediately beyond the end (start + size) of the existing
+      partition.
+    <p class="Pp">If <var class="Ar">device</var> is a partition, then a new
+        partition will be created in the gap that follows it, formatted with the
+        file system personality <var class="Ar">format</var>, with an initial
+        volume name of <var class="Ar">name</var>, extending for
+        <var class="Ar">size</var>, in the same manner as the triplet
+        description for the <b class="Sy">partitionDisk</b> verb.</p>
+    <p class="Pp">If <var class="Ar">device</var> is a (partition map-bearing)
+        whole disk, then the new partition will automatically be placed last in
+        the map.</p>
+    <p class="Pp">Alternatively, you can create a new partition without any
+        formatting by providing the partition type manually. To do so, pass a
+        <var class="Ar">format</var> parameter in the form of
+        <b class="Sy">%</b> followed by a raw GPT UUID or valid human-readable
+        ioContent string followed by <b class="Sy">%</b>, together with
+        <b class="Sy">%noformat%</b> for <var class="Ar">name</var>. In this
+        usage, any old on-disk data at the location of the new partition will be
+        &quot;wiped&quot; (partially set to zeroes) to avoid any undesired
+        interpretation.</p>
+    <p class="Pp">You can request fit-to-fill by specifying a
+        <var class="Ar">size</var> of <b class="Sy">0</b>.</p>
+    <p class="Pp">The partition map scheme must be GPT. A gap must exist at the
+        target location, which will generally not be the case unless you have
+        resized or deleted partitions. The partition map must contain at least
+        one entry (the EFI partition suffices). Ownership of the affected disk
+        is required.</p>
+  </dd>
   <dt><b class="Sy">APFS</b> | <b class="Sy">ap</b>
     <var class="Ar">apfsVerb</var> [...]</dt>
   <dd>
@@ -671,8 +724,9 @@ Each verb is listed with its description and individual arguments.
           time.
         <p class="Pp">While attached, the &quot;handle&quot; by which an APFS
             Container is identified is by its APFS <b class="Sy">Container
-            Reference</b> disk (device). You should treat this as an opaque
-            reference token.</p>
+            Reference</b> disk (device), e.g. &quot;disk5&quot; or
+            &quot;/dev/disk5&quot;. You should treat this as an opaque reference
+            token.</p>
         <p class="Pp">The <b class="Sy">Container Reference</b> disk is a
             synthesized whole-disk which is exported by APFS for identification
             purposes only; it has no storage. It is associated with the
@@ -698,6 +752,10 @@ Each verb is listed with its description and individual arguments.
       <li>Volume - An APFS Volume is an [un]mountable file system volume which
           is exported from an APFS Container. Zero or more APFS Volumes may be
           exported out of an APFS Container.
+        <p class="Pp">An APFS Volume is identified by its device node, e.g.
+            &quot;disk5s1&quot; or &quot;/dev/disk5s1&quot;. The term
+            <b class="Sy">volumeDevice</b> is used below to refer to this device
+            node.</p>
         <p class="Pp">APFS Volumes have no specified &quot;size&quot;
             (capacity). Instead, all APFS Volumes consume capacity out of the
             remaining free space of their parent APFS Container, consuming or
@@ -727,34 +785,45 @@ Each verb is listed with its description and individual arguments.
             <b class="Sy">role</b> metadata flags which give a hint as to their
             intended use. Not all combinations of flags are valid, and not all
             flags are allowed to be set or changed by a user.</p>
-        <p class="Pp">Efficient file copy cloning (copy-on-write) is supported
-            (see <b class="Sy">copyfile</b> (3)'s COPYFILE_CLONE).</p>
-        <p class="Pp">Optional file-level encryption is supported.</p>
-        <p class="Pp">The format of an APFS Volume's device identifier is that
-            of a slice disk of a special whole-disk; both disks are synthesized
-            by APFS. The &quot;whole&quot; identifier number (a positive
-            possibly-multi-digit integer) is arbitrary, and the
-            &quot;slice&quot; numbers (positive possibly-multi-digit integers)
-            count up from 1 with each new Volume. Deleting Volumes may cause
-            gaps in the numbering. This form appears the same as a partition
-            (map) scheme and partitions, but it is completely unrelated. For
-            example: If &quot;disk3s2&quot; is a Physical Store defining a
-            Container, then &quot;disk5s1&quot;, &quot;disk5s2&quot;, and
-            &quot;disk5s3&quot; might be the Container's Volumes;
+        <p class="Pp">Efficient file copy cloning (copy-on-write) is supported;
+            see <a class="Xr">copyfile(3)</a>
+          <b class="Sy">COPYFILE_CLONE.</b></p>
+        <p class="Pp">Optional volume-level encryption is supported (see also
+            Volume Groups below). An APFS Volume can be in an encrypted state
+            because it was converted from a Core Storage encrypted volume, or
+            because it was created as encrypted from its inception (e.g. with
+            the <b class="Sy">diskutil apfs addVolume -passphrase</b> verb) or
+            because FileVault was enabled on it at some later time. On machines
+            that support hardware encryption, the on-disk-device data for local
+            volumes is encrypted even if FileVault is not enabled; this is
+            termed &quot;encrypted at rest&quot;.</p>
+        <p class="Pp">The format of an APFS Volume's device identifier
+            (volumeDevice) is that of a slice disk of a special whole-disk; both
+            disks are synthesized by APFS. The &quot;whole&quot; identifier
+            number (a positive possibly-multi-digit integer) is arbitrary, and
+            the &quot;slice&quot; numbers (positive possibly-multi-digit
+            integers) count up from 1 with each new Volume. Deleting Volumes may
+            cause gaps in the numbering. This form appears the same as a
+            partition (map) scheme and partitions, but it is completely
+            unrelated. For example: If &quot;disk3s2&quot; is a Physical Store
+            defining a Container, then &quot;disk5s1&quot;, &quot;disk5s2&quot;,
+            and &quot;disk5s3&quot; might be the Container's Volumes;
             &quot;disk5&quot; exists but is never used directly.</p>
         <p class="Pp">Although it has a device node, an APFS Volume's data may
-            only be accessed through its files; you cannot open an APFS Volume
-            device node to &quot;directly&quot; access its on-disk bytes.</p>
+            only be accessed through its files; 3rd-party code cannot open an
+            APFS Volume device node to &quot;directly&quot; access its on-disk
+            bytes.</p>
       </li>
       <li>Snapshot - An APFS Snapshot represents a read-only copy of its parent
-          APFS Volume, frozen at the moment of its creation. An APFS Volume can
-          have zero or more associated APFS Snapshots.
-        <p class="Pp">APFS Snapshots are neither listed nor discoverable when
-            their Volume is not mounted. Snapshots are uniquely identified
-            within their parent Volume's namespace by either a numeric
-            identifier (preferred) or by their name; Snapshots can be renamed,
-            but APFS will never allow duplication of names (within a Volume) to
-            occur.</p>
+          (or &quot;base&quot;) APFS Volume, frozen at the moment of its
+          creation. An APFS Volume can have zero or more associated APFS
+          Snapshots.
+        <p class="Pp">APFS Snapshots are normally not discoverable unless the
+            &quot;base&quot; or one of the snapshots is mounted. APFS Snapshots
+            are uniquely identified with a UUID (preferred) or within their
+            parent Volume's namespace by either a numeric identifier or by their
+            name; they can be renamed, but APFS will never allow duplication of
+            names (within a Volume) to occur.</p>
         <p class="Pp">APFS Snapshots are mountable; when this occurs, its mount
             point (separate from and simultaneous with its parent Volume)
             provides a read-only historic version of the Volume content at
@@ -768,27 +837,35 @@ Each verb is listed with its description and individual arguments.
             the possibility of ever reverting to that Snapshot's state, but does
             not affect the Volume's present-time content.</p>
         <p class="Pp">An APFS Snapshot mount point's &quot;source device&quot;
-            (its <b class="Sy">statfs</b> (2) f_mntfromname shown by
-            <b class="Sy">mount</b> (8)) is not a device node (e.g. disk0s2) as
-            is common; it is the Snapshot name followed by the '@' character and
-            the &quot;parent&quot; Volume's device node, e.g.
-            &quot;SnapName123@/dev/disk2s1&quot;. See
-            <b class="Sy">mount_apfs</b> <b class="Sy">-s</b> (8) and
-            <b class="Sy">fs_snapshot_create</b> (2).</p>
+            (its <a class="Xr">statfs(2)</a> <b class="Sy">f_mntfromname</b>
+            shown by the <a class="Xr">mount(8)</a> command) is not necessarily
+            a device node (e.g. disk0s2) as is common; it can be the Snapshot
+            name followed by the '@' character and the &quot;parent&quot;
+            Volume's device node, e.g. &quot;SnapName123@/dev/disk2s1&quot;. See
+            the <a class="Xr">mount_apfs(8)</a> <b class="Sy">-s</b> and
+            <a class="Xr">fs_snapshot_create(2)</a> commands. However, it is
+            also possible for <b class="Sy">f_mntfromname</b> to have a 3-part
+            form (&quot;diskCsVsS&quot;) if you are rooted (booted) from an APFS
+            Snapshot; in this case, its &quot;base&quot; Volume (e.g.
+            &quot;diskCsV&quot;) will <b class="Sy">not</b> be mounted.</p>
       </li>
       <li>Volume Group - Collections of APFS Volumes can be associated with each
           other via an APFS Volume Group. Zero or more APFS Volume Groups may
           exist on any given APFS Container. The &quot;members&quot; (APFS
           Volumes) of any particular APFS Volume Group must all be on the same
-          APFS Container.
+          APFS Container. There is no such thing as an &quot;empty&quot;
+          (zero-member) APFS Volume Group.
         <p class="Pp">APFS Volume Groups are identified using their Volume Group
             ID (a UUID). Assignment of this ID may be deferred in some
           cases.</p>
         <p class="Pp">A primary use for APFS Volume Groups is realization of
             macOS installations in which &quot;System&quot;-role (for the
             operating system) and &quot;Data&quot;-role (for user data) APFS
-            Volumes are necessarily functionally linked, yet separated for
-            reasons of security, backup, and software update.</p>
+            Volumes are functionally linked (overlaid file namespace, crypto
+            info), yet separated for reasons of security, backup, and software
+            update.</p>
+        <p class="Pp">Cryptographic identity, if any, is shared among all
+            members of an APFS Volume Group.</p>
       </li>
     </ul>
     <p class="Pp">APFS itself has no provision for backing up your data. Backups
@@ -858,40 +935,67 @@ Each verb is listed with its description and individual arguments.
           [<b class="Sy">-secondary</b>] [<var class="Ar">device</var>]
         <br/>
         Create an empty APFS Container. The device(s) specified become APFS
-          Physical Stores.
-        <p class="Pp">If you specify more than one device, a Fusion Container is
-            created, with the performance parts assigned automatically
-            (preferred) unless you use the <b class="Sy">-main</b> and
-            <b class="Sy">-secondary</b> options, in which case, the secondary
-            device is assumed by APFS's performance algorithms to be on
-            &quot;slower&quot; hardware. The secondary device is often used to
-            store associated &quot;auxiliary&quot; data, such as a Boot Camp
-            Assistant partition. If you need to make a choice among multiple
-            hardware devices, you should assign any rotational (not solid state)
-            and/or larger devices to be secondary.</p>
-        <p class="Pp">You may then add APFS Volumes with the
-            <b class="Sy">diskutil apfs addVolume</b> verb; you must do this at
-            least once in order to &quot;use&quot; the new Container.</p>
+          Physical Stores. If you specify more than one device, a Fusion
+          Container is created.
+        <p class="Pp">For Fusion cases, if you do not explicitly use the
+            <b class="Sy">-main</b> and <b class="Sy">-secondary</b> options,
+            the performance duties are assigned automatically; this is
+            preferred. Rotational vs. solid-state hardware design must be
+            detectable; this is often not the case for external disks.
+            Solid-state hardware is welcome but not required; it is the
+            identification which holds as a hard requirement with this
+          usage.</p>
+        <p class="Pp">Alternatively, you can explicitly specify
+            <b class="Sy">-main</b> and <b class="Sy">-secondary</b> devices; if
+            you do so, you must specify both. The &quot;main&quot; device is
+            assumed to be &quot;faster&quot; (you should use solid-state
+            hardware if available), while the &quot;secondary&quot; device is
+            assumed to be &quot;slower&quot; and is often used to store
+            OS-associated &quot;auxiliary&quot; data such as a Boot Camp
+            Assistant partition.</p>
+        <p class="Pp">You cannot mix the use of disks from a disk image and not
+            from a disk image.</p>
+        <p class="Pp">After running this command, you may add APFS Volumes with
+            the <b class="Sy">diskutil apfs addVolume</b> verb; you must do this
+            at least once in order to &quot;use&quot; the new Container.</p>
         <p class="Pp">Ownership of the affected disks is required.</p>
       </dd>
       <dt><b class="Sy">deleteContainer</b></dt>
       <dd>[<b class="Sy">-force</b>]
           <var class="Ar">containerReferenceDevice</var> |
-          <var class="Ar">physicalStoreDevice</var> [<var class="Ar">name</var>]
+          <var class="Ar">physicalStoreDevice</var>
+          [<var class="Ar">newName</var>] [<var class="Ar">newFormat</var>
+          <var class="Ar">newName</var> <var class="Ar">newSize</var>]
         <br/>
         Destroy an existing APFS Container, including all of its APFS Volumes.
-          You can identify the APFS Container by its Container Reference disk
-          (preferred), or by its Physical Store disk.
+          Data on all of those volumes will be lost.
+        <p class="Pp">You can identify the APFS Container by its Container
+            Reference disk (preferred), or by one of its Physical Store
+          disk(s).</p>
         <p class="Pp">The APFS Volumes are unmounted first; this process may not
-            succeed if one or more is busy. If this happens, the operation is
-            aborted and everything is left intact. Otherwise, all APFS Volumes
-            are deleted as well as its APFS Container, and the APFS Container's
-            former Physical Store disks will be reformatted as HFS; data on all
-            APFS Volumes will be lost.</p>
-        <p class="Pp">You can optionally specify a new
-            <var class="Ar">name</var>, or else &quot;Untitled&quot; will be
-            chosen. If there were multiple Physical Stores, a space and a number
-            suffix is added for each.</p>
+            succeed if one or more is busy, in which case deleteContainer is
+            aborted and all data is left intact (although some volumes might now
+            be unmounted).</p>
+        <p class="Pp">Otherwise, all APFS Volumes are deleted, their
+            encryption-store entries are removed as applicable, the parent APFS
+            Container is deleted, and the APFS Container's former Physical
+            Store(s) are disposed of as follows:</p>
+        <p class="Pp">If you did not specify a <var class="Ar">newName</var> and
+            all Physical Stores are partitions, then those partitions are
+            deleted (turned into free space). You might then wish to use
+            <b class="Sy">diskutil addPartition</b> to re-purpose the
+            newly-created gap in your partition map.</p>
+        <p class="Pp">If you did specify a <var class="Ar">newName</var>, or if
+            one or more Physical Stores are whole disks (e.g. AppleRAID), then
+            they are reformatted (as something other than APFS) with volume
+            name(s) based on <var class="Ar">newName</var>.</p>
+        <p class="Pp">If you specified the triplet of
+            <var class="Ar">newFormat</var> <var class="Ar">newName</var>
+            <var class="Ar">newSize</var> in the same manner as when using the
+            <b class="Sy">partitionDisk</b> verb, then they are each reformatted
+            with the specified format and volume names based on
+            <var class="Ar">newName</var>. Only a <var class="Ar">newSize</var>
+            of <b class="Sy">0</b> (fit-to-fill) is currently supported.</p>
         <p class="Pp">If your APFS Container is damaged, a Container Reference
             for it might not exist or it might not be functional. In this case,
             you can reclaim your former APFS Physical Store disk(s) by
@@ -1014,8 +1118,22 @@ Each verb is listed with its description and individual arguments.
       <dd><var class="Ar">volumeDevice</var>
         <br/>
         Remove the given APFS Volume from its APFS Container. All of the
-          Volume's data will be lost.
+          Volume's data will be lost. Additionally, a best-effort (error
+          ignored) attempt is made to remove any corresponding XART, Preboot,
+          and Recovery entries.
         <p class="Pp">Ownership of the affected disks is required.</p>
+      </dd>
+      <dt><b class="Sy">deleteVolumeGroup</b></dt>
+      <dd><var class="Ar">volumeGroupUUID</var>
+        <br/>
+        Remove all APFS Volumes belonging to the given APFS Volume Group from
+          its APFS Container. All of the Volumes' data will be lost.
+          Additionally, a best-effort (error ignored) attempt is made to remove
+          any corresponding XART, Preboot, and Recovery entries for each Volume.
+          It is then positively verified that the Volume Group no longer exists.
+        <p class="Pp">Removal will not start unless all Volumes in the Group can
+            first be successfully unmounted.</p>
+        <p class="Pp">Ownership of the parent APFS Container is required.</p>
       </dd>
       <dt><b class="Sy">eraseVolume</b></dt>
       <dd><var class="Ar">volumeDevice</var> <b class="Sy">-name</b>
@@ -1069,7 +1187,8 @@ Each verb is listed with its description and individual arguments.
           [<b class="Sy">-passphrase</b> <var class="Ar">passphrase</var>] |
           [<b class="Sy">-stdinpassphrase</b>] [<b class="Sy">-nomount</b> |
           <b class="Sy">-mountpoint</b> <var class="Ar">mountpoint</var>]
-          [<b class="Sy">-verify</b>] [<b class="Sy">-plist</b>]
+          [<b class="Sy">-systemreadwrite</b>] [<b class="Sy">-verify</b>]
+          [<b class="Sy">-plist</b>]
         <br/>
         Unlock and mount an encrypted and locked APFS Volume or verify a
           passphrase.
@@ -1091,16 +1210,22 @@ Each verb is listed with its description and individual arguments.
             the APFS Volume. The keychain must be unlocked; see
             <a class="Xr">security(1)</a> and <a class="Xr">fdesetup(8)</a> for
             more information.</p>
-        <p class="Pp">You can skip the explicit mounting step with the
-            <b class="Sy">-nomount</b> option, or specify a &quot;custom&quot;
-            mountpoint with the <b class="Sy">-mountpoint</b> option. If you
-            specify your own mountpoint path, it must exist and you must have
-            write privileges on it (e.g. usually you must be root).</p>
+        <p class="Pp">This command will normally mount the APFS Volume after
+            unlocking; if part of a Volume Group
+            &quot;System&quot;/&quot;Data&quot;-role pair, both will be mounted.
+            If (one of the) volume(s) is of the &quot;System&quot;-role, then it
+            will be mounted as read-only unless you specify the
+            <b class="Sy">-systemreadwrite</b> option. You can skip the explicit
+            mounting step with the <b class="Sy">-nomount</b> option, or specify
+            a &quot;custom&quot; mountpoint with the
+            <b class="Sy">-mountpoint</b> option. If you specify your own
+            mountpoint path, it must exist and you must have write privileges on
+            it (e.g. usually you must be root).</p>
         <p class="Pp">Specifying <b class="Sy">-verify</b> will test passphrase
             correctness without affecting the locked or unlocked state.</p>
         <p class="Pp">If <b class="Sy">-plist</b> is specified, then a property
             list will be emitted instead of the normal user-readable output;
-            additional details are available here.</p>
+            this list provides additional detail.</p>
         <p class="Pp">To re-lock the volume, unmount it, e.g. with
             <b class="Sy">diskutil</b> <b class="Sy">unmount</b> or
             <b class="Sy">diskutil</b> <b class="Sy">apfs</b>
@@ -1230,13 +1355,17 @@ Each verb is listed with its description and individual arguments.
       </dd>
       <dt><b class="Sy">listSnapshots</b> |
         <b class="Sy">listVolumeSnapshots</b></dt>
-      <dd>[<b class="Sy">-plist</b>] <var class="Ar">volumeDevice</var>
+      <dd>[<b class="Sy">-plist</b>] <var class="Ar">volumeDevice</var> |
+          <var class="Ar">volumeSnapshotDevice</var>
         <br/>
         Show all APFS Snapshots currently associated with the given APFS Volume,
           each with information such as its Snapshot UUID, Snapshot Name,
           numeric XID identifier, and possibly other fields. If applicable, the
-          one snapshot which might be limiting APFS Container resizing is
-          identified.
+          unique APFS Snapshot which might be limiting APFS Container resizing
+          is identified.
+        <p class="Pp">If you are rooted (booted) from an APFS Snapshot, you can
+            specify the appropriate 3-part BSD identifier (e.g.
+            &quot;disk1s2s1&quot;).</p>
         <p class="Pp">If <b class="Sy">-plist</b> is specified, then a property
             list will be emitted instead of the normal user-readable output.</p>
       </dd>
@@ -1495,14 +1624,15 @@ Each verb is listed with its description and individual arguments.
     <var class="Ar">coreStorageVerb</var> [...]</dt>
   <dd>
     <br/>
-    CoreStorage verbs can be used to create, manipulate and destroy CoreStorage
-      volumes.
+    CoreStorage verbs can be used to gather information about, and to remove,
+      CoreStorage volumes.
     <p class="Pp">CoreStorage maintains a world of virtual disks, somewhat like
         RAID, in which one can easily add or remove imported backing store
         disks, as well as exported usable volumes, to or from a pool (or several
         pools). This provides the user with flexibility in allocating their
         hardware; user or operating system data can span multiple physical disks
         seamlessly, for example.</p>
+    <p class="Pp">CoreStorage is deprecated in favor of Apple APFS.</p>
     <p class="Pp">Apple CoreStorage defines four types of objects, instances of
         which are uniquely represented by a UUID:</p>
     <ul class="Bl-bullet Bd-indent">
@@ -1521,20 +1651,17 @@ Each verb is listed with its description and individual arguments.
     <p class="Pp">An LVG exports zero or more Logical Volume Families (LVFs). An
         LVF contains properties which govern and bind together all of its
         descendant Logical Volumes (LVs). These properties provide settings for
-        Full Disk Encryption (FDE) (such as whether the LVG is encrypted, which
+        Full Disk Encryption (FDE) (such as whether the LVs are encrypted, which
         users have access, etc) and other services. However, at the present
-        time, for new LVF creation, only zero or one LVF per LVG is
-      supported.</p>
+        time, for the creation of any new LVFs, only zero or one LVF per LVG is
+        supported.</p>
     <p class="Pp">A Logical Volume Family (LVF) exports one or more Logical
-        Volumes (LVs). However, at the present time, only and exactly one LV per
-        LVF is supported.</p>
+        Volumes (LVs). However, only and exactly one LV per LVF is
+      supported.</p>
     <p class="Pp">A Logical Volume (LV) exports a dev node, upon which a file
         system (such as Journaled HFS+) resides.</p>
     <p class="Pp">For more information on specifying device arguments, see the
         <b class="Sy">DEVICES</b> section below.</p>
-    <p class="Pp">CoreStorage is not a replacement for backing up your data.
-        Backups should be always be performed on a regular basis and before
-        modifying any CoreStorage volumes using these commands.</p>
     <p class="Pp">The following is a list of <b class="Sy">coreStorage</b>
         sub-verbs with their descriptions and individual arguments.</p>
     <dl class="Bl-hang">
@@ -1559,93 +1686,6 @@ Each verb is listed with its description and individual arguments.
         <br/>
         Display properties of the CoreStorage object (LVG, PV, LVF, or LV)
           associated with the given CoreStorage UUID or disk.</dd>
-      <dt><b class="Sy">convert</b> <var class="Ar">device</var></dt>
-      <dd>[<code class="Nm">-stdinpassphrase</code> |
-          <code class="Nm">-passphrase</code>
-          [<var class="Ar">passphrase</var>]]
-        <br/>
-        Convert a regular Journaled HFS+ or Case-sensitive Journaled HFS+ volume
-          (must be on a partition and within a GPT partitioning scheme) into a
-          CoreStorage logical volume.
-        <p class="Pp">If <b class="Sy">-passphrase</b> is specified, the on-disk
-            bytes will be encrypted. You will be prompted for a new passphrase
-            interactively, or you can specify the
-            <var class="Ar">passphrase</var> on the command line. Alternatively,
-            if you specify <b class="Sy">-stdinpassphrase</b> the standard input
-            is read for the passphrase so that a program could execute
-            <b class="Sy">diskutil</b> and send the passphrase through a pipe
-            without having to expose it as a command-line parameter.</p>
-        <p class="Pp">The volume is encrypted with an FDE &quot;Disk&quot;
-            passphrase, which is distinct from the &quot;User&quot; ID and
-            passphrase combination which FileVault associates with a volume.
-            Therefore, if you want to encrypt a macOS &quot;OS-bearing&quot;
-            volume (with its user accounts), you must use FileVault in Security
-            Preferences or the contextual menu in the Finder.</p>
-        <p class="Pp">The volume must be resizable (the above types are) and
-            also mounted. Conversion is done live and in-place; targeting the
-            boot volume is supported; as much of the conversion as possible is
-            done before an eject or reboot is necessary.</p>
-        <p class="Pp">After slightly shrinking the source volume to make room
-            for CoreStorage data structures at the end, its partition type is
-            changed to Apple_CoreStorage and it becomes a CoreStorage Physical
-            Volume. A new CoreStorage Logical Volume Group is then created with
-            this Physical Volume as the backing store, followed by the creation
-            of a Logical Volume Family and Logical Volume pair.</p>
-        <p class="Pp">At this point, the new CoreStorage PV/LVG/LVF/LV stack is
-            ready for use, although the &quot;old&quot; mountpoint must first be
-            unmounted; yet it might not be unmountable. This will occur if the
-            target (now the PV) is the current boot volume.</p>
-        <p class="Pp">Just before exiting, <b class="Sy">diskutil</b>
-            <b class="Sy">coreStorage</b> <b class="Sy">convert</b> will try to
-            unmount the target disk (which is now the &quot;old&quot; mount
-            point and the new PV). If successful (target is not the boot disk),
-            the volume now becomes mounted from the LV. If unsuccessful (target
-            is the boot disk), a reboot is necessary.</p>
-        <p class="Pp">At this point, if no encryption was specified, all is
-            done. Otherwise, the bytes-on-disk will begin to be encrypted
-            in-place by CoreStorage automatically &quot;in the background&quot;
-            while the PV/LVG/LVF/LV stack continues to be usable. Encryption
-            progress may be monitored with <b class="Sy">diskutil</b>
-            <b class="Sy">coreStorage</b> <b class="Sy">list.</b></p>
-        <p class="Pp">When encryption is finished, a Disk passphrase will be
-            required the next time the LV is ejected and re-attached. If the LV
-            is hosting the boot volume, this passphrase requirement will thus
-            occur at the next reboot.</p>
-        <p class="Pp">Note that all on-disk data is not secured immediately; it
-            is a deliberate process of encrypting all on-disk bytes while the
-            CoreStorage driver keeps publishing the (usable) LVG/LV.</p>
-        <p class="Pp">Ownership of the affected disk is required.</p>
-      </dd>
-      <dt><b class="Sy">revert</b> <var class="Ar">device</var> |
-        <var class="Ar">lvUUID</var></dt>
-      <dd>[<code class="Nm">-stdinpassphrase</code>] |
-          [<code class="Nm">-passphrase</code> <var class="Ar">passphrase</var>]
-          | [<code class="Nm">-recoverykeychain</code>
-          <var class="Ar">file</var>]
-        <br/>
-        Convert a CoreStorage logical volume back to its native type. The volume
-          must have been created by means of conversion, e.g. with
-          <b class="Sy">diskutil</b> <b class="Sy">coreStorage</b>
-          <b class="Sy">convert.</b>
-        <p class="Pp">If the volume was not created with a passphrase, then
-            simple ownership of the affected disk is required; otherwise, a Disk
-            passphrase must be supplied, either interactively or via one of the
-            parameters or a keychain file in the same manner as
-            <b class="Sy">diskutil</b> <b class="Sy">coreStorage</b>
-            <b class="Sy">unlockVolume.</b></p>
-      </dd>
-      <dt><b class="Sy">create</b> | <b class="Sy">createLVG</b>
-        <var class="Ar">lvgName</var> <var class="Ar">devices ...</var></dt>
-      <dd>
-        <br/>
-        Create a CoreStorage logical volume group. The disks specified will
-          become the (initial) set of physical volumes; more than one may be
-          specified. You can specify partitions (which will be re-typed to be
-          Apple_CoreStorage) or whole-disks (which will be partitioned as GPT
-          and will contain an Apple_CoreStorage partition). The resulting LVG
-          UUID can then be used with createVolume below. All existing data on
-          the drive(s) will be lost. Ownership of the affected disk is
-        required.</dd>
       <dt><b class="Sy">delete</b> | <b class="Sy">deleteLVG</b>
         <var class="Ar">lvgUUID</var> | <var class="Ar">lvgName</var></dt>
       <dd>
@@ -1654,103 +1694,6 @@ Each verb is listed with its description and individual arguments.
           with their logical volumes are removed, the logical volume group is
           destroyed, and the now-orphaned physical volumes are erased and
           partition-typed as Journaled HFS+.</dd>
-      <dt><b class="Sy">rename</b> | <b class="Sy">renameLVG</b>
-        <var class="Ar">lvgUUID</var> | <var class="Ar">lvgName</var>
-        <var class="Ar">newName</var></dt>
-      <dd>
-        <br/>
-        Rename a CoreStorage logical volume group. Do not confuse this name with
-          the LV name or the volume name of the file system volume on the
-        LV.</dd>
-      <dt><b class="Sy">createVolume</b> | <b class="Sy">createLV</b>
-        <var class="Ar">lvgUUID</var> | <var class="Ar">lvgName</var>
-        <var class="Ar">type</var> <var class="Ar">name</var>
-        <var class="Ar">size</var></dt>
-      <dd>[<code class="Nm">-stdinpassphrase</code> |
-          <code class="Nm">-passphrase</code>
-          [<var class="Ar">passphrase</var>]]
-        <br/>
-        Export a new logical volume family, with a new logical volume under it,
-          out of a CoreStorage logical volume group. <var class="Ar">Type</var>
-          is the file system personality to initialize on the new logical
-          volume. Valid types are Journaled HFS+ or Case-sensitive Journaled
-          HFS+ or their aliases. <var class="Ar">Size</var> is the amount of
-          space to allocate from the parent LVG. It is given in the same manner
-          as the triplet description for the <b class="Sy">partitionDisk</b>
-          verb, and you can also specify with <b class="Sy">%</b> a percentage
-          of the currently remaining unallocated space in the LVG.
-        <p class="Pp">If <b class="Sy">-passphrase</b> or
-            <b class="Sy">-stdinpassphrase</b> is specified, in the same manner
-            as with <b class="Sy">diskutil</b> <b class="Sy">coreStorage</b>
-            <b class="Sy">convert</b> above, on-disk data will be stored in an
-            encrypted form as the Logical Volume is filled; otherwise, the data
-            will remain plain.</p>
-      </dd>
-      <dt><b class="Sy">deleteVolume</b> | <b class="Sy">deleteLV</b>
-        <var class="Ar">lvUUID</var> | <var class="Ar">device</var></dt>
-      <dd>
-        <br/>
-        Remove an exported logical volume (and its logical volume family as
-          appropriate) from a CoreStorage logical volume group. Any data on that
-          logical volume will be lost. This operation will thus result in an
-          increase in free space in the logical volume group.
-        <p class="Pp">It is assumed that the logical volume is used as a backing
-            store for a file system; therefore, an unmount attempt is made which
-            must succeed before the removal of the logical volume is done.</p>
-      </dd>
-      <dt><b class="Sy">encryptVolume</b> | <b class="Sy">encryptLV</b></dt>
-      <dd><var class="Ar">lvUUID</var> | <var class="Ar">device</var>
-          [<code class="Nm">-stdinpassphrase</code>] |
-          [<code class="Nm">-passphrase</code> <var class="Ar">passphrase</var>]
-        <br/>
-        Begin a live background process of encrypting the on-disk backing bytes
-          of an existing plain CoreStorage logical volume (LV).
-        <p class="Pp">That is, the on-disk bytes that are backing the user data
-            are all visited, read, and re-written in an encrypted form; this
-            process can take a long time (minutes to hours). This process
-            continues seamlessly across reboots. The logical volume remains
-            usable at all times. When this command returns, the operation will
-            be ongoing; you can check progress with <b class="Sy">diskutil</b>
-            <b class="Sy">coreStorage</b> <b class="Sy">list.</b></p>
-        <p class="Pp">The entire logical volume family (LVF) is affected since
-            all LVs in an LVF share the same encryption settings.</p>
-        <p class="Pp">Any new user data written while this background operation
-            is in progress will be in encrypted form.</p>
-        <p class="Pp">Specifying <b class="Sy">-passphrase</b> or
-            <b class="Sy">-stdinpassphrase</b> or interactively entering a
-            passphrase is mandatory; you do so in the same manner as with
-            <b class="Sy">diskutil</b> <b class="Sy">coreStorage</b>
-            <b class="Sy">convert</b> above.</p>
-        <p class="Pp">The volume is encrypted with an FDE &quot;Disk&quot;
-            passphrase, which is distinct from the &quot;User&quot; ID and
-            passphrase combination which FileVault associates with a volume.
-            Therefore, if you want to encrypt a macOS &quot;OS-bearing&quot;
-            volume (with its user accounts), you must use FileVault in Security
-            Preferences or the contextual menu in the Finder.</p>
-      </dd>
-      <dt><b class="Sy">decryptVolume</b> | <b class="Sy">decryptLV</b></dt>
-      <dd><var class="Ar">lvUUID</var> | <var class="Ar">device</var>
-          [<code class="Nm">-stdinpassphrase</code>] |
-          [<code class="Nm">-passphrase</code> <var class="Ar">passphrase</var>]
-        <br/>
-        Begin a live background process of decrypting the on-disk backing bytes
-          of an existing encrypted CoreStorage logical volume (LV). Bytes are
-          read, decrypted, and written back to disk in plain form. The LV must
-          be unlocked before beginning this operation.
-        <p class="Pp">Like as in <b class="Sy">diskutil</b>
-            <b class="Sy">coreStorage</b> <b class="Sy">encryptVolume</b> above,
-            all on-disk bytes are visited and converted, the process is seamless
-            across reboots, the logical volume remains usable at all times, the
-            entire logical volume family (LVF) is affected, any new user data
-            written will be in plain form, and the operation will be ongoing
-            when this command returns.</p>
-        <p class="Pp">Credentials must be supplied; you can use
-            <b class="Sy">-passphrase</b> or <b class="Sy">-stdinpassphrase</b>
-            to supply a Disk passphrase, or you can specify that a recovery
-            keychain file be used, in the same manner as
-            <b class="Sy">diskutil</b> <b class="Sy">coreStorage</b>
-            <b class="Sy">unlockVolume.</b></p>
-      </dd>
       <dt><b class="Sy">unlockVolume</b> | <b class="Sy">unlockLV</b></dt>
       <dd>[<code class="Nm">-nomount</code>] <var class="Ar">lvUUID</var>
           [<code class="Nm">-stdinpassphrase</code>] |
@@ -1759,10 +1702,20 @@ Each verb is listed with its description and individual arguments.
           <var class="Ar">file</var>]
         <br/>
         Unlock a logical volume and file system, causing it to be attached and
-          mounted.
-        <p class="Pp">Data is then accessible in plain form to the file system
-            and applications, while the on-physical-disk backing bytes remain in
-            encrypted form.</p>
+          mounted. Data is then accessible in plain form to the file system and
+          applications, while the on-physical-disk backing bytes remain in
+          encrypted form. A credential must be supplied; you must supply either
+          a &quot;Disk&quot; user passphrase or a recovery keychain file.
+        <p class="Pp">If no <b class="Sy">-passphrase</b> option is specified,
+            you will be prompted interactively; else, your
+            <var class="Ar">passphrase</var> is used. Or, if you specify
+            <b class="Sy">-stdinpassphrase</b> then the standard input is read
+            (e.g. so that the passphrase can be securely piped in without having
+            to expose it).</p>
+        <p class="Pp">Alternatively, you can specify
+            <b class="Sy">-recoverykeychain</b> with a path to a keychain
+            <var class="Ar">file</var>. The keychain must be unlocked; see
+            <a class="Xr">security(1)</a> for more information.</p>
         <p class="Pp">The locked state means that the CoreStorage driver has not
             been given authentication information (a passphrase) to interpret
             the encrypted bytes on disk and thus export a dev node. This verb
@@ -1772,152 +1725,7 @@ Each verb is listed with its description and individual arguments.
             the <b class="Sy">-nomount</b> option is given.</p>
         <p class="Pp">To re-lock the volume, make it offline again by ejecting
             it, e.g. with <b class="Sy">diskutil</b>
-          <b class="Sy">eject.</b></p>
-        <p class="Pp">Credentials must be supplied. You must either supply a
-            Disk passphrase interactively, with one of the
-            <b class="Sy">-passphrase</b> or <b class="Sy">-stdinpassphrase</b>
-            parameters in the same manner as with <b class="Sy">diskutil</b>
-            <b class="Sy">coreStorage</b> <b class="Sy">convert</b> above, or
-            you must specify that a recovery keychain file be used.</p>
-        <p class="Pp">You can specify <b class="Sy">-recoverykeychain</b> with a
-            path to a keychain file. The keychain must be unlocked; see
-            <a class="Xr">security(1)</a> for more information.</p>
-      </dd>
-      <dt><b class="Sy">changeVolumePassphrase</b> | <b class="Sy">passwd</b>
-        <var class="Ar">lvUUID</var></dt>
-      <dd>[<code class="Nm">-recoverykeychain</code> <var class="Ar">file</var>]
-          [<code class="Nm">-oldpassphrase</code>
-          <var class="Ar">oldpassphrase</var>]
-          [<code class="Nm">-newpassphrase</code>
-          <var class="Ar">newpassphrase</var>]
-          [<code class="Nm">-stdinpassphrase</code>]
-        <br/>
-        Change the Disk passphrase of an existing encrypted volume. It need not
-          be unlocked nor mounted. The parameters, while variously optional,
-          must be given in the above order.
-        <p class="Pp">You must authenticate either via the
-            <b class="Sy">-oldpassphrase</b> parameter, via the
-            <b class="Sy">-stdinpassphrase</b> parameter (with newline or
-            eof-terminated data given to stdin), or via an interactive prompt
-            (if no parameters are given), in the same manner as
-            <b class="Sy">diskutil</b> <b class="Sy">coreStorage</b>
-            <b class="Sy">convert</b> above. Alternatively, you can authenticate
-            by specifying <b class="Sy">-recoverykeychain</b> with a path to a
-            keychain file.</p>
-        <p class="Pp">A new passphrase must then be supplied, again via one of
-            the three methods above (interactive,
-            <b class="Sy">-newpassphrase,</b> or
-            <b class="Sy">-stdinpassphrase).</b></p>
-        <p class="Pp">If you are supplying both the old and new passphrases via
-            stdin, they must be separated with a newline character.</p>
-        <p class="Pp">Only the Disk passphrase is supported; you cannot change
-            credentials for various users that were set up with FileVault or the
-            Finder; to edit credentials for such users, you should use
-            <b class="Sy">fdesetup</b> (8).</p>
-      </dd>
-      <dt><b class="Sy">resizeVolume</b> | <b class="Sy">resizeLV</b></dt>
-      <dd><var class="Ar">lvUUID</var> | <var class="Ar">device</var>
-          <var class="Ar">size</var>
-        <br/>
-        Resize a logical volume (LV). If you shrink an LV, more space becomes
-          available in its logical volume group (LVG); if you grow an LV, less
-          space becomes available. You can check the free space with
-          <b class="Sy">diskutil</b> <b class="Sy">coreStorage</b>
-          <b class="Sy">list.</b> The file system volume which resides inside
-          the LV is grown or shrunk as needed.
-        <p class="Pp">You can specify a <var class="Ar">size</var> of zero
-            <b class="Sy">(0)</b> to fill up all remaining space in the parent
-            LVG with the given LV.</p>
-      </dd>
-      <dt><b class="Sy">resizeDisk</b> | <b class="Sy">resizePV</b></dt>
-      <dd><var class="Ar">pvUUID</var> <var class="Ar">size</var>
-          [<var class="Ar">part1Format</var> <var class="Ar">part1Name</var>
-          <var class="Ar">part1Size</var> <var class="Ar">part2Format</var>
-          <var class="Ar">part2Name</var> <var class="Ar">part2Size</var>
-          <var class="Ar">part3Format part3Name part3Size</var>
-          <var class="Ar">...</var>]
-        <br/>
-        Resize a physical volume (PV). If you shrink a PV, less space becomes
-          available in its logical volume group (LVG); if you grow a PV, more
-          space becomes available. The partition in which the PV resides is
-          changed to accommodate, and the associated booter partition, if
-          present, is automatically moved.
-        <p class="Pp">Note that you cannot ordinarily grow a PV unless there is
-            free space in the partition map beyond it; note also that you cannot
-            ordinarily shrink a PV unless the LVG has some free space in it
-            (e.g. by shrinking an overlying LV first).</p>
-        <p class="Pp">When decreasing the size (shrinking), new partitions may
-            optionally be created to fill the newly-freed space. To do this,
-            specify the <var class="Ar">format,</var>
-            <var class="Ar">name,</var> and <var class="Ar">size</var>
-            parameters in the same manner as the triplet description for the
-            <b class="Sy">partitionDisk</b> verb.</p>
-        <p class="Pp">You can specify a <var class="Ar">size</var> of zero
-            <b class="Sy">(0)</b> to fill up all remaining space to the next
-            partition or the end of the partition map, if possible.</p>
-      </dd>
-      <dt><b class="Sy">resizeStack</b> <var class="Ar">lvUUID</var> |
-        <var class="Ar">device</var></dt>
-      <dd>[<var class="Ar">pvUUID</var>] <var class="Ar">size</var>
-          [<var class="Ar">part1Format</var> <var class="Ar">part1Name</var>
-          <var class="Ar">part1Size</var> <var class="Ar">part2Format</var>
-          <var class="Ar">part2Name</var> <var class="Ar">part2Size</var>
-          <var class="Ar">part3Format part3Name part3Size</var>
-          <var class="Ar">...</var>]
-        <br/>
-        Combine the actions of <b class="Sy">diskutil</b>
-          <b class="Sy">coreStorage</b> <b class="Sy">resizePV</b> and
-          <b class="Sy">diskutil</b> <b class="Sy">coreStorage</b>
-          <b class="Sy">resizeLV</b> in the correct sequence in order to effect
-          a shrink or a grow in an entire LVG setup.
-        <p class="Pp">This is done by making a change to the size of a logical
-            volume (LV), after or before which (one of its) physical volume(s)
-            (PV) also changes its size accordingly. The (HFS) file system
-            &quot;on top of&quot; the LV and the disk partition
-            &quot;below&quot; the PV, as well as the location of the PV's
-            associated booter partition, are automatically adjusted.</p>
-        <p class="Pp">When decreasing the size (shrinking), new partitions may
-            optionally be created to fill the newly-freed space. To do this,
-            specify the <var class="Ar">format,</var>
-            <var class="Ar">name,</var> and <var class="Ar">size</var>
-            parameters in the same manner as the triplet description for the
-            <b class="Sy">partitionDisk</b> verb.</p>
-        <p class="Pp">Since an LVG might have one (e.g. Full Disk Encryption
-            (FDE), aka FileVault), two (e.g. Fusion), or even three (certain
-            Boot Camp configurations) PVs, a specific PV must be chosen. You can
-            have this command choose one for you, or you can specify the PV UUID
-            directly. If you do not specify a PV, the one which has previously
-            been marked for this purpose is used; if no mark, a policy algorithm
-            is applied.</p>
-        <p class="Pp">If your new LV size represents a grow of the existing LV
-            size, then the PV size will take up more space on disk, thus
-            creating a larger LVG for the larger LV to live in. If your new LV
-            size represents a shrink, then the PV size will take up less space
-            on disk, thus creating a smaller LVG, which is enough for the
-            smaller LV to live in. The magnitude of the size change you specify
-            (which is for the LV) causes an exact size change in the PV if you
-            conform to partition rounding (alignment) restrictions; the
-            corresponding LV change may be greater because it is under
-            additional alignment restrictions imposed by CoreStorage and
-          HFS.</p>
-        <p class="Pp">The &quot;spilling over&quot; of size change effects from
-            one PV onto another is not supported; only and exactly one PV is
-            affected by this operation. Grows or shrinks whose effects don't
-            &quot;fit&quot; the designated PV will result in an error message
-            and no effect. For example, you can't do a shrink on a multi-PV
-            setup such that the designated PV should shrink to zero size and so
-            effectively should disappear. Nor can you do a grow which would
-            necessitate the growth of some other PV or the addition of new
-          PVs.</p>
-        <p class="Pp">As in <b class="Sy">diskutil</b>
-            <b class="Sy">coreStorage</b> <b class="Sy">resizePV</b>, note that
-            you cannot grow unless there is free space in the partition map
-            beyond the designated PV, which is not normally the case because you
-            usually don't leave gaps of free space on your disk.</p>
-        <p class="Pp">You can specify a <var class="Ar">size</var> of zero
-            <b class="Sy">(0)</b> to fill up all remaining space to the
-            partition following the designated PV's booter or to the end of the
-            partition map, if possible.</p>
+          <b class="Sy">eject</b>.</p>
       </dd>
     </dl>
   </dd>
@@ -1961,35 +1769,49 @@ A device parameter for any of the above commands (except where explicitly
   IDENTIFIER</a></h1>
 The (BSD) <b class="Sy">disk identifier</b> string variously identifies a
   physical or logical device unit, a session (if any) upon that device, a
-  partition (slice) upon that session (if any), or a virtual logical volume. It
-  may take the form of <span class="Pa">diskU</span>,
-  <span class="Pa">diskUsS</span>, <span class="Pa">diskUsQ</span>, or
-  <span class="Pa">diskCsV</span>, where U, C, S, Q and V are positive decimal
-  integers (possibly multi-digit), and where:
+  partition (slice) upon that session (if any), a virtual logical volume, or a
+  moment in a volume's evolution. It may take the form of
+  <span class="Pa">diskU</span>, <span class="Pa">diskUsP</span>,
+  <span class="Pa">diskUsQ</span>, <span class="Pa">diskUsQsP</span>,
+  <span class="Pa">diskC</span>, <span class="Pa">diskCsV</span>, or
+  <span class="Pa">diskCsVsS</span> where C, P, Q, S, U, and V are positive
+  decimal integers (possibly multi-digit), and where:
 <ul class="Bl-bullet Bd-indent">
   <li><span class="Pa">U</span> is the device unit. It may refer to hardware
       (e.g. a hard drive, optical drive, or memory card) or a virtual
-      &quot;drive&quot; constructed by software (e.g. an AppleRAID Set, disk
-      image, CoreStorage LV, etc).</li>
+      &quot;drive&quot; constructed by software (e.g. an AppleRAID Set, Apple
+      Disk Image, CoreStorage LV, etc).</li>
   <li><span class="Pa">C</span> is an APFS Container. This is a virtual disk
-      constructed by APFS to represent a collection of APFS Volumes.</li>
+      constructed by APFS to represent a collection of APFS Volumes. Multiple
+      APFS Containers can be active simultaneously.</li>
   <li><span class="Pa">Q</span> is the session and is only included for optical
       media; it refers to the number of times recording has taken place on the
       currently-inserted medium (disc).</li>
-  <li><span class="Pa">S</span> is the &quot;slice&quot;; it refers to a
-      partition. Upon this partition, the raw data that underlies a user-visible
-      file system is usually present, but it may also contain specialized data
-      for certain 3rd-party database programs, or data required for the system
-      software (e.g. EFI partitions, booter partitions, APM partition map data,
-      etc), or, notably, it might contain backing-store physical volumes for
-      AppleRAID, CoreStorage, APFS, or 3rd-party Storage Systems.</li>
+  <li><span class="Pa">P</span> is a partition in some partitioning scheme. A
+      partitioning scheme divides up a device unit and is also called a
+      &quot;partition map&quot; or simply a &quot;map&quot;. Upon a partition,
+      the raw data that underlies a user-visible file system is usually present,
+      but it may also contain specialized data for certain 3rd-party database
+      programs, or data required for the system software (e.g. EFI partitions,
+      booter partitions, APM partition map data, etc), or, notably, it might
+      contain backing-store physical volumes for AppleRAID, CoreStorage, APFS,
+      or other (3rd-party) Storage Systems. For example, a partition disk0s2
+      might contain APFS data and have a partition type of Apple_APFS; this
+      partition would then be termed an APFS Physical Store, out of which an
+      APFS Container disk1 is defined, out of which an APFS Volume disk1s1 is
+      exported.</li>
   <li><span class="Pa">V</span> is an APFS Volume; it refers to a virtual
-      logical volume that is shared out of an APFS Container. For example, if an
-      Apple_APFS-typed partition is on disk5s2, then disk5s2 is termed the APFS
-      Physical Store which is imported into an APFS Container. The APFS
-      Container might then export e.g. disk8s1, which is termed an APFS Volume,
-      which is mountable as a file system. Multiple APFS Volumes can be exported
-      from a single APFS Container.</li>
+      logical volume that is shared out of an APFS Container. For example,
+      exported from an APFS Container designated as disk1 there might be an APFS
+      Volume disk1s1, mountable as a file system and usable for file storage via
+      its mountpoint path.</li>
+  <li><span class="Pa">S</span> is an APFS Snapshot; it refers to a frozen
+      moment in time of the state of files on an APFS Volume. For example, if
+      APFS Container disk6 has an APFS Volume disk6s3, and two APFS Snapshots
+      have been &quot;taken&quot; on it, these, when mounted, might be
+      designated as disk6s3s1 and disk6s3s2. Zero or more snapshots can be
+      persistently defined on a volume, but only &quot;active&quot; (mounted)
+      snapshots have disk identifiers.</li>
 </ul>
 <p class="Pp">Some units (e.g. floppy disks, RAID sets) contain file system data
     upon their &quot;whole&quot; device instead of containing a partitioning
@@ -2140,9 +1962,16 @@ diskutil eraseDisk JHFS+ Untitled disk3
 <p class="Pp">Erase and format with a different volume file system
   <br/>
   diskutil eraseVolume ExFAT FOO disk3s2</p>
-<p class="Pp">Remove a partition from a partition map altogether
+<p class="Pp">Remove a partition from a partition map (results in free space)
   <br/>
   diskutil eraseVolume free free disk3s2</p>
+<p class="Pp">Add a new partition to a partition map (into free space)
+  <br/>
+  diskutil addPartition disk3s2 ExFat FOO 0
+  <br/>
+  diskutil addPartition disk3s2 %Apple_HFS% %noformat% 2.5g
+  <br/>
+  diskutil addPartition disk3 ExFat FOO 50%</p>
 <p class="Pp">Convert a HFS disk to APFS
   <br/>
   diskutil apfs convert disk3s2</p>
@@ -2184,17 +2013,6 @@ diskutil eraseDisk JHFS+ Untitled disk3
 <p class="Pp">Resize an HFS volume and leave all remaining space as unused
   <br/>
   diskutil resizeVolume /Volumes/SomeDisk 12g</p>
-<p class="Pp">Shrink a Core Storage PV in order to make space for a Boot Camp
-    volume
-  <br/>
-  diskutil coreStorage list
-  <br/>
-  diskutil coreStorage resizeStack <var class="Ar">LVUUID</var>
-    <var class="Ar">PVUUID</var> 150g ms-dos BOOTCAMP 0</p>
-<p class="Pp">Revert a disk from Core Storage back to plain HFS, possibly
-    decrypting
-  <br/>
-  diskutil coreStorage revert disk5</p>
 <p class="Pp">Merge two partitions into a new partition
   <br/>
   diskutil mergePartitions JHFS+ not disk1s3 disk1s5</p>
@@ -2239,7 +2057,9 @@ diskutil eraseDisk JHFS+ Untitled disk3
   <a class="Xr">newfs_hfs(8)</a>, <a class="Xr">fsck_hfs(8)</a>,
   <a class="Xr">authopen(1)</a>, <a class="Xr">hfs.util(8)</a>,
   <a class="Xr">msdos.util(8)</a>, <a class="Xr">ufs.util(8)</a>,
-  <a class="Xr">drutil(1)</a>, <a class="Xr">vsdbutil(8)</a>
+  <a class="Xr">drutil(1)</a>, <a class="Xr">vsdbutil(8)</a>,
+  <a class="Xr">apfs.util(8)</a>, <a class="Xr">fsck_apfs(8)</a>,
+  <a class="Xr">mount_apfs(8)</a>, <a class="Xr">newfs_apfs(8)</a>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="ERRORS"><a class="permalink" href="#ERRORS">ERRORS</a></h1>
@@ -2273,11 +2093,13 @@ The eraseDisk and partitionDisk verbs had an option to add Mac OS 9 drivers (in
     size will default to 1MiB alignment, regardless of the partitioning scheme.
     This is significant for MBR partition maps and their use in appliances such
     as cameras. Free-space requests will not be aligned.</p>
+<p class="Pp">Starting with macOS 11.0, certain Core Storage manipulation verbs
+    have been removed.</p>
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">1 July 2019</td>
+    <td class="foot-date">24 July 2020</td>
     <td class="foot-os">macOS</td>
   </tr>
 </table>

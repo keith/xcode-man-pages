@@ -158,6 +158,8 @@ The options are as follows:
   <dd>When signing, causes <code class="Nm">codesign</code> to replace any
       existing signature on the path(s) given. Without this option, existing
       signatures will not be replaced, and the signing operation fails.</dd>
+  <dt><a class="permalink" href="#-remove-signature"><code class="Fl" id="-remove-signature">--remove-signature</code></a></dt>
+  <dd>Removes the current code signature from the path(s) given.</dd>
   <dt><a class="permalink" href="#h,"><code class="Fl" id="h,">-h,</code></a>
     <code class="Fl">--hosting</code></dt>
   <dd>Constructs and prints the hosting chain of a running program. The
@@ -304,6 +306,9 @@ The options are as follows:
       You still need to specify the -f (--force) option to enable overwriting
       signatures at all. If this option is absent, any old signature has no
       effect on the signing process.
+    <br/>
+    <b>Note</b>: if the <var class="Ar">linker-signed</var> flag is present on
+      the previous binary, then this option is ignored.
     <br/>
     This option takes a comma-separated list of names, which you may reasonably
       abbreviate:
@@ -551,6 +556,18 @@ When signing, a set of option flags can be specified to change the behavior of
       restrictions can be selectively relaxed via entitlements. Note: macOS
       versions older than 10.14.0 ignore the presence of this flag in the code
       signature.</dd>
+  <dt>linker-signed</dt>
+  <dd>Identifies a signature as signed by the linker. Linker signatures are very
+      similar to adhoc signatures, except:
+    <ul class="Bl-bullet">
+      <li>linker signatures can be replaced without using the
+          <var class="Ar">--force</var> option.</li>
+      <li>linker signatures are never preserved regardless of the use of the
+          <var class="Ar">--preserve-metadata</var> option.</li>
+      <li>linker signatures will usually not contain any embedded code
+          requirements including a designated requirement.</li>
+    </ul>
+  </dd>
 </dl>
 <p class="Pp">Note that code can set the hard and kill flags on itself at any
     time. The signing options only affect their initial state. Once set by any
@@ -568,15 +585,19 @@ When signing, a set of option flags can be specified to change the behavior of
 <h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
 To sign application Terminal.app with a signing identity named
   &quot;authority&quot;:
-<div class="Bd Bd-indent"><code class="Li">codesign -s authority
+<div class="Bd Bd-indent"><code class="Li">codesign --sign authority
   Terminal.app</code></div>
 <p class="Pp">To sign the command-line tool &quot;helper&quot; with the same
     identity, overwriting any existing signature, using the signing identifier
     &quot;com.mycorp.helper&quot;, and embedding a custom designated
   requirement</p>
-<div class="Bd Bd-indent"><code class="Li">codesign -f -s authority
+<div class="Bd Bd-indent"><code class="Li">codesign -f --sign authority
   --prefix=com.mycorp. -r=&quot;designated =&gt; anchor /tmp/foo&quot;
   helper</code></div>
+<p class="Pp">To enable the hardened runtime on Terminal.app and sign with the
+    signing identity named &quot;authority&quot;:</p>
+<div class="Bd Bd-indent"><code class="Li">codesign --sign authority --options
+  runtime Terminal.app</code></div>
 <p class="Pp">To verify the signature on Terminal.app and produce some verbose
     output:</p>
 <div class="Bd Bd-indent"><code class="Li">codesign --verify --verbose
@@ -596,6 +617,20 @@ To sign application Terminal.app with a signing identity named
   /sbin/launchd</code></div>
 <div class="Bd Bd-indent"><code class="Li">codesign --display --entitlements :-
   Terminal.app</code></div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TROUBLESHOOTING"><a class="permalink" href="#TROUBLESHOOTING">TROUBLESHOOTING</a></h1>
+A common source of confusion when using <code class="Nm">codesign</code> arises
+  from the ordering of command line options. If <code class="Nm">codesign</code>
+  is not behaving as expected, consult this manual and check the ordering of
+  your arguments. As a general rule <code class="Nm">codesign</code> follows a
+  <b class="Sy">verb noun</b> rule. For example <code class="Fl">--sign</code>
+  should be placed before <code class="Fl">--options</code> in the invocation.
+  This is because you are performing a &#x201C;sign&#x201D; action with a given
+  set of options.
+<p class="Pp">If these are inverted and <code class="Fl">--options</code> is
+    provided before <code class="Fl">--sign</code> in the invocation, the value
+    of <code class="Fl">--options</code> is ignored silently.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DIAGNOSTICS"><a class="permalink" href="#DIAGNOSTICS">DIAGNOSTICS</a></h1>
@@ -666,6 +701,13 @@ Some options only apply to particular operations, and
     find it confusing, use the unambiguous long forms
     <var class="Ar">--verbose</var> and <var class="Ar">--verify</var>
   instead.</p>
+<p class="Pp">The <code class="Fl">--verify</code> option can take either a file
+    or a pid. If your file path starts with a number you should prefix it with
+    &#x201C;./&#x201D; to force <code class="Nm">codesign</code> to interpret
+    the argument as a path. For example:</p>
+<div class="Bd Bd-indent"><code class="Li">codesign --verify 666</code></div>
+would become:
+<div class="Bd Bd-indent"><code class="Li">codesign --verify ./666</code></div>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
