@@ -8,6 +8,7 @@ set -euo pipefail
 # No tool I could find could handle all the formats here, so we attempt to use one, before falling bacak to another
 
 xcode_path="$1"
+script_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 pushd "$xcode_path"
 output_dir="$2"
 mkdir -p "$output_dir"
@@ -23,8 +24,10 @@ do
       continue
     fi
 
-    timeout 5 bsdman -Thtml "$file" > "$output_dir/$(basename "$file").html" \
-      || roff2html "$file" > "$output_dir/$(basename "$file").html" &
+    output_path="$output_dir/$(basename "$file").html"
+    (timeout 5 bsdman -Thtml "$file" > "$output_path" \
+      || roff2html "$file" > "$output_path") && \
+      "$script_root/add_custom_css.py" "$output_path" &
   done
 done
 

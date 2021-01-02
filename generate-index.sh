@@ -25,3 +25,4 @@ do
 done
 
 echo "$footer" >> "$output"
+../add_custom_css.py "$output"
