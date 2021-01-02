@@ -38,15 +38,28 @@
     <td class="head-rtitle">OTOOL-CLASSIC(1)</td>
   </tr>
 </table>
-<div class="manual-text">otool-classic - object file displaying tool
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+otool-classic - object file displaying tool
+</section>
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
-<b>otool</b> [ <i>option ...</i> ] [ <i>file ...</i> ] The <i>otool-classic</i>
-  command displays specified parts of object files or libraries. It is now
-  largely obsolete and the command line shim, <i>otool</i>(1) executes
-  <i>llvm-obdump</i>(1) as the default tool. <i>otool-classic</i> is still
-  useful for diagnosing bad, corrupted, or fuzzed binaries, or for viewing older
-  binaries that <i>llvm-objdump</i> will not read.
+<b>otool-classic</b> [ <i>option ...</i> ] [ <i>file ...</i> ]
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The <i>otool-classic</i> command displays specified parts of object files or
+  libraries. It is the preferred tool for inspecting Mach-O binaries, especially
+  for binaries that are bad, corrupted, or fuzzed. It is also useful in
+  situations when inspecting files with new or &quot;bleeding-edge&quot; Mach-O
+  file format changes.
+<p class="Pp">For historical reasons, the LLVM-based <i>llvm-objdump</i>(1) tool
+    does support displaying Mach-O information in an
+    &quot;otool-compatibility&quot; mode. For more information on using
+    <i>llvm-objdump</i>(1) in this way, see the <i>llvm-otool</i>(1)
+    command-line shim. Note that <i>llvm-objdump</i>(1) is incapable of
+    displaying information in all Mach-O files.</p>
 <p class="Pp">If the <b>-m</b> option is not used the file arguments may be of
     the form <i>libx.a(foo.o)</i>, to request information about only that object
     file and not the entire library. (Typically this argument must be quoted,
@@ -122,15 +135,40 @@
       added).</dd>
   <dt><b>-P</b></dt>
   <dd>Print the info plist section, (__TEXT,__info_plist), as strings.</dd>
+  <dt><b>-dyld_info</b></dt>
+  <dd>Print bind and rebase information used by dyld to resolve external
+      references in a final linked binary.</dd>
+  <dt><b>-dyld_opcodes</b></dt>
+  <dd>Print raw dyld bind and rebase opcodes present in a final linked binary.
+      These opcodes are stored in a region pointed to by LC_DYLD_INFO* load
+      commands.</dd>
+  <dt><b>-chained_fixups</b></dt>
+  <dd>Print raw chained fixup data present in a final linked binary built with
+      chained fixups. The chained fixup data are stored either in a region
+      pointed to by the LC_DYLD_CHAINED_FIXUPS load command or in a
+      (__TEXT,__chain_starts) section. This data includes the fixup chain's
+      starting location on each page by segment and symbol information for each
+      bind. Use the <b>-dyld_info</b> option to see the individual links in each
+      chain.</dd>
 </dl>
 <p class="Pp">The following options may also be given:</p>
 <dl class="Bl-tag">
+  <dt><b>-j</b></dt>
+  <dd>When doing disassembly print the opcode bytes of the instructions.</dd>
+  <dt><b>-m</b></dt>
+  <dd>The object file names are not assumed to be in the archive(member) syntax,
+      which allows file names containing parenthesis.</dd>
   <dt><b>-p </b><i>name</i></dt>
   <dd>Used with the <b>-t</b> and <b>-v</b> or <b>-V</b> options to start the
       disassembly from symbol <i>name</i> and continue to the end of the
       (__TEXT,__text) section. This option can also be used with the <b>-x</b>
       option to begin disassembly from symbol <i>name</i> in any segment where a
       __text section is found.</dd>
+  <dt><b>-q</b></dt>
+  <dd>Use the llvm disassembler when doing disassembly; this is available for
+      the x86 and arm architectures. This is the default.</dd>
+  <dt><b>-Q</b></dt>
+  <dd>Use <i>otool-classic</i>(1)'s disassembler when doing disassembly.</dd>
   <dt><b>-v</b></dt>
   <dd>Display verbosely (symbolically) when possible.</dd>
   <dt><b>-V</b></dt>
@@ -140,19 +178,11 @@
   <dt><b>-X</b></dt>
   <dd>Don't print leading addresses or headers with disassembly of
     sections.</dd>
-  <dt><b>-q</b></dt>
-  <dd>Use the llvm disassembler when doing disassembly; this is available for
-      the x86 and arm architectures. This is the default.</dd>
-  <dt><b>-mcpu=</b><i>arg</i></dt>
-  <dd>When doing disassembly using the llvm disassembler use the cpu
-    <i>arg.</i></dd>
-  <dt><b>-function_offsets</b></dt>
-  <dd>When doing disassembly print the decimal offset from the last label
-      printed.</dd>
-  <dt><b>-j</b></dt>
-  <dd>When doing disassembly print the opcode bytes of the instructions.</dd>
-  <dt><b>-Q</b></dt>
-  <dd>Use <i>otool-classic</i>(1)'s disassembler when doing disassembly.</dd>
+  <dt><b>-addr_slide=</b><i>arg</i></dt>
+  <dd>When disassembling a binary using the <b>-s,</b> <b>-t,</b> or <b>-o</b>
+      options, add an arbitrary slide to each pointer value when it is
+      displayed. This is useful for matching otool output with that from a
+      running process.</dd>
   <dt><b>-arch</b><i> arch_type</i></dt>
   <dd>Specifies the architecture, <i>arch_type,</i> of the file for
       <i>otool-classic</i>(1) to operate on when the file is a universal file
@@ -161,18 +191,25 @@
       &quot;all&quot; to operate on all architectures in the file. The default
       is to display only the host architecture, if the file contains it;
       otherwise, all architectures in the file are shown.</dd>
-  <dt><b>-m</b></dt>
-  <dd>The object file names are not assumed to be in the archive(member) syntax,
-      which allows file names containing parenthesis.</dd>
+  <dt><b>-function_offsets</b></dt>
+  <dd>When doing disassembly print the decimal offset from the last label
+      printed.</dd>
+  <dt><b>-mcpu=</b><i>arg</i></dt>
+  <dd>When doing disassembly using the llvm disassembler use the cpu
+    <i>arg.</i></dd>
   <dt><b>--version</b></dt>
-  <dd>Print the <i>otool-classic</i>(1) version information. llvm-otool(1),
-      install_name_tool(1), dyld(1) and libtool(1)</dd>
+  <dd>Print the <i>otool-classic</i>(1) version information.</dd>
 </dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+dyld(1), install_name_tool(1), libtool(1), lipo(1), llvm-otool(1), and vtool(1)
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">June 22, 2017</td>
+    <td class="foot-date">July 31, 2020</td>
     <td class="foot-os">Apple Inc.</td>
   </tr>
 </table>

@@ -51,196 +51,209 @@ llvm-otool - the otool-compatible command line parser for llvm-objdump
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
 The command line shim <i>llvm-otool</i> takes all the same options as the
   original <i>otool</i>(1) command and executes an equivalent <i>objdump</i>(1)
-  command. Its use is to ease the change over of the original use of
-  <i>otool</i>(1) to the llvm based open source <i>objdump</i>(1) command with
-  the similar functionality.
-<p class="Pp">The original implementation of <i>otool</i>(1) can now be found as
-    <i>otool-classic</i>(1) and typically will be run by using &quot;xcrun
-    otool-classic&quot;.</p>
+  command. Its original intent was to ease changing usage over from
+  <i>otool</i>(1) to the LLVM-based open source <i>objdump</i>(1) command with
+  similar functionality. However, <i>objdump</i>(1) prefers different usage,
+  with different behavior semantics and different output requirements.
+  <i>objdump</i>(1) is no longer the preferred tool for inspecting modern Mach-O
+  binaries. The <i>llvm-otool</i> command-line shim remains behind so that
+  people who prefer to use the open source <i>objdump</i>(1) tool with
+  otool-style semantics can continue to do so, mostly to support scripts or
+  other tools that expect idiosyncrasies specific to that usage.
+<p class="Pp">By default, <i>llvm-otool</i> will invoke the original
+    <i>otool</i>(1) functionality, meaning general usage such as the following
+    will be executed via <i>otool-classic</i> as explained in the
+    <i>otool-classic</i>(1) manual.</p>
+<div class="Bd-indent">% otool -hv file</div>
+<p class="Pp">The unambiguous invocation of <i>otool</i>(1) can be found as
+    <i>otool-classic</i>(1) and typically will be run by using the
+    <i>xcrun</i>(1) utility:</p>
+<div class="Bd-indent">% xcrun otool-classic -hv file</div>
+<p class="Pp">One can invoke <i>objdump</i>(1) in &quot;otool
+    compatibility&quot; mode by calling <i>llvm-otool</i>(1) with the -objdump
+    flag:</p>
+<div class="Bd-indent">% otool -objdump -hv file</div>
+You can also invoke <i>objdump</i>(1) directly on the command line using
+  LLVM-native options:
+<div class="Bd-indent">% xcrun objdump --macho --private-header file</div>
 <dl class="Bl-tag">
+  <dt><b>-objdump</b></dt>
+  <dd>This is a synonym for <b>-object-tool-path</b><i> objdump</i><b>,</b>
+      described below.</dd>
   <dt><b>-object-tool-path</b><i> tool</i></dt>
   <dd>After parsing the otool arguments, execute the command indicated by
-      <i>tool.</i> This value defaults to &quot;objdump&quot;. If the specified
-      tool contains the string &quot;otool&quot; in its name, the tool will be
-      executed with the original unmodified arguments to <i>llvm-otool</i>(1),
-      otherwise the arguments will be translated into llvm-style arguments as
-      explained below.</dd>
+      <i>tool.</i> This value defaults to &quot;otool-classic&quot;. If the
+      specified tool contains the string &quot;otool&quot; in its name, the tool
+      will be executed with the original unmodified arguments to
+      <i>llvm-otool</i>(1), otherwise the arguments will be translated into
+      llvm-style arguments as explained below.</dd>
   <dt><b>-show-objdump-command</b></dt>
-  <dd>Print the <i>objdump</i>(1) command that <i>llvm-otool</i>(1) will
-      execute.</dd>
+  <dd>Print the command that <i>llvm-otool</i>(1) will execute. This is useful
+      for seeing how comnand-line options were transformed.</dd>
 </dl>
 </section>
 <section class="Sh">
-<h1 class="Sh" id="NOTES_FOR_SPECIFIC_OPTIONS"><a class="permalink" href="#NOTES_FOR_SPECIFIC_OPTIONS">NOTES
-  FOR SPECIFIC OPTIONS</a></h1>
-<dl class="Bl-tag">
-  <dt><b>-l</b></dt>
-  <dd>This always implies the <b>-h</b> option, as the <i>objdump</i>(1) option
-      <b>-private-headers</b> prints both the mach header and load
-    commands.</dd>
-  <dt><b>-S</b></dt>
-  <dd>To display the contents of the `__.SYMDEF' archive file, use
-      <i>llvm-nm</i>(1) with the <b>-print-armap</b> option.</dd>
-</dl>
-</section>
-<section class="Sh">
-<h1 class="Sh" id="GENERAL_NOTES"><a class="permalink" href="#GENERAL_NOTES">GENERAL
-  NOTES</a></h1>
+<h1 class="Sh" id="GENERAL_TRANSLATION_NOTES"><a class="permalink" href="#GENERAL_TRANSLATION_NOTES">GENERAL
+  TRANSLATION NOTES</a></h1>
 Many of the older options in <i>otool(1)</i> are obsolete as they print parts of
-  the object file that are no longer in use. When used with <i>llvm-otool</i>(1)
-  a line is printed that states the option and the functionality is obsolete. If
-  no valid equivalent options are given then usage message from
-  <i>objdump</i>(1) will be printed when executed.
+  the object file that are no longer in use. When translating options for
+  <i>objdump</i>(1), obsolete options will produce a warning, and the option
+  will be ignored. If no valid equivalent options are given then usage message
+  from <i>objdump</i>(1) will be printed when executed.
 <p class="Pp">The archive member syntax of arguments of the form
     <i>libx.a(foo.o)</i>, is not supported. Which is the same as if the
     <b>-m</b> option is always used.</p>
 <p class="Pp">When doing disassembly the default is to not print the opcode
     bytes of the instructions even for 32-bit ARM. To get the opcode bytes
     printed for ARM the <i>otool</i>(1) option <b>-j</b> needs to be used.</p>
-<p class="Pp">There are some white space differences in the output of the
-    <i>otool</i>(1) and <i>objdump</i>(1) commands in some cases. As the
-    <i>objdump</i>(1) command is not meant to produce the exact same output as
-    <i>otool</i>(1) in all cases where the functionality is very similar.</p>
+<p class="Pp">There are some whitespace and capitalization differences in the
+    output of the <i>otool</i>(1) and <i>objdump</i>(1) commands in some cases;
+    the <i>objdump</i>(1) command is not meant to produce the exact same output
+    as <i>otool</i>(1) in all cases even where the functionality is very
+    similar.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SPECIFIC_TRANSLATIONS_OF_OPTIONS"><a class="permalink" href="#SPECIFIC_TRANSLATIONS_OF_OPTIONS">SPECIFIC
   TRANSLATIONS OF OPTIONS</a></h1>
 Below is the list of <i>otool</i>(1) options and the specific <i>objdump</i>(1)
   option to print the same information. To use these options with
-  <i>objdump</i>(1) the <b>-macho</b> option must be used. The default for
-  <i>objdump</i>(1) is as if the verbose, <b>-v</b> option is always used. To
-  get the non-verbose output the <i>objdump</i>(1) <b>-non-verbose</b> option is
-  used.
+  <i>objdump</i>(1) the <b>--macho</b> option must be used.
 <dl class="Bl-tag">
-  <dt><b>-a</b></dt>
-  <dd>The <i>objdump</i>(1) <b>-archive-headers</b> will print the archive
-      header, if the file is an archive. To get the offsets to the archive
-      headers that would be printed with the <i>otool</i>(1) <b>-aV</b> options,
-      the <i>objdump</i>(1) <b>-archive-member-offsets</b> can be added.</dd>
-  <dt><b>-S</b></dt>
-  <dd>There is no <i>objdump</i>(1) option to display the contents of the
-      `__.SYMDEF' file, if the file is an archive. For that use
-      <i>llvm-nm</i>(1) with the <b>-print-armap</b> option.</dd>
   <dt><b>-f</b></dt>
   <dd>The <i>objdump</i>(1) option to display the universal headers is
-      <b>-universal-headers</b>.</dd>
+      <b>--universal-headers</b>.</dd>
+  <dt><b>-a</b></dt>
+  <dd>The <i>objdump</i>(1) <b>--archive-headers</b> will print the archive
+      header, if the file is an archive. To get the offsets to the archive
+      headers that would be printed with the <i>otool</i>(1) <b>-aV</b> options,
+      the <i>objdump</i>(1) <b>--archive-member-offsets</b> can be added.</dd>
   <dt><b>-h</b></dt>
   <dd>The <i>objdump</i>(1) option to display the Mach header is
-      <b>-private-header</b>.</dd>
+      <b>--private-header</b>.</dd>
   <dt><b>-l</b></dt>
   <dd>The <i>objdump</i>(1) option to display the load commands is
-      <b>-private-headers</b> which also always displays the Mach header.</dd>
+      <b>--private-headers</b>. This implies the <b>-h</b> option, as
+      <b>--private-headers</b> always displays the Mach header.</dd>
   <dt><b>-L</b></dt>
   <dd>The <i>objdump</i>(1) option to display the names and version numbers of
       the shared libraries that the object file uses, as well as the shared
-      library ID if the file is a shared library is <b>-dylibs-used</b>.</dd>
+      library ID if the file is a shared library is <b>--dylibs-used</b>.</dd>
   <dt><b>-D</b></dt>
   <dd>The <i>objdump</i>(1) option to display just the install name of a shared
-      library is <b>-dylib-id</b>.</dd>
-  <dt><b>-s</b><i> segname sectname</i></dt>
-  <dd>The <i>objdump</i>(1) option to display the contents of the section
-      (<i>segname,sectname</i>) is <b>-section</b><i> [segname,]sectname</i>
-      where the <i>segname</i> is optional and all segments will be searched for
-      a matching <i>sectname</i>.</dd>
+      library is <b>--dylib-id</b>.</dd>
   <dt><b>-t</b></dt>
   <dd>The <i>objdump</i>(1) option to display the contents of the
-      (__TEXT,__text) section is to use the <b>-section</b><i> __TEXT,__text</i>
-      option. If disassembly is wanted as with the <b>-tv</b> <i>otool</i>(1)
-      options then the <i>objdump</i>(1) <b>-disassemble</b> is used. By default
-      <i>objdump</i>(1) also symbolically disassembles the operands as the
-      <i>otool</i>(1) <b>-tV</b> options will do. If this is not wanted then the
-      <i>objdump</i>(1) <b>-no-symbolic-operands</b> option can be used.</dd>
+      (__TEXT,__text) section is to use the <b>--section</b><i>
+      __TEXT,__text</i> option. If disassembly is wanted as with the <b>-tv</b>
+      <i>otool</i>(1) options then the <i>objdump</i>(1) <b>--disassemble</b> is
+      used. By default <i>objdump</i>(1) also symbolically disassembles the
+      operands as the <i>otool</i>(1) <b>-tV</b> options will do. If this is not
+      wanted then the <i>objdump</i>(1) <b>--no-symbolic-operands</b> option can
+      be used.</dd>
   <dt><b>-x</b></dt>
   <dd>The <i>objdump</i>(1) option to display the contents of every __text
-      section defined in a Mach-O file is <b>-section</b><i> ,__text</i><b>.</b>
-      Note that an empty segment name means all segments. If disassembly is
-      wanted as with the <b>-xv</b> <i>otool</i>(1) options then
-      <i>objdump</i>(1) <b>-disassemble-all</b> is used. By default
+      section defined in a Mach-O file is <b>--section</b><i>
+      ,__text</i><b>.</b> Note that an empty segment name means all segments. If
+      disassembly is wanted as with the <b>-xv</b> <i>otool</i>(1) options then
+      <i>objdump</i>(1) <b>--disassemble-all</b> is used. By default
       <i>objdump</i>(1) also symbolically disassembles the operands as the
       <i>otool</i>(1) <b>-xV</b> options will do. If this is not wanted then the
-      <i>objdump</i>(1) <b>-no-symbolic-operands</b> option can be used.</dd>
-  <dt><b>-d</b></dt>
-  <dd>The <i>objdump</i>(1) option to display the contents of the
-      (__DATA,__data) section is to use the <b>-section</b><i> __DATA,__data</i>
-      option.</dd>
-  <dt><b>-o</b></dt>
-  <dd>The <i>objdump</i>(1) option to display the contents of the __OBJC segment
-      used by the Objective-C run-time system is <b>-objc-meta-data</b>.</dd>
-  <dt><b>-r</b></dt>
-  <dd>The <i>objdump</i>(1) option to display the relocation entries is
-      <b>-r</b>. Note that the default relocation entry format is different
-      between <i>objdump</i>(1) and <i>otool</i>(1). When <b>-r</b> is combined
-      with the <b>-macho</b> option, <i>objdump</i>(1) will display the
-      relocation entries in the classic <i>otool</i>(1) format.</dd>
-  <dt><b>-I</b></dt>
-  <dd>The <i>objdump</i>(1) option to display the indirect symbol table is
-      <b>-indirect-symbols</b>.</dd>
-  <dt><b>-G</b></dt>
-  <dd>The <i>objdump</i>(1) option to display the data in code table is
-      <b>-data-in-code</b>.</dd>
-  <dt><b>-C</b></dt>
-  <dd>The <i>objdump</i>(1) option to display the linker optimization hints is
-      <b>-link-opt-hints</b>.</dd>
-  <dt><b>-P</b></dt>
-  <dd>The <i>objdump</i>(1) option to print the info plist section,
-      (__TEXT,__info_plist), as strings is <b>-info-plist</b>.</dd>
+      <i>objdump</i>(1) <b>--no-symbolic-operands</b> option can be used.</dd>
   <dt><b>-p </b><i>name</i></dt>
   <dd>The <i>objdump</i>(1) option to start the disassembly from symbol
-      <i>name</i> is <b>-dis-symname</b><i> name</i><b>.</b></dd>
+      <i>name</i> is <b>--dis-symname</b><i> name</i><b>.</b></dd>
+  <dt><b>-s</b><i> segname sectname</i></dt>
+  <dd>The <i>objdump</i>(1) option to display the contents of the section
+      (<i>segname,sectname</i>) is <b>--section</b><i> [segname,]sectname</i>
+      where the <i>segname</i> is optional and all segments will be searched for
+      a matching <i>sectname</i>.</dd>
+  <dt><b>-d</b></dt>
+  <dd>The <i>objdump</i>(1) option to display the contents of the
+      (__DATA,__data) section is to use the <b>--section</b><i>
+      __DATA,__data</i> option.</dd>
+  <dt><b>-o</b></dt>
+  <dd>The <i>objdump</i>(1) option to display the contents of the __OBJC segment
+      used by the Objective-C run-time system is <b>--objc-meta-data</b>.</dd>
+  <dt><b>-r</b></dt>
+  <dd>The <i>objdump</i>(1) option to display the relocation entries is
+      <b>--reloc</b>. Note that the default relocation entry format is different
+      between <i>objdump</i>(1) and <i>otool</i>(1). When <b>--reloc</b> is
+      combined with the <b>--macho</b> option, <i>objdump</i>(1) will display
+      the relocation entries in the classic <i>otool</i>(1) format.</dd>
+  <dt><b>-S</b></dt>
+  <dd>There is no <i>objdump</i>(1) option to display the contents of the
+      `__.SYMDEF' file, if the file is an archive. For that use
+      <i>llvm-nm</i>(1) with the <b>--print-armap</b> option.</dd>
+  <dt><b>-I</b></dt>
+  <dd>The <i>objdump</i>(1) option to display the indirect symbol table is
+      <b>--indirect-symbols</b>.</dd>
+  <dt><b>-G</b></dt>
+  <dd>The <i>objdump</i>(1) option to display the data in code table is
+      <b>--data-in-code</b>.</dd>
   <dt><b>-v</b></dt>
-  <dd>For <i>objdump</i>(1) verbose output is the default and to get the
-      non-verbose the option <b>-non-verbose</b> is used.</dd>
+  <dd>For <i>objdump</i>(1) verbose output is the default and to get non-verbose
+      output the option <b>--non-verbose</b> is used.</dd>
   <dt><b>-V</b></dt>
   <dd>For <i>objdump</i>(1) displaying the disassembled operands symbolically is
       the default and to get non-symbolic operands with disassembly the option
-      <b>-no-symbolic-operands</b> is used.</dd>
+      <b>--no-symbolic-operands</b> is used.</dd>
   <dt><b>-X</b></dt>
   <dd>The <i>objdump</i>(1) option to not print leading addresses or headers
-      with disassembly of sections is <b>-no-leading-addr</b>.</dd>
+      with disassembly of sections is <b>--no-leading-addr</b>.</dd>
   <dt><b>-mcpu=</b><i>arg</i></dt>
   <dd>The <i>objdump</i>(1) option when doing disassembly using the llvm
-      disassembler to use the cpu <i>arg.</i> is the same
-      <b>-mcpu=</b><i>arg</i> option.</dd>
-  <dt><b>-arch</b><i> arch_type</i></dt>
-  <dd>The <i>objdump</i>(1) options to specifies the architectures to operate on
-      are the same <b>-arch</b><i> arch_type</i> options.</dd>
+      disassembler to use the cpu <i>arg.</i> is the <b>--mcpu=</b><i>arg</i>
+      option.</dd>
   <dt><b>-j</b></dt>
   <dd>The <i>objdump</i>(1) prints the opcode bytes of the instructions when
       doing disassembly by default and is turned off with the option
-      <b>-no-show-raw-insn</b>.</dd>
+      <b>--no-show-raw-insn</b>.</dd>
+  <dt><b>-P</b></dt>
+  <dd>The <i>objdump</i>(1) option to print the info plist section,
+      (__TEXT,__info_plist), as strings is <b>--info-plist</b>.</dd>
+  <dt><b>-C</b></dt>
+  <dd>The <i>objdump</i>(1) option to display the linker optimization hints is
+      <b>--link-opt-hints</b>.</dd>
+  <dt><b>-arch</b><i> arch_type</i></dt>
+  <dd>The <i>objdump</i>(1) options to specifies the architectures to operate on
+      are the <b>--arch</b><i> arch_type</i> options.</dd>
   <dt><b>--version</b></dt>
   <dd>The <i>objdump</i>(1) option to display the <i>llvm-otool</i>(1) version
       information and the <i>objdump</i>(1) version information is
-      <b>-version</b> (with one leading dash).</dd>
+      <b>--version</b>.</dd>
 </dl>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="OBSOLETE_OPTIONS"><a class="permalink" href="#OBSOLETE_OPTIONS">OBSOLETE
   OPTIONS</a></h1>
 <dl class="Bl-tag">
-  <dt><b>-c</b></dt>
-  <dd>There is no <i>objdump</i>(1) option to display the argument strings
-      (argv[] and envp[]) from a core file.</dd>
   <dt><b>-T</b></dt>
   <dd>There is no <i>objdump</i>(1) option to display the table of contents for
       a dynamically linked shared library, as this table is obsolete and no
       longer produced by the tools.</dd>
-  <dt><b>-R</b></dt>
-  <dd>There is no <i>objdump</i>(1) option to display the reference table of a
-      dynamically linked shared library, as this table is obsolete and no longer
-      produced by the tools.</dd>
   <dt><b>-M</b></dt>
   <dd>There is no <i>objdump</i>(1) option to display the module table of a
+      dynamically linked shared library, as this table is obsolete and no longer
+      produced by the tools.</dd>
+  <dt><b>-R</b></dt>
+  <dd>There is no <i>objdump</i>(1) option to display the reference table of a
       dynamically linked shared library, as this table is obsolete and no longer
       produced by the tools.</dd>
   <dt><b>-H</b></dt>
   <dd>There is no <i>objdump</i>(1) option to display the two-level namespace
       hints table, as this table is obsolete and no longer produced by the
       tools.</dd>
-  <dt><b>-i</b></dt>
-  <dd>There is no <i>objdump</i>(1) option to display the shared library
-      initialization table, as this table is obsolete and no longer produced by
-      the tools.</dd>
+  <dt><b>-c</b></dt>
+  <dd>There is no <i>objdump</i>(1) option to display the argument strings
+      (argv[] and envp[]) from a core file.</dd>
+  <dt><b>-m</b></dt>
+  <dd>There is no <i>objdump</i>(1) option to not assume to the
+      <i>archive(member)</i> syntax as that is the default. And the
+      <i>archive(member)</i> syntax is not supported as file arguments with
+      <i>objdump</i>(1).</dd>
+  <dt><b>-B</b></dt>
+  <dd>There is no <i>objdump</i>(1) option to force Thumb disassembly on ARM
+      objects.</dd>
   <dt><b>-q</b></dt>
   <dd>There is no <i>objdump</i>(1) option to use the llvm disassembler when
       doing disassembly as this is the default.</dd>
@@ -248,14 +261,13 @@ Below is the list of <i>otool</i>(1) options and the specific <i>objdump</i>(1)
   <dd>There is no <i>objdump</i>(1) option to use the <i>otool</i>(1)
       disassembler when doing disassembly as only the llvm disassembler is
     used.</dd>
+  <dt><b>-i</b></dt>
+  <dd>There is no <i>objdump</i>(1) option to display the shared library
+      initialization table, as this table is obsolete and no longer produced by
+      the tools.</dd>
   <dt><b>-function_offsets</b></dt>
   <dd>There is no <i>objdump</i>(1) option when doing disassembly to print the
       decimal offset from the last label printed.</dd>
-  <dt><b>-m</b></dt>
-  <dd>There is no <i>objdump</i>(1) option to not assume to the
-      <i>archive(member)</i> syntax as that is the default. And the
-      <i>archive(member)</i> syntax is not supported as file arguments with
-      <i>objdump</i>(1).</dd>
 </dl>
 </section>
 <section class="Sh">
