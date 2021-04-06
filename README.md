@@ -6,7 +6,7 @@ Xcode releases.
 ## Usage
 
 ```sh
-brew install groff mandoc
+brew install groff mandoc coreutils
 brew link --overwrite mandoc
 ./export.sh /path/to/Xcode.app
 ```
