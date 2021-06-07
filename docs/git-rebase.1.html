@@ -3,11 +3,11 @@
 <!-- This is an automatically generated file.  Do not edit.
    t
        Title: git-rebase
-      Author: [FIXME: author] [see http://docbook.sf.net/el/author]
-   Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-        Date: 11/04/2019
+      Author: [FIXME: author] [see http://www.docbook.org/tdg5/en/html/author]
+   Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+        Date: 02/08/2021
       Manual: Git Manual
-      Source: Git 2.24.0
+      Source: Git 2.30.1.378.g1d4f2316c5
     Language: English
    -->
 <head>
@@ -286,6 +286,11 @@ rebase.useBuiltin
   rebase. Now the built-in rewrite of it in C is always used. Setting this will
   emit a warning, to alert any remaining users that setting this now does
   nothing.</div>
+<p class="Pp">rebase.backend</p>
+<div class="Bd-indent">Default backend to use for rebasing. Possible choices are
+  <i>apply</i> or <i>merge</i>. In the future, if the merge backend gains all
+  remaining capabilities of the apply backend, this setting may become
+  unused.</div>
 <p class="Pp">rebase.stat</p>
 <div class="Bd-indent">Whether to show a diffstat of what changed upstream since
   the last rebase. False by default.</div>
@@ -338,6 +343,12 @@ rebase.useBuiltin
   failed. This only makes sense in interactive mode (or when an <b>--exec</b>
   option was provided). This is the same as specifying the
   <b>--reschedule-failed-exec</b> option.</div>
+<p class="Pp">sequence.editor</p>
+<div class="Bd-indent">Text editor used by <b>git rebase -i</b> for editing the
+  rebase instruction file. The value is meant to be interpreted by the shell
+  when it is used. It can be overridden by the <b>GIT_SEQUENCE_EDITOR</b>
+  environment variable. When not configured the default commit message editor is
+  used instead.</div>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
@@ -382,16 +393,62 @@ rebase.useBuiltin
 <p class="Pp">--quit</p>
 <div class="Bd-indent">Abort the rebase operation but HEAD is not reset back to
   the original branch. The index and working tree are also left unchanged as a
-  result.</div>
-<p class="Pp">--keep-empty</p>
-<div class="Bd-indent">Keep the commits that do not change anything from its
-  parents in the result.
+  result. If a temporary stash entry was created using --autostash, it will be
+  saved to the stash list.</div>
+<p class="Pp">--apply</p>
+<div class="Bd-indent">Use applying strategies to rebase (calling <b>git-am</b>
+  internally). This option may become a no-op in the future once the merge
+  backend handles everything the apply one does.
+<p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
+</div>
+<p class="Pp">--empty={drop,keep,ask}</p>
+<div class="Bd-indent">How to handle commits that are not empty to start and are
+  not clean cherry-picks of any upstream commit, but which become empty after
+  rebasing (because they contain a subset of already upstream changes). With
+  drop (the default), commits that become empty are dropped. With keep, such
+  commits are kept. With ask (implied by --interactive), the rebase will halt
+  when an empty commit is applied allowing you to choose whether to drop it,
+  edit files more, or just commit the empty changes. Other options, like --exec,
+  will use the default of drop unless -i/--interactive is explicitly specified.
+<p class="Pp">Note that commits which start empty are kept (unless
+    --no-keep-empty is specified), and commits which are clean cherry-picks (as
+    determined by <b>git log --cherry-mark ...</b>) are detected and dropped as
+    a preliminary step (unless --reapply-cherry-picks is passed).</p>
+<p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
+</div>
+<p class="Pp">--no-keep-empty, --keep-empty</p>
+<div class="Bd-indent">Do not keep commits that start empty before the rebase
+  (i.e. that do not change anything from its parent) in the result. The default
+  is to keep commits which start empty, since creating such commits requires
+  passing the --allow-empty override flag to <b>git commit</b>, signifying that
+  a user is very intentionally creating such a commit and thus wants to keep it.
+<p class="Pp">Usage of this flag will probably be rare, since you can get rid of
+    commits that start empty by just firing up an interactive rebase and
+    removing the lines corresponding to the commits you don&#x2019;t want. This
+    flag exists as a convenient shortcut, such as for cases where external tools
+    generate many empty commits and you want them all removed.</p>
+<p class="Pp">For commits which do not start empty but become empty after
+    rebasing, see the --empty flag.</p>
+<p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
+</div>
+<p class="Pp">--reapply-cherry-picks, --no-reapply-cherry-picks</p>
+<div class="Bd-indent">Reapply all clean cherry-picks of any upstream commit
+  instead of preemptively dropping them. (If these commits then become empty
+  after rebasing, because they contain a subset of already upstream changes, the
+  behavior towards them is controlled by the <b>--empty</b> flag.)
+<p class="Pp">By default (or if <b>--no-reapply-cherry-picks</b> is given),
+    these commits will be automatically dropped. Because this necessitates
+    reading all upstream commits, this can be expensive in repos with a large
+    number of upstream commits that need to be read.</p>
+<p class="Pp"><b>--reapply-cherry-picks</b> allows rebase to forgo reading all
+    upstream commits, potentially improving performance.</p>
 <p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
 </div>
 <p class="Pp">--allow-empty-message</p>
-<div class="Bd-indent">By default, rebasing commits with an empty message will
-  fail. This option overrides that behavior, allowing commits with empty
-  messages to be rebased.
+<div class="Bd-indent">No-op. Rebasing commits with an empty message used to
+  fail and this option would override that behavior, allowing commits with empty
+  messages to be rebased. Now commits with an empty message do not cause
+  rebasing to halt.
 <p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
 </div>
 <p class="Pp">--skip</p>
@@ -406,7 +463,7 @@ rebase.useBuiltin
 <p class="Pp">-m, --merge</p>
 <div class="Bd-indent">Use merging strategies to rebase. When the recursive
   (default) merge strategy is used, this allows rebase to be aware of renames on
-  the upstream side.
+  the upstream side. This is the default.
 <p class="Pp">Note that a rebase merge works by replaying each commit from the
     working branch on top of the &lt;upstream&gt; branch. Because of this, when
     a merge conflict happens, the side reported as <i>ours</i> is the so-far
@@ -434,10 +491,12 @@ rebase.useBuiltin
 <p class="Pp">--rerere-autoupdate, --no-rerere-autoupdate</p>
 <div class="Bd-indent">Allow the rerere mechanism to update the index with the
   result of auto-conflict resolution if possible.</div>
-<p class="Pp">-S[&lt;keyid&gt;], --gpg-sign[=&lt;keyid&gt;]</p>
+<p class="Pp">-S[&lt;keyid&gt;], --gpg-sign[=&lt;keyid&gt;], --no-gpg-sign</p>
 <div class="Bd-indent">GPG-sign commits. The <b>keyid</b> argument is optional
   and defaults to the committer identity; if specified, it must be stuck to the
-  option without a space.</div>
+  option without a space. <b>--no-gpg-sign</b> is useful to countermand both
+  <b>commit.gpgSign</b> configuration variable, and earlier
+  <b>--gpg-sign</b>.</div>
 <p class="Pp">-q, --quiet</p>
 <div class="Bd-indent">Be quiet. Implies --no-stat.</div>
 <p class="Pp">-v, --verbose</p>
@@ -459,7 +518,8 @@ rebase.useBuiltin
 <p class="Pp">-C&lt;n&gt;</p>
 <div class="Bd-indent">Ensure at least &lt;n&gt; lines of surrounding context
   match before and after each change. When fewer lines of surrounding context
-  exist they all must match. By default no context is ever ignored.
+  exist they all must match. By default no context is ever ignored. Implies
+  --apply.
 <p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
 </div>
 <p class="Pp">--no-ff, --force-rebase, -f</p>
@@ -481,28 +541,47 @@ rebase.useBuiltin
     &lt;upstream&gt; &lt;branch&gt;</b> command (see <b>git-merge-base</b>(1)).
     If <i>fork_point</i> ends up being empty, the &lt;upstream&gt; will be used
     as a fallback.</p>
-<p class="Pp">If either &lt;upstream&gt; or --root is given on the command line,
-    then the default is <b>--no-fork-point</b>, otherwise the default is
-    <b>--fork-point</b>.</p>
+<p class="Pp">If &lt;upstream&gt; is given on the command line, then the default
+    is <b>--no-fork-point</b>, otherwise the default is <b>--fork-point</b>.</p>
 <p class="Pp">If your branch was based on &lt;upstream&gt; but &lt;upstream&gt;
     was rewound and your branch contains commits which were dropped, this option
     can be used with <b>--keep-base</b> in order to drop those commits from your
     branch.</p>
-</div>
-<p class="Pp">--ignore-whitespace, --whitespace=&lt;option&gt;</p>
-<div class="Bd-indent">These flag are passed to the <i>git apply</i> program
-  (see <b>git-apply</b>(1)) that applies the patch.
 <p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
 </div>
-<p class="Pp">--committer-date-is-author-date, --ignore-date</p>
-<div class="Bd-indent">These flags are passed to <i>git am</i> to easily change
-  the dates of the rebased commits (see <b>git-am</b>(1)).
+<p class="Pp">--ignore-whitespace</p>
+<div class="Bd-indent">Ignore whitespace differences when trying to reconcile
+  differences. Currently, each backend implements an approximation of this
+  behavior:
+<p class="Pp">apply backend: When applying a patch, ignore changes in whitespace
+    in context lines. Unfortunately, this means that if the &quot;old&quot;
+    lines being replaced by the patch differ only in whitespace from the
+    existing file, you will get a merge conflict instead of a successful patch
+    application.</p>
+<p class="Pp">merge backend: Treat lines with only whitespace changes as
+    unchanged when merging. Unfortunately, this means that any patch hunks that
+    were intended to modify whitespace and nothing else will be dropped, even if
+    the other side had no changes that conflicted.</p>
+</div>
+<p class="Pp">--whitespace=&lt;option&gt;</p>
+<div class="Bd-indent">This flag is passed to the <i>git apply</i> program (see
+  <b>git-apply</b>(1)) that applies the patch. Implies --apply.
+<p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
+</div>
+<p class="Pp">--committer-date-is-author-date</p>
+<div class="Bd-indent">Instead of using the current time as the committer date,
+  use the author date of the commit being rebased as the committer date. This
+  option implies <b>--force-rebase</b>.</div>
+<p class="Pp">--ignore-date, --reset-author-date</p>
+<div class="Bd-indent">Instead of using the author date of the original commit,
+  use the current time as the author date of the rebased commit. This option
+  implies <b>--force-rebase</b>.
 <p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
 </div>
 <p class="Pp">--signoff</p>
-<div class="Bd-indent">Add a Signed-off-by: trailer to all the rebased commits.
-  Note that if <b>--interactive</b> is given then only commits marked to be
-  picked, edited or reworded will have the trailer added.
+<div class="Bd-indent">Add a <b>Signed-off-by</b> trailer to all the rebased
+  commits. Note that if <b>--interactive</b> is given then only commits marked
+  to be picked, edited or reworded will have the trailer added.
 <p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
 </div>
 <p class="Pp">-i, --interactive</p>
@@ -529,9 +608,8 @@ rebase.useBuiltin
     commits are instead rebased onto <b>&lt;upstream&gt;</b> (or
     <b>&lt;onto&gt;</b>, if specified).</p>
 <p class="Pp">The <b>--rebase-merges</b> mode is similar in spirit to the
-    deprecated <b>--preserve-merges</b>, but in contrast to that option works
-    well in interactive rebases: commits can be reordered, inserted and dropped
-    at will.</p>
+    deprecated <b>--preserve-merges</b> but works with interactive rebases,
+    where commits can be reordered, inserted and dropped at will.</p>
 <p class="Pp">It is currently only possible to recreate the merge commits using
     the <b>recursive</b> merge strategy; Different merge strategies can be used
     only via explicit <b>exec git merge -s &lt;strategy&gt; [...]</b>
@@ -617,13 +695,9 @@ git rebase -i --exec &quot;cmd1&quot; --exec &quot;cmd2&quot; --exec ...
   OPTIONS</a></h1>
 The following options:
 <p class="Pp"></p>
-<div class="Bd-indent">&#x2022;--committer-date-is-author-date</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;--ignore-date</div>
+<div class="Bd-indent">&#x2022;--apply</div>
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;--whitespace</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;--ignore-whitespace</div>
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;-C</div>
 <p class="Pp">are incompatible with the following options:</p>
@@ -646,7 +720,11 @@ The following options:
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;--exec</div>
 <p class="Pp"></p>
-<div class="Bd-indent">&#x2022;--keep-empty</div>
+<div class="Bd-indent">&#x2022;--no-keep-empty</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--empty=</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--reapply-cherry-picks</div>
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;--edit-todo</div>
 <p class="Pp"></p>
@@ -659,31 +737,143 @@ The following options:
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;--preserve-merges and --rebase-merges</div>
 <p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--preserve-merges and --empty=</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--preserve-merges and --ignore-whitespace</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--preserve-merges and
+  --committer-date-is-author-date</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--preserve-merges and --ignore-date</div>
+<p class="Pp"></p>
 <div class="Bd-indent">&#x2022;--keep-base and --onto</div>
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;--keep-base and --root</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--fork-point and --root</div>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="BEHAVIORAL_DIFFERENCES"><a class="permalink" href="#BEHAVIORAL_DIFFERENCES">BEHAVIORAL
   DIFFERENCES</a></h1>
-There are some subtle differences how the backends behave.
+git rebase has two primary backends: apply and merge. (The apply backend used to
+  be known as the <i>am</i> backend, but the name led to confusion as it looks
+  like a verb instead of a noun. Also, the merge backend used to be known as the
+  interactive backend, but it is now used for non-interactive cases as well.
+  Both were renamed based on lower-level functionality that underpinned each.)
+  There are some subtle differences in how these two backends behave:
 <section class="Ss">
 <h2 class="Ss" id="Empty_commits"><a class="permalink" href="#Empty_commits">Empty
   commits</a></h2>
-The am backend drops any &quot;empty&quot; commits, regardless of whether the
-  commit started empty (had no changes relative to its parent to start with) or
-  ended empty (all changes were already applied upstream in other commits).
-<p class="Pp">The interactive backend drops commits by default that started
-    empty and halts if it hits a commit that ended up empty. The
-    <b>--keep-empty</b> option exists for the interactive backend to allow it to
-    keep commits that started empty.</p>
+The apply backend unfortunately drops intentionally empty commits, i.e. commits
+  that started empty, though these are rare in practice. It also drops commits
+  that become empty and has no option for controlling this behavior.
+<p class="Pp">The merge backend keeps intentionally empty commits by default
+    (though with -i they are marked as empty in the todo list editor, or they
+    can be dropped automatically with --no-keep-empty).</p>
+<p class="Pp">Similar to the apply backend, by default the merge backend drops
+    commits that become empty unless -i/--interactive is specified (in which
+    case it stops and asks the user what to do). The merge backend also has an
+    --empty={drop,keep,ask} option for changing the behavior of handling commits
+    that become empty.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="Directory_rename_detection"><a class="permalink" href="#Directory_rename_detection">Directory
   rename detection</a></h2>
-Directory rename heuristics are enabled in the merge and interactive backends.
-  Due to the lack of accurate tree information, directory rename detection is
-  disabled in the am backend.
+Due to the lack of accurate tree information (arising from constructing fake
+  ancestors with the limited information available in patches), directory rename
+  detection is disabled in the apply backend. Disabled directory rename
+  detection means that if one side of history renames a directory and the other
+  adds new files to the old directory, then the new files will be left behind in
+  the old directory without any warning at the time of rebasing that you may
+  want to move these files into the new directory.
+<p class="Pp">Directory rename detection works with the merge backend to provide
+    you warnings in such cases.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Context"><a class="permalink" href="#Context">Context</a></h2>
+The apply backend works by creating a sequence of patches (by calling
+  <b>format-patch</b> internally), and then applying the patches in sequence
+  (calling <b>am</b> internally). Patches are composed of multiple hunks, each
+  with line numbers, a context region, and the actual changes. The line numbers
+  have to be taken with some fuzz, since the other side will likely have
+  inserted or deleted lines earlier in the file. The context region is meant to
+  help find how to adjust the line numbers in order to apply the changes to the
+  right lines. However, if multiple areas of the code have the same surrounding
+  lines of context, the wrong one can be picked. There are real-world cases
+  where this has caused commits to be reapplied incorrectly with no conflicts
+  reported. Setting diff.context to a larger value may prevent such types of
+  problems, but increases the chance of spurious conflicts (since it will
+  require more lines of matching context to apply).
+<p class="Pp">The merge backend works with a full copy of each relevant file,
+    insulating it from these types of problems.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Labelling_of_conflicts_markers"><a class="permalink" href="#Labelling_of_conflicts_markers">Labelling
+  of conflicts markers</a></h2>
+When there are content conflicts, the merge machinery tries to annotate each
+  side&#x2019;s conflict markers with the commits where the content came from.
+  Since the apply backend drops the original information about the rebased
+  commits and their parents (and instead generates new fake commits based off
+  limited information in the generated patches), those commits cannot be
+  identified; instead it has to fall back to a commit summary. Also, when
+  merge.conflictStyle is set to diff3, the apply backend will use
+  &quot;constructed merge base&quot; to label the content from the merge base,
+  and thus provide no information about the merge base commit whatsoever.
+<p class="Pp">The merge backend works with the full commits on both sides of
+    history and thus has no such limitations.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Hooks"><a class="permalink" href="#Hooks">Hooks</a></h2>
+The apply backend has not traditionally called the post-commit hook, while the
+  merge backend has. Both have called the post-checkout hook, though the merge
+  backend has squelched its output. Further, both backends only call the
+  post-checkout hook with the starting point commit of the rebase, not the
+  intermediate commits nor the final commit. In each case, the calling of these
+  hooks was by accident of implementation rather than by design (both backends
+  were originally implemented as shell scripts and happened to invoke other
+  commands like <i>git checkout</i> or <i>git commit</i> that would call the
+  hooks). Both backends should have the same behavior, though it is not entirely
+  clear which, if any, is correct. We will likely make rebase stop calling
+  either of these hooks in the future.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Interruptability"><a class="permalink" href="#Interruptability">Interruptability</a></h2>
+The apply backend has safety problems with an ill-timed interrupt; if the user
+  presses Ctrl-C at the wrong time to try to abort the rebase, the rebase can
+  enter a state where it cannot be aborted with a subsequent <b>git rebase
+  --abort</b>. The merge backend does not appear to suffer from the same
+  shortcoming. (See
+  <b>https://lore.kernel.org/git/20200207132152.GC2868@szeder.dev/</b> for
+  details.)
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Commit_Rewording"><a class="permalink" href="#Commit_Rewording">Commit
+  Rewording</a></h2>
+When a conflict occurs while rebasing, rebase stops and asks the user to
+  resolve. Since the user may need to make notable changes while resolving
+  conflicts, after conflicts are resolved and the user has run <b>git rebase
+  --continue</b>, the rebase should open an editor and ask the user to update
+  the commit message. The merge backend does this, while the apply backend
+  blindly applies the original commit message.
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Miscellaneous_differences"><a class="permalink" href="#Miscellaneous_differences">Miscellaneous
+  differences</a></h2>
+There are a few more behavioral differences that most folks would probably
+  consider inconsequential but which are mentioned for completeness:
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Reflog: The two backends will use different
+  wording when describing the changes made in the reflog, though both will make
+  use of the word &quot;rebase&quot;.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Progress, informational, and error messages: The
+  two backends provide slightly different progress and informational messages.
+  Also, the apply backend writes error messages (such as &quot;Your files would
+  be overwritten...&quot;) to stdout, while the merge backend writes them to
+  stderr.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;State directories: The two backends keep their
+  state in different directories under .git/</div>
 </section>
 </section>
 <section class="Sh">
@@ -712,7 +902,7 @@ The merge mechanism (<b>git merge</b> and <b>git pull</b> commands) allows the
 <p class="Pp">ours</p>
 <div class="Bd-indent">This option forces conflicting hunks to be auto-resolved
   cleanly by favoring <i>our</i> version. Changes from the other tree that do
-  not conflict with our side are reflected to the merge result. For a binary
+  not conflict with our side are reflected in the merge result. For a binary
   file, the entire contents are taken from our side.
 <p class="Pp">This should not be confused with the <i>ours</i> merge strategy,
     which does not even look at what the other tree contains at all. It discards
@@ -1087,8 +1277,9 @@ Only works if the changes (patch IDs based on the diff contents) on
   <i>subsystem</i> are literally the same before and after the rebase
   <i>subsystem</i> did.
 <p class="Pp">In that case, the fix is easy because <i>git rebase</i> knows to
-    skip changes that are already present in the new upstream. So if you say
-    (assuming you&#x2019;re on <i>topic</i>)</p>
+    skip changes that are already present in the new upstream (unless
+    <b>--reapply-cherry-picks</b> is given). So if you say (assuming
+    you&#x2019;re on <i>topic</i>)</p>
 <p class="Pp"></p>
 <div class="Bd-indent">
 <pre>

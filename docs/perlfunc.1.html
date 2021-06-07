@@ -619,8 +619,13 @@ Perl was born in Unix and can therefore access all common Unix system calls. In
       otherwise documented, it returns <span class="Li">1</span> for true and
       <span class="Li">''</span> for false. If the file doesn't exist or can't
       be examined, it returns <span class="Li">&quot;undef&quot;</span> and sets
-      <span class="Li">$!</span> (errno). Despite the funny names, precedence is
-      the same as any other named unary operator. The operator may be any of:
+      <span class="Li">$!</span> (errno). With the exception of the
+      <span class="Li">&quot;-l&quot;</span> test they all follow symbolic links
+      because they use <span class="Li">&quot;stat()&quot;</span> and not
+      <span class="Li">&quot;lstat()&quot;</span> (so dangling symlinks can't be
+      examined and will therefore report failure).
+    <p class="Pp">Despite the funny names, precedence is the same as any other
+        named unary operator. The operator may be any of:</p>
     <p class="Pp"><span class="Li"></span></p>
     <pre>
     -r  File is readable by effective uid/gid.
@@ -2006,9 +2011,8 @@ Perl was born in Unix and can therefore access all common Unix system calls. In
         <i>not</i> be open any more when the program is reincarnated, with
         possible resulting confusion by Perl.</p>
     <p class="Pp">This function is now largely obsolete, mostly because it's
-        very hard to convert a core file into an executable. That's why you
-        should now invoke it as <span class="Li">&quot;CORE::dump()&quot;</span>
-        if you don't want to be warned against a possible typo.</p>
+        very hard to convert a core file into an executable. As of Perl 5.30, it
+        must be invoked as <span class="Li">&quot;CORE::dump()&quot;</span>.</p>
     <p class="Pp">Unlike most named operators, this has the same precedence as
         assignment. It is also exempt from the looks-like-a-function rule, so
         <span class="Li">&quot;dump
@@ -6246,15 +6250,12 @@ Perl was born in Unix and can therefore access all common Unix system calls. In
       there's an error, returns the undefined value. This call is actually
       implemented in terms of the <b>recvfrom</b>(2) system call. See &quot;UDP:
       Message Passing&quot; in perlipc for examples.
-    <p class="Pp">Note the <i>characters</i>: depending on the status of the
-        socket, either (8-bit) bytes or characters are received. By default all
-        sockets operate on bytes, but for example if the socket has been changed
-        using <span class="Li">&quot;binmode&quot;</span> to operate with the
-        <span class="Li">&quot;:encoding(UTF-8)&quot;</span> I/O layer (see the
-        open pragma), the I/O will operate on UTF8-encoded Unicode characters,
-        not bytes. Similarly for the
-        <span class="Li">&quot;:encoding&quot;</span> layer: in that case pretty
-        much any characters can be read.</p>
+    <p class="Pp">Note that if the socket has been marked as
+        <span class="Li">&quot;:utf8&quot;</span>,
+        <span class="Li">&quot;recv&quot;</span> will throw an exception. The
+        <span class="Li">&quot;:encoding(...)&quot;</span> layer implicitly
+        introduces the <span class="Li">&quot;:utf8&quot;</span> layer. See
+        <span class="Li">&quot;binmode&quot;</span>.</p>
   </dd>
   <dt>redo LABEL</dt>
   <dd></dd>
@@ -6351,8 +6352,11 @@ Perl was born in Unix and can therefore access all common Unix system calls. In
         <span class="Li">&quot;GLOB&quot;</span>,
         <span class="Li">&quot;LVALUE&quot;</span>, or
         <span class="Li">&quot;REGEXP&quot;</span>, depending on the kind of
-        value the scalar currently has. Beware that these built-in type names
-        can also be used as class names, so
+        value the scalar currently has. But note that
+        <span class="Li">&quot;qr//&quot;</span> scalars are created already
+        blessed, so <span class="Li">&quot;ref qr/.../&quot;</span> will likely
+        return <span class="Li">&quot;Regexp&quot;</span>. Beware that these
+        built-in type names can also be used as class names, so
         <span class="Li">&quot;ref&quot;</span> returning one of these names
         doesn't unambiguously indicate that the referent is of the kind to which
         the name refers.</p>
@@ -6623,9 +6627,9 @@ Perl was born in Unix and can therefore access all common Unix system calls. In
       the end of a loop to clear variables and reset
       <span class="Li">&quot;m?pattern?&quot;</span> searches so that they work
       again. The expression is interpreted as a list of single characters
-      (hyphens allowed for ranges). All variables and arrays beginning with one
-      of those letters are reset to their pristine state. If the expression is
-      omitted, one-match searches
+      (hyphens allowed for ranges). All variables (scalars, arrays, and hashes)
+      in the current package beginning with one of those letters are reset to
+      their pristine state. If the expression is omitted, one-match searches
       (<span class="Li">&quot;m?pattern?&quot;</span>) are reset to match again.
       Only resets variables or searches in the current package. Always returns
       1. Examples:
@@ -6638,9 +6642,10 @@ Perl was born in Unix and can therefore access all common Unix system calls. In
     <p class="Pp">Resetting <span class="Li">&quot;A-Z&quot;</span> is not
         recommended because you'll wipe out your <span class="Li">@ARGV</span>
         and <span class="Li">@INC</span> arrays and your
-        <span class="Li">%ENV</span> hash. Resets only package variables;
-        lexical variables are unaffected, but they clean themselves up on scope
-        exit anyway, so you'll probably want to use them instead. See
+        <span class="Li">%ENV</span> hash.</p>
+    <p class="Pp">Resets only package variables; lexical variables are
+        unaffected, but they clean themselves up on scope exit anyway, so you'll
+        probably want to use them instead. See
         <span class="Li">&quot;my&quot;</span>.</p>
   </dd>
   <dt>return EXPR</dt>
@@ -7024,15 +7029,12 @@ Perl was born in Unix and can therefore access all common Unix system calls. In
       characters sent, or the undefined value on error. The <b>sendmsg</b>(2)
       syscall is currently unimplemented. See &quot;UDP: Message Passing&quot;
       in perlipc for examples.
-    <p class="Pp">Note the <i>characters</i>: depending on the status of the
-        socket, either (8-bit) bytes or characters are sent. By default all
-        sockets operate on bytes, but for example if the socket has been changed
-        using <span class="Li">&quot;binmode&quot;</span> to operate with the
-        <span class="Li">&quot;:encoding(UTF-8)&quot;</span> I/O layer (see
-        <span class="Li">&quot;open&quot;</span>, or the open pragma), the I/O
-        will operate on UTF-8 encoded Unicode characters, not bytes. Similarly
-        for the <span class="Li">&quot;:encoding&quot;</span> layer: in that
-        case pretty much any characters can be sent.</p>
+    <p class="Pp">Note that if the socket has been marked as
+        <span class="Li">&quot;:utf8&quot;</span>,
+        <span class="Li">&quot;send&quot;</span> will throw an exception. The
+        <span class="Li">&quot;:encoding(...)&quot;</span> layer implicitly
+        introduces the <span class="Li">&quot;:utf8&quot;</span> layer. See
+        <span class="Li">&quot;binmode&quot;</span>.</p>
   </dd>
   <dt>setpgrp PID,PGRP</dt>
   <dd>Sets the current process group for the specified PID,
@@ -8021,8 +8023,8 @@ Perl was born in Unix and can therefore access all common Unix system calls. In
    h           interpret integer as C type &quot;short&quot; or
                &quot;unsigned short&quot;
    j           interpret integer as C type &quot;intmax_t&quot; on Perl
-               5.14 or later; and only with a C99 compiler
-               prior to Perl 5.30 (unportable)
+               5.14 or later; and prior to Perl 5.30, only with
+               a C99 compiler (unportable)
    l           interpret integer as C type &quot;long&quot; or
                &quot;unsigned long&quot;
    q, L, or ll interpret integer as C type &quot;long long&quot;,
@@ -8663,12 +8665,11 @@ Perl was born in Unix and can therefore access all common Unix system calls. In
         <span class="Li">&quot;eof&quot;</span> doesn't work well on device
         files (like ttys) anyway. Use
         <span class="Li">&quot;sysread&quot;</span> and check for a return value
-        for 0 to decide whether you're done.</p>
+        of 0 to decide whether you're done.</p>
     <p class="Pp">Note that if the filehandle has been marked as
-        <span class="Li">&quot;:utf8&quot;</span>, Unicode characters are read
-        instead of bytes (the LENGTH, OFFSET, and the return value of
-        <span class="Li">&quot;sysread&quot;</span> are in Unicode characters).
-        The <span class="Li">&quot;:encoding(...)&quot;</span> layer implicitly
+        <span class="Li">&quot;:utf8&quot;</span>,
+        <span class="Li">&quot;sysread&quot;</span> will throw an exception. The
+        <span class="Li">&quot;:encoding(...)&quot;</span> layer implicitly
         introduces the <span class="Li">&quot;:utf8&quot;</span> layer. See
         <span class="Li">&quot;binmode&quot;</span>,
         <span class="Li">&quot;open&quot;</span>, and the open pragma.</p>
@@ -8677,7 +8678,7 @@ Perl was born in Unix and can therefore access all common Unix system calls. In
   <dd>Sets FILEHANDLE's system position <i>in bytes</i> using <b>lseek</b>(2).
       FILEHANDLE may be an expression whose value gives the name of the
       filehandle. The values for WHENCE are <span class="Li">0</span> to set the
-      new position to POSITION; <span class="Li">1</span> to set the it to the
+      new position to POSITION; <span class="Li">1</span> to set it to the
       current position plus POSITION; and <span class="Li">2</span> to set it to
       EOF plus POSITION, typically negative.
     <p class="Pp">Note the emphasis on bytes: even if the filehandle has been
@@ -8828,11 +8829,9 @@ Perl was born in Unix and can therefore access all common Unix system calls. In
         that many characters counting backwards from the end of the string. If
         SCALAR is of length zero, you can only use an OFFSET of 0.</p>
     <p class="Pp"><b>WARNING</b>: If the filehandle is marked
-        <span class="Li">&quot;:utf8&quot;</span>, Unicode characters encoded in
-        UTF-8 are written instead of bytes, and the LENGTH, OFFSET, and return
-        value of <span class="Li">&quot;syswrite&quot;</span> are in
-        (UTF8-encoded Unicode) characters. The
-        <span class="Li">&quot;:encoding(...)&quot;</span> layer implicitly
+        <span class="Li">&quot;:utf8&quot;</span>,
+        <span class="Li">&quot;syswrite&quot;</span> will raise an exception.
+        The <span class="Li">&quot;:encoding(...)&quot;</span> layer implicitly
         introduces the <span class="Li">&quot;:utf8&quot;</span> layer.
         Alternately, if the handle is not marked with an encoding but you
         attempt to write characters with code points over 255, raises an

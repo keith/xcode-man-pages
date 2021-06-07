@@ -495,10 +495,11 @@ The <span class="Li">&quot;frame&quot;</span> option can be used to control the
 There are two ways to enable debugging output for regular expressions.
 <p class="Pp">If your perl is compiled with
     <span class="Li">&quot;-DDEBUGGING&quot;</span>, you may use the <b>-Dr</b>
-    flag on the command line.</p>
+    flag on the command line, and <span class="Li">&quot;-Drv&quot;</span> for
+    more verbose information.</p>
 <p class="Pp">Otherwise, one can <span class="Li">&quot;use re
-    'debug'&quot;</span>, which has effects at compile time and run time. Since
-    Perl 5.9.5, this pragma is lexically scoped.</p>
+    'debug'&quot;</span>, which has effects at both compile time and run time.
+    Since Perl 5.9.5, this pragma is lexically scoped.</p>
 <section class="Ss">
 <h2 class="Ss" id="Compile-time_Output"><a class="permalink" href="#Compile-time_Output">Compile-time
   Output</a></h2>
@@ -638,7 +639,7 @@ Here are the current possible types, with short descriptions:
  BOUNDL           no         Like BOUND/BOUNDU, but \w and \W are
                              defined by current locale
  BOUNDU           no         Match &quot;&quot; at any boundary of a given type
-                             using Unicode rules
+                             using /u rules.
  BOUNDA           no         Match &quot;&quot; at any boundary between \w\W or
                              \W\w, where \w is [_a-zA-Z0-9]
  NBOUND           no         Like NBOUNDA for non-utf8, otherwise match
@@ -646,19 +647,29 @@ Here are the current possible types, with short descriptions:
  NBOUNDL          no         Like NBOUND/NBOUNDU, but \w and \W are
                              defined by current locale
  NBOUNDU          no         Match &quot;&quot; at any non-boundary of a given
-                             type using using Unicode rules
+                             type using using /u rules.
  NBOUNDA          no         Match &quot;&quot; betweeen any \w\w or \W\W, where
                              \w is [_a-zA-Z0-9]
 
  # [Special] alternatives:
  REG_ANY          no         Match any one character (except newline).
  SANY             no         Match any one character.
- ANYOF            sv 1       Match character in (or not in) this class,
-                             single char match only
- ANYOFD           sv 1       Like ANYOF, but /d is in effect
- ANYOFL           sv 1       Like ANYOF, but /l is in effect
+ ANYOF            sv         Match character in (or not in) this class,
+                  charclass  single char match only
+ ANYOFD           sv         Like ANYOF, but /d is in effect
+                  charclass
+ ANYOFL           sv         Like ANYOF, but /l is in effect
+                  charclass
+ ANYOFPOSIXL      sv         Like ANYOFL, but matches [[:posix:]]
+                  charclass_ classes
+                  posixl
+ ANYOFH           sv 1       Like ANYOF, but only has &quot;High&quot; matches,
+                             none in the bitmap; non-zero flags &quot;f&quot;
+                             means &quot;f&quot; is the first UTF-8 byte shared in
+                             common by all code points matched
  ANYOFM           byte 1     Like ANYOF, but matches an invariant byte
                              as determined by the mask and arg
+ NANYOFM          byte 1     complement of ANYOFM
 
  # POSIX Character Classes:
  POSIXD           none       Some [[:class:]] under /d; the FLAGS field
@@ -673,9 +684,6 @@ Here are the current possible types, with short descriptions:
  NPOSIXL          none       complement of POSIXL, [[:^class:]]
  NPOSIXU          none       complement of POSIXU, [[:^class:]]
  NPOSIXA          none       complement of POSIXA, [[:^class:]]
-
- ASCII            none       [[:ascii:]]
- NASCII           none       [[:^ascii:]]
 
  CLUMP            no         Match any extended grapheme cluster
                              sequence
@@ -699,25 +707,36 @@ Here are the current possible types, with short descriptions:
  EXACTL           str        Like EXACT, but /l is in effect (used so
                              locale-related warnings can be checked
                              for).
- EXACTF           str        Match this non-UTF-8 string (not guaranteed
-                             to be folded) using /id rules (w/len).
- EXACTFL          str        Match this string (not guaranteed to be
-                             folded) using /il rules (w/len).
- EXACTFU          str        Match this string (folded iff in UTF-8,
-                             length in folding doesn't change if not in
-                             UTF-8) using /iu rules (w/len).
- EXACTFAA         str        Match this string (not guaranteed to be
-                             folded) using /iaa rules (w/len).
+ EXACTF           str        Match this string using /id rules (w/len);
+                             (string not UTF-8, not guaranteed to be
+                             folded).
+ EXACTFL          str        Match this string using /il rules (w/len);
+                             (string not guaranteed to be folded).
+ EXACTFU          str        Match this string using /iu rules (w/len);
+                             (string folded iff in UTF-8; non-UTF8
+                             folded length &lt;= unfolded).
+ EXACTFAA         str        Match this string using /iaa rules (w/len)
+                             (string folded iff in UTF-8; non-UTF8
+                             folded length &lt;= unfolded).
 
- EXACTFU_SS       str        Match this string (folded iff in UTF-8,
-                             length in folding may change even if not in
-                             UTF-8) using /iu rules (w/len).
- EXACTFLU8        str        Rare circumstances: like EXACTFU, but is
-                             under /l, UTF-8, folded, and everything in
-                             it is above 255.
- EXACTFAA_NO_TRIE str        Match this string (which is not trie-able;
-                             not guaranteed to be folded) using /iaa
-                             rules (w/len).
+ EXACTFUP         str        Match this string using /iu rules (w/len);
+                             (string not UTF-8, not guaranteed to be
+                             folded; and its Problematic).
+
+ EXACTFLU8        str        Like EXACTFU, but use /il, UTF-8, folded,
+                             and everything in it is above 255.
+ EXACTFAA_NO_TRIE str        Match this string using /iaa rules (w/len)
+                             (string not UTF-8, not guaranteed to be
+                             folded, not currently trie-able).
+
+ EXACT_ONLY8      str        Like EXACT, but only UTF-8 encoded targets
+                             can match
+ EXACTFU_ONLY8    str        Like EXACTFU, but only UTF-8 encoded
+                             targets can match
+
+ EXACTFU_S_EDGE   str        /di rules, but nothing in it precludes /ui,
+                             except begins and/or ends with [Ss];
+                             (string not UTF-8; compile-time only).
 
  # Do nothing types
 
@@ -755,36 +774,39 @@ Here are the current possible types, with short descriptions:
  SRCLOSE          none       Close preceding SROPEN
 
  REF              num 1      Match some already matched string
- REFF             num 1      Match already matched string, folded using
-                             native charset rules for non-utf8
- REFFL            num 1      Match already matched string, folded in
-                             loc.
- REFFU            num 1      Match already matched string, folded using
-                             unicode rules for non-utf8
- REFFA            num 1      Match already matched string, folded using
-                             unicode rules for non-utf8, no mixing
-                             ASCII, non-ASCII
+ REFF             num 1      Match already matched string, using /di
+                             rules.
+ REFFL            num 1      Match already matched string, using /li
+                             rules.
+ REFFU            num 1      Match already matched string, usng /ui.
+ REFFA            num 1      Match already matched string, using /aai
+                             rules.
 
  # Named references.  Code in regcomp.c assumes that these all are after
  # the numbered references
  NREF             no-sv 1    Match some already matched string
- NREFF            no-sv 1    Match already matched string, folded using
-                             native charset rules for non-utf8
- NREFFL           no-sv 1    Match already matched string, folded in
-                             loc.
- NREFFU           num 1      Match already matched string, folded using
-                             unicode rules for non-utf8
- NREFFA           num 1      Match already matched string, folded using
-                             unicode rules for non-utf8, no mixing
-                             ASCII, non-ASCII
+ NREFF            no-sv 1    Match already matched string, using /di
+                             rules.
+ NREFFL           no-sv 1    Match already matched string, using /li
+                             rules.
+ NREFFU           num 1      Match already matched string, using /ui
+                             rules.
+ NREFFA           num 1      Match already matched string, using /aai
+                             rules.
 
  # Support for long RE
  LONGJMP          off 1 1    Jump far away.
  BRANCHJ          off 1 1    BRANCH with long offset.
 
  # Special Case Regops
- IFMATCH          off 1 2    Succeeds if the following matches.
- UNLESSM          off 1 2    Fails if the following matches.
+ IFMATCH          off 1 1    Succeeds if the following matches; non-zero
+                             flags &quot;f&quot;, next_off &quot;o&quot; means lookbehind
+                             assertion starting &quot;f..(f-o)&quot; characters
+                             before current
+ UNLESSM          off 1 1    Fails if the following matches; non-zero
+                             flags &quot;f&quot;, next_off &quot;o&quot; means lookbehind
+                             assertion starting &quot;f..(f-o)&quot; characters
+                             before current
  SUSPEND          off 1 1    &quot;Independent&quot; sub-RE.
  IFTHEN           off 1 1    Switch, should be preceded by switcher.
  GROUPP           num 1      Whether the group matched.

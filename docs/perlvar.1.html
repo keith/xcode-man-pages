@@ -561,14 +561,16 @@ The following names have special meaning to Perl. Most punctuation names have
       <span class="Li">&quot;use&quot;</span> constructs look for their library
       files. It initially consists of the arguments to any <b>-I</b>
       command-line switches, followed by the default Perl library, probably
-      <i>/usr/local/lib/perl</i>, followed by &quot;.&quot;, to represent the
-      current directory. (&quot;.&quot; will not be appended if taint checks are
-      enabled, either by <span class="Li">&quot;-T&quot;</span> or by
-      <span class="Li">&quot;-t&quot;</span>, or if configured not to do so by
-      the <span class="Li">&quot;-Ddefault_inc_excludes_dot&quot;</span> compile
-      time option.) If you need to modify this at runtime, you should use the
+      <i>/usr/local/lib/perl</i>. Prior to Perl 5.26,
+      <span class="Li">&quot;.&quot;</span> -which represents the current
+      directory, was included in <span class="Li">@INC</span>; it has been
+      removed. This change in behavior is documented in
+      <span class="Li">&quot;PERL_USE_UNSAFE_INC&quot;</span> and it is not
+      recommended that <span class="Li">&quot;.&quot;</span> be re-added to
+      <span class="Li">@INC</span>. If you need to modify
+      <span class="Li">@INC</span> at runtime, you should use the
       <span class="Li">&quot;use lib&quot;</span> pragma to get the
-      machine-dependent library properly loaded also:
+      machine-dependent library properly loaded as well:
     <p class="Pp"><span class="Li"></span></p>
     <pre>
     use lib '/mypath/libdir/';
@@ -1015,8 +1017,9 @@ Most of the special variables related to regular expressions are side effects.
     }
     </pre>
     <p class="Pp">should output &quot;f-o-a-l&quot;.</p>
-    <p class="Pp">See also &quot;$<i>digits</i>&quot;, &quot;%{^CAPTURE}&quot;
-        and &quot;%{^CAPTURE_ALL}&quot;.</p>
+    <p class="Pp">See also &quot;$&lt;<i>digits</i>&gt; ($1,
+        <span class="Li">$2</span>, ...)&quot;, &quot;%{^CAPTURE}&quot; and
+        &quot;%{^CAPTURE_ALL}&quot;.</p>
     <p class="Pp">Note that unlike most other regex magic variables there is no
         single letter equivalent to
         <span class="Li">&quot;@{^CAPTURE}&quot;</span>.</p>
@@ -1113,9 +1116,12 @@ Most of the special variables related to regular expressions are side effects.
   <dt>$LAST_PAREN_MATCH</dt>
   <dd></dd>
   <dt>$+</dt>
-  <dd>The text matched by the last bracket of the last successful search
-      pattern. This is useful if you don't know which one of a set of
-      alternative patterns matched. For example:
+  <dd>The text matched by the highest used capture group of the last successful
+      search pattern. It is logically equivalent to the highest numbered capture
+      variable (<span class="Li">$1</span>, <span class="Li">$2</span>, ...)
+      which has a defined value.
+    <p class="Pp">This is useful if you don't know which one of a set of
+        alternative patterns matched. For example:</p>
     <p class="Pp"><span class="Li"></span></p>
     <pre>
     /Version: (.*)|Revision: (.*)/ &amp;&amp; ($rev = $+);
@@ -1128,7 +1134,19 @@ Most of the special variables related to regular expressions are side effects.
   <dt>$^N</dt>
   <dd>The text matched by the used group most-recently closed (i.e. the group
       with the rightmost closing parenthesis) of the last successful search
-      pattern.
+      pattern. This is subtly different from <span class="Li">$+</span>. For
+      example in
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+    &quot;ab&quot; =~ /^((.)(.))$/
+    </pre>
+    <p class="Pp">we have</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+    $1,$^N   have the value &quot;ab&quot;
+    $2       has  the value &quot;a&quot;
+    $3,$+    have the value &quot;b&quot;
+    </pre>
     <p class="Pp">This is primarily used inside
         <span class="Li">&quot;(?{...})&quot;</span> blocks for examining text
         recently matched. For example, to effectively capture text to a variable
@@ -1203,7 +1221,7 @@ Most of the special variables related to regular expressions are side effects.
   <dt>@-</dt>
   <dd><span class="Li">&quot;$-[0]&quot;</span> is the offset of the start of
       the last successful match.
-      <span class="Li">&quot;$-[&quot;</span><i>n</i><span class="Li">&quot;]&quot;</span>
+      <span class="Li">&quot;$-[</span><i>n</i><span class="Li">]&quot;</span>
       is the offset of the start of the substring matched by <i>n</i>-th
       subpattern, or undef if the subpattern did not match.
     <p class="Pp">Thus, after a match against <span class="Li">$_</span>,
@@ -1307,6 +1325,13 @@ Most of the special variables related to regular expressions are side effects.
       code })&quot;</span> regular expression assertion (see perlre). May be
       written to.
     <p class="Pp">This variable was added in Perl 5.005.</p>
+  </dd>
+  <dt>${^RE_COMPILE_RECURSION_LIMIT}</dt>
+  <dd>The current value giving the maximum number of open but unclosed
+      parenthetical groups there may be at any point during a regular expression
+      compilation. The default is currently 1000 nested groups. You may adjust
+      it depending on your needs and the amount of memory available.
+    <p class="Pp">This variable was added in Perl v5.30.0.</p>
   </dd>
   <dt>${^RE_DEBUG_FLAGS}</dt>
   <dd>The current value of the regex debugging flags. Set to 0 for no debug
@@ -1548,6 +1573,50 @@ Variables that depend on the currently selected filehandle may be set by calling
     </pre>
     <p class="Pp">Remember: the value of <span class="Li">$/</span> is a string,
         not a regex. <b>awk</b> has to be better for something. :-)</p>
+    <p class="Pp">Setting <span class="Li">$/</span> to an empty string -- the
+        so-called <i>paragraph mode</i> -- merits special attention. When
+        <span class="Li">$/</span> is set to
+        <span class="Li">&quot;&quot;</span> and the entire file is read in with
+        that setting, any sequence of consecutive newlines
+        <span class="Li">&quot;\n\n&quot;</span> at the beginning of the file is
+        discarded. With the exception of the final record in the file, each
+        sequence of characters ending in two or more newlines is treated as one
+        record and is read in to end in exactly two newlines. If the last record
+        in the file ends in zero or one consecutive newlines, that record is
+        read in with that number of newlines. If the last record ends in two or
+        more consecutive newlines, it is read in with two newlines like all
+        preceding records.</p>
+    <p class="Pp">Suppose we wrote the following string to a file:</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+    my $string = &quot;\n\n\n&quot;;
+    $string .= &quot;alpha beta\ngamma delta\n\n\n&quot;;
+    $string .= &quot;epsilon zeta eta\n\n&quot;;
+    $string .= &quot;theta\n&quot;;
+
+    my $file = 'simple_file.txt'; 
+    open my $OUT, '&gt;', $file or die;
+    print $OUT $string;
+    close $OUT or die;
+    </pre>
+    <p class="Pp">Now we read that file in paragraph mode:</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+    local $/ = &quot;&quot;; # paragraph mode
+    open my $IN, '&lt;', $file or die;
+    my @records = &lt;$IN&gt;;
+    close $IN or die;
+    </pre>
+    <p class="Pp"><span class="Li">@records</span> will consist of these 3
+        strings:</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+    (
+      &quot;alpha beta\ngamma delta\n\n&quot;,
+      &quot;epsilon zeta eta\n\n&quot;,
+      &quot;theta\n&quot;,
+    )
+    </pre>
     <p class="Pp">Setting <span class="Li">$/</span> to a reference to an
         integer, scalar containing an integer, or scalar that's convertible to
         an integer will attempt to read records instead of lines, with the
@@ -2365,16 +2434,15 @@ Deprecating a variable announces the intent of the perl maintainers to
         the same file, unlike other compile-time directives (such as strict).
         Using <b>local()</b> on it would bind its value strictly to a lexical
         block. Now it is always lexically scoped.</p>
-    <p class="Pp">As of Perl v5.16.0, it is implemented by the arybase module.
-        See arybase for more details on its behaviour.</p>
-    <p class="Pp">Under <span class="Li">&quot;use v5.16&quot;</span>, or
-        <span class="Li">&quot;no feature &quot;array_base&quot;&quot;</span>,
-        <span class="Li">$[</span> no longer has any effect, and always contains
-        0. Assigning 0 to it is permitted, but any other value will produce an
-        error.</p>
+    <p class="Pp">As of Perl v5.16.0, it is implemented by the arybase
+      module.</p>
+    <p class="Pp">As of Perl v5.30.0, or under <span class="Li">&quot;use
+        v5.16&quot;</span>, or <span class="Li">&quot;no feature
+        &quot;array_base&quot;&quot;</span>, <span class="Li">$[</span> no
+        longer has any effect, and always contains 0. Assigning 0 to it is
+        permitted, but any other value will produce an error.</p>
     <p class="Pp">Mnemonic: [ begins subscripts.</p>
     <p class="Pp">Deprecated in Perl v5.12.0.</p>
-    <p class="Pp">Assigning a non-zero value be fatal in Perl v5.30.0.</p>
   </dd>
 </dl>
 </section>

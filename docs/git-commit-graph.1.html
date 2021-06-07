@@ -3,11 +3,11 @@
 <!-- This is an automatically generated file.  Do not edit.
    t
        Title: git-commit-graph
-      Author: [FIXME: author] [see http://docbook.sf.net/el/author]
-   Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-        Date: 11/04/2019
+      Author: [FIXME: author] [see http://www.docbook.org/tdg5/en/html/author]
+   Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+        Date: 02/08/2021
       Manual: Git Manual
-      Source: Git 2.24.0
+      Source: Git 2.30.1.378.g1d4f2316c5
     Language: English
    -->
 <head>
@@ -56,7 +56,6 @@ git-commit-graph - Write and verify Git commit-graph files
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
 <pre>
-<i>git commit-graph read</i> [--object-dir &lt;dir&gt;]
 <i>git commit-graph verify</i> [--object-dir &lt;dir&gt;] [--shallow] [--[no-]progress]
 <i>git commit-graph write</i> &lt;options&gt; [--object-dir &lt;dir&gt;] [--[no-]progress]
 </pre>
@@ -74,7 +73,9 @@ Manage the serialized commit-graph file.
   alternate that only has the objects directory, not a full <b>.git</b>
   directory. The commit-graph file is expected to be in the
   <b>&lt;dir&gt;/info</b> directory and the packfiles are expected to be in
-  <b>&lt;dir&gt;/pack</b>.</div>
+  <b>&lt;dir&gt;/pack</b>. If the directory could not be made into an absolute
+  path, or does not match any known object directory, <b>git commit-graph
+  ...</b> will exit with non-zero status.</div>
 <p class="Pp">--[no-]progress</p>
 <div class="Bd-indent">Turn progress on/off explicitly. If neither is specified,
   progress is shown if standard error is connected to a terminal.</div>
@@ -83,24 +84,49 @@ Manage the serialized commit-graph file.
 <h1 class="Sh" id="COMMANDS"><a class="permalink" href="#COMMANDS">COMMANDS</a></h1>
 <i>write</i>
 <div class="Bd-indent">Write a commit-graph file based on the commits found in
-  packfiles.
+  packfiles. If the config option <b>core.commitGraph</b> is disabled, then this
+  command will output a warning, then return success without writing a
+  commit-graph file.
 <p class="Pp">With the <b>--stdin-packs</b> option, generate the new commit
     graph by walking objects only in the specified pack-indexes. (Cannot be
     combined with <b>--stdin-commits</b> or <b>--reachable</b>.)</p>
 <p class="Pp">With the <b>--stdin-commits</b> option, generate the new commit
     graph by walking commits starting at the commits specified in stdin as a
-    list of OIDs in hex, one OID per line. (Cannot be combined with
+    list of OIDs in hex, one OID per line. OIDs that resolve to non-commits
+    (either directly, or by peeling tags) are silently ignored. OIDs that are
+    malformed, or do not exist generate an error. (Cannot be combined with
     <b>--stdin-packs</b> or <b>--reachable</b>.)</p>
 <p class="Pp">With the <b>--reachable</b> option, generate the new commit graph
     by walking commits starting at all refs. (Cannot be combined with
     <b>--stdin-commits</b> or <b>--stdin-packs</b>.)</p>
 <p class="Pp">With the <b>--append</b> option, include all commits that are
     present in the existing commit-graph file.</p>
-<p class="Pp">With the <b>--split</b> option, write the commit-graph as a chain
-    of multiple commit-graph files stored in
-    <b>&lt;dir&gt;/info/commit-graphs</b>. The new commits not already in the
-    commit-graph are added in a new &quot;tip&quot; file. This file is merged
-    with the existing file if the following merge conditions are met:</p>
+<p class="Pp">With the <b>--changed-paths</b> option, compute and write
+    information about the paths changed between a commit and its first parent.
+    This operation can take a while on large repositories. It provides
+    significant performance gains for getting history of a directory or a file
+    with <b>git log -- &lt;path&gt;</b>. If this option is given, future
+    commit-graph writes will automatically assume that this option was intended.
+    Use <b>--no-changed-paths</b> to stop storing this data.</p>
+<p class="Pp">With the <b>--max-new-filters=&lt;n&gt;</b> option, generate at
+    most <b>n</b> new Bloom filters (if <b>--changed-paths</b> is specified). If
+    <b>n</b> is <b>-1</b>, no limit is enforced. Only commits present in the new
+    layer count against this limit. To retroactively compute Bloom filters over
+    earlier layers, it is advised to use <b>--split=replace</b>. Overrides the
+    <b>commitGraph.maxNewFilters</b> configuration.</p>
+<p class="Pp">With the <b>--split[=&lt;strategy&gt;]</b> option, write the
+    commit-graph as a chain of multiple commit-graph files stored in
+    <b>&lt;dir&gt;/info/commit-graphs</b>. Commit-graph layers are merged based
+    on the strategy and other splitting options. The new commits not already in
+    the commit-graph are added in a new &quot;tip&quot; file. This file is
+    merged with the existing file if the following merge conditions are met:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;If <b>--split=no-merge</b> is specified, a merge
+  is never performed, and the remaining options are ignored.
+  <b>--split=replace</b> overwrites the existing chain with a new one. A bare
+  <b>--split</b> defers to the remaining options. (Note that merging a chain of
+  commit graphs replaces the existing chain with a length-1 chain where the
+  first and only incremental holds the entire graph).</div>
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;If <b>--size-multiple=&lt;X&gt;</b> is not
   specified, let <b>X</b> equal 2. If the new tip file would have <b>N</b>
@@ -117,9 +143,6 @@ Manage the serialized commit-graph file.
     than <b>datetime</b>.</p>
 </div>
 </div>
-<p class="Pp"><i>read</i></p>
-<div class="Bd-indent">Read the commit-graph file and output basic details about
-  it. Used for debugging purposes.</div>
 <p class="Pp"><i>verify</i></p>
 <div class="Bd-indent">Read the commit-graph file and verify its contents
   against the object database. Used to check for corrupted data.
@@ -168,17 +191,6 @@ $ git show-ref -s | git commit-graph write --stdin-commits
 <div class="Bd-indent">
 <pre>
 $ git rev-parse HEAD | git commit-graph write --stdin-commits --append
-</pre>
-</div>
-<p class="Pp"></p>
-</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;Read basic information from the commit-graph
-  file.
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre>
-$ git commit-graph read
 </pre>
 </div>
 <p class="Pp"></p>

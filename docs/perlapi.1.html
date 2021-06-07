@@ -4048,11 +4048,14 @@ A HV structure represents a Perl hash. It consists mainly of an array of
       <span class="Li">&quot;val&quot;</span> it does not take ownership of it,
       so maintaining the correct reference count on
       <span class="Li">&quot;key&quot;</span> is entirely the caller's
-      responsibility. <span class="Li">&quot;hv_store&quot;</span> is not
-      implemented as a call to <span class="Li">&quot;hv_store_ent&quot;</span>,
-      and does not create a temporary SV for the key, so if your key data is not
-      already in SV form then use <span class="Li">&quot;hv_store&quot;</span>
-      in preference to <span class="Li">&quot;hv_store_ent&quot;</span>.
+      responsibility. The reason it does not take ownership, is that
+      <span class="Li">&quot;key&quot;</span> is not used after this function
+      returns, and so can be freed immediately.
+      <span class="Li">&quot;hv_store&quot;</span> is not implemented as a call
+      to <span class="Li">&quot;hv_store_ent&quot;</span>, and does not create a
+      temporary SV for the key, so if your key data is not already in SV form
+      then use <span class="Li">&quot;hv_store&quot;</span> in preference to
+      <span class="Li">&quot;hv_store_ent&quot;</span>.
     <p class="Pp">See &quot;Understanding the Magic of Tied Hashes and
         Arrays&quot; in perlguts for more information on how to use this
         function on tied hashes.</p>
@@ -5124,10 +5127,10 @@ This is the lower layer of the Perl parser, managing characters and tokens.
     </pre>
   </dd>
   <dt>switch_to_global_locale</dt>
-  <dd>On systems without locale support, or on single-threaded builds, or on
-      platforms that do not support per-thread locale operations, this function
-      does nothing. On such systems that do have locale support, only a locale
-      global to the whole program is available.
+  <dd>On systems without locale support, or on typical single-threaded builds,
+      or on platforms that do not support per-thread locale operations, this
+      function does nothing. On such systems that do have locale support, only a
+      locale global to the whole program is available.
     <p class="Pp">On multi-threaded builds on systems that do have per-thread
         locale operations, this function converts the thread it is running in to
         use the global locale. This is for code that has not yet or cannot be
@@ -6547,6 +6550,21 @@ These functions are related to the method resolution order of perl classes
         bool    isinfnan(NV nv)
     </pre>
   </dd>
+  <dt>my_strtod</dt>
+  <dd>This function is equivalent to the libc <b>strtod()</b> function, and is
+      available even on platforms that lack plain <b>strtod()</b>. Its return
+      value is the best available precision depending on platform capabilities
+      and <i>Configure</i> options.
+    <p class="Pp">It properly handles the locale radix character, meaning it
+        expects a dot except when called from within the scope of
+        <span class="Li">&quot;use&#x00A0;locale&quot;</span>, in which case the
+        radix character should be that specified by the current locale.</p>
+    <p class="Pp">The synonym <b>Strod()</b> may be used instead.</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        NV      my_strtod(const char * const s, char ** e)
+    </pre>
+  </dd>
   <dt>Perl_signbit</dt>
   <dd>NOTE: this function is experimental and may change or be removed without
       notice.
@@ -7865,9 +7883,8 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
     </pre>
   </dd>
   <dt>OpLASTSIB_set</dt>
-  <dd>Marks <span class="Li">&quot;o&quot;</span> as having no further siblings.
-      On <span class="Li">&quot;PERL_OP_PARENT&quot;</span> builds, marks o as
-      having the specified parent. See also
+  <dd>Marks <span class="Li">&quot;o&quot;</span> as having no further siblings
+      and marks o as having the specified parent. See also
       <span class="Li">&quot;OpMORESIB_set&quot;</span> and
       <span class="Li">&quot;OpMAYBESIB_set&quot;</span>. For a higher-level
       interface, see <span class="Li">&quot;op_sibling_splice&quot;</span>.
@@ -7949,9 +7966,7 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
   </dd>
   <dt>op_parent</dt>
   <dd>Returns the parent OP of <span class="Li">&quot;o&quot;</span>, if it has
-      a parent. Returns <span class="Li">&quot;NULL&quot;</span> otherwise. This
-      function is only available on perls built with
-      <span class="Li">&quot;-DPERL_OP_PARENT&quot;</span>.
+      a parent. Returns <span class="Li">&quot;NULL&quot;</span> otherwise.
     <p class="Pp"><span class="Li"></span></p>
     <pre>
         OP*     op_parent(OP *o)
@@ -9233,9 +9248,166 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
 </dl>
 </section>
 <section class="Sh">
-<h1 class="Sh" id="SV-Body_Allocation"><a class="permalink" href="#SV-Body_Allocation">SV-Body
-  Allocation</a></h1>
+<h1 class="Sh" id="SV_Flags"><a class="permalink" href="#SV_Flags">SV
+  Flags</a></h1>
 <dl class="Bl-tag">
+  <dt>SVt_INVLIST</dt>
+  <dd>Type flag for scalars. See &quot;svtype&quot;.</dd>
+  <dt>SVt_IV</dt>
+  <dd>Type flag for scalars. See &quot;svtype&quot;.</dd>
+  <dt>SVt_NULL</dt>
+  <dd>Type flag for scalars. See &quot;svtype&quot;.</dd>
+  <dt>SVt_NV</dt>
+  <dd>Type flag for scalars. See &quot;svtype&quot;.</dd>
+  <dt>SVt_PV</dt>
+  <dd>Type flag for scalars. See &quot;svtype&quot;.</dd>
+  <dt>SVt_PVAV</dt>
+  <dd>Type flag for arrays. See &quot;svtype&quot;.</dd>
+  <dt>SVt_PVCV</dt>
+  <dd>Type flag for subroutines. See &quot;svtype&quot;.</dd>
+  <dt>SVt_PVFM</dt>
+  <dd>Type flag for formats. See &quot;svtype&quot;.</dd>
+  <dt>SVt_PVGV</dt>
+  <dd>Type flag for typeglobs. See &quot;svtype&quot;.</dd>
+  <dt>SVt_PVHV</dt>
+  <dd>Type flag for hashes. See &quot;svtype&quot;.</dd>
+  <dt>SVt_PVIO</dt>
+  <dd>Type flag for I/O objects. See &quot;svtype&quot;.</dd>
+  <dt>SVt_PVIV</dt>
+  <dd>Type flag for scalars. See &quot;svtype&quot;.</dd>
+  <dt>SVt_PVLV</dt>
+  <dd>Type flag for scalars. See &quot;svtype&quot;.</dd>
+  <dt>SVt_PVMG</dt>
+  <dd>Type flag for scalars. See &quot;svtype&quot;.</dd>
+  <dt>SVt_PVNV</dt>
+  <dd>Type flag for scalars. See &quot;svtype&quot;.</dd>
+  <dt>SVt_REGEXP</dt>
+  <dd>Type flag for regular expressions. See &quot;svtype&quot;.</dd>
+  <dt>svtype</dt>
+  <dd>An enum of flags for Perl types. These are found in the file <i>sv.h</i>
+      in the <span class="Li">&quot;svtype&quot;</span> enum. Test these flags
+      with the <span class="Li">&quot;SvTYPE&quot;</span> macro.
+    <p class="Pp">The types are:</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+    SVt_NULL
+    SVt_IV
+    SVt_NV
+    SVt_RV
+    SVt_PV
+    SVt_PVIV
+    SVt_PVNV
+    SVt_PVMG
+    SVt_INVLIST
+    SVt_REGEXP
+    SVt_PVGV
+    SVt_PVLV
+    SVt_PVAV
+    SVt_PVHV
+    SVt_PVCV
+    SVt_PVFM
+    SVt_PVIO
+    </pre>
+    <p class="Pp">These are most easily explained from the bottom up.</p>
+    <p class="Pp"><span class="Li">&quot;SVt_PVIO&quot;</span> is for I/O
+        objects, <span class="Li">&quot;SVt_PVFM&quot;</span> for formats,
+        <span class="Li">&quot;SVt_PVCV&quot;</span> for subroutines,
+        <span class="Li">&quot;SVt_PVHV&quot;</span> for hashes and
+        <span class="Li">&quot;SVt_PVAV&quot;</span> for arrays.</p>
+    <p class="Pp">All the others are scalar types, that is, things that can be
+        bound to a <span class="Li">&quot;$&quot;</span> variable. For these,
+        the internal types are mostly orthogonal to types in the Perl
+      language.</p>
+    <p class="Pp">Hence, checking <span class="Li">&quot;SvTYPE(sv) &lt;
+        SVt_PVAV&quot;</span> is the best way to see whether something is a
+        scalar.</p>
+    <p class="Pp"><span class="Li">&quot;SVt_PVGV&quot;</span> represents a
+        typeglob. If <span class="Li">&quot;!SvFAKE(sv)&quot;</span>, then it is
+        a real, incoercible typeglob. If
+        <span class="Li">&quot;SvFAKE(sv)&quot;</span>, then it is a scalar to
+        which a typeglob has been assigned. Assigning to it again will stop it
+        from being a typeglob. <span class="Li">&quot;SVt_PVLV&quot;</span>
+        represents a scalar that delegates to another scalar behind the scenes.
+        It is used, e.g., for the return value of
+        <span class="Li">&quot;substr&quot;</span> and for tied hash and array
+        elements. It can hold any scalar value, including a typeglob.
+        <span class="Li">&quot;SVt_REGEXP&quot;</span> is for regular
+        expressions. <span class="Li">&quot;SVt_INVLIST&quot;</span> is for Perl
+        core internal use only.</p>
+    <p class="Pp"><span class="Li">&quot;SVt_PVMG&quot;</span> represents a
+        &quot;normal&quot; scalar (not a typeglob, regular expression, or
+        delegate). Since most scalars do not need all the internal fields of a
+        PVMG, we save memory by allocating smaller structs when possible. All
+        the other types are just simpler forms of
+        <span class="Li">&quot;SVt_PVMG&quot;</span>, with fewer internal
+        fields. <span class="Li">&quot;SVt_NULL&quot;</span> can only hold
+        undef. <span class="Li">&quot;SVt_IV&quot;</span> can hold undef, an
+        integer, or a reference. (<span class="Li">&quot;SVt_RV&quot;</span> is
+        an alias for <span class="Li">&quot;SVt_IV&quot;</span>, which exists
+        for backward compatibility.) <span class="Li">&quot;SVt_NV&quot;</span>
+        can hold any of those or a double.
+        <span class="Li">&quot;SVt_PV&quot;</span> can only hold
+        <span class="Li">&quot;undef&quot;</span> or a string.
+        <span class="Li">&quot;SVt_PVIV&quot;</span> is a superset of
+        <span class="Li">&quot;SVt_PV&quot;</span> and
+        <span class="Li">&quot;SVt_IV&quot;</span>.
+        <span class="Li">&quot;SVt_PVNV&quot;</span> is similar.
+        <span class="Li">&quot;SVt_PVMG&quot;</span> can hold anything
+        <span class="Li">&quot;SVt_PVNV&quot;</span> can hold, but it can, but
+        does not have to, be blessed or magical.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SV_Manipulation_Functions"><a class="permalink" href="#SV_Manipulation_Functions">SV
+  Manipulation Functions</a></h1>
+<dl class="Bl-tag">
+  <dt>boolSV</dt>
+  <dd>Returns a true SV if <span class="Li">&quot;b&quot;</span> is a true
+      value, or a false SV if <span class="Li">&quot;b&quot;</span> is 0.
+    <p class="Pp">See also <span class="Li">&quot;PL_sv_yes&quot;</span> and
+        <span class="Li">&quot;PL_sv_no&quot;</span>.</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        SV *    boolSV(bool b)
+    </pre>
+  </dd>
+  <dt>croak_xs_usage</dt>
+  <dd>A specialised variant of <span class="Li">&quot;croak()&quot;</span> for
+      emitting the usage message for xsubs
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+    croak_xs_usage(cv, &quot;eee_yow&quot;);
+    </pre>
+    <p class="Pp">works out the package name and subroutine name from
+        <span class="Li">&quot;cv&quot;</span>, and then calls
+        <span class="Li">&quot;croak()&quot;</span>. Hence if
+        <span class="Li">&quot;cv&quot;</span> is
+        <span class="Li">&amp;ouch::awk</span>, it would call
+        <span class="Li">&quot;croak&quot;</span> as:</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+ Perl_croak(aTHX_ &quot;Usage: %&quot; SVf &quot;::%&quot; SVf &quot;(%s)&quot;, &quot;ouch&quot; &quot;awk&quot;,
+                                                     &quot;eee_yow&quot;);
+
+        void    croak_xs_usage(const CV *const cv,
+                               const char *const params)
+    </pre>
+  </dd>
+  <dt>get_sv</dt>
+  <dd>Returns the SV of the specified Perl scalar.
+      <span class="Li">&quot;flags&quot;</span> are passed to
+      <span class="Li">&quot;gv_fetchpv&quot;</span>. If
+      <span class="Li">&quot;GV_ADD&quot;</span> is set and the Perl variable
+      does not exist then it will be created. If
+      <span class="Li">&quot;flags&quot;</span> is zero and the variable does
+      not exist then NULL is returned.
+    <p class="Pp">NOTE: the perl_ form of this function is deprecated.</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        SV*     get_sv(const char *name, I32 flags)
+    </pre>
+  </dd>
   <dt>looks_like_number</dt>
   <dd>Test if the content of an SV looks like a number (or is a number).
       <span class="Li">&quot;Inf&quot;</span> and
@@ -9246,6 +9418,14 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
     <p class="Pp"><span class="Li"></span></p>
     <pre>
         I32     looks_like_number(SV *const sv)
+    </pre>
+  </dd>
+  <dt>newRV_inc</dt>
+  <dd>Creates an RV wrapper for an SV. The reference count for the original SV
+      is incremented.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        SV*     newRV_inc(SV* sv)
     </pre>
   </dd>
   <dt>newRV_noinc</dt>
@@ -9301,6 +9481,15 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
         SV*     newSVnv(const NV n)
     </pre>
   </dd>
+  <dt>newSVpadname</dt>
+  <dd>NOTE: this function is experimental and may change or be removed without
+      notice.
+    <p class="Pp">Creates a new SV containing the pad name.</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        SV*     newSVpadname(PADNAME *pn)
+    </pre>
+  </dd>
   <dt>newSVpv</dt>
   <dd>Creates a new SV and copies a string (which may contain
       <span class="Li">&quot;NUL&quot;</span>
@@ -9343,8 +9532,8 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
       <span class="Li">&quot;len&quot;</span> is zero, Perl will create a zero
       length (Perl) string. You are responsible for ensuring that the source
       buffer is at least <span class="Li">&quot;len&quot;</span> bytes long. If
-      the <span class="Li">&quot;s&quot;</span> argument is NULL the new SV will
-      be undefined.
+      the <span class="Li">&quot;buffer&quot;</span> argument is NULL the new SV
+      will be undefined.
     <p class="Pp"><span class="Li"></span></p>
     <pre>
         SV*     newSVpvn(const char *const buffer,
@@ -9399,6 +9588,19 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
         SV*     newSVpvn_share(const char* s, I32 len, U32 hash)
     </pre>
   </dd>
+  <dt>newSVpvn_utf8</dt>
+  <dd>Creates a new SV and copies a string (which may contain
+      <span class="Li">&quot;NUL&quot;</span>
+      (<span class="Li">&quot;\0&quot;</span>) characters) into it. If
+      <span class="Li">&quot;utf8&quot;</span> is true, calls
+      <span class="Li">&quot;SvUTF8_on&quot;</span> on the new SV. Implemented
+      as a wrapper around <span class="Li">&quot;newSVpvn_flags&quot;</span>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        SV*     newSVpvn_utf8(const char* s, STRLEN len,
+                              U32 utf8)
+    </pre>
+  </dd>
   <dt>newSVpvs</dt>
   <dd>Like <span class="Li">&quot;newSVpvn&quot;</span>, but takes a literal
       string instead of a string/length pair.
@@ -9440,7 +9642,9 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
       upgraded to one. If <span class="Li">&quot;classname&quot;</span> is
       non-null then the new SV will be blessed in the specified package. The new
       SV is returned and its reference count is 1. The reference count 1 is
-      owned by <span class="Li">&quot;rv&quot;</span>.
+      owned by <span class="Li">&quot;rv&quot;</span>. See also
+      <b>newRV_inc()</b> and <b>newRV_noinc()</b> for creating a new RV
+      properly.
     <p class="Pp"><span class="Li"></span></p>
     <pre>
         SV*     newSVrv(SV *const rv,
@@ -9453,6 +9657,14 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
     <p class="Pp"><span class="Li"></span></p>
     <pre>
         SV*     newSVsv(SV *const old)
+    </pre>
+  </dd>
+  <dt>newSVsv_nomg</dt>
+  <dd>Like <span class="Li">&quot;newSVsv&quot;</span> but does not process get
+      magic.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        SV*     newSVsv_nomg(SV *const old)
     </pre>
   </dd>
   <dt>newSV_type</dt>
@@ -9700,6 +9912,15 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
                                 const I32 flags)
     </pre>
   </dd>
+  <dt>sv_catpvn_nomg</dt>
+  <dd>Like <span class="Li">&quot;sv_catpvn&quot;</span> but doesn't process
+      magic.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    sv_catpvn_nomg(SV* sv, const char* ptr,
+                               STRLEN len)
+    </pre>
+  </dd>
   <dt>sv_catpvs</dt>
   <dd>Like <span class="Li">&quot;sv_catpvn&quot;</span>, but takes a literal
       string instead of a string/length pair.
@@ -9755,6 +9976,14 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
         void    sv_catpv_mg(SV *const sv, const char *const ptr)
     </pre>
   </dd>
+  <dt>sv_catpv_nomg</dt>
+  <dd>Like <span class="Li">&quot;sv_catpv&quot;</span> but doesn't process
+      magic.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    sv_catpv_nomg(SV* sv, const char* ptr)
+    </pre>
+  </dd>
   <dt>sv_catsv</dt>
   <dd>Concatenates the string from SV <span class="Li">&quot;ssv&quot;</span>
       onto the end of the string in SV <span class="Li">&quot;dsv&quot;</span>.
@@ -9788,6 +10017,14 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
     <pre>
         void    sv_catsv_flags(SV *const dsv, SV *const ssv,
                                const I32 flags)
+    </pre>
+  </dd>
+  <dt>sv_catsv_nomg</dt>
+  <dd>Like <span class="Li">&quot;sv_catsv&quot;</span> but doesn't process
+      magic.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    sv_catsv_nomg(SV* dsv, SV* ssv)
     </pre>
   </dd>
   <dt>sv_chop</dt>
@@ -9933,6 +10170,23 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
         void    sv_copypv_nomg(SV *const dsv, SV *const ssv)
     </pre>
   </dd>
+  <dt>SvCUR</dt>
+  <dd>Returns the length of the string which is in the SV. See
+      <span class="Li">&quot;SvLEN&quot;</span>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        STRLEN  SvCUR(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvCUR_set</dt>
+  <dd>Set the current length of the string which is in the SV. See
+      <span class="Li">&quot;SvCUR&quot;</span> and
+      <span class="Li">&quot;SvIV_set&quot;</span>&gt;.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvCUR_set(SV* sv, STRLEN len)
+    </pre>
+  </dd>
   <dt>sv_dec</dt>
   <dd>Auto-decrement of the value in the SV, doing string to numeric conversion
       if necessary. Handles 'get' magic and operator overloading.
@@ -9947,6 +10201,96 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
     <p class="Pp"><span class="Li"></span></p>
     <pre>
         void    sv_dec_nomg(SV *const sv)
+    </pre>
+  </dd>
+  <dt>sv_derived_from</dt>
+  <dd>Exactly like &quot;sv_derived_from_pv&quot;, but doesn't take a
+      <span class="Li">&quot;flags&quot;</span> parameter.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        bool    sv_derived_from(SV* sv, const char *const name)
+    </pre>
+  </dd>
+  <dt>sv_derived_from_pv</dt>
+  <dd>Exactly like &quot;sv_derived_from_pvn&quot;, but takes a nul-terminated
+      string instead of a string/length pair.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        bool    sv_derived_from_pv(SV* sv,
+                                   const char *const name,
+                                   U32 flags)
+    </pre>
+  </dd>
+  <dt>sv_derived_from_pvn</dt>
+  <dd>Returns a boolean indicating whether the SV is derived from the specified
+      class <i>at the C level</i>. To check derivation at the Perl level, call
+      <span class="Li">&quot;isa()&quot;</span> as a normal Perl method.
+    <p class="Pp">Currently, the only significant value for
+        <span class="Li">&quot;flags&quot;</span> is SVf_UTF8.</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        bool    sv_derived_from_pvn(SV* sv,
+                                    const char *const name,
+                                    const STRLEN len, U32 flags)
+    </pre>
+  </dd>
+  <dt>sv_derived_from_sv</dt>
+  <dd>Exactly like &quot;sv_derived_from_pvn&quot;, but takes the name string in
+      the form of an SV instead of a string/length pair.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        bool    sv_derived_from_sv(SV* sv, SV *namesv,
+                                   U32 flags)
+    </pre>
+  </dd>
+  <dt>sv_does</dt>
+  <dd>Like &quot;sv_does_pv&quot;, but doesn't take a
+      <span class="Li">&quot;flags&quot;</span> parameter.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        bool    sv_does(SV* sv, const char *const name)
+    </pre>
+  </dd>
+  <dt>sv_does_pv</dt>
+  <dd>Like &quot;sv_does_sv&quot;, but takes a nul-terminated string instead of
+      an SV.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        bool    sv_does_pv(SV* sv, const char *const name,
+                           U32 flags)
+    </pre>
+  </dd>
+  <dt>sv_does_pvn</dt>
+  <dd>Like &quot;sv_does_sv&quot;, but takes a string/length pair instead of an
+      SV.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        bool    sv_does_pvn(SV* sv, const char *const name,
+                            const STRLEN len, U32 flags)
+    </pre>
+  </dd>
+  <dt>sv_does_sv</dt>
+  <dd>Returns a boolean indicating whether the SV performs a specific, named
+      role. The SV can be a Perl object or the name of a Perl class.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        bool    sv_does_sv(SV* sv, SV* namesv, U32 flags)
+    </pre>
+  </dd>
+  <dt>SvEND</dt>
+  <dd>Returns a pointer to the spot just after the last character in the string
+      which is in the SV, where there is usually a trailing
+      <span class="Li">&quot;NUL&quot;</span> character (even though Perl
+      scalars do not strictly require it). See
+      <span class="Li">&quot;SvCUR&quot;</span>. Access the character as
+      <span class="Li">&quot;*(SvEND(sv))&quot;</span>.
+    <p class="Pp">Warning: If <span class="Li">&quot;SvCUR&quot;</span> is equal
+        to <span class="Li">&quot;SvLEN&quot;</span>, then
+        <span class="Li">&quot;SvEND&quot;</span> points to unallocated
+      memory.</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        char*   SvEND(SV* sv)
     </pre>
   </dd>
   <dt>sv_eq</dt>
@@ -10004,6 +10348,17 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
         void    sv_free(SV *const sv)
     </pre>
   </dd>
+  <dt>SvGAMAGIC</dt>
+  <dd>Returns true if the SV has get magic or overloading. If either is true
+      then the scalar is active data, and has the potential to return a new
+      value every time it is accessed. Hence you must be careful to only read it
+      once per user logical operation and work with that returned value. If
+      neither is true then the scalar's value cannot change unless written to.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        U32     SvGAMAGIC(SV* sv)
+    </pre>
+  </dd>
   <dt>sv_gets</dt>
   <dd>Get a line from the filehandle and store it into the SV, optionally
       appending to the currently-stored string. If
@@ -10038,6 +10393,24 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
         SV*     sv_get_backrefs(SV *const sv)
     </pre>
   </dd>
+  <dt>SvGROW</dt>
+  <dd>Expands the character buffer in the SV so that it has room for the
+      indicated number of bytes (remember to reserve space for an extra trailing
+      <span class="Li">&quot;NUL&quot;</span> character). Calls
+      <span class="Li">&quot;sv_grow&quot;</span> to perform the expansion if
+      necessary. Returns a pointer to the character buffer. SV must be of type
+      &gt;= <span class="Li">&quot;SVt_PV&quot;</span>. One alternative is to
+      call <span class="Li">&quot;sv_grow&quot;</span> if you are not sure of
+      the type of SV.
+    <p class="Pp">You might mistakenly think that
+        <span class="Li">&quot;len&quot;</span> is the number of bytes to add to
+        the existing size, but instead it is the total size
+        <span class="Li">&quot;sv&quot;</span> should be.</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        char *  SvGROW(SV* sv, STRLEN len)
+    </pre>
+  </dd>
   <dt>sv_grow</dt>
   <dd>Expands the character buffer in the SV. If necessary, uses
       <span class="Li">&quot;sv_unref&quot;</span> and upgrades the SV to
@@ -10066,9 +10439,13 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
     </pre>
   </dd>
   <dt>sv_insert</dt>
-  <dd>Inserts a string at the specified offset/length within the SV. Similar to
-      the Perl <span class="Li">&quot;substr()&quot;</span> function. Handles
-      get magic.
+  <dd>Inserts and/or replaces a string at the specified offset/length within the
+      SV. Similar to the Perl <span class="Li">&quot;substr()&quot;</span>
+      function, with <span class="Li">&quot;littlelen&quot;</span> bytes
+      starting at <span class="Li">&quot;little&quot;</span> replacing
+      <span class="Li">&quot;len&quot;</span> bytes of the string in
+      <span class="Li">&quot;bigstr&quot;</span> starting at
+      <span class="Li">&quot;offset&quot;</span>. Handles get magic.
     <p class="Pp"><span class="Li"></span></p>
     <pre>
         void    sv_insert(SV *const bigstr, const STRLEN offset,
@@ -10092,6 +10469,70 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
                                 const U32 flags)
     </pre>
   </dd>
+  <dt>SvIOK</dt>
+  <dd>Returns a U32 value indicating whether the SV contains an integer.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        U32     SvIOK(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvIOK_notUV</dt>
+  <dd>Returns a boolean indicating whether the SV contains a signed integer.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        bool    SvIOK_notUV(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvIOK_off</dt>
+  <dd>Unsets the IV status of an SV.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvIOK_off(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvIOK_on</dt>
+  <dd>Tells an SV that it is an integer.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvIOK_on(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvIOK_only</dt>
+  <dd>Tells an SV that it is an integer and disables all other
+      <span class="Li">&quot;OK&quot;</span> bits.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvIOK_only(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvIOK_only_UV</dt>
+  <dd>Tells an SV that it is an unsigned integer and disables all other
+      <span class="Li">&quot;OK&quot;</span> bits.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvIOK_only_UV(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvIOKp</dt>
+  <dd>Returns a U32 value indicating whether the SV contains an integer. Checks
+      the <b>private</b> setting. Use <span class="Li">&quot;SvIOK&quot;</span>
+      instead.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        U32     SvIOKp(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvIOK_UV</dt>
+  <dd>Returns a boolean indicating whether the SV contains an integer that must
+      be interpreted as unsigned. A non-negative integer whose value is within
+      the range of both an IV and a UV may be be flagged as either
+      <span class="Li">&quot;SvUOK&quot;</span> or
+      <span class="Li">&quot;SVIOK&quot;</span>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        bool    SvIOK_UV(SV* sv)
+    </pre>
+  </dd>
   <dt>sv_isa</dt>
   <dd>Returns a boolean indicating whether the SV is blessed into the specified
       class. This does not check for subtypes; use
@@ -10100,6 +10541,23 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
     <p class="Pp"><span class="Li"></span></p>
     <pre>
         int     sv_isa(SV* sv, const char *const name)
+    </pre>
+  </dd>
+  <dt>SvIsCOW</dt>
+  <dd>Returns a U32 value indicating whether the SV is Copy-On-Write (either
+      shared hash key scalars, or full Copy On Write scalars if 5.9.0 is
+      configured for COW).
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        U32     SvIsCOW(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvIsCOW_shared_hash</dt>
+  <dd>Returns a boolean indicating whether the SV is Copy-On-Write shared hash
+      key scalar.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        bool    SvIsCOW_shared_hash(SV* sv)
     </pre>
   </dd>
   <dt>sv_isobject</dt>
@@ -10111,6 +10569,71 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
         int     sv_isobject(SV* sv)
     </pre>
   </dd>
+  <dt>SvIV</dt>
+  <dd>Coerces the given SV to IV and returns it. The returned value in many
+      circumstances will get stored in <span class="Li">&quot;sv&quot;</span>'s
+      IV slot, but not in all cases. (Use
+      <span class="Li">&quot;sv_setiv&quot;</span> to make sure it does).
+    <p class="Pp">See <span class="Li">&quot;SvIVx&quot;</span> for a version
+        which guarantees to evaluate <span class="Li">&quot;sv&quot;</span> only
+        once.</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        IV      SvIV(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvIV_nomg</dt>
+  <dd>Like <span class="Li">&quot;SvIV&quot;</span> but doesn't process magic.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        IV      SvIV_nomg(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvIV_set</dt>
+  <dd>Set the value of the IV pointer in sv to val. It is possible to perform
+      the same function of this macro with an lvalue assignment to
+      <span class="Li">&quot;SvIVX&quot;</span>. With future Perls, however, it
+      will be more efficient to use <span class="Li">&quot;SvIV_set&quot;</span>
+      instead of the lvalue assignment to
+      <span class="Li">&quot;SvIVX&quot;</span>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvIV_set(SV* sv, IV val)
+    </pre>
+  </dd>
+  <dt>SvIVX</dt>
+  <dd>Returns the raw value in the SV's IV slot, without checks or conversions.
+      Only use when you are sure <span class="Li">&quot;SvIOK&quot;</span> is
+      true. See also <span class="Li">&quot;SvIV&quot;</span>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        IV      SvIVX(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvIVx</dt>
+  <dd>Coerces the given SV to IV and returns it. The returned value in many
+      circumstances will get stored in <span class="Li">&quot;sv&quot;</span>'s
+      IV slot, but not in all cases. (Use
+      <span class="Li">&quot;sv_setiv&quot;</span> to make sure it does).
+    <p class="Pp">This form guarantees to evaluate
+        <span class="Li">&quot;sv&quot;</span> only once. Only use this if
+        <span class="Li">&quot;sv&quot;</span> is an expression with side
+        effects, otherwise use the more efficient
+        <span class="Li">&quot;SvIV&quot;</span>.</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        IV      SvIVx(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvLEN</dt>
+  <dd>Returns the size of the string buffer in the SV, not including any part
+      attributable to <span class="Li">&quot;SvOOK&quot;</span>. See
+      <span class="Li">&quot;SvCUR&quot;</span>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        STRLEN  SvLEN(SV* sv)
+    </pre>
+  </dd>
   <dt>sv_len</dt>
   <dd>Returns the length of the string in the SV. Handles magic and type
       coercion and sets the UTF8 flag appropriately. See also
@@ -10119,6 +10642,14 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
     <p class="Pp"><span class="Li"></span></p>
     <pre>
         STRLEN  sv_len(SV *const sv)
+    </pre>
+  </dd>
+  <dt>SvLEN_set</dt>
+  <dd>Set the size of the string buffer for the SV. See
+      <span class="Li">&quot;SvLEN&quot;</span>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvLEN_set(SV* sv, STRLEN len)
     </pre>
   </dd>
   <dt>sv_len_utf8</dt>
@@ -10180,6 +10711,15 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
                             const I32 namlen)
     </pre>
   </dd>
+  <dt>SvMAGIC_set</dt>
+  <dd>Set the value of the MAGIC pointer in
+      <span class="Li">&quot;sv&quot;</span> to val. See
+      <span class="Li">&quot;SvIV_set&quot;</span>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvMAGIC_set(SV* sv, MAGIC* val)
+    </pre>
+  </dd>
   <dt>sv_mortalcopy</dt>
   <dd>Creates a new SV which is a copy of the original SV (using
       <span class="Li">&quot;sv_setsv&quot;</span>). The new SV is marked as
@@ -10211,6 +10751,206 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
     <p class="Pp"><span class="Li"></span></p>
     <pre>
         SV*     sv_newref(SV *const sv)
+    </pre>
+  </dd>
+  <dt>SvNIOK</dt>
+  <dd>Returns a U32 value indicating whether the SV contains a number, integer
+      or double.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        U32     SvNIOK(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvNIOK_off</dt>
+  <dd>Unsets the NV/IV status of an SV.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvNIOK_off(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvNIOKp</dt>
+  <dd>Returns a U32 value indicating whether the SV contains a number, integer
+      or double. Checks the <b>private</b> setting. Use
+      <span class="Li">&quot;SvNIOK&quot;</span> instead.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        U32     SvNIOKp(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvNOK</dt>
+  <dd>Returns a U32 value indicating whether the SV contains a double.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        U32     SvNOK(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvNOK_off</dt>
+  <dd>Unsets the NV status of an SV.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvNOK_off(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvNOK_on</dt>
+  <dd>Tells an SV that it is a double.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvNOK_on(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvNOK_only</dt>
+  <dd>Tells an SV that it is a double and disables all other OK bits.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvNOK_only(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvNOKp</dt>
+  <dd>Returns a U32 value indicating whether the SV contains a double. Checks
+      the <b>private</b> setting. Use <span class="Li">&quot;SvNOK&quot;</span>
+      instead.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        U32     SvNOKp(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvNV</dt>
+  <dd>Coerces the given SV to NV and returns it. The returned value in many
+      circumstances will get stored in <span class="Li">&quot;sv&quot;</span>'s
+      NV slot, but not in all cases. (Use
+      <span class="Li">&quot;sv_setnv&quot;</span> to make sure it does).
+    <p class="Pp">See <span class="Li">&quot;SvNVx&quot;</span> for a version
+        which guarantees to evaluate <span class="Li">&quot;sv&quot;</span> only
+        once.</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        NV      SvNV(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvNV_nomg</dt>
+  <dd>Like <span class="Li">&quot;SvNV&quot;</span> but doesn't process magic.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        NV      SvNV_nomg(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvNV_set</dt>
+  <dd>Set the value of the NV pointer in <span class="Li">&quot;sv&quot;</span>
+      to val. See <span class="Li">&quot;SvIV_set&quot;</span>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvNV_set(SV* sv, NV val)
+    </pre>
+  </dd>
+  <dt>SvNVX</dt>
+  <dd>Returns the raw value in the SV's NV slot, without checks or conversions.
+      Only use when you are sure <span class="Li">&quot;SvNOK&quot;</span> is
+      true. See also <span class="Li">&quot;SvNV&quot;</span>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        NV      SvNVX(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvNVx</dt>
+  <dd>Coerces the given SV to NV and returns it. The returned value in many
+      circumstances will get stored in <span class="Li">&quot;sv&quot;</span>'s
+      NV slot, but not in all cases. (Use
+      <span class="Li">&quot;sv_setnv&quot;</span> to make sure it does).
+    <p class="Pp">This form guarantees to evaluate
+        <span class="Li">&quot;sv&quot;</span> only once. Only use this if
+        <span class="Li">&quot;sv&quot;</span> is an expression with side
+        effects, otherwise use the more efficient
+        <span class="Li">&quot;SvNV&quot;</span>.</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        NV      SvNVx(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvOK</dt>
+  <dd>Returns a U32 value indicating whether the value is defined. This is only
+      meaningful for scalars.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        U32     SvOK(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvOOK</dt>
+  <dd>Returns a U32 indicating whether the pointer to the string buffer is
+      offset. This hack is used internally to speed up removal of characters
+      from the beginning of a <span class="Li">&quot;SvPV&quot;</span>. When
+      <span class="Li">&quot;SvOOK&quot;</span> is true, then the start of the
+      allocated string buffer is actually
+      <span class="Li">&quot;SvOOK_offset()&quot;</span> bytes before
+      <span class="Li">&quot;SvPVX&quot;</span>. This offset used to be stored
+      in <span class="Li">&quot;SvIVX&quot;</span>, but is now stored within the
+      spare part of the buffer.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        U32     SvOOK(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvOOK_offset</dt>
+  <dd>Reads into <span class="Li">&quot;len&quot;</span> the offset from
+      <span class="Li">&quot;SvPVX&quot;</span> back to the true start of the
+      allocated buffer, which will be non-zero if
+      <span class="Li">&quot;sv_chop&quot;</span> has been used to efficiently
+      remove characters from start of the buffer. Implemented as a macro, which
+      takes the address of <span class="Li">&quot;len&quot;</span>, which must
+      be of type <span class="Li">&quot;STRLEN&quot;</span>. Evaluates
+      <span class="Li">&quot;sv&quot;</span> more than once. Sets
+      <span class="Li">&quot;len&quot;</span> to 0 if
+      <span class="Li">&quot;SvOOK(sv)&quot;</span> is false.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvOOK_offset(SV*sv, STRLEN len)
+    </pre>
+  </dd>
+  <dt>SvPOK</dt>
+  <dd>Returns a U32 value indicating whether the SV contains a character string.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        U32     SvPOK(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvPOK_off</dt>
+  <dd>Unsets the PV status of an SV.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvPOK_off(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvPOK_on</dt>
+  <dd>Tells an SV that it is a string.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvPOK_on(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvPOK_only</dt>
+  <dd>Tells an SV that it is a string and disables all other
+      <span class="Li">&quot;OK&quot;</span> bits. Will also turn off the UTF-8
+      status.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvPOK_only(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvPOK_only_UTF8</dt>
+  <dd>Tells an SV that it is a string and disables all other
+      <span class="Li">&quot;OK&quot;</span> bits, and leaves the UTF-8 status
+      as it was.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvPOK_only_UTF8(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvPOKp</dt>
+  <dd>Returns a U32 value indicating whether the SV contains a character string.
+      Checks the <b>private</b> setting. Use
+      <span class="Li">&quot;SvPOK&quot;</span> instead.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        U32     SvPOKp(SV* sv)
     </pre>
   </dd>
   <dt>sv_pos_b2u</dt>
@@ -10271,12 +11011,144 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
                                  STRLEN *const lenp, U32 flags)
     </pre>
   </dd>
+  <dt>SvPV</dt>
+  <dd>Returns a pointer to the string in the SV, or a stringified form of the SV
+      if the SV does not contain a string. The SV may cache the stringified
+      version becoming <span class="Li">&quot;SvPOK&quot;</span>. Handles 'get'
+      magic. The <span class="Li">&quot;len&quot;</span> variable will be set to
+      the length of the string (this is a macro, so don't use
+      <span class="Li">&amp;len</span>). See also
+      <span class="Li">&quot;SvPVx&quot;</span> for a version which guarantees
+      to evaluate <span class="Li">&quot;sv&quot;</span> only once.
+    <p class="Pp">Note that there is no guarantee that the return value of
+        <span class="Li">&quot;SvPV()&quot;</span> is equal to
+        <span class="Li">&quot;SvPVX(sv)&quot;</span>, or that
+        <span class="Li">&quot;SvPVX(sv)&quot;</span> contains valid data, or
+        that successive calls to <span class="Li">&quot;SvPV(sv)&quot;</span>
+        will return the same pointer value each time. This is due to the way
+        that things like overloading and Copy-On-Write are handled. In these
+        cases, the return value may point to a temporary buffer or similar. If
+        you absolutely need the <span class="Li">&quot;SvPVX&quot;</span> field
+        to be valid (for example, if you intend to write to it), then see
+        <span class="Li">&quot;SvPV_force&quot;</span>.</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        char*   SvPV(SV* sv, STRLEN len)
+    </pre>
+  </dd>
+  <dt>SvPVbyte</dt>
+  <dd>Like <span class="Li">&quot;SvPV&quot;</span>, but converts
+      <span class="Li">&quot;sv&quot;</span> to byte representation first if
+      necessary.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        char*   SvPVbyte(SV* sv, STRLEN len)
+    </pre>
+  </dd>
+  <dt>SvPVbyte_force</dt>
+  <dd>Like <span class="Li">&quot;SvPV_force&quot;</span>, but converts
+      <span class="Li">&quot;sv&quot;</span> to byte representation first if
+      necessary.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        char*   SvPVbyte_force(SV* sv, STRLEN len)
+    </pre>
+  </dd>
+  <dt>SvPVbyte_nolen</dt>
+  <dd>Like <span class="Li">&quot;SvPV_nolen&quot;</span>, but converts
+      <span class="Li">&quot;sv&quot;</span> to byte representation first if
+      necessary.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        char*   SvPVbyte_nolen(SV* sv)
+    </pre>
+  </dd>
   <dt>sv_pvbyten_force</dt>
   <dd>The backend for the <span class="Li">&quot;SvPVbytex_force&quot;</span>
       macro. Always use the macro instead.
     <p class="Pp"><span class="Li"></span></p>
     <pre>
         char*   sv_pvbyten_force(SV *const sv, STRLEN *const lp)
+    </pre>
+  </dd>
+  <dt>SvPVbytex</dt>
+  <dd>Like <span class="Li">&quot;SvPV&quot;</span>, but converts
+      <span class="Li">&quot;sv&quot;</span> to byte representation first if
+      necessary. Guarantees to evaluate <span class="Li">&quot;sv&quot;</span>
+      only once; use the more efficient
+      <span class="Li">&quot;SvPVbyte&quot;</span> otherwise.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        char*   SvPVbytex(SV* sv, STRLEN len)
+    </pre>
+  </dd>
+  <dt>SvPVbytex_force</dt>
+  <dd>Like <span class="Li">&quot;SvPV_force&quot;</span>, but converts
+      <span class="Li">&quot;sv&quot;</span> to byte representation first if
+      necessary. Guarantees to evaluate <span class="Li">&quot;sv&quot;</span>
+      only once; use the more efficient
+      <span class="Li">&quot;SvPVbyte_force&quot;</span> otherwise.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        char*   SvPVbytex_force(SV* sv, STRLEN len)
+    </pre>
+  </dd>
+  <dt>SvPVCLEAR</dt>
+  <dd>Ensures that sv is a SVt_PV and that its SvCUR is 0, and that it is
+      properly null terminated. Equivalent to sv_setpvs(&quot;&quot;), but more
+      efficient.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        char *  SvPVCLEAR(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvPV_force</dt>
+  <dd>Like <span class="Li">&quot;SvPV&quot;</span> but will force the SV into
+      containing a string (<span class="Li">&quot;SvPOK&quot;</span>), and only
+      a string (<span class="Li">&quot;SvPOK_only&quot;</span>), by hook or by
+      crook. You need force if you are going to update the
+      <span class="Li">&quot;SvPVX&quot;</span> directly. Processes get magic.
+    <p class="Pp">Note that coercing an arbitrary scalar into a plain PV will
+        potentially strip useful data from it. For example if the SV was
+        <span class="Li">&quot;SvROK&quot;</span>, then the referent will have
+        its reference count decremented, and the SV itself may be converted to
+        an <span class="Li">&quot;SvPOK&quot;</span> scalar with a string buffer
+        containing a value such as
+        <span class="Li">&quot;ARRAY(0x1234)&quot;</span>.</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        char*   SvPV_force(SV* sv, STRLEN len)
+    </pre>
+  </dd>
+  <dt>SvPV_force_nomg</dt>
+  <dd>Like <span class="Li">&quot;SvPV_force&quot;</span>, but doesn't process
+      get magic.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        char*   SvPV_force_nomg(SV* sv, STRLEN len)
+    </pre>
+  </dd>
+  <dt>SvPV_nolen</dt>
+  <dd>Like <span class="Li">&quot;SvPV&quot;</span> but doesn't set a length
+      variable.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        char*   SvPV_nolen(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvPV_nomg</dt>
+  <dd>Like <span class="Li">&quot;SvPV&quot;</span> but doesn't process magic.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        char*   SvPV_nomg(SV* sv, STRLEN len)
+    </pre>
+  </dd>
+  <dt>SvPV_nomg_nolen</dt>
+  <dd>Like <span class="Li">&quot;SvPV_nolen&quot;</span> but doesn't process
+      magic.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        char*   SvPV_nomg_nolen(SV* sv)
     </pre>
   </dd>
   <dt>sv_pvn_force</dt>
@@ -10307,12 +11179,129 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
                                    const I32 flags)
     </pre>
   </dd>
+  <dt>SvPV_set</dt>
+  <dd>This is probably not what you want to use, you probably wanted
+      &quot;sv_usepvn_flags&quot; or &quot;sv_setpvn&quot; or
+      &quot;sv_setpvs&quot;.
+    <p class="Pp">Set the value of the PV pointer in
+        <span class="Li">&quot;sv&quot;</span> to the Perl allocated
+        <span class="Li">&quot;NUL&quot;</span>-terminated string
+        <span class="Li">&quot;val&quot;</span>. See also
+        <span class="Li">&quot;SvIV_set&quot;</span>.</p>
+    <p class="Pp">Remember to free the previous PV buffer. There are many things
+        to check. Beware that the existing pointer may be involved in
+        copy-on-write or other mischief, so do
+        <span class="Li">&quot;SvOOK_off(sv)&quot;</span> and use
+        <span class="Li">&quot;sv_force_normal&quot;</span> or
+        <span class="Li">&quot;SvPV_force&quot;</span> (or check the
+        <span class="Li">&quot;SvIsCOW&quot;</span> flag) first to make sure
+        this modification is safe. Then finally, if it is not a COW, call
+        <span class="Li">&quot;SvPV_free&quot;</span> to free the previous PV
+        buffer.</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvPV_set(SV* sv, char* val)
+    </pre>
+  </dd>
+  <dt>SvPVutf8</dt>
+  <dd>Like <span class="Li">&quot;SvPV&quot;</span>, but converts
+      <span class="Li">&quot;sv&quot;</span> to UTF-8 first if necessary.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        char*   SvPVutf8(SV* sv, STRLEN len)
+    </pre>
+  </dd>
   <dt>sv_pvutf8n_force</dt>
   <dd>The backend for the <span class="Li">&quot;SvPVutf8x_force&quot;</span>
       macro. Always use the macro instead.
     <p class="Pp"><span class="Li"></span></p>
     <pre>
         char*   sv_pvutf8n_force(SV *const sv, STRLEN *const lp)
+    </pre>
+  </dd>
+  <dt>SvPVutf8x</dt>
+  <dd>Like <span class="Li">&quot;SvPV&quot;</span>, but converts
+      <span class="Li">&quot;sv&quot;</span> to UTF-8 first if necessary.
+      Guarantees to evaluate <span class="Li">&quot;sv&quot;</span> only once;
+      use the more efficient <span class="Li">&quot;SvPVutf8&quot;</span>
+      otherwise.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        char*   SvPVutf8x(SV* sv, STRLEN len)
+    </pre>
+  </dd>
+  <dt>SvPVutf8x_force</dt>
+  <dd>Like <span class="Li">&quot;SvPV_force&quot;</span>, but converts
+      <span class="Li">&quot;sv&quot;</span> to UTF-8 first if necessary.
+      Guarantees to evaluate <span class="Li">&quot;sv&quot;</span> only once;
+      use the more efficient <span class="Li">&quot;SvPVutf8_force&quot;</span>
+      otherwise.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        char*   SvPVutf8x_force(SV* sv, STRLEN len)
+    </pre>
+  </dd>
+  <dt>SvPVutf8_force</dt>
+  <dd>Like <span class="Li">&quot;SvPV_force&quot;</span>, but converts
+      <span class="Li">&quot;sv&quot;</span> to UTF-8 first if necessary.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        char*   SvPVutf8_force(SV* sv, STRLEN len)
+    </pre>
+  </dd>
+  <dt>SvPVutf8_nolen</dt>
+  <dd>Like <span class="Li">&quot;SvPV_nolen&quot;</span>, but converts
+      <span class="Li">&quot;sv&quot;</span> to UTF-8 first if necessary.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        char*   SvPVutf8_nolen(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvPVX</dt>
+  <dd>Returns a pointer to the physical string in the SV. The SV must contain a
+      string. Prior to 5.9.3 it is not safe to execute this macro unless the
+      SV's type &gt;= <span class="Li">&quot;SVt_PV&quot;</span>.
+    <p class="Pp">This is also used to store the name of an autoloaded
+        subroutine in an XS AUTOLOAD routine. See &quot;Autoloading with
+        XSUBs&quot; in perlguts.</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        char*   SvPVX(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvPVx</dt>
+  <dd>A version of <span class="Li">&quot;SvPV&quot;</span> which guarantees to
+      evaluate <span class="Li">&quot;sv&quot;</span> only once. Only use this
+      if <span class="Li">&quot;sv&quot;</span> is an expression with side
+      effects, otherwise use the more efficient
+      <span class="Li">&quot;SvPV&quot;</span>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        char*   SvPVx(SV* sv, STRLEN len)
+    </pre>
+  </dd>
+  <dt>SvREADONLY</dt>
+  <dd>Returns true if the argument is readonly, otherwise returns false. Exposed
+      to to perl code via <b>Internals::SvREADONLY()</b>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        U32     SvREADONLY(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvREADONLY_off</dt>
+  <dd>Mark an object as not-readonly. Exactly what this mean depends on the
+      object type. Exposed to perl code via <b>Internals::SvREADONLY()</b>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        U32     SvREADONLY_off(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvREADONLY_on</dt>
+  <dd>Mark an object as readonly. Exactly what this means depends on the object
+      type. Exposed to perl code via <b>Internals::SvREADONLY()</b>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        U32     SvREADONLY_on(SV* sv)
     </pre>
   </dd>
   <dt>sv_ref</dt>
@@ -10326,6 +11315,113 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
     <pre>
         SV*     sv_ref(SV *dst, const SV *const sv,
                        const int ob)
+    </pre>
+  </dd>
+  <dt>SvREFCNT</dt>
+  <dd>Returns the value of the object's reference count. Exposed to perl code
+      via <b>Internals::SvREFCNT()</b>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        U32     SvREFCNT(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvREFCNT_dec</dt>
+  <dd>Decrements the reference count of the given SV.
+      <span class="Li">&quot;sv&quot;</span> may be
+      <span class="Li">&quot;NULL&quot;</span>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvREFCNT_dec(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvREFCNT_dec_NN</dt>
+  <dd>Same as <span class="Li">&quot;SvREFCNT_dec&quot;</span>, but can only be
+      used if you know <span class="Li">&quot;sv&quot;</span> is not
+      <span class="Li">&quot;NULL&quot;</span>. Since we don't have to check the
+      NULLness, it's faster and smaller.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvREFCNT_dec_NN(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvREFCNT_inc</dt>
+  <dd>Increments the reference count of the given SV, returning the SV.
+    <p class="Pp">All of the following
+        <span class="Li">&quot;SvREFCNT_inc&quot;</span>* macros are optimized
+        versions of <span class="Li">&quot;SvREFCNT_inc&quot;</span>, and can be
+        replaced with <span class="Li">&quot;SvREFCNT_inc&quot;</span>.</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        SV*     SvREFCNT_inc(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvREFCNT_inc_NN</dt>
+  <dd>Same as <span class="Li">&quot;SvREFCNT_inc&quot;</span>, but can only be
+      used if you know <span class="Li">&quot;sv&quot;</span> is not
+      <span class="Li">&quot;NULL&quot;</span>. Since we don't have to check the
+      NULLness, it's faster and smaller.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        SV*     SvREFCNT_inc_NN(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvREFCNT_inc_simple</dt>
+  <dd>Same as <span class="Li">&quot;SvREFCNT_inc&quot;</span>, but can only be
+      used with expressions without side effects. Since we don't have to store a
+      temporary value, it's faster.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        SV*     SvREFCNT_inc_simple(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvREFCNT_inc_simple_NN</dt>
+  <dd>Same as <span class="Li">&quot;SvREFCNT_inc_simple&quot;</span>, but can
+      only be used if you know <span class="Li">&quot;sv&quot;</span> is not
+      <span class="Li">&quot;NULL&quot;</span>. Since we don't have to check the
+      NULLness, it's faster and smaller.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        SV*     SvREFCNT_inc_simple_NN(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvREFCNT_inc_simple_void</dt>
+  <dd>Same as <span class="Li">&quot;SvREFCNT_inc_simple&quot;</span>, but can
+      only be used if you don't need the return value. The macro doesn't need to
+      return a meaningful value.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvREFCNT_inc_simple_void(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvREFCNT_inc_simple_void_NN</dt>
+  <dd>Same as <span class="Li">&quot;SvREFCNT_inc&quot;</span>, but can only be
+      used if you don't need the return value, and you know that
+      <span class="Li">&quot;sv&quot;</span> is not
+      <span class="Li">&quot;NULL&quot;</span>. The macro doesn't need to return
+      a meaningful value, or check for NULLness, so it's smaller and faster.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvREFCNT_inc_simple_void_NN(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvREFCNT_inc_void</dt>
+  <dd>Same as <span class="Li">&quot;SvREFCNT_inc&quot;</span>, but can only be
+      used if you don't need the return value. The macro doesn't need to return
+      a meaningful value.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvREFCNT_inc_void(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvREFCNT_inc_void_NN</dt>
+  <dd>Same as <span class="Li">&quot;SvREFCNT_inc&quot;</span>, but can only be
+      used if you don't need the return value, and you know that
+      <span class="Li">&quot;sv&quot;</span> is not
+      <span class="Li">&quot;NULL&quot;</span>. The macro doesn't need to return
+      a meaningful value, or check for NULLness, so it's smaller and faster.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvREFCNT_inc_void_NN(SV* sv)
     </pre>
   </dd>
   <dt>sv_reftype</dt>
@@ -10351,6 +11447,13 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
         void    sv_replace(SV *const sv, SV *const nsv)
     </pre>
   </dd>
+  <dt>sv_report_used</dt>
+  <dd>Dump the contents of all SVs not yet freed (debugging aid).
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    sv_report_used()
+    </pre>
+  </dd>
   <dt>sv_reset</dt>
   <dd>Underlying implementation for the
       <span class="Li">&quot;reset&quot;</span> Perl function. Note that the
@@ -10358,6 +11461,42 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
     <p class="Pp"><span class="Li"></span></p>
     <pre>
         void    sv_reset(const char* s, HV *const stash)
+    </pre>
+  </dd>
+  <dt>SvROK</dt>
+  <dd>Tests if the SV is an RV.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        U32     SvROK(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvROK_off</dt>
+  <dd>Unsets the RV status of an SV.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvROK_off(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvROK_on</dt>
+  <dd>Tells an SV that it is an RV.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvROK_on(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvRV</dt>
+  <dd>Dereferences an RV to return the SV.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        SV*     SvRV(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvRV_set</dt>
+  <dd>Set the value of the RV pointer in <span class="Li">&quot;sv&quot;</span>
+      to val. See <span class="Li">&quot;SvIV_set&quot;</span>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvRV_set(SV* sv, SV* val)
     </pre>
   </dd>
   <dt>sv_rvunweaken</dt>
@@ -10678,6 +11817,14 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
         void    sv_setsv_mg(SV *const dstr, SV *const sstr)
     </pre>
   </dd>
+  <dt>sv_setsv_nomg</dt>
+  <dd>Like <span class="Li">&quot;sv_setsv&quot;</span> but doesn't process
+      magic.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    sv_setsv_nomg(SV* dsv, SV* ssv)
+    </pre>
+  </dd>
   <dt>sv_setuv</dt>
   <dd>Copies an unsigned integer into the given SV, upgrading first if
       necessary. Does not handle 'set' magic. See also
@@ -10708,12 +11855,80 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
         void    sv_set_undef(SV *sv)
     </pre>
   </dd>
+  <dt>SvSTASH</dt>
+  <dd>Returns the stash of the SV.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        HV*     SvSTASH(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvSTASH_set</dt>
+  <dd>Set the value of the STASH pointer in
+      <span class="Li">&quot;sv&quot;</span> to val. See
+      <span class="Li">&quot;SvIV_set&quot;</span>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvSTASH_set(SV* sv, HV* val)
+    </pre>
+  </dd>
+  <dt>SvTAINT</dt>
+  <dd>Taints an SV if tainting is enabled, and if some input to the current
+      expression is tainted--usually a variable, but possibly also implicit
+      inputs such as locale settings.
+      <span class="Li">&quot;SvTAINT&quot;</span> propagates that taintedness to
+      the outputs of an expression in a pessimistic fashion; i.e., without
+      paying attention to precisely which outputs are influenced by which
+      inputs.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvTAINT(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvTAINTED</dt>
+  <dd>Checks to see if an SV is tainted. Returns TRUE if it is, FALSE if not.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        bool    SvTAINTED(SV* sv)
+    </pre>
+  </dd>
   <dt>sv_tainted</dt>
   <dd>Test an SV for taintedness. Use
       <span class="Li">&quot;SvTAINTED&quot;</span> instead.
     <p class="Pp"><span class="Li"></span></p>
     <pre>
         bool    sv_tainted(SV *const sv)
+    </pre>
+  </dd>
+  <dt>SvTAINTED_off</dt>
+  <dd>Untaints an SV. Be <i>very</i> careful with this routine, as it
+      short-circuits some of Perl's fundamental security features. XS module
+      authors should not use this function unless they fully understand all the
+      implications of unconditionally untainting the value. Untainting should be
+      done in the standard perl fashion, via a carefully crafted regexp, rather
+      than directly untainting variables.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvTAINTED_off(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvTAINTED_on</dt>
+  <dd>Marks an SV as tainted if tainting is enabled.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvTAINTED_on(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvTRUE</dt>
+  <dd>Returns a boolean indicating whether Perl would evaluate the SV as true or
+      false. See <span class="Li">&quot;SvOK&quot;</span> for a
+      defined/undefined test. Handles 'get' magic unless the scalar is already
+      <span class="Li">&quot;SvPOK&quot;</span>,
+      <span class="Li">&quot;SvIOK&quot;</span> or
+      <span class="Li">&quot;SvNOK&quot;</span> (the public, not the private
+      flags).
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        bool    SvTRUE(SV* sv)
     </pre>
   </dd>
   <dt>sv_true</dt>
@@ -10724,6 +11939,23 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
     <p class="Pp"><span class="Li"></span></p>
     <pre>
         I32     sv_true(SV *const sv)
+    </pre>
+  </dd>
+  <dt>SvTRUE_nomg</dt>
+  <dd>Returns a boolean indicating whether Perl would evaluate the SV as true or
+      false. See <span class="Li">&quot;SvOK&quot;</span> for a
+      defined/undefined test. Does not handle 'get' magic.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        bool    SvTRUE_nomg(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvTYPE</dt>
+  <dd>Returns the type of the SV. See
+      <span class="Li">&quot;svtype&quot;</span>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        svtype  SvTYPE(SV* sv)
     </pre>
   </dd>
   <dt>sv_unmagic</dt>
@@ -10764,6 +11996,26 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
     <p class="Pp"><span class="Li"></span></p>
     <pre>
         void    sv_untaint(SV *const sv)
+    </pre>
+  </dd>
+  <dt>SvUOK</dt>
+  <dd>Returns a boolean indicating whether the SV contains an integer that must
+      be interpreted as unsigned. A non-negative integer whose value is within
+      the range of both an IV and a UV may be be flagged as either
+      <span class="Li">&quot;SvUOK&quot;</span> or
+      <span class="Li">&quot;SVIOK&quot;</span>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        bool    SvUOK(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvUPGRADE</dt>
+  <dd>Used to upgrade an SV to a more complex form. Uses
+      <span class="Li">&quot;sv_upgrade&quot;</span> to perform the upgrade if
+      necessary. See <span class="Li">&quot;svtype&quot;</span>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvUPGRADE(SV* sv, svtype type)
     </pre>
   </dd>
   <dt>sv_upgrade</dt>
@@ -10814,27 +12066,36 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
                                 const U32 flags)
     </pre>
   </dd>
+  <dt>SvUTF8</dt>
+  <dd>Returns a U32 value indicating the UTF-8 status of an SV. If things are
+      set-up properly, this indicates whether or not the SV contains UTF-8
+      encoded data. You should use this <i>after</i> a call to
+      <span class="Li">&quot;SvPV()&quot;</span> or one of its variants, in case
+      any call to string overloading updates the internal flag.
+    <p class="Pp">If you want to take into account the bytes pragma, use
+        <span class="Li">&quot;DO_UTF8&quot;</span> instead.</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        U32     SvUTF8(SV* sv)
+    </pre>
+  </dd>
   <dt>sv_utf8_decode</dt>
-  <dd>NOTE: this function is experimental and may change or be removed without
-      notice.
-    <p class="Pp">If the PV of the SV is an octet sequence in Perl's extended
-        UTF-8 and contains a multiple-byte character, the
-        <span class="Li">&quot;SvUTF8&quot;</span> flag is turned on so that it
-        looks like a character. If the PV contains only single-byte characters,
-        the <span class="Li">&quot;SvUTF8&quot;</span> flag stays off. Scans PV
-        for validity and returns FALSE if the PV is invalid UTF-8.</p>
+  <dd>If the PV of the SV is an octet sequence in Perl's extended UTF-8 and
+      contains a multiple-byte character, the
+      <span class="Li">&quot;SvUTF8&quot;</span> flag is turned on so that it
+      looks like a character. If the PV contains only single-byte characters,
+      the <span class="Li">&quot;SvUTF8&quot;</span> flag stays off. Scans PV
+      for validity and returns FALSE if the PV is invalid UTF-8.
     <p class="Pp"><span class="Li"></span></p>
     <pre>
         bool    sv_utf8_decode(SV *const sv)
     </pre>
   </dd>
   <dt>sv_utf8_downgrade</dt>
-  <dd>NOTE: this function is experimental and may change or be removed without
-      notice.
-    <p class="Pp">Attempts to convert the PV of an SV from characters to bytes.
-        If the PV contains a character that cannot fit in a byte, this
-        conversion will fail; in this case, either returns false or, if
-        <span class="Li">&quot;fail_ok&quot;</span> is not true, croaks.</p>
+  <dd>Attempts to convert the PV of an SV from characters to bytes. If the PV
+      contains a character that cannot fit in a byte, this conversion will fail;
+      in this case, either returns false or, if
+      <span class="Li">&quot;fail_ok&quot;</span> is not true, croaks.
     <p class="Pp">This is not a general purpose Unicode to byte encoding
         interface: use the <span class="Li">&quot;Encode&quot;</span> extension
         for that.</p>
@@ -10915,6 +12176,74 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
         STRLEN  sv_utf8_upgrade_nomg(SV *sv)
     </pre>
   </dd>
+  <dt>SvUTF8_off</dt>
+  <dd>Unsets the UTF-8 status of an SV (the data is not changed, just the flag).
+      Do not use frivolously.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvUTF8_off(SV *sv)
+    </pre>
+  </dd>
+  <dt>SvUTF8_on</dt>
+  <dd>Turn on the UTF-8 status of an SV (the data is not changed, just the
+      flag). Do not use frivolously.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvUTF8_on(SV *sv)
+    </pre>
+  </dd>
+  <dt>SvUV</dt>
+  <dd>Coerces the given SV to UV and returns it. The returned value in many
+      circumstances will get stored in <span class="Li">&quot;sv&quot;</span>'s
+      UV slot, but not in all cases. (Use
+      <span class="Li">&quot;sv_setuv&quot;</span> to make sure it does).
+    <p class="Pp">See <span class="Li">&quot;SvUVx&quot;</span> for a version
+        which guarantees to evaluate <span class="Li">&quot;sv&quot;</span> only
+        once.</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        UV      SvUV(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvUV_nomg</dt>
+  <dd>Like <span class="Li">&quot;SvUV&quot;</span> but doesn't process magic.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        UV      SvUV_nomg(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvUV_set</dt>
+  <dd>Set the value of the UV pointer in <span class="Li">&quot;sv&quot;</span>
+      to val. See <span class="Li">&quot;SvIV_set&quot;</span>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        void    SvUV_set(SV* sv, UV val)
+    </pre>
+  </dd>
+  <dt>SvUVX</dt>
+  <dd>Returns the raw value in the SV's UV slot, without checks or conversions.
+      Only use when you are sure <span class="Li">&quot;SvIOK&quot;</span> is
+      true. See also <span class="Li">&quot;SvUV&quot;</span>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        UV      SvUVX(SV* sv)
+    </pre>
+  </dd>
+  <dt>SvUVx</dt>
+  <dd>Coerces the given SV to UV and returns it. The returned value in many
+      circumstances will get stored in <span class="Li">&quot;sv&quot;</span>'s
+      UV slot, but not in all cases. (Use
+      <span class="Li">&quot;sv_setuv&quot;</span> to make sure it does).
+    <p class="Pp">This form guarantees to evaluate
+        <span class="Li">&quot;sv&quot;</span> only once. Only use this if
+        <span class="Li">&quot;sv&quot;</span> is an expression with side
+        effects, otherwise use the more efficient
+        <span class="Li">&quot;SvUV&quot;</span>.</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        UV      SvUVx(SV* sv)
+    </pre>
+  </dd>
   <dt>sv_vcatpvf</dt>
   <dd>Processes its arguments like
       <span class="Li">&quot;sv_vcatpvfn&quot;</span> called with a non-null
@@ -10985,6 +12314,13 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
                               va_list *const args)
     </pre>
   </dd>
+  <dt>SvVOK</dt>
+  <dd>Returns a boolean indicating whether the SV contains a v-string.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        bool    SvVOK(SV* sv)
+    </pre>
+  </dd>
   <dt>sv_vsetpvf</dt>
   <dd>Works like <span class="Li">&quot;sv_vcatpvf&quot;</span> but copies the
       text into the SV instead of appending it. Does not handle 'set' magic. See
@@ -11023,1331 +12359,6 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
         void    sv_vsetpvf_mg(SV *const sv,
                               const char *const pat,
                               va_list *const args)
-    </pre>
-  </dd>
-</dl>
-</section>
-<section class="Sh">
-<h1 class="Sh" id="SV_Flags"><a class="permalink" href="#SV_Flags">SV
-  Flags</a></h1>
-<dl class="Bl-tag">
-  <dt>SVt_INVLIST</dt>
-  <dd>Type flag for scalars. See &quot;svtype&quot;.</dd>
-  <dt>SVt_IV</dt>
-  <dd>Type flag for scalars. See &quot;svtype&quot;.</dd>
-  <dt>SVt_NULL</dt>
-  <dd>Type flag for scalars. See &quot;svtype&quot;.</dd>
-  <dt>SVt_NV</dt>
-  <dd>Type flag for scalars. See &quot;svtype&quot;.</dd>
-  <dt>SVt_PV</dt>
-  <dd>Type flag for scalars. See &quot;svtype&quot;.</dd>
-  <dt>SVt_PVAV</dt>
-  <dd>Type flag for arrays. See &quot;svtype&quot;.</dd>
-  <dt>SVt_PVCV</dt>
-  <dd>Type flag for subroutines. See &quot;svtype&quot;.</dd>
-  <dt>SVt_PVFM</dt>
-  <dd>Type flag for formats. See &quot;svtype&quot;.</dd>
-  <dt>SVt_PVGV</dt>
-  <dd>Type flag for typeglobs. See &quot;svtype&quot;.</dd>
-  <dt>SVt_PVHV</dt>
-  <dd>Type flag for hashes. See &quot;svtype&quot;.</dd>
-  <dt>SVt_PVIO</dt>
-  <dd>Type flag for I/O objects. See &quot;svtype&quot;.</dd>
-  <dt>SVt_PVIV</dt>
-  <dd>Type flag for scalars. See &quot;svtype&quot;.</dd>
-  <dt>SVt_PVLV</dt>
-  <dd>Type flag for scalars. See &quot;svtype&quot;.</dd>
-  <dt>SVt_PVMG</dt>
-  <dd>Type flag for scalars. See &quot;svtype&quot;.</dd>
-  <dt>SVt_PVNV</dt>
-  <dd>Type flag for scalars. See &quot;svtype&quot;.</dd>
-  <dt>SVt_REGEXP</dt>
-  <dd>Type flag for regular expressions. See &quot;svtype&quot;.</dd>
-  <dt>svtype</dt>
-  <dd>An enum of flags for Perl types. These are found in the file <i>sv.h</i>
-      in the <span class="Li">&quot;svtype&quot;</span> enum. Test these flags
-      with the <span class="Li">&quot;SvTYPE&quot;</span> macro.
-    <p class="Pp">The types are:</p>
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-    SVt_NULL
-    SVt_IV
-    SVt_NV
-    SVt_RV
-    SVt_PV
-    SVt_PVIV
-    SVt_PVNV
-    SVt_PVMG
-    SVt_INVLIST
-    SVt_REGEXP
-    SVt_PVGV
-    SVt_PVLV
-    SVt_PVAV
-    SVt_PVHV
-    SVt_PVCV
-    SVt_PVFM
-    SVt_PVIO
-    </pre>
-    <p class="Pp">These are most easily explained from the bottom up.</p>
-    <p class="Pp"><span class="Li">&quot;SVt_PVIO&quot;</span> is for I/O
-        objects, <span class="Li">&quot;SVt_PVFM&quot;</span> for formats,
-        <span class="Li">&quot;SVt_PVCV&quot;</span> for subroutines,
-        <span class="Li">&quot;SVt_PVHV&quot;</span> for hashes and
-        <span class="Li">&quot;SVt_PVAV&quot;</span> for arrays.</p>
-    <p class="Pp">All the others are scalar types, that is, things that can be
-        bound to a <span class="Li">&quot;$&quot;</span> variable. For these,
-        the internal types are mostly orthogonal to types in the Perl
-      language.</p>
-    <p class="Pp">Hence, checking <span class="Li">&quot;SvTYPE(sv) &lt;
-        SVt_PVAV&quot;</span> is the best way to see whether something is a
-        scalar.</p>
-    <p class="Pp"><span class="Li">&quot;SVt_PVGV&quot;</span> represents a
-        typeglob. If <span class="Li">&quot;!SvFAKE(sv)&quot;</span>, then it is
-        a real, incoercible typeglob. If
-        <span class="Li">&quot;SvFAKE(sv)&quot;</span>, then it is a scalar to
-        which a typeglob has been assigned. Assigning to it again will stop it
-        from being a typeglob. <span class="Li">&quot;SVt_PVLV&quot;</span>
-        represents a scalar that delegates to another scalar behind the scenes.
-        It is used, e.g., for the return value of
-        <span class="Li">&quot;substr&quot;</span> and for tied hash and array
-        elements. It can hold any scalar value, including a typeglob.
-        <span class="Li">&quot;SVt_REGEXP&quot;</span> is for regular
-        expressions. <span class="Li">&quot;SVt_INVLIST&quot;</span> is for Perl
-        core internal use only.</p>
-    <p class="Pp"><span class="Li">&quot;SVt_PVMG&quot;</span> represents a
-        &quot;normal&quot; scalar (not a typeglob, regular expression, or
-        delegate). Since most scalars do not need all the internal fields of a
-        PVMG, we save memory by allocating smaller structs when possible. All
-        the other types are just simpler forms of
-        <span class="Li">&quot;SVt_PVMG&quot;</span>, with fewer internal
-        fields. <span class="Li">&quot;SVt_NULL&quot;</span> can only hold
-        undef. <span class="Li">&quot;SVt_IV&quot;</span> can hold undef, an
-        integer, or a reference. (<span class="Li">&quot;SVt_RV&quot;</span> is
-        an alias for <span class="Li">&quot;SVt_IV&quot;</span>, which exists
-        for backward compatibility.) <span class="Li">&quot;SVt_NV&quot;</span>
-        can hold any of those or a double.
-        <span class="Li">&quot;SVt_PV&quot;</span> can only hold
-        <span class="Li">&quot;undef&quot;</span> or a string.
-        <span class="Li">&quot;SVt_PVIV&quot;</span> is a superset of
-        <span class="Li">&quot;SVt_PV&quot;</span> and
-        <span class="Li">&quot;SVt_IV&quot;</span>.
-        <span class="Li">&quot;SVt_PVNV&quot;</span> is similar.
-        <span class="Li">&quot;SVt_PVMG&quot;</span> can hold anything
-        <span class="Li">&quot;SVt_PVNV&quot;</span> can hold, but it can, but
-        does not have to, be blessed or magical.</p>
-  </dd>
-</dl>
-</section>
-<section class="Sh">
-<h1 class="Sh" id="SV_Manipulation_Functions"><a class="permalink" href="#SV_Manipulation_Functions">SV
-  Manipulation Functions</a></h1>
-<dl class="Bl-tag">
-  <dt>boolSV</dt>
-  <dd>Returns a true SV if <span class="Li">&quot;b&quot;</span> is a true
-      value, or a false SV if <span class="Li">&quot;b&quot;</span> is 0.
-    <p class="Pp">See also <span class="Li">&quot;PL_sv_yes&quot;</span> and
-        <span class="Li">&quot;PL_sv_no&quot;</span>.</p>
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        SV *    boolSV(bool b)
-    </pre>
-  </dd>
-  <dt>croak_xs_usage</dt>
-  <dd>A specialised variant of <span class="Li">&quot;croak()&quot;</span> for
-      emitting the usage message for xsubs
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-    croak_xs_usage(cv, &quot;eee_yow&quot;);
-    </pre>
-    <p class="Pp">works out the package name and subroutine name from
-        <span class="Li">&quot;cv&quot;</span>, and then calls
-        <span class="Li">&quot;croak()&quot;</span>. Hence if
-        <span class="Li">&quot;cv&quot;</span> is
-        <span class="Li">&amp;ouch::awk</span>, it would call
-        <span class="Li">&quot;croak&quot;</span> as:</p>
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
- Perl_croak(aTHX_ &quot;Usage: %&quot; SVf &quot;::%&quot; SVf &quot;(%s)&quot;, &quot;ouch&quot; &quot;awk&quot;,
-                                                     &quot;eee_yow&quot;);
-
-        void    croak_xs_usage(const CV *const cv,
-                               const char *const params)
-    </pre>
-  </dd>
-  <dt>get_sv</dt>
-  <dd>Returns the SV of the specified Perl scalar.
-      <span class="Li">&quot;flags&quot;</span> are passed to
-      <span class="Li">&quot;gv_fetchpv&quot;</span>. If
-      <span class="Li">&quot;GV_ADD&quot;</span> is set and the Perl variable
-      does not exist then it will be created. If
-      <span class="Li">&quot;flags&quot;</span> is zero and the variable does
-      not exist then NULL is returned.
-    <p class="Pp">NOTE: the perl_ form of this function is deprecated.</p>
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        SV*     get_sv(const char *name, I32 flags)
-    </pre>
-  </dd>
-  <dt>newRV_inc</dt>
-  <dd>Creates an RV wrapper for an SV. The reference count for the original SV
-      is incremented.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        SV*     newRV_inc(SV* sv)
-    </pre>
-  </dd>
-  <dt>newSVpadname</dt>
-  <dd>NOTE: this function is experimental and may change or be removed without
-      notice.
-    <p class="Pp">Creates a new SV containing the pad name.</p>
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        SV*     newSVpadname(PADNAME *pn)
-    </pre>
-  </dd>
-  <dt>newSVpvn_utf8</dt>
-  <dd>Creates a new SV and copies a string (which may contain
-      <span class="Li">&quot;NUL&quot;</span>
-      (<span class="Li">&quot;\0&quot;</span>) characters) into it. If
-      <span class="Li">&quot;utf8&quot;</span> is true, calls
-      <span class="Li">&quot;SvUTF8_on&quot;</span> on the new SV. Implemented
-      as a wrapper around <span class="Li">&quot;newSVpvn_flags&quot;</span>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        SV*     newSVpvn_utf8(const char* s, STRLEN len,
-                              U32 utf8)
-    </pre>
-  </dd>
-  <dt>sv_catpvn_nomg</dt>
-  <dd>Like <span class="Li">&quot;sv_catpvn&quot;</span> but doesn't process
-      magic.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    sv_catpvn_nomg(SV* sv, const char* ptr,
-                               STRLEN len)
-    </pre>
-  </dd>
-  <dt>sv_catpv_nomg</dt>
-  <dd>Like <span class="Li">&quot;sv_catpv&quot;</span> but doesn't process
-      magic.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    sv_catpv_nomg(SV* sv, const char* ptr)
-    </pre>
-  </dd>
-  <dt>sv_catsv_nomg</dt>
-  <dd>Like <span class="Li">&quot;sv_catsv&quot;</span> but doesn't process
-      magic.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    sv_catsv_nomg(SV* dsv, SV* ssv)
-    </pre>
-  </dd>
-  <dt>SvCUR</dt>
-  <dd>Returns the length of the string which is in the SV. See
-      <span class="Li">&quot;SvLEN&quot;</span>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        STRLEN  SvCUR(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvCUR_set</dt>
-  <dd>Set the current length of the string which is in the SV. See
-      <span class="Li">&quot;SvCUR&quot;</span> and
-      <span class="Li">&quot;SvIV_set&quot;</span>&gt;.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvCUR_set(SV* sv, STRLEN len)
-    </pre>
-  </dd>
-  <dt>sv_derived_from</dt>
-  <dd>Exactly like &quot;sv_derived_from_pv&quot;, but doesn't take a
-      <span class="Li">&quot;flags&quot;</span> parameter.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        bool    sv_derived_from(SV* sv, const char *const name)
-    </pre>
-  </dd>
-  <dt>sv_derived_from_pv</dt>
-  <dd>Exactly like &quot;sv_derived_from_pvn&quot;, but takes a nul-terminated
-      string instead of a string/length pair.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        bool    sv_derived_from_pv(SV* sv,
-                                   const char *const name,
-                                   U32 flags)
-    </pre>
-  </dd>
-  <dt>sv_derived_from_pvn</dt>
-  <dd>Returns a boolean indicating whether the SV is derived from the specified
-      class <i>at the C level</i>. To check derivation at the Perl level, call
-      <span class="Li">&quot;isa()&quot;</span> as a normal Perl method.
-    <p class="Pp">Currently, the only significant value for
-        <span class="Li">&quot;flags&quot;</span> is SVf_UTF8.</p>
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        bool    sv_derived_from_pvn(SV* sv,
-                                    const char *const name,
-                                    const STRLEN len, U32 flags)
-    </pre>
-  </dd>
-  <dt>sv_derived_from_sv</dt>
-  <dd>Exactly like &quot;sv_derived_from_pvn&quot;, but takes the name string in
-      the form of an SV instead of a string/length pair.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        bool    sv_derived_from_sv(SV* sv, SV *namesv,
-                                   U32 flags)
-    </pre>
-  </dd>
-  <dt>sv_does</dt>
-  <dd>Like &quot;sv_does_pv&quot;, but doesn't take a
-      <span class="Li">&quot;flags&quot;</span> parameter.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        bool    sv_does(SV* sv, const char *const name)
-    </pre>
-  </dd>
-  <dt>sv_does_pv</dt>
-  <dd>Like &quot;sv_does_sv&quot;, but takes a nul-terminated string instead of
-      an SV.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        bool    sv_does_pv(SV* sv, const char *const name,
-                           U32 flags)
-    </pre>
-  </dd>
-  <dt>sv_does_pvn</dt>
-  <dd>Like &quot;sv_does_sv&quot;, but takes a string/length pair instead of an
-      SV.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        bool    sv_does_pvn(SV* sv, const char *const name,
-                            const STRLEN len, U32 flags)
-    </pre>
-  </dd>
-  <dt>sv_does_sv</dt>
-  <dd>Returns a boolean indicating whether the SV performs a specific, named
-      role. The SV can be a Perl object or the name of a Perl class.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        bool    sv_does_sv(SV* sv, SV* namesv, U32 flags)
-    </pre>
-  </dd>
-  <dt>SvEND</dt>
-  <dd>Returns a pointer to the spot just after the last character in the string
-      which is in the SV, where there is usually a trailing
-      <span class="Li">&quot;NUL&quot;</span> character (even though Perl
-      scalars do not strictly require it). See
-      <span class="Li">&quot;SvCUR&quot;</span>. Access the character as
-      <span class="Li">&quot;*(SvEND(sv))&quot;</span>.
-    <p class="Pp">Warning: If <span class="Li">&quot;SvCUR&quot;</span> is equal
-        to <span class="Li">&quot;SvLEN&quot;</span>, then
-        <span class="Li">&quot;SvEND&quot;</span> points to unallocated
-      memory.</p>
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        char*   SvEND(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvGAMAGIC</dt>
-  <dd>Returns true if the SV has get magic or overloading. If either is true
-      then the scalar is active data, and has the potential to return a new
-      value every time it is accessed. Hence you must be careful to only read it
-      once per user logical operation and work with that returned value. If
-      neither is true then the scalar's value cannot change unless written to.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        U32     SvGAMAGIC(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvGROW</dt>
-  <dd>Expands the character buffer in the SV so that it has room for the
-      indicated number of bytes (remember to reserve space for an extra trailing
-      <span class="Li">&quot;NUL&quot;</span> character). Calls
-      <span class="Li">&quot;sv_grow&quot;</span> to perform the expansion if
-      necessary. Returns a pointer to the character buffer. SV must be of type
-      &gt;= <span class="Li">&quot;SVt_PV&quot;</span>. One alternative is to
-      call <span class="Li">&quot;sv_grow&quot;</span> if you are not sure of
-      the type of SV.
-    <p class="Pp">You might mistakenly think that
-        <span class="Li">&quot;len&quot;</span> is the number of bytes to add to
-        the existing size, but instead it is the total size
-        <span class="Li">&quot;sv&quot;</span> should be.</p>
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        char *  SvGROW(SV* sv, STRLEN len)
-    </pre>
-  </dd>
-  <dt>SvIOK</dt>
-  <dd>Returns a U32 value indicating whether the SV contains an integer.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        U32     SvIOK(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvIOK_notUV</dt>
-  <dd>Returns a boolean indicating whether the SV contains a signed integer.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        bool    SvIOK_notUV(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvIOK_off</dt>
-  <dd>Unsets the IV status of an SV.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvIOK_off(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvIOK_on</dt>
-  <dd>Tells an SV that it is an integer.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvIOK_on(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvIOK_only</dt>
-  <dd>Tells an SV that it is an integer and disables all other
-      <span class="Li">&quot;OK&quot;</span> bits.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvIOK_only(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvIOK_only_UV</dt>
-  <dd>Tells an SV that it is an unsigned integer and disables all other
-      <span class="Li">&quot;OK&quot;</span> bits.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvIOK_only_UV(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvIOKp</dt>
-  <dd>Returns a U32 value indicating whether the SV contains an integer. Checks
-      the <b>private</b> setting. Use <span class="Li">&quot;SvIOK&quot;</span>
-      instead.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        U32     SvIOKp(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvIOK_UV</dt>
-  <dd>Returns a boolean indicating whether the SV contains an integer that must
-      be interpreted as unsigned. A non-negative integer whose value is within
-      the range of both an IV and a UV may be be flagged as either
-      <span class="Li">&quot;SvUOK&quot;</span> or
-      <span class="Li">&quot;SVIOK&quot;</span>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        bool    SvIOK_UV(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvIsCOW</dt>
-  <dd>Returns a U32 value indicating whether the SV is Copy-On-Write (either
-      shared hash key scalars, or full Copy On Write scalars if 5.9.0 is
-      configured for COW).
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        U32     SvIsCOW(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvIsCOW_shared_hash</dt>
-  <dd>Returns a boolean indicating whether the SV is Copy-On-Write shared hash
-      key scalar.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        bool    SvIsCOW_shared_hash(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvIV</dt>
-  <dd>Coerces the given SV to IV and returns it. The returned value in many
-      circumstances will get stored in <span class="Li">&quot;sv&quot;</span>'s
-      IV slot, but not in all cases. (Use
-      <span class="Li">&quot;sv_setiv&quot;</span> to make sure it does).
-    <p class="Pp">See <span class="Li">&quot;SvIVx&quot;</span> for a version
-        which guarantees to evaluate <span class="Li">&quot;sv&quot;</span> only
-        once.</p>
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        IV      SvIV(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvIV_nomg</dt>
-  <dd>Like <span class="Li">&quot;SvIV&quot;</span> but doesn't process magic.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        IV      SvIV_nomg(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvIV_set</dt>
-  <dd>Set the value of the IV pointer in sv to val. It is possible to perform
-      the same function of this macro with an lvalue assignment to
-      <span class="Li">&quot;SvIVX&quot;</span>. With future Perls, however, it
-      will be more efficient to use <span class="Li">&quot;SvIV_set&quot;</span>
-      instead of the lvalue assignment to
-      <span class="Li">&quot;SvIVX&quot;</span>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvIV_set(SV* sv, IV val)
-    </pre>
-  </dd>
-  <dt>SvIVX</dt>
-  <dd>Returns the raw value in the SV's IV slot, without checks or conversions.
-      Only use when you are sure <span class="Li">&quot;SvIOK&quot;</span> is
-      true. See also <span class="Li">&quot;SvIV&quot;</span>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        IV      SvIVX(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvIVx</dt>
-  <dd>Coerces the given SV to IV and returns it. The returned value in many
-      circumstances will get stored in <span class="Li">&quot;sv&quot;</span>'s
-      IV slot, but not in all cases. (Use
-      <span class="Li">&quot;sv_setiv&quot;</span> to make sure it does).
-    <p class="Pp">This form guarantees to evaluate
-        <span class="Li">&quot;sv&quot;</span> only once. Only use this if
-        <span class="Li">&quot;sv&quot;</span> is an expression with side
-        effects, otherwise use the more efficient
-        <span class="Li">&quot;SvIV&quot;</span>.</p>
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        IV      SvIVx(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvLEN</dt>
-  <dd>Returns the size of the string buffer in the SV, not including any part
-      attributable to <span class="Li">&quot;SvOOK&quot;</span>. See
-      <span class="Li">&quot;SvCUR&quot;</span>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        STRLEN  SvLEN(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvLEN_set</dt>
-  <dd>Set the size of the string buffer for the SV. See
-      <span class="Li">&quot;SvLEN&quot;</span>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvLEN_set(SV* sv, STRLEN len)
-    </pre>
-  </dd>
-  <dt>SvMAGIC_set</dt>
-  <dd>Set the value of the MAGIC pointer in
-      <span class="Li">&quot;sv&quot;</span> to val. See
-      <span class="Li">&quot;SvIV_set&quot;</span>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvMAGIC_set(SV* sv, MAGIC* val)
-    </pre>
-  </dd>
-  <dt>SvNIOK</dt>
-  <dd>Returns a U32 value indicating whether the SV contains a number, integer
-      or double.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        U32     SvNIOK(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvNIOK_off</dt>
-  <dd>Unsets the NV/IV status of an SV.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvNIOK_off(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvNIOKp</dt>
-  <dd>Returns a U32 value indicating whether the SV contains a number, integer
-      or double. Checks the <b>private</b> setting. Use
-      <span class="Li">&quot;SvNIOK&quot;</span> instead.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        U32     SvNIOKp(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvNOK</dt>
-  <dd>Returns a U32 value indicating whether the SV contains a double.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        U32     SvNOK(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvNOK_off</dt>
-  <dd>Unsets the NV status of an SV.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvNOK_off(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvNOK_on</dt>
-  <dd>Tells an SV that it is a double.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvNOK_on(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvNOK_only</dt>
-  <dd>Tells an SV that it is a double and disables all other OK bits.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvNOK_only(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvNOKp</dt>
-  <dd>Returns a U32 value indicating whether the SV contains a double. Checks
-      the <b>private</b> setting. Use <span class="Li">&quot;SvNOK&quot;</span>
-      instead.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        U32     SvNOKp(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvNV</dt>
-  <dd>Coerces the given SV to NV and returns it. The returned value in many
-      circumstances will get stored in <span class="Li">&quot;sv&quot;</span>'s
-      NV slot, but not in all cases. (Use
-      <span class="Li">&quot;sv_setnv&quot;</span> to make sure it does).
-    <p class="Pp">See <span class="Li">&quot;SvNVx&quot;</span> for a version
-        which guarantees to evaluate <span class="Li">&quot;sv&quot;</span> only
-        once.</p>
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        NV      SvNV(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvNV_nomg</dt>
-  <dd>Like <span class="Li">&quot;SvNV&quot;</span> but doesn't process magic.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        NV      SvNV_nomg(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvNV_set</dt>
-  <dd>Set the value of the NV pointer in <span class="Li">&quot;sv&quot;</span>
-      to val. See <span class="Li">&quot;SvIV_set&quot;</span>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvNV_set(SV* sv, NV val)
-    </pre>
-  </dd>
-  <dt>SvNVX</dt>
-  <dd>Returns the raw value in the SV's NV slot, without checks or conversions.
-      Only use when you are sure <span class="Li">&quot;SvNOK&quot;</span> is
-      true. See also <span class="Li">&quot;SvNV&quot;</span>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        NV      SvNVX(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvNVx</dt>
-  <dd>Coerces the given SV to NV and returns it. The returned value in many
-      circumstances will get stored in <span class="Li">&quot;sv&quot;</span>'s
-      NV slot, but not in all cases. (Use
-      <span class="Li">&quot;sv_setnv&quot;</span> to make sure it does).
-    <p class="Pp">This form guarantees to evaluate
-        <span class="Li">&quot;sv&quot;</span> only once. Only use this if
-        <span class="Li">&quot;sv&quot;</span> is an expression with side
-        effects, otherwise use the more efficient
-        <span class="Li">&quot;SvNV&quot;</span>.</p>
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        NV      SvNVx(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvOK</dt>
-  <dd>Returns a U32 value indicating whether the value is defined. This is only
-      meaningful for scalars.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        U32     SvOK(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvOOK</dt>
-  <dd>Returns a U32 indicating whether the pointer to the string buffer is
-      offset. This hack is used internally to speed up removal of characters
-      from the beginning of a <span class="Li">&quot;SvPV&quot;</span>. When
-      <span class="Li">&quot;SvOOK&quot;</span> is true, then the start of the
-      allocated string buffer is actually
-      <span class="Li">&quot;SvOOK_offset()&quot;</span> bytes before
-      <span class="Li">&quot;SvPVX&quot;</span>. This offset used to be stored
-      in <span class="Li">&quot;SvIVX&quot;</span>, but is now stored within the
-      spare part of the buffer.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        U32     SvOOK(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvOOK_offset</dt>
-  <dd>Reads into <span class="Li">&quot;len&quot;</span> the offset from
-      <span class="Li">&quot;SvPVX&quot;</span> back to the true start of the
-      allocated buffer, which will be non-zero if
-      <span class="Li">&quot;sv_chop&quot;</span> has been used to efficiently
-      remove characters from start of the buffer. Implemented as a macro, which
-      takes the address of <span class="Li">&quot;len&quot;</span>, which must
-      be of type <span class="Li">&quot;STRLEN&quot;</span>. Evaluates
-      <span class="Li">&quot;sv&quot;</span> more than once. Sets
-      <span class="Li">&quot;len&quot;</span> to 0 if
-      <span class="Li">&quot;SvOOK(sv)&quot;</span> is false.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvOOK_offset(SV*sv, STRLEN len)
-    </pre>
-  </dd>
-  <dt>SvPOK</dt>
-  <dd>Returns a U32 value indicating whether the SV contains a character string.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        U32     SvPOK(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvPOK_off</dt>
-  <dd>Unsets the PV status of an SV.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvPOK_off(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvPOK_on</dt>
-  <dd>Tells an SV that it is a string.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvPOK_on(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvPOK_only</dt>
-  <dd>Tells an SV that it is a string and disables all other
-      <span class="Li">&quot;OK&quot;</span> bits. Will also turn off the UTF-8
-      status.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvPOK_only(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvPOK_only_UTF8</dt>
-  <dd>Tells an SV that it is a string and disables all other
-      <span class="Li">&quot;OK&quot;</span> bits, and leaves the UTF-8 status
-      as it was.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvPOK_only_UTF8(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvPOKp</dt>
-  <dd>Returns a U32 value indicating whether the SV contains a character string.
-      Checks the <b>private</b> setting. Use
-      <span class="Li">&quot;SvPOK&quot;</span> instead.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        U32     SvPOKp(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvPV</dt>
-  <dd>Returns a pointer to the string in the SV, or a stringified form of the SV
-      if the SV does not contain a string. The SV may cache the stringified
-      version becoming <span class="Li">&quot;SvPOK&quot;</span>. Handles 'get'
-      magic. The <span class="Li">&quot;len&quot;</span> variable will be set to
-      the length of the string (this is a macro, so don't use
-      <span class="Li">&amp;len</span>). See also
-      <span class="Li">&quot;SvPVx&quot;</span> for a version which guarantees
-      to evaluate <span class="Li">&quot;sv&quot;</span> only once.
-    <p class="Pp">Note that there is no guarantee that the return value of
-        <span class="Li">&quot;SvPV()&quot;</span> is equal to
-        <span class="Li">&quot;SvPVX(sv)&quot;</span>, or that
-        <span class="Li">&quot;SvPVX(sv)&quot;</span> contains valid data, or
-        that successive calls to <span class="Li">&quot;SvPV(sv)&quot;</span>
-        will return the same pointer value each time. This is due to the way
-        that things like overloading and Copy-On-Write are handled. In these
-        cases, the return value may point to a temporary buffer or similar. If
-        you absolutely need the <span class="Li">&quot;SvPVX&quot;</span> field
-        to be valid (for example, if you intend to write to it), then see
-        <span class="Li">&quot;SvPV_force&quot;</span>.</p>
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        char*   SvPV(SV* sv, STRLEN len)
-    </pre>
-  </dd>
-  <dt>SvPVbyte</dt>
-  <dd>Like <span class="Li">&quot;SvPV&quot;</span>, but converts
-      <span class="Li">&quot;sv&quot;</span> to byte representation first if
-      necessary.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        char*   SvPVbyte(SV* sv, STRLEN len)
-    </pre>
-  </dd>
-  <dt>SvPVbyte_force</dt>
-  <dd>Like <span class="Li">&quot;SvPV_force&quot;</span>, but converts
-      <span class="Li">&quot;sv&quot;</span> to byte representation first if
-      necessary.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        char*   SvPVbyte_force(SV* sv, STRLEN len)
-    </pre>
-  </dd>
-  <dt>SvPVbyte_nolen</dt>
-  <dd>Like <span class="Li">&quot;SvPV_nolen&quot;</span>, but converts
-      <span class="Li">&quot;sv&quot;</span> to byte representation first if
-      necessary.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        char*   SvPVbyte_nolen(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvPVbytex</dt>
-  <dd>Like <span class="Li">&quot;SvPV&quot;</span>, but converts
-      <span class="Li">&quot;sv&quot;</span> to byte representation first if
-      necessary. Guarantees to evaluate <span class="Li">&quot;sv&quot;</span>
-      only once; use the more efficient
-      <span class="Li">&quot;SvPVbyte&quot;</span> otherwise.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        char*   SvPVbytex(SV* sv, STRLEN len)
-    </pre>
-  </dd>
-  <dt>SvPVbytex_force</dt>
-  <dd>Like <span class="Li">&quot;SvPV_force&quot;</span>, but converts
-      <span class="Li">&quot;sv&quot;</span> to byte representation first if
-      necessary. Guarantees to evaluate <span class="Li">&quot;sv&quot;</span>
-      only once; use the more efficient
-      <span class="Li">&quot;SvPVbyte_force&quot;</span> otherwise.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        char*   SvPVbytex_force(SV* sv, STRLEN len)
-    </pre>
-  </dd>
-  <dt>SvPVCLEAR</dt>
-  <dd>Ensures that sv is a SVt_PV and that its SvCUR is 0, and that it is
-      properly null terminated. Equivalent to sv_setpvs(&quot;&quot;), but more
-      efficient.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        char *  SvPVCLEAR(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvPV_force</dt>
-  <dd>Like <span class="Li">&quot;SvPV&quot;</span> but will force the SV into
-      containing a string (<span class="Li">&quot;SvPOK&quot;</span>), and only
-      a string (<span class="Li">&quot;SvPOK_only&quot;</span>), by hook or by
-      crook. You need force if you are going to update the
-      <span class="Li">&quot;SvPVX&quot;</span> directly. Processes get magic.
-    <p class="Pp">Note that coercing an arbitrary scalar into a plain PV will
-        potentially strip useful data from it. For example if the SV was
-        <span class="Li">&quot;SvROK&quot;</span>, then the referent will have
-        its reference count decremented, and the SV itself may be converted to
-        an <span class="Li">&quot;SvPOK&quot;</span> scalar with a string buffer
-        containing a value such as
-        <span class="Li">&quot;ARRAY(0x1234)&quot;</span>.</p>
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        char*   SvPV_force(SV* sv, STRLEN len)
-    </pre>
-  </dd>
-  <dt>SvPV_force_nomg</dt>
-  <dd>Like <span class="Li">&quot;SvPV_force&quot;</span>, but doesn't process
-      get magic.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        char*   SvPV_force_nomg(SV* sv, STRLEN len)
-    </pre>
-  </dd>
-  <dt>SvPV_nolen</dt>
-  <dd>Like <span class="Li">&quot;SvPV&quot;</span> but doesn't set a length
-      variable.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        char*   SvPV_nolen(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvPV_nomg</dt>
-  <dd>Like <span class="Li">&quot;SvPV&quot;</span> but doesn't process magic.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        char*   SvPV_nomg(SV* sv, STRLEN len)
-    </pre>
-  </dd>
-  <dt>SvPV_nomg_nolen</dt>
-  <dd>Like <span class="Li">&quot;SvPV_nolen&quot;</span> but doesn't process
-      magic.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        char*   SvPV_nomg_nolen(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvPV_set</dt>
-  <dd>This is probably not what you want to use, you probably wanted
-      &quot;sv_usepvn_flags&quot; or &quot;sv_setpvn&quot; or
-      &quot;sv_setpvs&quot;.
-    <p class="Pp">Set the value of the PV pointer in
-        <span class="Li">&quot;sv&quot;</span> to the Perl allocated
-        <span class="Li">&quot;NUL&quot;</span>-terminated string
-        <span class="Li">&quot;val&quot;</span>. See also
-        <span class="Li">&quot;SvIV_set&quot;</span>.</p>
-    <p class="Pp">Remember to free the previous PV buffer. There are many things
-        to check. Beware that the existing pointer may be involved in
-        copy-on-write or other mischief, so do
-        <span class="Li">&quot;SvOOK_off(sv)&quot;</span> and use
-        <span class="Li">&quot;sv_force_normal&quot;</span> or
-        <span class="Li">&quot;SvPV_force&quot;</span> (or check the
-        <span class="Li">&quot;SvIsCOW&quot;</span> flag) first to make sure
-        this modification is safe. Then finally, if it is not a COW, call
-        <span class="Li">&quot;SvPV_free&quot;</span> to free the previous PV
-        buffer.</p>
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvPV_set(SV* sv, char* val)
-    </pre>
-  </dd>
-  <dt>SvPVutf8</dt>
-  <dd>Like <span class="Li">&quot;SvPV&quot;</span>, but converts
-      <span class="Li">&quot;sv&quot;</span> to UTF-8 first if necessary.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        char*   SvPVutf8(SV* sv, STRLEN len)
-    </pre>
-  </dd>
-  <dt>SvPVutf8x</dt>
-  <dd>Like <span class="Li">&quot;SvPV&quot;</span>, but converts
-      <span class="Li">&quot;sv&quot;</span> to UTF-8 first if necessary.
-      Guarantees to evaluate <span class="Li">&quot;sv&quot;</span> only once;
-      use the more efficient <span class="Li">&quot;SvPVutf8&quot;</span>
-      otherwise.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        char*   SvPVutf8x(SV* sv, STRLEN len)
-    </pre>
-  </dd>
-  <dt>SvPVutf8x_force</dt>
-  <dd>Like <span class="Li">&quot;SvPV_force&quot;</span>, but converts
-      <span class="Li">&quot;sv&quot;</span> to UTF-8 first if necessary.
-      Guarantees to evaluate <span class="Li">&quot;sv&quot;</span> only once;
-      use the more efficient <span class="Li">&quot;SvPVutf8_force&quot;</span>
-      otherwise.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        char*   SvPVutf8x_force(SV* sv, STRLEN len)
-    </pre>
-  </dd>
-  <dt>SvPVutf8_force</dt>
-  <dd>Like <span class="Li">&quot;SvPV_force&quot;</span>, but converts
-      <span class="Li">&quot;sv&quot;</span> to UTF-8 first if necessary.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        char*   SvPVutf8_force(SV* sv, STRLEN len)
-    </pre>
-  </dd>
-  <dt>SvPVutf8_nolen</dt>
-  <dd>Like <span class="Li">&quot;SvPV_nolen&quot;</span>, but converts
-      <span class="Li">&quot;sv&quot;</span> to UTF-8 first if necessary.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        char*   SvPVutf8_nolen(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvPVX</dt>
-  <dd>Returns a pointer to the physical string in the SV. The SV must contain a
-      string. Prior to 5.9.3 it is not safe to execute this macro unless the
-      SV's type &gt;= <span class="Li">&quot;SVt_PV&quot;</span>.
-    <p class="Pp">This is also used to store the name of an autoloaded
-        subroutine in an XS AUTOLOAD routine. See &quot;Autoloading with
-        XSUBs&quot; in perlguts.</p>
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        char*   SvPVX(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvPVx</dt>
-  <dd>A version of <span class="Li">&quot;SvPV&quot;</span> which guarantees to
-      evaluate <span class="Li">&quot;sv&quot;</span> only once. Only use this
-      if <span class="Li">&quot;sv&quot;</span> is an expression with side
-      effects, otherwise use the more efficient
-      <span class="Li">&quot;SvPV&quot;</span>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        char*   SvPVx(SV* sv, STRLEN len)
-    </pre>
-  </dd>
-  <dt>SvREADONLY</dt>
-  <dd>Returns true if the argument is readonly, otherwise returns false. Exposed
-      to to perl code via <b>Internals::SvREADONLY()</b>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        U32     SvREADONLY(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvREADONLY_off</dt>
-  <dd>Mark an object as not-readonly. Exactly what this mean depends on the
-      object type. Exposed to perl code via <b>Internals::SvREADONLY()</b>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        U32     SvREADONLY_off(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvREADONLY_on</dt>
-  <dd>Mark an object as readonly. Exactly what this means depends on the object
-      type. Exposed to perl code via <b>Internals::SvREADONLY()</b>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        U32     SvREADONLY_on(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvREFCNT</dt>
-  <dd>Returns the value of the object's reference count. Exposed to perl code
-      via <b>Internals::SvREFCNT()</b>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        U32     SvREFCNT(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvREFCNT_dec</dt>
-  <dd>Decrements the reference count of the given SV.
-      <span class="Li">&quot;sv&quot;</span> may be
-      <span class="Li">&quot;NULL&quot;</span>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvREFCNT_dec(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvREFCNT_dec_NN</dt>
-  <dd>Same as <span class="Li">&quot;SvREFCNT_dec&quot;</span>, but can only be
-      used if you know <span class="Li">&quot;sv&quot;</span> is not
-      <span class="Li">&quot;NULL&quot;</span>. Since we don't have to check the
-      NULLness, it's faster and smaller.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvREFCNT_dec_NN(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvREFCNT_inc</dt>
-  <dd>Increments the reference count of the given SV, returning the SV.
-    <p class="Pp">All of the following
-        <span class="Li">&quot;SvREFCNT_inc&quot;</span>* macros are optimized
-        versions of <span class="Li">&quot;SvREFCNT_inc&quot;</span>, and can be
-        replaced with <span class="Li">&quot;SvREFCNT_inc&quot;</span>.</p>
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        SV*     SvREFCNT_inc(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvREFCNT_inc_NN</dt>
-  <dd>Same as <span class="Li">&quot;SvREFCNT_inc&quot;</span>, but can only be
-      used if you know <span class="Li">&quot;sv&quot;</span> is not
-      <span class="Li">&quot;NULL&quot;</span>. Since we don't have to check the
-      NULLness, it's faster and smaller.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        SV*     SvREFCNT_inc_NN(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvREFCNT_inc_simple</dt>
-  <dd>Same as <span class="Li">&quot;SvREFCNT_inc&quot;</span>, but can only be
-      used with expressions without side effects. Since we don't have to store a
-      temporary value, it's faster.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        SV*     SvREFCNT_inc_simple(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvREFCNT_inc_simple_NN</dt>
-  <dd>Same as <span class="Li">&quot;SvREFCNT_inc_simple&quot;</span>, but can
-      only be used if you know <span class="Li">&quot;sv&quot;</span> is not
-      <span class="Li">&quot;NULL&quot;</span>. Since we don't have to check the
-      NULLness, it's faster and smaller.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        SV*     SvREFCNT_inc_simple_NN(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvREFCNT_inc_simple_void</dt>
-  <dd>Same as <span class="Li">&quot;SvREFCNT_inc_simple&quot;</span>, but can
-      only be used if you don't need the return value. The macro doesn't need to
-      return a meaningful value.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvREFCNT_inc_simple_void(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvREFCNT_inc_simple_void_NN</dt>
-  <dd>Same as <span class="Li">&quot;SvREFCNT_inc&quot;</span>, but can only be
-      used if you don't need the return value, and you know that
-      <span class="Li">&quot;sv&quot;</span> is not
-      <span class="Li">&quot;NULL&quot;</span>. The macro doesn't need to return
-      a meaningful value, or check for NULLness, so it's smaller and faster.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvREFCNT_inc_simple_void_NN(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvREFCNT_inc_void</dt>
-  <dd>Same as <span class="Li">&quot;SvREFCNT_inc&quot;</span>, but can only be
-      used if you don't need the return value. The macro doesn't need to return
-      a meaningful value.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvREFCNT_inc_void(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvREFCNT_inc_void_NN</dt>
-  <dd>Same as <span class="Li">&quot;SvREFCNT_inc&quot;</span>, but can only be
-      used if you don't need the return value, and you know that
-      <span class="Li">&quot;sv&quot;</span> is not
-      <span class="Li">&quot;NULL&quot;</span>. The macro doesn't need to return
-      a meaningful value, or check for NULLness, so it's smaller and faster.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvREFCNT_inc_void_NN(SV* sv)
-    </pre>
-  </dd>
-  <dt>sv_report_used</dt>
-  <dd>Dump the contents of all SVs not yet freed (debugging aid).
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    sv_report_used()
-    </pre>
-  </dd>
-  <dt>SvROK</dt>
-  <dd>Tests if the SV is an RV.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        U32     SvROK(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvROK_off</dt>
-  <dd>Unsets the RV status of an SV.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvROK_off(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvROK_on</dt>
-  <dd>Tells an SV that it is an RV.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvROK_on(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvRV</dt>
-  <dd>Dereferences an RV to return the SV.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        SV*     SvRV(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvRV_set</dt>
-  <dd>Set the value of the RV pointer in <span class="Li">&quot;sv&quot;</span>
-      to val. See <span class="Li">&quot;SvIV_set&quot;</span>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvRV_set(SV* sv, SV* val)
-    </pre>
-  </dd>
-  <dt>sv_setsv_nomg</dt>
-  <dd>Like <span class="Li">&quot;sv_setsv&quot;</span> but doesn't process
-      magic.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    sv_setsv_nomg(SV* dsv, SV* ssv)
-    </pre>
-  </dd>
-  <dt>SvSTASH</dt>
-  <dd>Returns the stash of the SV.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        HV*     SvSTASH(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvSTASH_set</dt>
-  <dd>Set the value of the STASH pointer in
-      <span class="Li">&quot;sv&quot;</span> to val. See
-      <span class="Li">&quot;SvIV_set&quot;</span>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvSTASH_set(SV* sv, HV* val)
-    </pre>
-  </dd>
-  <dt>SvTAINT</dt>
-  <dd>Taints an SV if tainting is enabled, and if some input to the current
-      expression is tainted--usually a variable, but possibly also implicit
-      inputs such as locale settings.
-      <span class="Li">&quot;SvTAINT&quot;</span> propagates that taintedness to
-      the outputs of an expression in a pessimistic fashion; i.e., without
-      paying attention to precisely which outputs are influenced by which
-      inputs.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvTAINT(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvTAINTED</dt>
-  <dd>Checks to see if an SV is tainted. Returns TRUE if it is, FALSE if not.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        bool    SvTAINTED(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvTAINTED_off</dt>
-  <dd>Untaints an SV. Be <i>very</i> careful with this routine, as it
-      short-circuits some of Perl's fundamental security features. XS module
-      authors should not use this function unless they fully understand all the
-      implications of unconditionally untainting the value. Untainting should be
-      done in the standard perl fashion, via a carefully crafted regexp, rather
-      than directly untainting variables.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvTAINTED_off(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvTAINTED_on</dt>
-  <dd>Marks an SV as tainted if tainting is enabled.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvTAINTED_on(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvTRUE</dt>
-  <dd>Returns a boolean indicating whether Perl would evaluate the SV as true or
-      false. See <span class="Li">&quot;SvOK&quot;</span> for a
-      defined/undefined test. Handles 'get' magic unless the scalar is already
-      <span class="Li">&quot;SvPOK&quot;</span>,
-      <span class="Li">&quot;SvIOK&quot;</span> or
-      <span class="Li">&quot;SvNOK&quot;</span> (the public, not the private
-      flags).
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        bool    SvTRUE(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvTRUE_nomg</dt>
-  <dd>Returns a boolean indicating whether Perl would evaluate the SV as true or
-      false. See <span class="Li">&quot;SvOK&quot;</span> for a
-      defined/undefined test. Does not handle 'get' magic.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        bool    SvTRUE_nomg(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvTYPE</dt>
-  <dd>Returns the type of the SV. See
-      <span class="Li">&quot;svtype&quot;</span>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        svtype  SvTYPE(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvUOK</dt>
-  <dd>Returns a boolean indicating whether the SV contains an integer that must
-      be interpreted as unsigned. A non-negative integer whose value is within
-      the range of both an IV and a UV may be be flagged as either
-      <span class="Li">&quot;SvUOK&quot;</span> or
-      <span class="Li">&quot;SVIOK&quot;</span>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        bool    SvUOK(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvUPGRADE</dt>
-  <dd>Used to upgrade an SV to a more complex form. Uses
-      <span class="Li">&quot;sv_upgrade&quot;</span> to perform the upgrade if
-      necessary. See <span class="Li">&quot;svtype&quot;</span>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvUPGRADE(SV* sv, svtype type)
-    </pre>
-  </dd>
-  <dt>SvUTF8</dt>
-  <dd>Returns a U32 value indicating the UTF-8 status of an SV. If things are
-      set-up properly, this indicates whether or not the SV contains UTF-8
-      encoded data. You should use this <i>after</i> a call to
-      <span class="Li">&quot;SvPV()&quot;</span> or one of its variants, in case
-      any call to string overloading updates the internal flag.
-    <p class="Pp">If you want to take into account the bytes pragma, use
-        <span class="Li">&quot;DO_UTF8&quot;</span> instead.</p>
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        U32     SvUTF8(SV* sv)
-    </pre>
-  </dd>
-  <dt>sv_utf8_upgrade_nomg</dt>
-  <dd>Like <span class="Li">&quot;sv_utf8_upgrade&quot;</span>, but doesn't do
-      magic on <span class="Li">&quot;sv&quot;</span>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        STRLEN  sv_utf8_upgrade_nomg(SV *sv)
-    </pre>
-  </dd>
-  <dt>SvUTF8_off</dt>
-  <dd>Unsets the UTF-8 status of an SV (the data is not changed, just the flag).
-      Do not use frivolously.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvUTF8_off(SV *sv)
-    </pre>
-  </dd>
-  <dt>SvUTF8_on</dt>
-  <dd>Turn on the UTF-8 status of an SV (the data is not changed, just the
-      flag). Do not use frivolously.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvUTF8_on(SV *sv)
-    </pre>
-  </dd>
-  <dt>SvUV</dt>
-  <dd>Coerces the given SV to UV and returns it. The returned value in many
-      circumstances will get stored in <span class="Li">&quot;sv&quot;</span>'s
-      UV slot, but not in all cases. (Use
-      <span class="Li">&quot;sv_setuv&quot;</span> to make sure it does).
-    <p class="Pp">See <span class="Li">&quot;SvUVx&quot;</span> for a version
-        which guarantees to evaluate <span class="Li">&quot;sv&quot;</span> only
-        once.</p>
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        UV      SvUV(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvUV_nomg</dt>
-  <dd>Like <span class="Li">&quot;SvUV&quot;</span> but doesn't process magic.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        UV      SvUV_nomg(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvUV_set</dt>
-  <dd>Set the value of the UV pointer in <span class="Li">&quot;sv&quot;</span>
-      to val. See <span class="Li">&quot;SvIV_set&quot;</span>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        void    SvUV_set(SV* sv, UV val)
-    </pre>
-  </dd>
-  <dt>SvUVX</dt>
-  <dd>Returns the raw value in the SV's UV slot, without checks or conversions.
-      Only use when you are sure <span class="Li">&quot;SvIOK&quot;</span> is
-      true. See also <span class="Li">&quot;SvUV&quot;</span>.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        UV      SvUVX(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvUVx</dt>
-  <dd>Coerces the given SV to UV and returns it. The returned value in many
-      circumstances will get stored in <span class="Li">&quot;sv&quot;</span>'s
-      UV slot, but not in all cases. (Use
-      <span class="Li">&quot;sv_setuv&quot;</span> to make sure it does).
-    <p class="Pp">This form guarantees to evaluate
-        <span class="Li">&quot;sv&quot;</span> only once. Only use this if
-        <span class="Li">&quot;sv&quot;</span> is an expression with side
-        effects, otherwise use the more efficient
-        <span class="Li">&quot;SvUV&quot;</span>.</p>
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        UV      SvUVx(SV* sv)
-    </pre>
-  </dd>
-  <dt>SvVOK</dt>
-  <dd>Returns a boolean indicating whether the SV contains a v-string.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-        bool    SvVOK(SV* sv)
     </pre>
   </dd>
 </dl>
@@ -12672,7 +12683,8 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
         check entire strings.</p>
     <p class="Pp"><span class="Li"></span></p>
     <pre>
-        STRLEN  isSTRICT_UTF8_CHAR(const U8 *s, const U8 *e)
+        Size_t  isSTRICT_UTF8_CHAR(const U8 * const s0,
+                                   const U8 * const e)
     </pre>
   </dd>
   <dt>is_strict_utf8_string</dt>
@@ -13065,7 +13077,7 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
       <span class="Li">&quot;e&quot;</span>, but beyond the ones needed to form
       the first code point in <span class="Li">&quot;s&quot;</span>, are not
       examined.
-    <p class="Pp">The code point can be any that will fit in a UV on this
+    <p class="Pp">The code point can be any that will fit in an IV on this
         machine, using Perl's extension to official UTF-8 to represent those
         higher than the Unicode maximum of 0x10FFFF. That means that this macro
         is used to efficiently decide if the next few bytes in
@@ -13084,11 +13096,8 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
         <span class="Li">&quot;is_utf8_string_loc&quot;</span>, and
         <span class="Li">&quot;is_utf8_string_loclen&quot;</span> to check
         entire strings.</p>
-    <p class="Pp">Note that it is deprecated to use code points higher than what
-        will fit in an IV. This macro does not raise any warnings for such code
-        points, treating them as valid.</p>
-    <p class="Pp">Note also that a UTF-8 INVARIANT character (i.e. ASCII on
-        non-EBCDIC machines) is a valid UTF-8 character.</p>
+    <p class="Pp">Note also that a UTF-8 &quot;invariant&quot; character (i.e.
+        ASCII on non-EBCDIC machines) is a valid UTF-8 character.</p>
     <p class="Pp"><span class="Li"></span></p>
     <pre>
         STRLEN  isUTF8_CHAR(const U8 *s, const U8 *e)
@@ -13475,7 +13484,8 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
       <span class="Li">&quot;UTF8_WARN_NONCHAR&quot;</span> flags.</dd>
   <dt>&quot;UTF8_GOT_NON_CONTINUATION&quot;</dt>
   <dd>The input sequence was malformed in that a non-continuation type byte was
-      found in a position where only a continuation type one should be.</dd>
+      found in a position where only a continuation type one should be. See also
+      &quot;<span class="Li">&quot;UTF8_GOT_SHORT&quot;</span>&quot;.</dd>
   <dt>&quot;UTF8_GOT_OVERFLOW&quot;</dt>
   <dd>The input sequence was malformed in that it is for a code point that is
       not representable in the number of bits available in an IV on the current
@@ -13484,7 +13494,33 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
   <dd>The input sequence was malformed in that
       <span class="Li">&quot;curlen&quot;</span> is smaller than required for a
       complete sequence. In other words, the input is for a partial character
-      sequence.</dd>
+      sequence.
+    <p class="Pp"><span class="Li">&quot;UTF8_GOT_SHORT&quot;</span> and
+        <span class="Li">&quot;UTF8_GOT_NON_CONTINUATION&quot;</span> both
+        indicate a too short sequence. The difference is that
+        <span class="Li">&quot;UTF8_GOT_NON_CONTINUATION&quot;</span> indicates
+        always that there is an error, while
+        <span class="Li">&quot;UTF8_GOT_SHORT&quot;</span> means that an
+        incomplete sequence was looked at. If no other flags are present, it
+        means that the sequence was valid as far as it went. Depending on the
+        application, this could mean one of three things:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>The <span class="Li">&quot;curlen&quot;</span> length parameter passed in
+      was too small, and the function was prevented from examining all the
+      necessary bytes.</li>
+  <li>The buffer being looked at is based on reading data, and the data received
+      so far stopped in the middle of a character, so that the next read will
+      read the remainder of this character. (It is up to the caller to deal with
+      the split bytes somehow.)</li>
+  <li>This is a real error, and the partial sequence is all we're going to
+    get.</li>
+</ul>
+</div>
+<div class="Bd-indent"></div>
+<dl class="Bl-tag">
   <dt>&quot;UTF8_GOT_SUPER&quot;</dt>
   <dd>The input sequence was malformed in that it is for a non-Unicode code
       point; that is, one above the legal Unicode maximum. This bit is set only
@@ -13714,7 +13750,7 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
         or if they represent a code point that cannot fit in a UV on the current
         platform. Hence this macro can give different results when run on a
         64-bit word machine than on one with a 32-bit word size.</p>
-    <p class="Pp">Note that it is deprecated to have code points that are larger
+    <p class="Pp">Note that it is illegal to have code points that are larger
         than what can fit in an IV on the current machine.</p>
     <p class="Pp"><span class="Li"></span></p>
     <pre>
@@ -13745,6 +13781,18 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
     <p class="Pp"><span class="Li"></span></p>
     <pre>
         STRLEN  utf8_length(const U8* s, const U8 *e)
+    </pre>
+  </dd>
+  <dt>UTF8_SAFE_SKIP</dt>
+  <dd>returns 0 if <span class="Li">&quot;s&#x00A0;&gt;=&#x00A0;e&quot;</span>;
+      otherwise returns the number of bytes in the UTF-8 encoded character whose
+      first byte is pointed to by <span class="Li">&quot;s&quot;</span>. But it
+      never returns beyond <span class="Li">&quot;e&quot;</span>. On DEBUGGING
+      builds, it asserts that
+      <span class="Li">&quot;s&#x00A0;&lt;=&#x00A0;e&quot;</span>.
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+        STRLEN  UTF8_SAFE_SKIP(char* s, char* e)
     </pre>
   </dd>
   <dt>utf8_to_bytes</dt>
@@ -14019,7 +14067,7 @@ Some of these are also deprecated. You can exclude these from your compiled Perl
         rather than call this directly.</p>
     <p class="Pp">This function is for code that wants any warning and/or error
         messages to be returned to the caller rather than be displayed. All
-        messages that would have been displayed if all lexcial warnings are
+        messages that would have been displayed if all lexical warnings are
         enabled will be returned.</p>
     <p class="Pp">It is just like
         <span class="Li">&quot;uvchr_to_utf8_flags&quot;</span> but it takes an
@@ -14744,6 +14792,8 @@ The following functions have been flagged as part of the public API, but are
   <dd></dd>
   <dt>my_atof2</dt>
   <dd></dd>
+  <dt>my_atof3</dt>
+  <dd></dd>
   <dt>my_chsize</dt>
   <dd></dd>
   <dt>my_cxt_index</dt>
@@ -14815,6 +14865,8 @@ The following functions have been flagged as part of the public API, but are
   <dt>newSVREF</dt>
   <dd></dd>
   <dt>newSVpvf_nocontext</dt>
+  <dd></dd>
+  <dt>newSVsv_flags</dt>
   <dd></dd>
   <dt>new_stackinfo</dt>
   <dd></dd>

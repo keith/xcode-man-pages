@@ -170,13 +170,15 @@ A backslash sequence is a sequence of characters, the first one of which is a
 <p class="Pp">Some digits that <span class="Li">&quot;\d&quot;</span> matches
     look like some of the [0-9] ones, but have different values. For example,
     BENGALI DIGIT FOUR (U+09EA) looks very much like an ASCII DIGIT EIGHT
-    (U+0038). An application that is expecting only the ASCII digits might be
-    misled, or if the match is <span class="Li">&quot;\d+&quot;</span>, the
+    (U+0038), and LEPCHA DIGIT SIX (U+1C46) looks very much like an ASCII DIGIT
+    FIVE (U+0035). An application that is expecting only the ASCII digits might
+    be misled, or if the match is <span class="Li">&quot;\d+&quot;</span>, the
     matched string might contain a mixture of digits from different writing
     systems that look like they signify a number different than they actually
     do. &quot;<b>num()</b>&quot; in Unicode::UCD can be used to safely calculate
     the value, returning <span class="Li">&quot;undef&quot;</span> if the input
-    string contains such a mixture.</p>
+    string contains such a mixture. Otherwise, for example, a displayed price
+    might be deliberately different than it appears.</p>
 <p class="Pp">What <span class="Li">&quot;\p{Digit}&quot;</span> means (and
     hence <span class="Li">&quot;\d&quot;</span> except under the
     <span class="Li">&quot;/a&quot;</span> modifier) is
@@ -412,9 +414,10 @@ A backslash sequence is a sequence of characters, the first one of which is a
     is valid, but means something different. It matches a two character string:
     a letter (Unicode property <span class="Li">&quot;\pL&quot;</span>),
     followed by a lowercase <span class="Li">&quot;l&quot;</span>.</p>
-<p class="Pp">If locale rules are not in effect, the use of a Unicode property
-    will force the regular expression into using Unicode rules, if it isn't
-    already.</p>
+<p class="Pp">What a Unicode property matches is never subject to locale rules,
+    and if locale rules are not otherwise in effect, the use of a Unicode
+    property will force the regular expression into using Unicode rules, if it
+    isn't already.</p>
 <p class="Pp">Note that almost all properties are immune to case-insensitive
     matching. That is, adding a <span class="Li">&quot;/i&quot;</span> regular
     expression modifier does not change what they match. There are two sets that
@@ -461,6 +464,8 @@ A backslash sequence is a sequence of characters, the first one of which is a
 </pre>
 <p class="Pp">Even though these two matches might be thought of as complements,
     until v5.20 they were so only on Unicode code points.</p>
+<p class="Pp">Starting in perl v5.30, wildcards are allowed in Unicode property
+    values. See &quot;Wildcards in Property Values&quot; in perlunicode.</p>
 <p class="Pp">Examples</p>
 <p class="Pp"><span class="Li"></span></p>
 <pre>
@@ -889,21 +894,21 @@ The third form of character class you can use in Perl regular expressions is the
 <p class="Pp">Perl recognizes the following POSIX character classes:</p>
 <p class="Pp"><span class="Li"></span></p>
 <pre>
- alpha  Any alphabetical character (&quot;[A-Za-z]&quot;).
- alnum  Any alphanumeric character (&quot;[A-Za-z0-9]&quot;).
+ alpha  Any alphabetical character (e.g., [A-Za-z]).
+ alnum  Any alphanumeric character (e.g., [A-Za-z0-9]).
  ascii  Any character in the ASCII character set.
  blank  A GNU extension, equal to a space or a horizontal tab (&quot;\t&quot;).
  cntrl  Any control character.  See Note [2] below.
- digit  Any decimal digit (&quot;[0-9]&quot;), equivalent to &quot;\d&quot;.
+ digit  Any decimal digit (e.g., [0-9]), equivalent to &quot;\d&quot;.
  graph  Any printable character, excluding a space.  See Note [3] below.
- lower  Any lowercase character (&quot;[a-z]&quot;).
+ lower  Any lowercase character (e.g., [a-z]).
  print  Any printable character, including a space.  See Note [4] below.
  punct  Any graphical character excluding &quot;word&quot; characters.  Note [5].
  space  Any whitespace character. &quot;\s&quot; including the vertical tab
         (&quot;\cK&quot;).
- upper  Any uppercase character (&quot;[A-Z]&quot;).
- word   A Perl extension (&quot;[A-Za-z0-9_]&quot;), equivalent to &quot;\w&quot;.
- xdigit Any hexadecimal digit (&quot;[0-9a-fA-F]&quot;).
+ upper  Any uppercase character (e.g., [A-Z]).
+ word   A Perl extension (e.g., [A-Za-z0-9_]), equivalent to &quot;\w&quot;.
+ xdigit Any hexadecimal digit (e.g., [0-9a-fA-F]).  Note [7].
 </pre>
 <p class="Pp">Like the Unicode properties, most of the POSIX properties match
     the same regardless of whether case-insensitive
@@ -947,7 +952,7 @@ The third form of character class you can use in Perl regular expressions is the
    space      \p{PosixSpace}       \p{XPosixSpace}          [6]
    upper      \p{PosixUpper}       \p{XPosixUpper}
    word       \p{PosixWord}        \p{XPosixWord}   \w
-   xdigit     \p{PosixXDigit}      \p{XPosixXDigit}
+   xdigit     \p{PosixXDigit}      \p{XPosixXDigit}         [7]
 </pre>
 <dl class="Bl-tag">
   <dt>[1]</dt>
@@ -1000,6 +1005,16 @@ The third form of character class you can use in Perl regular expressions is the
       non-locale matching, <span class="Li">&quot;\p{XPerlSpace}&quot;</span>
       did not match the vertical tab, <span class="Li">&quot;\cK&quot;</span>.
       Same for the two ASCII-only range forms.</dd>
+  <dt>[7]</dt>
+  <dd>Unlike <span class="Li">&quot;[[:digit:]]&quot;</span> which matches
+      digits in many writing systems, such as Thai and Devanagari, there are
+      currently only two sets of hexadecimal digits, and it is unlikely that
+      more will be added. This is because you not only need the ten digits, but
+      also the six <span class="Li">&quot;[A-F]&quot;</span> (and
+      <span class="Li">&quot;[a-f]&quot;</span>) to correspond. That means only
+      the Latin script is suitable for these, and Unicode has only two sets of
+      these, the familiar ASCII set, and the fullwidth forms starting at U+FF10
+      (FULLWIDTH DIGIT ZERO).</dd>
 </dl>
 <p class="Pp">There are various other synonyms that can be used besides the
     names listed in the table. For example,
@@ -1060,11 +1075,6 @@ The third form of character class you can use in Perl regular expressions is the
 <div class="Bd-indent"></div>
 <p class="Pp">Which rules apply are determined as described in &quot;Which
     character set modifier is in effect?&quot; in perlre.</p>
-<p class="Pp">It is proposed to change this behavior in a future release of Perl
-    so that whether or not Unicode rules are in effect would not change the
-    behavior: Outside of locale, the POSIX classes would behave like their
-    ASCII-range counterparts. If you wish to comment on this proposal, send
-    email to <span class="Li">&quot;perl5-porters@perl.org&quot;</span>.</p>
 <p class="Pp">Negation of POSIX character classes</p>
 <p class="Pp">A Perl extension to the POSIX character class is the ability to
     negate it. This is done by prefixing the class name with a caret
@@ -1261,9 +1271,17 @@ The third form of character class you can use in Perl regular expressions is the
     be space between the closing <span class="Li">&quot;])&quot;</span>
     characters.</p>
 <p class="Pp">Just as in all regular expressions, the pattern can be built up by
-    including variables that are interpolated at regex compilation time. Care
-    must be taken to ensure that you are getting what you expect. For
-  example:</p>
+    including variables that are interpolated at regex compilation time. But its
+    best to compile each sub-component.</p>
+<p class="Pp"><span class="Li"></span></p>
+<pre>
+ my $thai_or_lao = qr/(?[ \p{Thai} + \p{Lao} ])/;
+ my $lower = qr/(?[ \p{Lower} + \p{Digit} ])/;
+</pre>
+<p class="Pp">When these are embedded in another pattern, what they match does
+    not change, regardless of parenthesization or what modifiers are in effect
+    in that outer pattern. If you fail to compile the subcomponents, you can get
+    some nasty surprises. For example:</p>
 <p class="Pp"><span class="Li"></span></p>
 <pre>
  my $thai_or_lao = '\p{Thai} + \p{Lao}';
@@ -1275,11 +1293,11 @@ The third form of character class you can use in Perl regular expressions is the
 <pre>
  qr/(?[ \p{Digit} &amp; \p{Thai} + \p{Lao} ])/;
 </pre>
-<p class="Pp">But this does not have the effect that someone reading the code
-    would likely expect, as the intersection applies just to
-    <span class="Li">&quot;\p{Thai}&quot;</span>, excluding the Laotian.
-    Pitfalls like this can be avoided by parenthesizing the component
-  pieces:</p>
+<p class="Pp">But this does not have the effect that someone reading the source
+    code would likely expect, as the intersection applies just to
+    <span class="Li">&quot;\p{Thai}&quot;</span>, excluding the Laotian. Its
+    best to compile the subcomponents, but you could also parenthesize the
+    component pieces:</p>
 <p class="Pp"><span class="Li"></span></p>
 <pre>
  my $thai_or_lao = '( \p{Thai} + \p{Lao} )';
@@ -1290,21 +1308,13 @@ The third form of character class you can use in Perl regular expressions is the
  my $lower = '\p{Lower} + \p{Digit}';
  qr/(?[ \p{Greek} &amp; $lower ])/i;
 </pre>
-<p class="Pp">matches upper case things. You can avoid surprises by making the
-    components into instances of this construct by compiling them:</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
- my $thai_or_lao = qr/(?[ \p{Thai} + \p{Lao} ])/;
- my $lower = qr/(?[ \p{Lower} + \p{Digit} ])/;
-</pre>
-<p class="Pp">When these are embedded in another pattern, what they match does
-    not change, regardless of parenthesization or what modifiers are in effect
-    in that outer pattern.</p>
+<p class="Pp">matches upper case things. So just, compile the subcomponents, as
+    illustrated above.</p>
 <p class="Pp">Due to the way that Perl parses things, your parentheses and
     brackets may need to be balanced, even including comments. If you run into
-    any examples, please send them to
-    <span class="Li">&quot;perlbug@perl.org&quot;</span>, so that we can have a
-    concrete example for this man page.</p>
+    any examples, please submit them to
+    &lt;https://github.com/Perl/perl5/issues&gt;, so that we can have a concrete
+    example for this man page.</p>
 <p class="Pp">We may change it so that things that remain legal uses in normal
     bracketed character classes might become illegal within this experimental
     construct. One proposal, for example, is to forbid adjacent uses of the same

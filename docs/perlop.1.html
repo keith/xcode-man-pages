@@ -687,7 +687,7 @@ First available in Perl 5.10.1 (the 5.10.0 version behaved differently), binary
     uses that type information to select a suitable comparison mechanism.</p>
 <p class="Pp">The <span class="Li">&quot;~~&quot;</span> operator compares its
     operands &quot;polymorphically&quot;, determining how to compare them
-    according to their actual types (numeric, string, array, hash, etc.) Like
+    according to their actual types (numeric, string, array, hash, etc.). Like
     the equality operators with which it shares the same precedence,
     <span class="Li">&quot;~~&quot;</span> returns 1 for true and
     <span class="Li">&quot;&quot;</span> for false. It is often best read aloud
@@ -1631,7 +1631,8 @@ While we usually think of quotes as literal values, in Perl they function as
     qXfooX  # WRONG!
 </pre>
 <p class="Pp">The following escape sequences are available in constructs that
-    interpolate, and in transliterations:</p>
+    interpolate, and in transliterations whose delimiters aren't single quotes
+    (<span class="Li">&quot;'&quot;</span>).</p>
 <p class="Pp"><span class="Li"></span></p>
 <pre>
     Sequence     Note  Description
@@ -2499,6 +2500,10 @@ Here are the quote-like operators that apply to pattern matching and related
     }
 
     s/([^ ]*) *([^ ]*)/$2 $1/;  # reverse 1st two fields
+
+    $foo !~ s/A/a/g;    # Lowercase all A's in $foo; return
+                        # 0 if any were found and changed;
+                        # otherwise return 1
     </pre>
     <p class="Pp">Note the use of <span class="Li">&quot;$&quot;</span> instead
         of <span class="Li">&quot;\&quot;</span> in the last example. Unlike
@@ -2669,6 +2674,8 @@ Here are the quote-like operators that apply to pattern matching and related
   use open IN =&gt; &quot;:encoding(UTF-8)&quot;;
   my $x = `cmd-producing-utf-8`;
     </pre>
+    <p class="Pp"><span class="Li">&quot;qx//&quot;</span> can also be called
+        like a function with &quot;readpipe&quot; in perlfunc.</p>
     <p class="Pp">See &quot;I/O Operators&quot; for more discussion.</p>
   </dd>
   <dt>&quot;qw/<i>STRING</i>/&quot;</dt>
@@ -2709,12 +2716,16 @@ Here are the quote-like operators that apply to pattern matching and related
   <dt>&quot;tr/<i>SEARCHLIST</i>/<i>REPLACEMENTLIST</i>/cdsr&quot;</dt>
   <dd></dd>
   <dt>&quot;y/<i>SEARCHLIST</i>/<i>REPLACEMENTLIST</i>/cdsr&quot;</dt>
-  <dd>Transliterates all occurrences of the characters found in the search list
-      with the corresponding character in the replacement list. It returns the
-      number of characters replaced or deleted. If no string is specified via
-      the <span class="Li">&quot;=~&quot;</span> or
+  <dd>Transliterates all occurrences of the characters found (or not found if
+      the <span class="Li">&quot;/c&quot;</span> modifier is specified) in the
+      search list with the positionally corresponding character in the
+      replacement list, possibly deleting some, depending on the modifiers
+      specified. It returns the number of characters replaced or deleted. If no
+      string is specified via the <span class="Li">&quot;=~&quot;</span> or
       <span class="Li">&quot;!~&quot;</span> operator, the
       <span class="Li">$_</span> string is transliterated.
+    <p class="Pp">For <b>sed</b> devotees, <span class="Li">&quot;y&quot;</span>
+        is provided as a synonym for <span class="Li">&quot;tr&quot;</span>.</p>
     <p class="Pp">If the <span class="Li">&quot;/r&quot;</span>
         (non-destructive) option is present, a new copy of the string is made
         and its characters transliterated, and this copy is returned no matter
@@ -2725,24 +2736,30 @@ Here are the quote-like operators that apply to pattern matching and related
         used, the string specified with <span class="Li">&quot;=~&quot;</span>
         must be a scalar variable, an array element, a hash element, or an
         assignment to one of those; in other words, an lvalue.</p>
-    <p class="Pp">A character range may be specified with a hyphen, so
-        <span class="Li">&quot;tr/A-J/0-9/&quot;</span> does the same
+    <p class="Pp">If the characters delimiting <i>SEARCHLIST</i> and
+        <i>REPLACEMENTLIST</i> are single quotes
+        (<span class="Li">&quot;tr'</span>
+        <i>SEARCHLIST</i><span class="Li">'</span>
+        <i>REPLACEMENTLIST</i><span class="Li">'&quot;</span>), the only
+        interpolation is removal of <span class="Li">&quot;\&quot;</span> from
+        pairs of <span class="Li">&quot;\\&quot;</span>.</p>
+    <p class="Pp">Otherwise, a character range may be specified with a hyphen,
+        so <span class="Li">&quot;tr/A-J/0-9/&quot;</span> does the same
         replacement as
-        <span class="Li">&quot;tr/ACEGIBDFHJ/0246813579/&quot;</span>. For
-        <b>sed</b> devotees, <span class="Li">&quot;y&quot;</span> is provided
-        as a synonym for <span class="Li">&quot;tr&quot;</span>. If the
-        <i>SEARCHLIST</i> is delimited by bracketing quotes, the
-        <i>REPLACEMENTLIST</i> must have its own pair of quotes, which may or
-        may not be bracketing quotes; for example,
+        <span class="Li">&quot;tr/ACEGIBDFHJ/0246813579/&quot;</span>.</p>
+    <p class="Pp">If the <i>SEARCHLIST</i> is delimited by bracketing quotes,
+        the <i>REPLACEMENTLIST</i> must have its own pair of quotes, which may
+        or may not be bracketing quotes; for example,
         <span class="Li">&quot;tr[aeiouy][yuoiea]&quot;</span> or
         <span class="Li">&quot;tr(+\-*/)/ABCD/&quot;</span>.</p>
-    <p class="Pp">Characters may be literals or any of the escape sequences
-        accepted in double-quoted strings. But there is no variable
-        interpolation, so <span class="Li">&quot;$&quot;</span> and
-        <span class="Li">&quot;@&quot;</span> are treated as literals. A hyphen
-        at the beginning or end, or preceded by a backslash is considered a
-        literal. Escape sequence details are in the table near the beginning of
-        this section.</p>
+    <p class="Pp">Characters may be literals, or (if the delimiters aren't
+        single quotes) any of the escape sequences accepted in double-quoted
+        strings. But there is never any variable interpolation, so
+        <span class="Li">&quot;$&quot;</span> and
+        <span class="Li">&quot;@&quot;</span> are always treated as literals. A
+        hyphen at the beginning or end, or preceded by a backslash is also
+        always considered a literal. Escape sequence details are in the table
+        near the beginning of this section.</p>
     <p class="Pp">Note that <span class="Li">&quot;tr&quot;</span> does
         <b>not</b> do regular expression character classes such as
         <span class="Li">&quot;\d&quot;</span> or
@@ -2797,14 +2814,15 @@ Here are the quote-like operators that apply to pattern matching and related
     <p class="Pp">removes from <span class="Li">$string</span> all the
         platform's characters which are equivalent to any of Unicode U+0020,
         U+0021, ... U+007D, U+007E. This is a portable range, and has the same
-        effect on every platform it is run on. It turns out that in this
-        example, these are the ASCII printable characters. So after this is run,
+        effect on every platform it is run on. In this example, these are the
+        ASCII printable characters. So after this is run,
         <span class="Li">$string</span> has only controls and characters which
         have no ASCII equivalents.</p>
     <p class="Pp">But, even for portable ranges, it is not generally obvious
-        what is included without having to look things up. A sound principle is
-        to use only ranges that begin from and end at either ASCII alphabetics
-        of equal case (<span class="Li">&quot;b-e&quot;</span>,
+        what is included without having to look things up in the manual. A sound
+        principle is to use only ranges that both begin from, and end at, either
+        ASCII alphabetics of equal case
+        (<span class="Li">&quot;b-e&quot;</span>,
         <span class="Li">&quot;B-E&quot;</span>), or digits
         (<span class="Li">&quot;1-4&quot;</span>). Anything else is unclear (and
         unportable unless <span class="Li">&quot;\N{...}&quot;</span> is used).
@@ -2814,18 +2832,9 @@ Here are the quote-like operators that apply to pattern matching and related
     <pre>
     c   Complement the SEARCHLIST.
     d   Delete found but unreplaced characters.
-    s   Squash duplicate replaced characters.
     r   Return the modified string and leave the original string
         untouched.
-    </pre>
-    <p class="Pp">If the <span class="Li">&quot;/c&quot;</span> modifier is
-        specified, the <i>SEARCHLIST</i> character set is complemented. So for
-        example these two are equivalent (the exact maximum number will depend
-        on your platform):</p>
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-    tr/\x00-\xfd/ABCD/c
-    tr/\xfe-\x{7fffffff}/ABCD/
+    s   Squash duplicate replaced characters.
     </pre>
     <p class="Pp">If the <span class="Li">&quot;/d&quot;</span> modifier is
         specified, any characters specified by <i>SEARCHLIST</i> not found in
@@ -2833,17 +2842,23 @@ Here are the quote-like operators that apply to pattern matching and related
         flexible than the behavior of some <b>tr</b> programs, which delete
         anything they find in the <i>SEARCHLIST</i>, period.)</p>
     <p class="Pp">If the <span class="Li">&quot;/s&quot;</span> modifier is
-        specified, runs of the same character in the result, where each those
-        characters were substituted by the transliteration, are squashed down to
-        a single instance of the character.</p>
+        specified, sequences of characters, all in a row, that were
+        transliterated to the same character are squashed down to a single
+        instance of that character.</p>
+    <p class="Pp"><span class="Li"></span></p>
+    <pre>
+ my $a = &quot;aaaba&quot;
+ $a =~ tr/a/a/s     # $a now is &quot;aba&quot;
+    </pre>
     <p class="Pp">If the <span class="Li">&quot;/d&quot;</span> modifier is
         used, the <i>REPLACEMENTLIST</i> is always interpreted exactly as
         specified. Otherwise, if the <i>REPLACEMENTLIST</i> is shorter than the
-        <i>SEARCHLIST</i>, the final character is replicated till it is long
-        enough. If the <i>REPLACEMENTLIST</i> is empty, the <i>SEARCHLIST</i> is
-        replicated. This latter is useful for counting characters in a class or
-        for squashing character sequences in a class. For example, each of these
-        pairs are equivalent:</p>
+        <i>SEARCHLIST</i>, the final character, if any, is replicated until it
+        is long enough. There won't be a final character if and only if the
+        <i>REPLACEMENTLIST</i> is empty, in which case <i>REPLACEMENTLIST</i> is
+        copied from <i>SEARCHLIST</i>. An empty <i>REPLACEMENTLIST</i> is useful
+        for counting characters in a class, or for squashing character sequences
+        in a class.</p>
     <p class="Pp"><span class="Li"></span></p>
     <pre>
     tr/abcd//            tr/abcd/abcd/
@@ -2851,38 +2866,93 @@ Here are the quote-like operators that apply to pattern matching and related
     tr/abcd//d           s/[abcd]//g
     tr/abcd/AB/d         (tr/ab/AB/ + s/[cd]//g)  - but run together
     </pre>
+    <p class="Pp">If the <span class="Li">&quot;/c&quot;</span> modifier is
+        specified, the characters to be transliterated are the ones NOT in
+        <i>SEARCHLIST</i>, that is, it is complemented. If
+        <span class="Li">&quot;/d&quot;</span> and/or
+        <span class="Li">&quot;/s&quot;</span> are also specified, they apply to
+        the complemented <i>SEARCHLIST</i>. Recall, that if
+        <i>REPLACEMENTLIST</i> is empty (except under
+        <span class="Li">&quot;/d&quot;</span>) a copy of <i>SEARCHLIST</i> is
+        used instead. That copy is made after complementing under
+        <span class="Li">&quot;/c&quot;</span>. <i>SEARCHLIST</i> is sorted by
+        code point order after complementing, and any <i>REPLACEMENTLIST</i> is
+        applied to that sorted result. This means that under
+        <span class="Li">&quot;/c&quot;</span>, the order of the characters
+        specified in <i>SEARCHLIST</i> is irrelevant. This can lead to different
+        results on EBCDIC systems if <i>REPLACEMENTLIST</i> contains more than
+        one character, hence it is generally non-portable to use
+        <span class="Li">&quot;/c&quot;</span> with such a
+        <i>REPLACEMENTLIST</i>.</p>
+    <p class="Pp">Another way of describing the operation is this: If
+        <span class="Li">&quot;/c&quot;</span> is specified, the
+        <i>SEARCHLIST</i> is sorted by code point order, then complemented. If
+        <i>REPLACEMENTLIST</i> is empty and
+        <span class="Li">&quot;/d&quot;</span> is not specified,
+        <i>REPLACEMENTLIST</i> is replaced by a copy of <i>SEARCHLIST</i> (as
+        modified under <span class="Li">&quot;/c&quot;</span>), and these
+        potentially modified lists are used as the basis for what follows. Any
+        character in the target string that isn't in <i>SEARCHLIST</i> is passed
+        through unchanged. Every other character in the target string is
+        replaced by the character in <i>REPLACEMENTLIST</i> that positionally
+        corresponds to its mate in <i>SEARCHLIST</i>, except that under
+        <span class="Li">&quot;/s&quot;</span>, the 2nd and following characters
+        are squeezed out in a sequence of characters in a row that all translate
+        to the same character. If <i>SEARCHLIST</i> is longer than
+        <i>REPLACEMENTLIST</i>, characters in the target string that match a
+        character in <i>SEARCHLIST</i> that doesn't have a correspondence in
+        <i>REPLACEMENTLIST</i> are either deleted from the target string if
+        <span class="Li">&quot;/d&quot;</span> is specified; or replaced by the
+        final character in <i>REPLACEMENTLIST</i> if
+        <span class="Li">&quot;/d&quot;</span> isn't specified.</p>
     <p class="Pp">Some examples:</p>
     <p class="Pp"><span class="Li"></span></p>
     <pre>
-    $ARGV[1] =~ tr/A-Z/a-z/;    # canonicalize to lower case ASCII
+ $ARGV[1] =~ tr/A-Z/a-z/;   # canonicalize to lower case ASCII
 
-    $cnt = tr/*/*/;             # count the stars in $_
+ $cnt = tr/*/*/;            # count the stars in $_
+ $cnt = tr/*//;             # same thing
 
-    $cnt = $sky =~ tr/*/*/;     # count the stars in $sky
+ $cnt = $sky =~ tr/*/*/;    # count the stars in $sky
+ $cnt = $sky =~ tr/*//;     # same thing
 
-    $cnt = tr/0-9//;            # count the digits in $_
+ $cnt = $sky =~ tr/*//c;    # count all the non-stars in $sky
+ $cnt = $sky =~ tr/*/*/c;   # same, but transliterate each non-star
+                            # into a star, leaving the already-stars
+                            # alone.  Afterwards, everything in $sky
+                            # is a star.
 
-    tr/a-zA-Z//s;               # bookkeeper -&gt; bokeper
+ $cnt = tr/0-9//;           # count the ASCII digits in $_
 
-    ($HOST = $host) =~ tr/a-z/A-Z/;
-     $HOST = $host  =~ tr/a-z/A-Z/r;   # same thing
+ tr/a-zA-Z//s;              # bookkeeper -&gt; bokeper
+ tr/o/o/s;                  # bookkeeper -&gt; bokkeeper
+ tr/oe/oe/s;                # bookkeeper -&gt; bokkeper
+ tr/oe//s;                  # bookkeeper -&gt; bokkeper
+ tr/oe/o/s;                 # bookkeeper -&gt; bokkopor
 
-    $HOST = $host =~ tr/a-z/A-Z/r    # chained with s///r
-                  =~ s/:/ -p/r;
+ ($HOST = $host) =~ tr/a-z/A-Z/;
+  $HOST = $host  =~ tr/a-z/A-Z/r; # same thing
 
-    tr/a-zA-Z/ /cs;             # change non-alphas to single space
+ $HOST = $host =~ tr/a-z/A-Z/r   # chained with s///r
+               =~ s/:/ -p/r;
 
-    @stripped = map tr/a-zA-Z/ /csr, @original;
-                                # /r with map
+ tr/a-zA-Z/ /cs;                 # change non-alphas to single space
 
-    tr [\200-\377]
-       [\000-\177];             # wickedly delete 8th bit
+ @stripped = map tr/a-zA-Z/ /csr, @original;
+                                 # /r with map
+
+ tr [\200-\377]
+    [\000-\177];                 # wickedly delete 8th bit
+
+ $foo !~ tr/A/a/    # transliterate all the A's in $foo to 'a',
+                    # return 0 if any were found and changed.
+                    # Otherwise return 1
     </pre>
     <p class="Pp">If multiple transliterations are given for a character, only
         the first one is used:</p>
     <p class="Pp"><span class="Li"></span></p>
     <pre>
-    tr/AAA/XYZ/
+ tr/AAA/XYZ/
     </pre>
     <p class="Pp">will transliterate any A to X.</p>
     <p class="Pp">Because the transliteration table is built at compile time,
@@ -2892,10 +2962,10 @@ Here are the quote-like operators that apply to pattern matching and related
         <span class="Li">&quot;eval()&quot;</span>:</p>
     <p class="Pp"><span class="Li"></span></p>
     <pre>
-    eval &quot;tr/$oldlist/$newlist/&quot;;
-    die $@ if $@;
+ eval &quot;tr/$oldlist/$newlist/&quot;;
+ die $@ if $@;
 
-    eval &quot;tr/$oldlist/$newlist/, 1&quot; or die $@;
+ eval &quot;tr/$oldlist/$newlist/, 1&quot; or die $@;
     </pre>
   </dd>
   <dt>&quot;&lt;&lt;<i>EOF</i>&quot;</dt>
@@ -2911,10 +2981,9 @@ Here are the quote-like operators that apply to pattern matching and related
         or some quoted text. An unquoted identifier works like double quotes.
         There may not be a space between the
         <span class="Li">&quot;&lt;&lt;&quot;</span> and the identifier, unless
-        the identifier is explicitly quoted. (If you put a space it will be
-        treated as a null identifier, which is valid, and matches the first
-        empty line.) The terminating string must appear by itself (unquoted and
-        with no surrounding whitespace) on the terminating line.</p>
+        the identifier is explicitly quoted. The terminating string must appear
+        by itself (unquoted and with no surrounding whitespace) on the
+        terminating line.</p>
     <p class="Pp">If the terminating string is quoted, the type of quotes used
         determine the treatment of the text.</p>
   </dd>
@@ -3538,7 +3607,8 @@ There are several I/O operators you should know about.
     single quotes do not hide variable names in the command from interpretation.
     To pass a literal dollar-sign through to the shell you need to hide it with
     a backslash. The generalized form of backticks is
-    <span class="Li">&quot;qx//&quot;</span>. (Because backticks always undergo
+    <span class="Li">&quot;qx//&quot;</span>, or you can call the
+    &quot;readpipe&quot; in perlfunc function. (Because backticks always undergo
     shell expansion as well, see perlsec for security concerns.)</p>
 <p class="Pp">In scalar context, evaluating a filehandle in angle brackets
     yields the next line from that file (the newline, if any, included), or

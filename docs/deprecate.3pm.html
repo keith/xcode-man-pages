@@ -59,33 +59,67 @@
 <br/>
 <section class="Sh">
 <h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
-deprecate - Perl pragma for deprecating the core version of a module
+deprecate - Perl pragma for deprecating the inclusion of a module in core
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
 <span class="Li"></span>
 <pre>
-    use deprecate;  # always deprecate the module in which this occurs
-
-    use if $] &gt; 5.010, 'deprecate'; # conditionally deprecate the module
+    use deprecate;  # warn about future absence if loaded from core
 </pre>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
-This module is used using <span class="Li">&quot;use deprecate;&quot;</span> (or
-  something that calls
-  <span class="Li">&quot;deprecate-&gt;import()&quot;</span>, for example
-  <span class="Li">&quot;use if COND, deprecate;&quot;</span>).
-<p class="Pp">If the module that includes <span class="Li">&quot;use
-    deprecate&quot;</span> is located in a core library directory, a deprecation
-    warning is issued, encouraging the user to use the version on CPAN. If that
-    module is located in a site library, it is the CPAN version, and no warning
-    is issued.</p>
+This pragma simplifies the maintenance of dual-life modules that will no longer
+  be included in the Perl core in a future Perl release, but are still included
+  currently.
+<p class="Pp">The purpose of the pragma is to alert users to the status of such
+    a module by issuing a warning that encourages them to install the module
+    from CPAN, so that a future upgrade to a perl which omits the module will
+    not break their code.</p>
+<p class="Pp">This warning will only be issued if the module was loaded from a
+    core library directory, which allows the <span class="Li">&quot;use
+    deprecate&quot;</span> line to be included in the CPAN version of the
+    module. Because the pragma remains silent when the module is run from a
+    non-core library directory, the pragma call does not need to be patched into
+    or out of either the core or CPAN version of the module. The exact same code
+    can be shipped for either purpose.</p>
 <section class="Ss">
-<h2 class="Ss" id="_s-1EXPORT_s0"><a class="permalink" href="#_s-1EXPORT_s0">EXPORT</a></h2>
+<h2 class="Ss" id="Important_Caveat"><a class="permalink" href="#Important_Caveat">Important
+  Caveat</a></h2>
+Note that when a module installs from CPAN to a core library directory rather
+  than the site library directories, the user gains no protection from having
+  installed it.
+<p class="Pp">At the same time, this pragma cannot detect when such a module has
+    installed from CPAN to the core library, and so it would endlessly and
+    uselessly exhort the user to upgrade.</p>
+<p class="Pp">Therefore modules that can install from CPAN to the core library
+    must make sure not to call this pragma when they have done so. Generally
+    this means that the exact logic from the installer must be mirrored inside
+    the module. E.g.:</p>
+<p class="Pp"><span class="Li"></span></p>
+<pre>
+    # Makefile.PL
+    WriteMakefile(
+        # ...
+        INSTALLDIRS =&gt; ( &quot;$]&quot; &gt;= 5.011 ? 'site' : 'perl' ),
+    );
+
+    # lib/Foo/Bar.pm
+    use if &quot;$]&quot; &gt;= 5.011, 'deprecate';
+</pre>
+<p class="Pp">(The above example shows the most important case of this: when the
+    target is a Perl older than 5.12 (where the core library directories take
+    precedence over the site library directories) and the module being installed
+    was included in core in that Perl version. Under those circumstances, an
+    upgrade of the module from CPAN is only possible by installing to the core
+    library.)</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXPORT"><a class="permalink" href="#EXPORT">EXPORT</a></h1>
 None by default. The only method is <span class="Li">&quot;import&quot;</span>,
   called by <span class="Li">&quot;use deprecate;&quot;</span>.
-</section>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE

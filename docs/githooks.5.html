@@ -3,11 +3,11 @@
 <!-- This is an automatically generated file.  Do not edit.
    t
        Title: githooks
-      Author: [FIXME: author] [see http://docbook.sf.net/el/author]
-   Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-        Date: 11/04/2019
+      Author: [FIXME: author] [see http://www.docbook.org/tdg5/en/html/author]
+   Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+        Date: 02/08/2021
       Manual: Git Manual
-      Source: Git 2.24.0
+      Source: Git 2.30.1.378.g1d4f2316c5
     Language: English
    -->
 <head>
@@ -177,7 +177,7 @@ This hook is invoked by <b>git-commit</b>(1) and <b>git-merge</b>(1), and can be
     used to normalize the message into some project standard format. It can also
     be used to refuse the commit after inspecting the message file.</p>
 <p class="Pp">The default <i>commit-msg</i> hook, when enabled, detects
-    duplicate &quot;Signed-off-by&quot; lines, and aborts the commit if one is
+    duplicate <b>Signed-off-by</b> trailers, and aborts the commit if one is
     found.</p>
 </section>
 <section class="Ss">
@@ -203,7 +203,8 @@ This hook is invoked when a <b>git-checkout</b>(1) or <b>git-switch</b>(1) is
   changed), and a flag indicating whether the checkout was a branch checkout
   (changing branches, flag=1) or a file checkout (retrieving a file from the
   index, flag=0). This hook cannot affect the outcome of <b>git switch</b> or
-  <b>git checkout</b>.
+  <b>git checkout</b>, other than that the hook&#x2019;s exit status becomes the
+  exit status of these two commands.
 <p class="Pp">It is also run after <b>git-clone</b>(1), unless the
     <b>--no-checkout</b> (<b>-n</b>) option is used. The first parameter given
     to the hook is the null-ref, the second the ref of the new HEAD and the flag
@@ -333,6 +334,75 @@ This hook is invoked by <b>git-receive-pack</b>(1) when it reacts to <b>git
     false&#x2014;prevents unannotated tags to be pushed.</p>
 </section>
 <section class="Ss">
+<h2 class="Ss" id="proc_-receive"><a class="permalink" href="#proc_-receive">proc-receive</a></h2>
+This hook is invoked by <b>git-receive-pack</b>(1). If the server has set the
+  multi-valued config variable <b>receive.procReceiveRefs</b>, and the commands
+  sent to <i>receive-pack</i> have matching reference names, these commands will
+  be executed by this hook, instead of by the internal <b>execute_commands()</b>
+  function. This hook is responsible for updating the relevant references and
+  reporting the results back to <i>receive-pack</i>.
+<p class="Pp">This hook executes once for the receive operation. It takes no
+    arguments, but uses a pkt-line format protocol to communicate with
+    <i>receive-pack</i> to read commands, push-options and send results. In the
+    following example for the protocol, the letter <i>S</i> stands for
+    <i>receive-pack</i> and the letter <i>H</i> stands for this hook.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+# Version and features negotiation.
+S: PKT-LINE(version=1\0push-options atomic...)
+S: flush-pkt
+H: PKT-LINE(version=1\0push-options...)
+H: flush-pkt
+</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+# Send commands from server to the hook.
+S: PKT-LINE(&lt;old-oid&gt; &lt;new-oid&gt; &lt;ref&gt;)
+S: ... ...
+S: flush-pkt
+# Send push-options only if the 'push-options' feature is enabled.
+S: PKT-LINE(push-option)
+S: ... ...
+S: flush-pkt
+</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+# Receive result from the hook.
+# OK, run this command successfully.
+H: PKT-LINE(ok &lt;ref&gt;)
+# NO, I reject it.
+H: PKT-LINE(ng &lt;ref&gt; &lt;reason&gt;)
+# Fall through, let 'receive-pack' to execute it.
+H: PKT-LINE(ok &lt;ref&gt;)
+H: PKT-LINE(option fall-through)
+# OK, but has an alternate reference.  The alternate reference name
+# and other status can be given in option directives.
+H: PKT-LINE(ok &lt;ref&gt;)
+H: PKT-LINE(option refname &lt;refname&gt;)
+H: PKT-LINE(option old-oid &lt;old-oid&gt;)
+H: PKT-LINE(option new-oid &lt;new-oid&gt;)
+H: PKT-LINE(option forced-update)
+H: ... ...
+H: flush-pkt
+</pre>
+</div>
+<p class="Pp">Each command for the <i>proc-receive</i> hook may point to a
+    pseudo-reference and always has a zero-old as its old-oid, while the
+    <i>proc-receive</i> hook may update an alternate reference and the alternate
+    reference may exist already with a non-zero old-oid. For this case, this
+    hook will use &quot;option&quot; directives to report extended attributes
+    for the reference given by the leading &quot;ok&quot; directive.</p>
+<p class="Pp">The report of the commands of this hook should have the same order
+    as the input. The exit status of the <i>proc-receive</i> hook only
+    determines the success or failure of the group of commands sent to it,
+    unless atomic push is in use.</p>
+</section>
+<section class="Ss">
 <h2 class="Ss" id="post_-receive"><a class="permalink" href="#post_-receive">post-receive</a></h2>
 This hook is invoked by <b>git-receive-pack</b>(1) when it reacts to <b>git
   push</b> and updates reference(s) in its repository. It executes on the remote
@@ -380,6 +450,35 @@ This hook is invoked by <b>git-receive-pack</b>(1) when it reacts to <b>git
 <p class="Pp">Both standard output and standard error output are forwarded to
     <b>git send-pack</b> on the other end, so you can simply <b>echo</b>
     messages for the user.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="reference_-transaction"><a class="permalink" href="#reference_-transaction">reference-transaction</a></h2>
+This hook is invoked by any Git command that performs reference updates. It
+  executes whenever a reference transaction is prepared, committed or aborted
+  and may thus get called multiple times.
+<p class="Pp">The hook takes exactly one argument, which is the current state
+    the given reference transaction is in:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;&quot;prepared&quot;: All reference updates have
+  been queued to the transaction and references were locked on disk.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;&quot;committed&quot;: The reference transaction
+  was committed and all references now have their respective new value.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;&quot;aborted&quot;: The reference transaction
+  was aborted, no changes were performed and the locks have been released.</div>
+<p class="Pp">For each reference update that was added to the transaction, the
+    hook receives on standard input a line of the format:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+&lt;old-value&gt; SP &lt;new-value&gt; SP &lt;ref-name&gt; LF
+</pre>
+</div>
+<p class="Pp">The exit status of the hook is ignored for any state except for
+    the &quot;prepared&quot; state. In the &quot;prepared&quot; state, a
+    non-zero exit status will cause the transaction to be aborted. The hook will
+    not be called with &quot;aborted&quot; state in that case.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="push_-to_-checkout"><a class="permalink" href="#push_-to_-checkout">push-to-checkout</a></h2>
@@ -453,9 +552,15 @@ This hook is invoked by <b>git-send-email</b>(1). It takes a single parameter,
 <section class="Ss">
 <h2 class="Ss" id="fsmonitor_-watchman"><a class="permalink" href="#fsmonitor_-watchman">fsmonitor-watchman</a></h2>
 This hook is invoked when the configuration option <b>core.fsmonitor</b> is set
-  to <b>.git/hooks/fsmonitor-watchman</b>. It takes two arguments, a version
-  (currently 1) and the time in elapsed nanoseconds since midnight, January 1,
-  1970.
+  to <b>.git/hooks/fsmonitor-watchman</b> or
+  <b>.git/hooks/fsmonitor-watchmanv2</b> depending on the version of the hook to
+  use.
+<p class="Pp">Version 1 takes two arguments, a version (1) and the time in
+    elapsed nanoseconds since midnight, January 1, 1970.</p>
+<p class="Pp">Version 2 takes two arguments, a version (2) and a token that is
+    used for identifying changes since the token. For watchman this would be a
+    clock id. This version must output to stdout the new token followed by a NUL
+    before the list of files.</p>
 <p class="Pp">The hook should output to stdout the list of all files in the
     working directory that may have changed since the requested time. The logic
     should be inclusive so that it does not miss any potential changes. The
@@ -474,10 +579,46 @@ This hook is invoked when the configuration option <b>core.fsmonitor</b> is set
     and folders.</p>
 </section>
 <section class="Ss">
+<h2 class="Ss" id="p4_-changelist"><a class="permalink" href="#p4_-changelist">p4-changelist</a></h2>
+This hook is invoked by <b>git-p4 submit</b>.
+<p class="Pp">The <b>p4-changelist</b> hook is executed after the changelist
+    message has been edited by the user. It can be bypassed with the
+    <b>--no-verify</b> option. It takes a single parameter, the name of the file
+    that holds the proposed changelist text. Exiting with a non-zero status
+    causes the command to abort.</p>
+<p class="Pp">The hook is allowed to edit the changelist file and can be used to
+    normalize the text into some project standard format. It can also be used to
+    refuse the Submit after inspect the message file.</p>
+<p class="Pp">Run <b>git-p4 submit --help</b> for details.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="p4_-prepare_-changelist"><a class="permalink" href="#p4_-prepare_-changelist">p4-prepare-changelist</a></h2>
+This hook is invoked by <b>git-p4 submit</b>.
+<p class="Pp">The <b>p4-prepare-changelist</b> hook is executed right after
+    preparing the default changelist message and before the editor is started.
+    It takes one parameter, the name of the file that contains the changelist
+    text. Exiting with a non-zero status from the script will abort the
+  process.</p>
+<p class="Pp">The purpose of the hook is to edit the message file in place, and
+    it is not suppressed by the <b>--no-verify</b> option. This hook is called
+    even if <b>--prepare-p4-only</b> is set.</p>
+<p class="Pp">Run <b>git-p4 submit --help</b> for details.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="p4_-post_-changelist"><a class="permalink" href="#p4_-post_-changelist">p4-post-changelist</a></h2>
+This hook is invoked by <b>git-p4 submit</b>.
+<p class="Pp">The <b>p4-post-changelist</b> hook is invoked after the submit has
+    successfully occurred in P4. It takes no parameters and is meant primarily
+    for notification and cannot affect the outcome of the git p4 submit
+  action.</p>
+<p class="Pp">Run <b>git-p4 submit --help</b> for details.</p>
+</section>
+<section class="Ss">
 <h2 class="Ss" id="p4_-pre_-submit"><a class="permalink" href="#p4_-pre_-submit">p4-pre-submit</a></h2>
 This hook is invoked by <b>git-p4 submit</b>. It takes no parameters and nothing
   from standard input. Exiting with non-zero status from this script prevent
-  <b>git-p4 submit</b> from launching. Run <b>git-p4 submit --help</b> for
+  <b>git-p4 submit</b> from launching. It can be bypassed with the
+  <b>--no-verify</b> command line option. Run <b>git-p4 submit --help</b> for
   details.
 </section>
 <section class="Ss">

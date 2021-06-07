@@ -5,7 +5,7 @@
   
    SPDX-License-Identifier: ISC
   
-   Copyright (c) 1994-1996, 1998-2005, 2007-2019
+   Copyright (c) 1994-1996, 1998-2005, 2007-2021
   	Todd C. Miller <Todd.Miller@sudo.ws>
   
    Permission to use, copy, modify, and distribute this software for any
@@ -88,6 +88,7 @@ The <b>sudoers</b> policy plugin determines a user's <b>sudo</b> privileges. It
 </pre>
 <div class="Bd-indent">
 <pre>
+Plugin sudoers_audit sudoers.so
 Plugin sudoers_policy sudoers.so
 Plugin sudoers_io sudoers.so
 </pre>
@@ -96,21 +97,33 @@ Plugin sudoers_io sudoers.so
 </pre>
 <p class="Pp">Starting with <b>sudo</b> 1.8.5, it is possible to specify
     optional arguments to the <b>sudoers</b> plugin in the sudo.conf(5) file.
-    These arguments, if present, should be listed after the path to the plugin
-    (i.e., after <i>sudoers.so</i>). Multiple arguments may be specified,
-    separated by white space. For example:</p>
+    Plugin arguments, if any, should be listed after the path to the plugin
+    (i.e., after <i>sudoers.so</i>). The arguments are only effective for the
+    plugin that opens (and parses) the <i>sudoers</i> file.</p>
+<p class="Pp">For <b>sudo</b> version 1.9.1 and higher, this is the
+    <i>sudoers_audit</i> plugin. For older versions, it is the
+    <i>sudoers_policy</i> plugin. Multiple arguments may be specified, separated
+    by white space. For example:</p>
 <pre>
 
 </pre>
 <div class="Bd-indent">
 <pre>
-Plugin sudoers_policy sudoers.so sudoers_mode=0400
+Plugin sudoers_audit sudoers.so sudoers_mode=0400 error_recovery=false
 </pre>
 </div>
 <pre>
 </pre>
 <p class="Pp">The following plugin arguments are supported:</p>
 <dl class="Bl-tag">
+  <dt>error_recovery=bool</dt>
+  <dd>The <i>error_recovery</i> argument can be used to control whether
+      <b>sudoers</b> should attempt to recover from syntax errors in the
+      <i>sudoers</i> file. If set to <i>true</i> (the default), <b>sudoers</b>
+      will try to recover from a syntax error by discarding the portion of the
+      line that contains the error until the end of the line. A value of
+      <i>false</i> will disable error recovery. Prior to version 1.9.3, no error
+      recovery was performed.</dd>
   <dt>ldap_conf=pathname</dt>
   <dd>The <i>ldap_conf</i> argument can be used to override the default path to
       the <i>ldap.conf</i> file.</dd>
@@ -189,6 +202,10 @@ By default, <b>sudoers</b> logs both successful and unsuccessful attempts (as
     the <i>log_input</i> and <i>log_output</i> options as well as the LOG_INPUT
     and LOG_OUTPUT command tags. See <i>I/O LOG FILES</i> for details on how I/O
     log files are stored.</p>
+<p class="Pp">Starting with version 1.9, the <i>log_servers</i> setting may be
+    used to send event and I/O log data to a remote server running
+    <b>sudo_logsrvd</b> or another service that implements the protocol
+    described by sudo_logsrv.proto(5).</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="Command_environment"><a class="permalink" href="#Command_environment">Command
@@ -205,14 +222,13 @@ Since environment variables can influence program behavior, <b>sudoers</b>
     SUDO_* variables are set based on the invoking user. Additional variables,
     such as DISPLAY, PATH and TERM, are preserved from the invoking user's
     environment if permitted by the <i>env_check</i> or <i>env_keep</i> options.
-    This is effectively a whitelist for environment variables. A few environment
-    variables are treated specially. If the PATH and TERM variables are not
-    preserved from the user's environment, they will be set to default values.
-    The LOGNAME and USER are handled as a single entity. If one of them is
-    preserved (or removed) from the user's environment, the other will be as
-    well. If LOGNAME and USER are to be preserved but only one of them is
-    present in the user's environment, the other will be set to the same value.
-    This avoids an inconsistent environment where one of the variables
+    A few environment variables are treated specially. If the PATH and TERM
+    variables are not preserved from the user's environment, they will be set to
+    default values. The LOGNAME and USER are handled as a single entity. If one
+    of them is preserved (or removed) from the user's environment, the other
+    will be as well. If LOGNAME and USER are to be preserved but only one of
+    them is present in the user's environment, the other will be set to the same
+    value. This avoids an inconsistent environment where one of the variables
     describing the user name is set to the invoking user and one is set to the
     target user. Environment variables with a value beginning with () are
     removed unless both the name and value parts are matched by <i>env_keep</i>
@@ -221,13 +237,12 @@ Since environment variables can influence program behavior, <b>sudoers</b>
     removed.</p>
 <p class="Pp">If, however, the <i>env_reset</i> flag is disabled, any variables
     not explicitly denied by the <i>env_check</i> and <i>env_delete</i> options
-    are inherited from the invoking process. In this case, <i>env_check</i> and
-    <i>env_delete</i> behave like a blacklist. Prior to version 1.8.21,
-    environment variables with a value beginning with () were always removed.
-    Beginning with version 1.8.21, a pattern in <i>env_delete</i> is used to
-    match <b>bash</b> shell functions instead. Since it is not possible to
-    blacklist all potentially dangerous environment variables, use of the
-    default <i>env_reset</i> behavior is encouraged.</p>
+    are allowed and their values are inherited from the invoking process. Prior
+    to version 1.8.21, environment variables with a value beginning with () were
+    always removed. Beginning with version 1.8.21, a pattern in
+    <i>env_delete</i> is used to match <b>bash</b> shell functions instead.
+    Since it is not possible to block all potentially dangerous environment
+    variables, use of the default <i>env_reset</i> behavior is encouraged.</p>
 <p class="Pp">Environment variables specified by <i>env_check</i>,
     <i>env_delete</i>, or <i>env_keep</i> may include one or more
     &#x2018;*&#x2019; characters which will match zero or more characters. No
@@ -330,7 +345,8 @@ EBNF is a concise and exact way of describing the grammar of a language. Each
 <section class="Ss">
 <h2 class="Ss" id="Aliases"><a class="permalink" href="#Aliases">Aliases</a></h2>
 There are four kinds of aliases: User_Alias, Runas_Alias, Host_Alias and
-  Cmnd_Alias.
+  Cmnd_Alias. Beginning with <b>sudo</b> 1.9.0, Cmd_Alias may be used in place
+  of Cmnd_Alias if desired.
 <pre>
 
 </pre>
@@ -339,7 +355,8 @@ There are four kinds of aliases: User_Alias, Runas_Alias, Host_Alias and
 Alias ::= 'User_Alias'  User_Alias_Spec (':' User_Alias_Spec)* |
           'Runas_Alias' Runas_Alias_Spec (':' Runas_Alias_Spec)* |
           'Host_Alias'  Host_Alias_Spec (':' Host_Alias_Spec)* |
-          'Cmnd_Alias'  Cmnd_Alias_Spec (':' Cmnd_Alias_Spec)*
+          'Cmnd_Alias'  Cmnd_Alias_Spec (':' Cmnd_Alias_Spec)* |
+          'Cmd_Alias'   Cmnd_Alias_Spec (':' Cmnd_Alias_Spec)*
 User_Alias ::= NAME
 User_Alias_Spec ::= User_Alias '=' User_List
 Runas_Alias ::= NAME
@@ -508,14 +525,17 @@ Digest_Spec ::= &quot;sha224&quot; ':' digest |
 		&quot;sha256&quot; ':' digest |
 		&quot;sha384&quot; ':' digest |
 		&quot;sha512&quot; ':' digest
+Digest_List ::= Digest_Spec |
+                Digest_Spec ',' Digest_List
 Cmnd_List ::= Cmnd |
               Cmnd ',' Cmnd_List
 command name ::= file name |
                  file name args |
                  file name '&quot;&quot;'
-Cmnd ::= Digest_Spec? '!'* command name |
+Edit_Spec ::= &quot;sudoedit&quot; file name+
+Cmnd ::= Digest_List? '!'* command name |
          '!'* directory |
-         '!'* &quot;sudoedit&quot; |
+         '!'* Edit_Spec |
          '!'* Cmnd_Alias
 </pre>
 </div>
@@ -545,13 +565,16 @@ Cmnd ::= Digest_Spec? '!'* command name |
     present, for example <i>/usr/bin/sudoedit</i>, the path name will be
     silently converted to &#x201C;sudoedit&#x201D;. A fully-qualified path for
     <b>sudoedit</b> is treated as an error by <b>visudo</b>.</p>
-<p class="Pp">If a command name is prefixed with a Digest_Spec, the command will
-    only match successfully if it can be verified using the specified SHA-2
-    digest. The following digest formats are supported: sha224, sha256, sha384
-    and sha512. The string may be specified in either hex or base64 format
-    (base64 is more compact). There are several utilities capable of generating
-    SHA-2 digests in hex format such as openssl, shasum, sha224sum, sha256sum,
-    sha384sum, sha512sum.</p>
+<p class="Pp">A command name may be preceded by a Digest_List, a comma-separated
+    list of one or more Digest_Spec entries. If a Digest_List is present, the
+    command will only match successfully if it can be verified using one of the
+    SHA-2 digests in the list. Starting with version 1.9.0, the <b>ALL</b>
+    reserved word can be used in conjunction with a Digest_List. The following
+    digest formats are supported: sha224, sha256, sha384 and sha512. The string
+    may be specified in either hex or base64 format (base64 is more compact).
+    There are several utilities capable of generating SHA-2 digests in hex
+    format such as openssl, shasum, sha224sum, sha256sum, sha384sum,
+  sha512sum.</p>
 <p class="Pp">For example, using openssl:</p>
 <pre>
 
@@ -649,6 +672,8 @@ Runas_Spec ::= '(' Runas_List? (':' Runas_List)? ')'
 Option_Spec ::= (Date_Spec | Timeout_Spec)
 Date_Spec ::= ('NOTBEFORE=timestamp' | 'NOTAFTER=timestamp')
 Timeout_Spec ::= 'TIMEOUT=timeout'
+Chdir_Spec ::= 'CWD=directory'
+Chroot_Spec ::= 'CHROOT=directory'
 Tag_Spec ::= ('EXEC:' | 'NOEXEC:' | 'FOLLOW:' | 'NOFOLLOW' |
               'LOG_INPUT:' | 'NOLOG_INPUT:' | 'LOG_OUTPUT:' |
               'NOLOG_OUTPUT:' | 'MAIL:' | 'NOMAIL:' | 'PASSWD:' |
@@ -796,7 +821,9 @@ alan	ALL = (root, bin : operator, system) ALL
 A Cmnd may have zero or more options associated with it. Options may consist of
   start and/or end dates and command timeouts. Once an option is set for a Cmnd,
   subsequent Cmnds in the Cmnd_Spec_List, inherit that option unless it is
-  overridden by another option.
+  overridden by another option. Note that the option names are reserved words in
+  <i>sudoers</i>. This means that none of the valid option names (see below) can
+  be used when declaring an alias.
 </section>
 <section class="Ss">
 <h2 class="Ss" id="Date_Spec"><a class="permalink" href="#Date_Spec">Date_Spec</a></h2>
@@ -840,6 +867,34 @@ A command may have a timeout associated with it. If the timeout expires before
     14d, 8h30m, 600s, 3600. The following are <i>invalid</i> timeout values:
     12m2w1d, 30s10m4h, 1d2d3h.</p>
 <p class="Pp">This setting is only supported by version 1.8.20 or higher.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Chdir_Spec"><a class="permalink" href="#Chdir_Spec">Chdir_Spec</a></h2>
+The working directory that the command will be run in can be specified using the
+  CWD setting. The <i>directory</i> must be a fully-qualified path name
+  beginning with a &#x2018;/&#x2019; or &#x2018;~&#x2019; character, or the
+  special value &#x201C;*&#x201D;. A value of &#x201C;*&#x201D; indicates that
+  the user may specify the working directory by running <b>sudo</b> with the
+  <b>-D</b> option. By default, commands are run from the invoking user's
+  current working directory, unless the <b>-i</b> option is given. Path names of
+  the form ~user/path/name are interpreted as being relative to the named user's
+  home directory. If the user name is omitted, the path will be relative to the
+  runas user's home directory.
+<p class="Pp">This setting is only supported by version 1.9.3 or higher.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Chroot_Spec"><a class="permalink" href="#Chroot_Spec">Chroot_Spec</a></h2>
+The root directory that the command will be run in can be specified using the
+  CHROOT setting. The <i>directory</i> must be a fully-qualified path name
+  beginning with a &#x2018;/&#x2019; or &#x2018;~&#x2019; character, or the
+  special value &#x201C;*&#x201D;. A value of &#x201C;*&#x201D; indicates that
+  the user may specify the root directory by running <b>sudo</b> with the
+  <b>-R</b> option. This setting can be used to run the command in a chroot(2)
+  &#x201C;sandbox&#x201D; similar to the chroot(8) utility. Path names of the
+  form ~user/path/name are interpreted as being relative to the named user's
+  home directory. If the user name is omitted, the path will be relative to the
+  runas user's home directory.
+<p class="Pp">This setting is only supported by version 1.9.3 or higher.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="Tag_Spec"><a class="permalink" href="#Tag_Spec">Tag_Spec</a></h2>
@@ -1082,20 +1137,22 @@ The following exceptions apply to the above rules:
 <h2 class="Ss" id="Including_other_files_from_within_sudoers"><a class="permalink" href="#Including_other_files_from_within_sudoers">Including
   other files from within sudoers</a></h2>
 It is possible to include other <i>sudoers</i> files from within the
-  <i>sudoers</i> file currently being parsed using the #include and #includedir
-  directives.
-<p class="Pp">This can be used, for example, to keep a site-wide <i>sudoers</i>
-    file in addition to a local, per-machine file. For the sake of this example
-    the site-wide <i>sudoers</i> file will be <i>/etc/sudoers</i> and the
-    per-machine one will be <i>/etc/sudoers.local</i>. To include
-    <i>/etc/sudoers.local</i> from within <i>/etc/sudoers</i> we would use the
-    following line in <i>/etc/sudoers</i>:</p>
+  <i>sudoers</i> file currently being parsed using the @include and @includedir
+  directives. For compatibility with sudo versions prior to 1.9.1, #include and
+  #includedir are also accepted.
+<p class="Pp">An include file can be used, for example, to keep a site-wide
+    <i>sudoers</i> file in addition to a local, per-machine file. For the sake
+    of this example the site-wide <i>sudoers</i> file will be
+    <i>/etc/sudoers</i> and the per-machine one will be
+    <i>/etc/sudoers.local</i>. To include <i>/etc/sudoers.local</i> from within
+    <i>/etc/sudoers</i> one would use the following line in
+  <i>/etc/sudoers</i>:</p>
 <pre>
 
 </pre>
 <div class="Bd-indent">
 <pre>
-#include /etc/sudoers.local
+@include /etc/sudoers.local
 </pre>
 </div>
 <pre>
@@ -1107,6 +1164,11 @@ It is possible to include other <i>sudoers</i> files from within the
     processed. Files that are included may themselves include other files. A
     hard limit of 128 nested include files is enforced to prevent include file
     loops.</p>
+<p class="Pp">The path to the include file may contain white space if it is
+    escaped with a backslash (&#x2018;\&#x2019;). Alternately, the entire path
+    may be enclosed in double quotes (&quot;&quot;), in which case no escaping
+    is necessary. To include a literal backslash in the path, &#x2018;\\&#x2019;
+    should be used.</p>
 <p class="Pp">If the path to the include file is not fully-qualified (does not
     begin with a &#x2018;/&#x2019;), it must be located in the same directory as
     the sudoers file it was included from. For example, if <i>/etc/sudoers</i>
@@ -1116,7 +1178,7 @@ It is possible to include other <i>sudoers</i> files from within the
 </pre>
 <div class="Bd-indent">
 <pre>
-#include sudoers.local
+@include sudoers.local
 </pre>
 </div>
 <pre>
@@ -1130,14 +1192,14 @@ It is possible to include other <i>sudoers</i> files from within the
 </pre>
 <div class="Bd-indent">
 <pre>
-#include /etc/sudoers.%h
+@include /etc/sudoers.%h
 </pre>
 </div>
 <pre>
 </pre>
 <p class="Pp">will cause <b>sudo</b> to include the file
     <i>/etc/sudoers.xerxes</i>.</p>
-<p class="Pp">The #includedir directive can be used to create a <i>sudoers.d</i>
+<p class="Pp">The @includedir directive can be used to create a <i>sudoers.d</i>
     directory that the system package manager can drop <i>sudoers</i> file rules
     into as part of package installation. For example, given:</p>
 <pre>
@@ -1145,7 +1207,7 @@ It is possible to include other <i>sudoers</i> files from within the
 </pre>
 <div class="Bd-indent">
 <pre>
-#includedir /etc/sudoers.d
+@includedir /etc/sudoers.d
 </pre>
 </div>
 <pre>
@@ -1160,9 +1222,9 @@ It is possible to include other <i>sudoers</i> files from within the
     loaded <i>after</i> <i>/etc/sudoers.d/10_second</i>. Using a consistent
     number of leading zeroes in the file names can be used to avoid such
     problems. After parsing the files in the directory, control returns to the
-    file that contained the #includedir directive.</p>
-<p class="Pp">Note that unlike files included via #include, <b>visudo</b> will
-    not edit the files in a #includedir directory unless one of them contains a
+    file that contained the @includedir directive.</p>
+<p class="Pp">Note that unlike files included via @include, <b>visudo</b> will
+    not edit the files in a @includedir directory unless one of them contains a
     syntax error. It is still possible to run <b>visudo</b> with the <b>-f</b>
     flag to edit the files directly, but this will not catch the redefinition of
     an <i>alias</i> that is also present in a different file.</p>
@@ -1177,11 +1239,15 @@ The pound sign (&#x2018;#&#x2019;) is used to indicate a comment (unless it is
   the line, are ignored.
 <p class="Pp">The reserved word <b>ALL</b> is a built-in <i>alias</i> that
     always causes a match to succeed. It can be used wherever one might
-    otherwise use a Cmnd_Alias, User_Alias, Runas_Alias, or Host_Alias. You
-    should not try to define your own <i>alias</i> called <b>ALL</b> as the
-    built-in alias will be used in preference to your own. Please note that
-    using <b>ALL</b> can be dangerous since in a command context, it allows the
-    user to run <i>any</i> command on the system.</p>
+    otherwise use a Cmnd_Alias, User_Alias, Runas_Alias, or Host_Alias.
+    Attempting to define an <i>alias</i> named <b>ALL</b> will result in a
+    syntax error. Please note that using <b>ALL</b> can be dangerous since in a
+    command context, it allows the user to run <i>any</i> command on the
+  system.</p>
+<p class="Pp">The following option names permitted in an Option_Spec are also
+    considered reserved words: CHROOT, TIMEOUT, CWD, NOTBEFORE and NOTAFTER.
+    Attempting to define an <i>alias</i> with the same name as one of the
+    options will result in a syntax error.</p>
 <p class="Pp">An exclamation point (&#x2018;!&#x2019;) can be used as a logical
     <i>not</i> operator in a list or <i>alias</i> as well as in front of a Cmnd.
     This allows one to exclude certain values. For the &#x2018;!&#x2019;
@@ -1390,9 +1456,9 @@ ALL,!root
       itself is not modified. This flag is <i>off</i> by default.</dd>
   <dt>ignore_iolog_errors</dt>
   <dd>Allow commands to be run even if <b>sudoers</b> cannot write to the I/O
-      log. If enabled, an I/O log write failure is not treated as a fatal error.
-      If disabled, the command will be terminated if the I/O log cannot be
-      written to. This flag is <i>off</i> by default.</dd>
+      log (local or remote). If enabled, an I/O log write failure is not treated
+      as a fatal error. If disabled, the command will be terminated if the I/O
+      log cannot be written to. This flag is <i>off</i> by default.</dd>
   <dt>ignore_logfile_errors</dt>
   <dd>Allow commands to be run even if <b>sudoers</b> cannot write to the log
       file. If enabled, a log file write failure is not treated as a fatal
@@ -1450,6 +1516,25 @@ ALL,!root
       output that is sent to the screen, similar to the script(1) command. For
       more information about I/O logging, see the <i>I/O LOG FILES</i> section.
       This flag is <i>off</i> by default.</dd>
+  <dt>log_server_keepalive</dt>
+  <dd>If set, <b>sudo</b> will enable the TCP keepalive socket option on the
+      connection to the log server. This enables the periodic transmission of
+      keepalive messages to the server. If the server does not respond to a
+      message, the connection will be closed and the running command will be
+      terminated unless the <i>ignore_iolog_errors</i> flag (I/O logging
+      enabled) or the <i>ignore_log_errors</i> flag (I/O logging disabled) is
+      set. This flag is <i>on</i> by default.
+    <p class="Pp">This setting is only supported by version 1.9.0 or higher.</p>
+  </dd>
+  <dt>log_server_verify</dt>
+  <dd>
+    <br/>
+    If set, the server certificate received during the TLS handshake must be
+      valid and it must contain either the server name (from <i>log_servers</i>)
+      or its IP address. If either of these conditions is not met, the TLS
+      handshake will fail. This flag is <i>on</i> by default.
+    <p class="Pp">This setting is only supported by version 1.9.0 or higher.</p>
+  </dd>
   <dt>log_year</dt>
   <dd>If set, the four-digit year will be logged in the (non-syslog) <b>sudo</b>
       log file. This flag is <i>off</i> by default.</dd>
@@ -1539,6 +1624,24 @@ ALL,!root
     <p class="Pp">This setting is only supported by version 1.8.28 or
       higher.</p>
   </dd>
+  <dt>pam_rhost</dt>
+  <dd>On systems that use PAM for authentication, <b>sudo</b> will set the PAM
+      remote host value to the name of the local host when the <i>pam_rhost</i>
+      flag is enabled. On Linux systems, enabling <i>pam_rhost</i> may result in
+      DNS lookups of the local host name when PAM is initialized. On Solaris
+      versions prior to Solaris 8, <i>pam_rhost</i> must be enabled if
+      <i>pam_ruser</i> is also enabled to avoid a crash in the Solaris PAM
+      implementation.
+    <p class="Pp">This flag is <i>off</i> by default on systems other than
+        Solaris.</p>
+    <p class="Pp">This setting is only supported by version 1.9.0 or higher.</p>
+  </dd>
+  <dt>pam_ruser</dt>
+  <dd>On systems that use PAM for authentication, <b>sudo</b> will set the PAM
+      remote user value to the name of the user that invoked sudo when the
+      <i>pam_ruser</i> flag is enabled. This flag is <i>on</i> by default.
+    <p class="Pp">This setting is only supported by version 1.9.0 or higher.</p>
+  </dd>
   <dt>pam_session</dt>
   <dd>On systems that use PAM for authentication, <b>sudo</b> will create a new
       PAM session for the command to be run in. Unless <b>sudo</b> is given the
@@ -1549,9 +1652,10 @@ ALL,!root
       operating systems where opening a PAM session changes the utmp or wtmp
       files. If PAM session support is disabled, resource limits may not be
       updated for the command being run. If <i>pam_session</i>,
-      <i>pam_setcred</i>, and <i>use_pty</i> are disabled and I/O logging has
-      not been configured, <b>sudo</b> will execute the command directly instead
-      of running it as a child process. This flag is <i>on</i> by default.
+      <i>pam_setcred</i>, and <i>use_pty</i> are disabled, <i>log_servers</i>
+      has not been set and I/O logging has not been configured, <b>sudo</b> will
+      execute the command directly instead of running it as a child process.
+      This flag is <i>on</i> by default.
     <p class="Pp">This setting is only supported by version 1.8.7 or higher.</p>
   </dd>
   <dt>pam_setcred</dt>
@@ -1559,9 +1663,10 @@ ALL,!root
       establish credentials for the target user by default, if supported by the
       underlying authentication system. One example of a credential is a
       Kerberos ticket. If <i>pam_session</i>, <i>pam_setcred</i>, and
-      <i>use_pty</i> are disabled and I/O logging has not been configured,
-      <b>sudo</b> will execute the command directly instead of running it as a
-      child process. This flag is <i>on</i> by default.
+      <i>use_pty</i> are disabled, <i>log_servers</i> has not been set and I/O
+      logging has not been configured, <b>sudo</b> will execute the command
+      directly instead of running it as a child process. This flag is <i>on</i>
+      by default.
     <p class="Pp">This setting is only supported by version 1.8.8 or higher.</p>
   </dd>
   <dt>passprompt_override</dt>
@@ -1792,6 +1897,12 @@ ALL,!root
     <p class="Pp">This setting is only supported by version 1.8.20 or
       higher.</p>
   </dd>
+  <dt>log_server_timeout</dt>
+  <dd>The maximum amount of time to wait when connecting to a log server or
+      waiting for a server response. See the Timeout_Spec section for a
+      description of the timeout syntax. The default value is 30 seconds.
+    <p class="Pp">This setting is only supported by version 1.9.0 or higher.</p>
+  </dd>
   <dt>maxseq</dt>
   <dd>The maximum sequence number that will be substituted for the
       &#x201C;%{seq}&#x201D; escape in the I/O log file (see the
@@ -1983,6 +2094,26 @@ ALL,!root
       this directory so that <b>sudo</b> will not lecture the user again. This
       directory should <i>not</i> be cleared when the system reboots. The
       default is <i>/var/db/sudo/lectured</i>.</dd>
+  <dt>log_server_cabundle</dt>
+  <dd>The path to a certificate authority bundle file, in PEM format, to use
+      instead of the system's default certificate authority database when
+      authenticating the log server. The default is to use the system's default
+      certificate authority database. This setting has no effect unless
+      <i>log_servers</i> is set and the remote log server is secured with TLS.
+    <p class="Pp">This setting is only supported by version 1.9.0 or higher.</p>
+  </dd>
+  <dt>log_server_peer_cert</dt>
+  <dd>The path to the client's certificate file, in PEM format. This setting is
+      required when <i>log_servers</i> is set and the remote log server is
+      secured with TLS.
+    <p class="Pp">This setting is only supported by version 1.9.0 or higher.</p>
+  </dd>
+  <dt>log_server_peer_key</dt>
+  <dd>The path to the client's private key file, in PEM format. This setting is
+      required when <i>log_servers</i> is set and the remote log server is
+      secured with TLS.
+    <p class="Pp">This setting is only supported by version 1.9.0 or higher.</p>
+  </dd>
   <dt>mailsub</dt>
   <dd>Subject of the mail sent to the <i>mailto</i> user. The escape %h will
       expand to the host name of the machine. Default is &#x201C;*** SECURITY
@@ -2152,6 +2283,34 @@ ALL,!root
         <b>sudo</b> <b>-e</b>) to get their accustomed editor configuration
         instead of invoking the editor directly.</p>
   </dd>
+  <dt>log_servers</dt>
+  <dd>A list of one or more servers to use for remote event and I/O log storage,
+      separated by white space. Log servers must be running <b>sudo_logsrvd</b>
+      or another service that implements the protocol described by
+      sudo_logsrv.proto(5).
+    <p class="Pp">Server addresses should be of the form
+        &#x201C;host[:port][(tls)]&#x201D;. The host portion may be a host name,
+        an IPv4 address, or an IPv6 address in square brackets.</p>
+    <p class="Pp">If the optional <i>tls</i> flag is present, the connection
+        will be secured with Transport Layer Security (TLS) version 1.2 or 1.3.
+        Versions of TLS prior to 1.2 are not supported.</p>
+    <p class="Pp">If a port is specified, it may either be a port number or a
+        well-known service name as defined by the system service name database.
+        If no port is specified, port 30343 will be used for plaintext
+        connections and port 30344 will be used for TLS connections.</p>
+    <p class="Pp">When <i>log_servers</i> is set, event log data will be logged
+        both locally (see the <i>syslog</i> and <i>log_file</i> settings) as
+        well as remotely, but I/O log data will only be logged remotely. If
+        multiple hosts are specified, they will be attempted in reverse order.
+        If no log servers are available, the user will not be able to run a
+        command unless either the <i>ignore_iolog_errors</i> flag (I/O logging
+        enabled) or the <i>ignore_log_errors</i> flag (I/O logging disabled) is
+        set. Likewise, if the connection to the log server is interrupted while
+        <b>sudo</b> is running, the command will be terminated unless the
+        <i>ignore_iolog_errors</i> flag (I/O logging enabled) or the
+        <i>ignore_log_errors</i> flag (I/O logging disabled) is set.</p>
+    <p class="Pp">This setting is only supported by version 1.9.0 or higher.</p>
+  </dd>
 </dl>
 </section>
 <section class="Sh">
@@ -2211,8 +2370,10 @@ Defaults group_plugin=system_group.so
 <section class="Sh">
 <h1 class="Sh" id="LOG_FORMAT"><a class="permalink" href="#LOG_FORMAT">LOG
   FORMAT</a></h1>
-<b>sudoers</b> can log events using either syslog(3) or a simple log file. The
-  log format is almost identical in both cases.
+<b>sudoers</b> can log events in either JSON or <i>sudo</i> format, this section
+  describes the <i>sudo</i> log format. Depending on <i>sudoers</i>
+  configuration, <b>sudoers</b> can log events via syslog(3), to a local log
+  file, or both. The log format is almost identical in both cases.
 <section class="Ss">
 <h2 class="Ss" id="Accepted_command_log_entries"><a class="permalink" href="#Accepted_command_log_entries">Accepted
   command log entries</a></h2>
@@ -2401,13 +2562,16 @@ If the <i>logfile</i> option is set, <b>sudoers</b> will log to a local file,
   LOG FILES</a></h1>
 When I/O logging is enabled, <b>sudo</b> will run the command in a
   pseudo-terminal and log all user input and/or output, depending on which
-  options are enabled. I/O is logged to the directory specified by the
-  <i>iolog_dir</i> option (<i>/var/log/sudo-io</i> by default) using a unique
-  session ID that is included in the <b>sudo</b> log line, prefixed with
+  options are enabled. I/O can be logged either to the local machine or to a
+  remote log server. For local logs, I/O is logged to the directory specified by
+  the <i>iolog_dir</i> option (<i>/var/log/sudo-io</i> by default) using a
+  unique session ID that is included in the <b>sudo</b> log line, prefixed with
   &#x201C;TSID=&#x201D;. The <i>iolog_file</i> option may be used to control the
-  format of the session ID.
-<p class="Pp">Each I/O log is stored in a separate directory that contains the
-    following files:</p>
+  format of the session ID. For remote logs, the <i>log_servers</i> setting is
+  used to specify one or more log servers running <b>sudo_logsrvd</b> or another
+  server that implements the protocol described by sudo_logsrv.proto(5).
+<p class="Pp">For both local and remote I/O logs, each log is stored in a
+    separate directory that contains the following files:</p>
 <dl class="Bl-tag">
   <dt><i>log</i></dt>
   <dd>A text file containing information about the command. The first line
@@ -2418,6 +2582,61 @@ When I/O logging is enabled, <b>sudo</b> will run the command in a
       terminal. The second and third lines contain the working directory the
       command was run from and the path name of the command itself (with
       arguments if present).</dd>
+  <dt><i>log.json</i></dt>
+  <dd>A JSON-formatted file containing information about the command. This is
+      similar to the <i>log</i> file but contains additional information and is
+      easily extensible. The <i>log.json</i> file will be used by sudoreplay(8)
+      in preference to the <i>log</i> file if it exists. The file may contain
+      the following elements:</dd>
+</dl>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>timestamp</dt>
+  <dd>
+    <br/>
+    A JSON object containing time the command was run. It consists of two
+      values, <i>seconds</i> and <i>nanoseconds</i>.</dd>
+  <dt>columns</dt>
+  <dd>The number of columns of the terminal the command ran on, or zero if no
+      terminal was present.</dd>
+  <dt>command</dt>
+  <dd>The fully-qualified path of the command that was run.</dd>
+  <dt>lines</dt>
+  <dd>The number of lines of the terminal the command ran on, or zero if no
+      terminal was present.</dd>
+  <dt>runargv</dt>
+  <dd>A JSON array representing the command's argument vector as passed to the
+      execve(2) system call.</dd>
+  <dt>runenv</dt>
+  <dd>A JSON array representing the command's environment as passed to the
+      execve(2) system call.</dd>
+  <dt>rungid</dt>
+  <dd>The group ID the command ran as. This element is only present when the
+      user specifies a group on the command line.</dd>
+  <dt>rungroup</dt>
+  <dd>The name of the group the command ran as. This element is only present
+      when the user specifies a group on the command line.</dd>
+  <dt>runuid</dt>
+  <dd>The user ID the command ran as.</dd>
+  <dt>runuser</dt>
+  <dd>The name of the user the command ran as.</dd>
+  <dt>submitcwd</dt>
+  <dd>
+    <br/>
+    The current working directory at the time <b>sudo</b> was run.</dd>
+  <dt>submithost</dt>
+  <dd>The name of the host the command was run on.</dd>
+  <dt>submituser</dt>
+  <dd>The name of the user who ran the command via <b>sudo</b>.</dd>
+  <dt>ttyname</dt>
+  <dd>The path name of the terminal the user invoked <b>sudo</b> from. If the
+      command was run in a pseudo-terminal, <i>ttyname</i> will be different
+      from the terminal the command actually ran in.</dd>
+</dl>
+</div>
+<p class="Pp"></p>
+<dl class="Bl-tag">
   <dt><i>timing</i></dt>
   <dd>Timing information used to replay the session. Each line consists of the
       I/O log entry type and amount of time since the last entry, followed by
@@ -2527,7 +2746,7 @@ Defaults env_keep += &quot;DISPLAY HOME&quot;
 # User alias specification
 User_Alias	FULLTIMERS = millert, mikef, dowdy
 User_Alias	PARTTIMERS = bostley, jwfox, crawl
-User_Alias	WEBMASTERS = will, wendy, wim
+User_Alias	WEBADMIN = will, wendy, wim
 # Runas alias specification
 Runas_Alias	OP = root, operator
 Runas_Alias	DB = oracle, sybase
@@ -2539,7 +2758,7 @@ Host_Alias	SPARC = bigtime, eclipse, moet, anchor :\
 		HPPA = boa, nag, python
 Host_Alias	CUNETS = 128.138.0.0/255.255.0.0
 Host_Alias	CSNETS = 128.138.243.0, 128.138.204.0/24, 128.138.242.0
-Host_Alias	SERVERS = master, mail, www, ns
+Host_Alias	SERVERS = primary, mail, www, ns
 Host_Alias	CDROM = orion, perseus, hercules
 # Cmnd alias specification
 Cmnd_Alias	DUMPS = /usr/bin/mt, /usr/sbin/dump, /usr/sbin/rdump,\
@@ -2561,26 +2780,28 @@ Cmnd_Alias	PAGERS = /usr/bin/more, /usr/bin/pg, /usr/bin/less
 <pre>
 </pre>
 <p class="Pp">Here we override some of the compiled in default values. We want
-    <b>sudo</b> to log via syslog(3) using the <i>auth</i> facility in all
-    cases. We don't want to subject the full time staff to the <b>sudo</b>
-    lecture, user <b>millert</b> need not give a password, and we don't want to
-    reset the LOGNAME or USER environment variables when running commands as
-    root. Additionally, on the machines in the <i>SERVERS</i> Host_Alias, we
-    keep an additional local log file and make sure we log the year in each log
-    line since the log entries will be kept around for several years. Lastly, we
-    disable shell escapes for the commands in the PAGERS Cmnd_Alias
-    (<i>/usr/bin/more</i>, <i>/usr/bin/pg</i> and <i>/usr/bin/less</i>) . Note
-    that this will not effectively constrain users with <b>sudo</b> <b>ALL</b>
-    privileges.</p>
+    <b>sudo</b> to log via syslog(3) using the <i>auth</i> facility in all cases
+    and for commands to be run with the target user's home directory as the
+    working directory. We don't want to subject the full time staff to the
+    <b>sudo</b> lecture and we want to allow them to run commands in a chroot(2)
+    &#x201C;sandbox&#x201D; via the <b>-R</b> option. User <b>millert</b> need
+    not provide a password and we don't want to reset the LOGNAME or USER
+    environment variables when running commands as root. Additionally, on the
+    machines in the <i>SERVERS</i> Host_Alias, we keep an additional local log
+    file and make sure we log the year in each log line since the log entries
+    will be kept around for several years. Lastly, we disable shell escapes for
+    the commands in the PAGERS Cmnd_Alias (<i>/usr/bin/more</i>,
+    <i>/usr/bin/pg</i> and <i>/usr/bin/less</i>) . Note that this will not
+    effectively constrain users with <b>sudo</b> <b>ALL</b> privileges.</p>
 <pre>
 
 </pre>
 <div class="Bd-indent">
 <pre>
 # Override built-in defaults
-Defaults		syslog=auth
+Defaults		syslog=auth,runcwd=~
 Defaults&gt;root		!set_logname
-Defaults:FULLTIMERS	!lecture
+Defaults:FULLTIMERS	!lecture,runchroot=*
 Defaults:millert	!authenticate
 Defaults@SERVERS	log_year, logfile=/var/log/sudo.log
 Defaults!PAGERS		noexec
@@ -2795,7 +3016,7 @@ jen		ALL, !SERVERS = ALL
 <pre>
 </pre>
 <p class="Pp">The user <b>jen</b> may run any command on any machine except for
-    those in the <i>SERVERS</i> Host_Alias (master, mail, www and ns).</p>
+    those in the <i>SERVERS</i> Host_Alias (primary, mail, www and ns).</p>
 <pre>
 
 </pre>
@@ -2841,14 +3062,14 @@ matt		valkyrie = KILL
 </pre>
 <div class="Bd-indent">
 <pre>
-WEBMASTERS	www = (www) ALL, (root) /usr/bin/su www
+WEBADMIN	www = (www) ALL, (root) /usr/bin/su www
 </pre>
 </div>
 <pre>
 </pre>
-<p class="Pp">On the host www, any user in the <i>WEBMASTERS</i> User_Alias
-    (will, wendy, and wim), may run any command as user www (which owns the web
-    pages) or simply su(1) to www.</p>
+<p class="Pp">On the host www, any user in the <i>WEBADMIN</i> User_Alias (will,
+    wendy, and wim), may run any command as user www (which owns the web pages)
+    or simply su(1) to www.</p>
 <pre>
 
 </pre>
@@ -2944,8 +3165,8 @@ Once <b>sudo</b> executes a program, that program is free to do whatever it
       LD_PRELOAD) to an alternate shared library. On such systems, <b>sudo</b>'s
       <i>noexec</i> functionality can be used to prevent a program run by
       <b>sudo</b> from executing any other programs. Note, however, that this
-      applies only to native dynamically-linked executables. Statically-linked
-      executables and foreign executables running under binary emulation are not
+      applies only to dynamically-linked executables. Statically-linked
+      executables and executables running under binary emulation are not
       affected.
     <p class="Pp">The <i>noexec</i> feature is known to work on SunOS, Solaris,
         *BSD, Linux, IRIX, Tru64 UNIX, macOS, HP-UX 11.x and AIX 5.3 and above.
@@ -3165,9 +3386,12 @@ Many people have worked on <b>sudo</b> over the years; this version consists of
 <section class="Sh">
 <h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
 The <i>sudoers</i> file should <b>always</b> be edited by the <b>visudo</b>
-  command which locks the file and does grammatical checking. It is imperative
-  that the <i>sudoers</i> file be free of syntax errors since <b>sudo</b> will
-  not run with a syntactically incorrect <i>sudoers</i> file.
+  utility which locks the file and checks for syntax errors. If <i>sudoers</i>
+  contains syntax errors, <b>sudo</b> may refuse to run, which is a serious
+  problem if <b>sudo</b> is your only method of obtaining superuser privileges.
+  Recent versions of <b>sudoers</b> will attempt to recover after a syntax error
+  by ignoring the rest of the line after encountering an error. Older versions
+  of <b>sudo</b> will not run if <i>sudoers</i> contains a syntax error.
 <p class="Pp">When using netgroups of machines (as opposed to users), if you
     store fully qualified host name in the netgroup (as is usually the case),
     you either need to have the machine's host name be fully qualified as
