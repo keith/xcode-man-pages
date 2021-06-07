@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <!-- This is an automatically generated file.  Do not edit.
-   Copyright (c) 1998-2020 Apple Inc. All rights reserved.
+   Copyright (c) 1998-2021 Apple Inc. All rights reserved.
   
    This file contains Original Code and/or Modifications of Original Code
    as defined in and that are subject to the Apple Public Source License
@@ -68,7 +68,7 @@
   <tr>
     <td><code class="Nm">diskutil</code></td>
     <td>[<code class="Nm">quiet</code>] <var class="Ar">verb</var>
-      [<var class="Ar">options</var>]</td>
+      [<var class="Ar">subVerb</var>] [<var class="Ar">options</var>]</td>
   </tr>
 </table>
 </section>
@@ -157,7 +157,7 @@ Each command verb is listed with its description and individual arguments.
         needing this information must become Disk Arbitration clients.</p>
   </dd>
   <dt><b class="Sy">listFilesystems</b></dt>
-  <dd>[<code class="Nm">-plist</code>]
+  <dd>[<b class="Sy">-plist</b>]
     <br/>
     Show the file system personalities available for formatting in
       <b class="Sy">diskutil</b> when using the erasing and partitioning verbs.
@@ -168,13 +168,18 @@ Each command verb is listed with its description and individual arguments.
       <b class="Sy">-plist</b> is specified, then a property list instead of the
       normal user-readable output will be emitted.</dd>
   <dt><b class="Sy">unmount</b> | <b class="Sy">umount</b></dt>
-  <dd>[<code class="Nm">force</code>] <var class="Ar">device</var>
+  <dd>[<b class="Sy">force</b>] <var class="Ar">device</var>
     <br/>
     Unmount a single volume. <b class="Sy">Force</b> will force-unmount the
       volume (less kind to any open files; see also <b class="Sy">umount</b>
-      (8)).</dd>
+      (8)).
+    <p class="Pp">Up to a few seconds (or more) may be required for any Disk
+        Arbitration dissenters in the system to approve the unmount, and/or for
+        the file system to flush data. This verb gives up and returns failure
+        after a maximum of 1 minute in most situations.</p>
+  </dd>
   <dt><b class="Sy">unmountDisk</b> | <b class="Sy">umountDisk</b></dt>
-  <dd>[<code class="Nm">force</code>] <var class="Ar">device</var>
+  <dd>[<b class="Sy">force</b>] <var class="Ar">device</var>
     <br/>
     Given a disk containing a partition map, unmount all of its volumes. That
       is, unmounts are attempted for the map's partitions containing file system
@@ -213,6 +218,13 @@ Each command verb is listed with its description and individual arguments.
         is specified, then the argument strings you specify will be passed (by
         diskarbitrationd) verbatim to &quot;-o&quot;; multiple arguments must be
         separated with commas.</p>
+    <p class="Pp">Up to a few seconds (or much longer in rare cases) may be
+        required for any Disk Arbitration dissenters or disk claimers in the
+        system to approve the mount, and/or for the file system to complete a
+        minimal <a class="Xr">fsck(8)</a>. (For example, Disk Arbitration might
+        invoke <b class="Sy">fsck_apfs</b> <b class="Sy">-q</b> before mounting
+        an APFS Volume.) This verb gives up and returns failure after a maximum
+        of 1 minute in most situations.</p>
     <p class="Pp">If <b class="Sy">-mountPoint</b> is specified, then your path,
         rather than the standard path of /Volumes/VolumeName or
         /System/Volumes/VolumeName, will be used as the view into the volume
@@ -241,7 +253,7 @@ Each command verb is listed with its description and individual arguments.
       currently mounted (the volume is temporarily mounted if necessary).
       Ownership of the affected disk is required.</dd>
   <dt><b class="Sy">disableJournal</b></dt>
-  <dd>[<code class="Nm">force</code>] <var class="Ar">device</var>
+  <dd>[<b class="Sy">force</b>] <var class="Ar">device</var>
     <br/>
     Disable journaling on an HFS+ volume. This normally works whether or not the
       volume is currently mounted (the volume is temporarily mounted if
@@ -554,8 +566,8 @@ Each command verb is listed with its description and individual arguments.
             carved out, the partition type is set according to the file system
             format name or explicit type, the partition space is partially
             erased (&quot;wiped&quot;), but a file system structure is not
-            initialized with any file system's formatter program (e.g.
-            <a class="Xr">newfs_hfs(8)</a>; this is useful for setting up
+            initialized with any file system's formatter program, e.g.
+            <a class="Xr">newfs_hfs(8)</a>. This is useful for setting up
             partitions that will contain user-defined (not necessarily file
             system) data.</p>
         <p class="Pp">For a triplet whose <var class="Ar">format</var> is
@@ -1267,14 +1279,16 @@ Each command verb is listed with its description and individual arguments.
         <p class="Pp">An APFS Volume need not be encrypted in order to contain
             crypto users; indeed, other than the Disk User, they should be added
             before encrypting.</p>
-        <p class="Pp">Types of Cryptographic Users include
+        <p class="Pp">Types of Cryptographic Users include the
             at-most-one-per-Volume &quot;Disk&quot; user, whose UUID value
             always matches its Volume's UUID; iCloud or personal &quot;Recovery
             Keys&quot;, which are not users per se, but instead store partial
-            crypto keys and are associated with corresponding &quot;Recovery
-            Users&quot; and have fixed-constant UUID values; and &quot;Open
-            Directory&quot; users, whose UUID values match corresponding local
-            macOS Open Directory account user GUIDs.</p>
+            crypto keys and are paired with corresponding &quot;Recovery
+            Users&quot; and have fixed-constant UUID values; and, most commonly,
+            &quot;Open Directory&quot; users, whose UUID values match
+            corresponding local macOS Open Directory (OD) account user GUIDs
+            (e.g. the common local user accounts; see <a class="Xr">dscl(1)</a>
+            for more information).</p>
         <p class="Pp">If <b class="Sy">-plist</b> is specified, then a property
             list will be emitted instead of the normal user-readable output.</p>
       </dd>
@@ -2061,21 +2075,6 @@ diskutil eraseDisk JHFS+ Untitled disk3
     Journaled\ HFS+ vol3 25% Free\ Space volX 10g</p>
 </section>
 <section class="Sh">
-<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
-  ALSO</a></h1>
-<a class="Xr">hdiutil(1)</a>, <a class="Xr">mount(8)</a>,
-  <a class="Xr">umount(8)</a>, <a class="Xr">diskmanagementd(8)</a>,
-  <a class="Xr">diskmanagementstartup(8)</a>,
-  <a class="Xr">diskarbitrationd(8)</a>, <a class="Xr">corestoraged(8)</a>,
-  <a class="Xr">fdesetup(8)</a>, <a class="Xr">ioreg(8)</a>,
-  <a class="Xr">newfs_hfs(8)</a>, <a class="Xr">fsck_hfs(8)</a>,
-  <a class="Xr">authopen(1)</a>, <a class="Xr">hfs.util(8)</a>,
-  <a class="Xr">msdos.util(8)</a>, <a class="Xr">ufs.util(8)</a>,
-  <a class="Xr">drutil(1)</a>, <a class="Xr">vsdbutil(8)</a>,
-  <a class="Xr">apfs.util(8)</a>, <a class="Xr">fsck_apfs(8)</a>,
-  <a class="Xr">mount_apfs(8)</a>, <a class="Xr">newfs_apfs(8)</a>
-</section>
-<section class="Sh">
 <h1 class="Sh" id="ERRORS"><a class="permalink" href="#ERRORS">ERRORS</a></h1>
 <b class="Sy">diskutil</b> will exit with status 0 if successful or 1 if it
   cannot complete the requested operation; this includes cases in which usage
@@ -2083,6 +2082,21 @@ diskutil eraseDisk JHFS+ Untitled disk3
   prints a message which might include an explanation local to diskutil, an
   error string from the DiskManagement or MediaKit frameworks, an underlying
   POSIX error, or some combination.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">authopen(1)</a>, <a class="Xr">drutil(1)</a>,
+  <a class="Xr">hdiutil(1)</a>, <a class="Xr">apfs.util(8)</a>,
+  <a class="Xr">corestoraged(8)</a>, <a class="Xr">diskarbitrationd(8)</a>,
+  <a class="Xr">diskmanagementd(8)</a>,
+  <a class="Xr">diskmanagementstartup(8)</a>, <a class="Xr">fdesetup(8)</a>,
+  <a class="Xr">fsck_apfs(8)</a>, <a class="Xr">fsck_hfs(8)</a>,
+  <a class="Xr">hfs.util(8)</a>, <a class="Xr">ioreg(8)</a>,
+  <a class="Xr">mount(8)</a>, <a class="Xr">mount_apfs(8)</a>,
+  <a class="Xr">msdos.util(8)</a>, <a class="Xr">newfs_apfs(8)</a>,
+  <a class="Xr">newfs_hfs(8)</a>, <a class="Xr">ufs.util(8)</a>,
+  <a class="Xr">umount(8)</a>, <a class="Xr">vsdbutil(8)</a>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>

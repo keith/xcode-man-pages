@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   Copyright (c) 2003-2009 Tim Kientzle
+   Copyright (c) 2016 Martin Matuska
+   All rights reserved.
+  
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions
+   are met:
+   1. Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+   2. Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+  
+   THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+   ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+   ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+   FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+   OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+   OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+   SUCH DAMAGE.
+  
+   $FreeBSD$
+   -->
+<head>
+
+<style>
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #000;
+    color: #d0d0d0;
+  }
+
+  a, a:visited {
+    color: #1899eb;
+  }
+}
+</style>
+
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>TAR(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">TAR(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">TAR(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<code class="Nm">tar</code> &#x2014;
+<div class="Nd">format of tape archive files</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+The <code class="Nm">tar</code> archive format collects any number of files,
+  directories, and other file system objects (symbolic links, device nodes,
+  etc.) into a single stream of bytes. The format was originally designed to be
+  used with tape drives that operate with fixed-size blocks, but is widely used
+  as a general packaging mechanism.
+<section class="Ss">
+<h2 class="Ss" id="General_Format"><a class="permalink" href="#General_Format">General
+  Format</a></h2>
+A <code class="Nm">tar</code> archive consists of a series of 512-byte records.
+  Each file system object requires a header record which stores basic metadata
+  (pathname, owner, permissions, etc.) and zero or more records containing any
+  file data. The end of the archive is indicated by two records consisting
+  entirely of zero bytes.
+<p class="Pp">For compatibility with tape drives that use fixed block sizes,
+    programs that read or write tar files always read or write a fixed number of
+    records with each I/O operation. These &#x201C;blocks&#x201D; are always a
+    multiple of the record size. The maximum block size supported by early
+    implementations was 10240 bytes or 20 records. This is still the default for
+    most implementations although block sizes of 1MiB (2048 records) or larger
+    are commonly used with modern high-speed tape drives. (Note: the terms
+    &#x201C;block&#x201D; and &#x201C;record&#x201D; here are not entirely
+    standard; this document follows the convention established by John Gilmore
+    in documenting <code class="Nm">pdtar</code>.)</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Old_Style_Archive_Format"><a class="permalink" href="#Old_Style_Archive_Format">Old-Style
+  Archive Format</a></h2>
+The original tar archive format has been extended many times to include
+  additional information that various implementors found necessary. This section
+  describes the variant implemented by the tar command included in
+  <span class="Ux">Version&#x00A0;7 AT&amp;T UNIX</span>, which seems to be the
+  earliest widely-used version of the tar program.
+<p class="Pp">The header record for an old-style <code class="Nm">tar</code>
+    archive consists of the following:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+struct header_old_tar {
+	char name[100];
+	char mode[8];
+	char uid[8];
+	char gid[8];
+	char size[12];
+	char mtime[12];
+	char checksum[8];
+	char linkflag[1];
+	char linkname[100];
+	char pad[255];
+};
+</pre>
+</div>
+All unused bytes in the header record are filled with nulls.
+<dl class="Bl-tag">
+  <dt><var class="Va">name</var></dt>
+  <dd>Pathname, stored as a null-terminated string. Early tar implementations
+      only stored regular files (including hardlinks to those files). One common
+      early convention used a trailing &quot;/&quot; character to indicate a
+      directory name, allowing directory permissions and owner information to be
+      archived and restored.</dd>
+  <dt><var class="Va">mode</var></dt>
+  <dd>File mode, stored as an octal number in ASCII.</dd>
+  <dt><var class="Va">uid</var>, <var class="Va">gid</var></dt>
+  <dd>User id and group id of owner, as octal numbers in ASCII.</dd>
+  <dt><var class="Va">size</var></dt>
+  <dd>Size of file, as octal number in ASCII. For regular files only, this
+      indicates the amount of data that follows the header. In particular, this
+      field was ignored by early tar implementations when extracting hardlinks.
+      Modern writers should always store a zero length for hardlink
+    entries.</dd>
+  <dt><var class="Va">mtime</var></dt>
+  <dd>Modification time of file, as an octal number in ASCII. This indicates the
+      number of seconds since the start of the epoch, 00:00:00 UTC January 1,
+      1970. Note that negative values should be avoided here, as they are
+      handled inconsistently.</dd>
+  <dt><var class="Va">checksum</var></dt>
+  <dd>Header checksum, stored as an octal number in ASCII. To compute the
+      checksum, set the checksum field to all spaces, then sum all bytes in the
+      header using unsigned arithmetic. This field should be stored as six octal
+      digits followed by a null and a space character. Note that many early
+      implementations of tar used signed arithmetic for the checksum field,
+      which can cause interoperability problems when transferring archives
+      between systems. Modern robust readers compute the checksum both ways and
+      accept the header if either computation matches.</dd>
+  <dt><var class="Va">linkflag</var>, <var class="Va">linkname</var></dt>
+  <dd>In order to preserve hardlinks and conserve tape, a file with multiple
+      links is only written to the archive the first time it is encountered. The
+      next time it is encountered, the <var class="Va">linkflag</var> is set to
+      an ASCII &#x2018;1&#x2019; and the <var class="Va">linkname</var> field
+      holds the first name under which this file appears. (Note that regular
+      files have a null value in the <var class="Va">linkflag</var> field.)</dd>
+</dl>
+<p class="Pp">Early tar implementations varied in how they terminated these
+    fields. The tar command in <span class="Ux">Version&#x00A0;7 AT&amp;T
+    UNIX</span> used the following conventions (this is also documented in early
+    BSD manpages): the pathname must be null-terminated; the mode, uid, and gid
+    fields must end in a space and a null byte; the size and mtime fields must
+    end in a space; the checksum is terminated by a null and a space. Early
+    implementations filled the numeric fields with leading spaces. This seems to
+    have been common practice until the <span class="St">IEEE Std 1003.1-1988
+    (&#x201C;POSIX.1&#x201D;)</span> standard was released. For best
+    portability, modern implementations should fill the numeric fields with
+    leading zeros.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Pre_POSIX_Archives"><a class="permalink" href="#Pre_POSIX_Archives">Pre-POSIX
+  Archives</a></h2>
+An early draft of <span class="St">IEEE Std 1003.1-1988
+  (&#x201C;POSIX.1&#x201D;)</span> served as the basis for John Gilmore's
+  <code class="Nm">pdtar</code> program and many system implementations from the
+  late 1980s and early 1990s. These archives generally follow the POSIX ustar
+  format described below with the following variations:
+<ul class="Bl-bullet Bl-compact">
+  <li>The magic value consists of the five characters &#x201C;ustar&#x201D;
+      followed by a space. The version field contains a space character followed
+      by a null.</li>
+  <li>The numeric fields are generally filled with leading spaces (not leading
+      zeros as recommended in the final standard).</li>
+  <li>The prefix field is often not used, limiting pathnames to the 100
+      characters of old-style archives.</li>
+</ul>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="POSIX_ustar_Archives"><a class="permalink" href="#POSIX_ustar_Archives">POSIX
+  ustar Archives</a></h2>
+<span class="St">IEEE Std 1003.1-1988 (&#x201C;POSIX.1&#x201D;)</span> defined a
+  standard tar file format to be read and written by compliant implementations
+  of <a class="Xr">tar(1)</a>. This format is often called the
+  &#x201C;ustar&#x201D; format, after the magic value used in the header. (The
+  name is an acronym for &#x201C;Unix Standard TAR&#x201D;.) It extends the
+  historic format with new fields:
+<div class="Bd Pp Bd-indent">
+<pre>
+struct header_posix_ustar {
+	char name[100];
+	char mode[8];
+	char uid[8];
+	char gid[8];
+	char size[12];
+	char mtime[12];
+	char checksum[8];
+	char typeflag[1];
+	char linkname[100];
+	char magic[6];
+	char version[2];
+	char uname[32];
+	char gname[32];
+	char devmajor[8];
+	char devminor[8];
+	char prefix[155];
+	char pad[12];
+};
+</pre>
+</div>
+<dl class="Bl-tag">
+  <dt><var class="Va">typeflag</var></dt>
+  <dd>Type of entry. POSIX extended the earlier <var class="Va">linkflag</var>
+      field with several new type values:
+    <dl class="Bl-tag Bl-compact">
+      <dt>&#x201C;0&#x201D;</dt>
+      <dd>Regular file. NUL should be treated as a synonym, for compatibility
+          purposes.</dd>
+      <dt>&#x201C;1&#x201D;</dt>
+      <dd>Hard link.</dd>
+      <dt>&#x201C;2&#x201D;</dt>
+      <dd>Symbolic link.</dd>
+      <dt>&#x201C;3&#x201D;</dt>
+      <dd>Character device node.</dd>
+      <dt>&#x201C;4&#x201D;</dt>
+      <dd>Block device node.</dd>
+      <dt>&#x201C;5&#x201D;</dt>
+      <dd>Directory.</dd>
+      <dt>&#x201C;6&#x201D;</dt>
+      <dd>FIFO node.</dd>
+      <dt>&#x201C;7&#x201D;</dt>
+      <dd>Reserved.</dd>
+      <dt>Other</dt>
+      <dd>A POSIX-compliant implementation must treat any unrecognized typeflag
+          value as a regular file. In particular, writers should ensure that all
+          entries have a valid filename so that they can be restored by readers
+          that do not support the corresponding extension. Uppercase letters
+          &quot;A&quot; through &quot;Z&quot; are reserved for custom
+          extensions. Note that sockets and whiteout entries are not
+        archivable.</dd>
+    </dl>
+    It is worth noting that the <var class="Va">size</var> field, in particular,
+      has different meanings depending on the type. For regular files, of
+      course, it indicates the amount of data following the header. For
+      directories, it may be used to indicate the total size of all files in the
+      directory, for use by operating systems that pre-allocate directory space.
+      For all other types, it should be set to zero by writers and ignored by
+      readers.</dd>
+  <dt><var class="Va">magic</var></dt>
+  <dd>Contains the magic value &#x201C;ustar&#x201D; followed by a NUL byte to
+      indicate that this is a POSIX standard archive. Full compliance requires
+      the uname and gname fields be properly set.</dd>
+  <dt><var class="Va">version</var></dt>
+  <dd>Version. This should be &#x201C;00&#x201D; (two copies of the ASCII digit
+      zero) for POSIX standard archives.</dd>
+  <dt><var class="Va">uname</var>, <var class="Va">gname</var></dt>
+  <dd>User and group names, as null-terminated ASCII strings. These should be
+      used in preference to the uid/gid values when they are set and the
+      corresponding names exist on the system.</dd>
+  <dt><var class="Va">devmajor</var>, <var class="Va">devminor</var></dt>
+  <dd>Major and minor numbers for character device or block device entry.</dd>
+  <dt><var class="Va">name</var>, <var class="Va">prefix</var></dt>
+  <dd>If the pathname is too long to fit in the 100 bytes provided by the
+      standard format, it can be split at any <span class="Pa">/</span>
+      character with the first portion going into the prefix field. If the
+      prefix field is not empty, the reader will prepend the prefix value and a
+      <span class="Pa">/</span> character to the regular name field to obtain
+      the full pathname. The standard does not require a trailing
+      <span class="Pa">/</span> character on directory names, though most
+      implementations still include this for compatibility reasons.</dd>
+</dl>
+<p class="Pp">Note that all unused bytes must be set to
+    <code class="Dv">NUL</code>.</p>
+<p class="Pp">Field termination is specified slightly differently by POSIX than
+    by previous implementations. The <var class="Va">magic</var>,
+    <var class="Va">uname</var>, and <var class="Va">gname</var> fields must
+    have a trailing <code class="Dv">NUL</code>. The
+    <var class="Va">pathname</var>, <var class="Va">linkname</var>, and
+    <var class="Va">prefix</var> fields must have a trailing
+    <code class="Dv">NUL</code> unless they fill the entire field. (In
+    particular, it is possible to store a 256-character pathname if it happens
+    to have a <span class="Pa">/</span> as the 156th character.) POSIX requires
+    numeric fields to be zero-padded in the front, and requires them to be
+    terminated with either space or <code class="Dv">NUL</code> characters.</p>
+<p class="Pp">Currently, most tar implementations comply with the ustar format,
+    occasionally extending it by adding new fields to the blank area at the end
+    of the header record.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Numeric_Extensions"><a class="permalink" href="#Numeric_Extensions">Numeric
+  Extensions</a></h2>
+There have been several attempts to extend the range of sizes or times supported
+  by modifying how numbers are stored in the header.
+<p class="Pp">One obvious extension to increase the size of files is to
+    eliminate the terminating characters from the various numeric fields. For
+    example, the standard only allows the size field to contain 11 octal digits,
+    reserving the twelfth byte for a trailing NUL character. Allowing 12 octal
+    digits allows file sizes up to 64 GB.</p>
+<p class="Pp">Another extension, utilized by GNU tar, star, and other newer
+    <code class="Nm">tar</code> implementations, permits binary numbers in the
+    standard numeric fields. This is flagged by setting the high bit of the
+    first byte. The remainder of the field is treated as a signed
+    twos-complement value. This permits 95-bit values for the length and time
+    fields and 63-bit values for the uid, gid, and device numbers. In
+    particular, this provides a consistent way to handle negative time values.
+    GNU tar supports this extension for the length, mtime, ctime, and atime
+    fields. Joerg Schilling's star program and the libarchive library support
+    this extension for all numeric fields. Note that this extension is largely
+    obsoleted by the extended attribute record provided by the pax interchange
+    format.</p>
+<p class="Pp">Another early GNU extension allowed base-64 values rather than
+    octal. This extension was short-lived and is no longer supported by any
+    implementation.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Pax_Interchange_Format"><a class="permalink" href="#Pax_Interchange_Format">Pax
+  Interchange Format</a></h2>
+There are many attributes that cannot be portably stored in a POSIX ustar
+  archive. <span class="St">IEEE Std 1003.1-2001
+  (&#x201C;POSIX.1&#x201D;)</span> defined a &#x201C;pax interchange
+  format&#x201D; that uses two new types of entries to hold text-formatted
+  metadata that applies to following entries. Note that a pax interchange format
+  archive is a ustar archive in every respect. The new data is stored in
+  ustar-compatible archive entries that use the &#x201C;x&#x201D; or
+  &#x201C;g&#x201D; typeflag. In particular, older implementations that do not
+  fully support these extensions will extract the metadata into regular files,
+  where the metadata can be examined as necessary.
+<p class="Pp">An entry in a pax interchange format archive consists of one or
+    two standard ustar entries, each with its own header and data. The first
+    optional entry stores the extended attributes for the following entry. This
+    optional first entry has an &quot;x&quot; typeflag and a size field that
+    indicates the total size of the extended attributes. The extended attributes
+    themselves are stored as a series of text-format lines encoded in the
+    portable UTF-8 encoding. Each line consists of a decimal number, a space, a
+    key string, an equals sign, a value string, and a new line. The decimal
+    number indicates the length of the entire line, including the initial length
+    field and the trailing newline. An example of such a field is:</p>
+<div class="Bd Bd-indent"><code class="Li">25
+  ctime=1084839148.1212\n</code></div>
+Keys in all lowercase are standard keys. Vendors can add their own keys by
+  prefixing them with an all uppercase vendor name and a period. Note that,
+  unlike the historic header, numeric values are stored using decimal, not
+  octal. A description of some common keys follows:
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#atime"><code class="Cm" id="atime">atime</code></a>,
+    <code class="Cm">ctime</code>, <code class="Cm">mtime</code></dt>
+  <dd>File access, inode change, and modification times. These fields can be
+      negative or include a decimal point and a fractional value.</dd>
+  <dt><a class="permalink" href="#hdrcharset"><code class="Cm" id="hdrcharset">hdrcharset</code></a></dt>
+  <dd>The character set used by the pax extension values. By default, all
+      textual values in the pax extended attributes are assumed to be in UTF-8,
+      including pathnames, user names, and group names. In some cases, it is not
+      possible to translate local conventions into UTF-8. If this key is present
+      and the value is the six-character ASCII string &#x201C;BINARY&#x201D;,
+      then all textual values are assumed to be in a platform-dependent
+      multi-byte encoding. Note that there are only two valid values for this
+      key: &#x201C;BINARY&#x201D; or
+      &#x201C;ISO-IR&#x00A0;10646&#x00A0;2000&#x00A0;UTF-8&#x201D;. No other
+      values are permitted by the standard, and the latter value should
+      generally not be used as it is the default when this key is not specified.
+      In particular, this flag should not be used as a general mechanism to
+      allow filenames to be stored in arbitrary encodings.</dd>
+  <dt><a class="permalink" href="#uname"><code class="Cm" id="uname">uname</code></a>,
+    <code class="Cm">uid</code>, <code class="Cm">gname</code>,
+    <code class="Cm">gid</code></dt>
+  <dd>User name, group name, and numeric UID and GID values. The user name and
+      group name stored here are encoded in UTF8 and can thus include non-ASCII
+      characters. The UID and GID fields can be of arbitrary length.</dd>
+  <dt><a class="permalink" href="#linkpath"><code class="Cm" id="linkpath">linkpath</code></a></dt>
+  <dd>The full path of the linked-to file. Note that this is encoded in UTF8 and
+      can thus include non-ASCII characters.</dd>
+  <dt><a class="permalink" href="#path"><code class="Cm" id="path">path</code></a></dt>
+  <dd>The full pathname of the entry. Note that this is encoded in UTF8 and can
+      thus include non-ASCII characters.</dd>
+  <dt><a class="permalink" href="#realtime.*"><code class="Cm" id="realtime.*">realtime.*</code></a>,
+    <code class="Cm">security.*</code></dt>
+  <dd>These keys are reserved and may be used for future standardization.</dd>
+  <dt><a class="permalink" href="#size"><code class="Cm" id="size">size</code></a></dt>
+  <dd>The size of the file. Note that there is no length limit on this field,
+      allowing conforming archives to store files much larger than the historic
+      8GB limit.</dd>
+  <dt><a class="permalink" href="#SCHILY.*"><code class="Cm" id="SCHILY.*">SCHILY.*</code></a></dt>
+  <dd>Vendor-specific attributes used by Joerg Schilling's
+      <code class="Nm">star</code> implementation.</dd>
+  <dt><a class="permalink" href="#SCHILY.acl.access"><code class="Cm" id="SCHILY.acl.access">SCHILY.acl.access</code></a>,
+    <code class="Cm">SCHILY.acl.default</code>,
+    <code class="Cm">SCHILY.acl.ace</code></dt>
+  <dd>Stores the access, default and NFSv4 ACLs as textual strings in a format
+      that is an extension of the format specified by POSIX.1e draft 17. In
+      particular, each user or group access specification can include an
+      additional colon-separated field with the numeric UID or GID. This allows
+      ACLs to be restored on systems that may not have complete user or group
+      information available (such as when NIS/YP or LDAP services are
+      temporarily unavailable).</dd>
+  <dt><a class="permalink" href="#SCHILY.devminor"><code class="Cm" id="SCHILY.devminor">SCHILY.devminor</code></a>,
+    <code class="Cm">SCHILY.devmajor</code></dt>
+  <dd>The full minor and major numbers for device nodes.</dd>
+  <dt><a class="permalink" href="#SCHILY.fflags"><code class="Cm" id="SCHILY.fflags">SCHILY.fflags</code></a></dt>
+  <dd>The file flags.</dd>
+  <dt><a class="permalink" href="#SCHILY.realsize"><code class="Cm" id="SCHILY.realsize">SCHILY.realsize</code></a></dt>
+  <dd>The full size of the file on disk. XXX explain? XXX</dd>
+  <dt><a class="permalink" href="#SCHILY.dev"><code class="Cm" id="SCHILY.dev">SCHILY.dev</code></a>,
+    <code class="Cm">SCHILY.ino</code>,
+    <code class="Cm">SCHILY.nlinks</code></dt>
+  <dd>The device number, inode number, and link count for the entry. In
+      particular, note that a pax interchange format archive using Joerg
+      Schilling's <code class="Cm">SCHILY.*</code> extensions can store all of
+      the data from <var class="Va">struct stat</var>.</dd>
+  <dt><a class="permalink" href="#LIBARCHIVE.*"><code class="Cm" id="LIBARCHIVE.*">LIBARCHIVE.*</code></a></dt>
+  <dd>Vendor-specific attributes used by the <code class="Nm">libarchive</code>
+      library and programs that use it.</dd>
+  <dt><a class="permalink" href="#LIBARCHIVE.creationtime"><code class="Cm" id="LIBARCHIVE.creationtime">LIBARCHIVE.creationtime</code></a></dt>
+  <dd>The time when the file was created. (This should not be confused with the
+      POSIX &#x201C;ctime&#x201D; attribute, which refers to the time when the
+      file metadata was last changed.)</dd>
+  <dt><a class="permalink" href="#LIBARCHIVE.xattr"><code class="Cm" id="LIBARCHIVE.xattr">LIBARCHIVE.xattr</code></a>.<var class="Ar">namespace</var>.<var class="Ar">key</var></dt>
+  <dd>Libarchive stores POSIX.1e-style extended attributes using keys of this
+      form. The <var class="Ar">key</var> value is URL-encoded: All non-ASCII
+      characters and the two special characters &#x201C;=&#x201D; and
+      &#x201C;%&#x201D; are encoded as &#x201C;%&#x201D; followed by two
+      uppercase hexadecimal digits. The value of this key is the extended
+      attribute value encoded in base 64. XXX Detail the base-64 format here
+    XXX</dd>
+  <dt><a class="permalink" href="#VENDOR.*"><code class="Cm" id="VENDOR.*">VENDOR.*</code></a></dt>
+  <dd>XXX document other vendor-specific extensions XXX</dd>
+</dl>
+<p class="Pp">Any values stored in an extended attribute override the
+    corresponding values in the regular tar header. Note that compliant readers
+    should ignore the regular fields when they are overridden. This is
+    important, as existing archivers are known to store non-compliant values in
+    the standard header fields in this situation. There are no limits on length
+    for any of these fields. In particular, numeric fields can be arbitrarily
+    large. All text fields are encoded in UTF8. Compliant writers should store
+    only portable 7-bit ASCII characters in the standard ustar header and use
+    extended attributes whenever a text value contains non-ASCII characters.</p>
+<p class="Pp">In addition to the <code class="Cm">x</code> entry described
+    above, the pax interchange format also supports a <code class="Cm">g</code>
+    entry. The <code class="Cm">g</code> entry is identical in format, but
+    specifies attributes that serve as defaults for all subsequent archive
+    entries. The <code class="Cm">g</code> entry is not widely used.</p>
+<p class="Pp">Besides the new <code class="Cm">x</code> and
+    <code class="Cm">g</code> entries, the pax interchange format has a few
+    other minor variations from the earlier ustar format. The most troubling one
+    is that hardlinks are permitted to have data following them. This allows
+    readers to restore any hardlink to a file without having to rewind the
+    archive to find an earlier entry. However, it creates complications for
+    robust readers, as it is no longer clear whether or not they should ignore
+    the size field for hardlink entries.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="GNU_Tar_Archives"><a class="permalink" href="#GNU_Tar_Archives">GNU
+  Tar Archives</a></h2>
+The GNU tar program started with a pre-POSIX format similar to that described
+  earlier and has extended it using several different mechanisms: It added new
+  fields to the empty space in the header (some of which was later used by POSIX
+  for conflicting purposes); it allowed the header to be continued over multiple
+  records; and it defined new entries that modify following entries (similar in
+  principle to the <code class="Cm">x</code> entry described above, but each GNU
+  special entry is single-purpose, unlike the general-purpose
+  <code class="Cm">x</code> entry). As a result, GNU tar archives are not POSIX
+  compatible, although more lenient POSIX-compliant readers can successfully
+  extract most GNU tar archives.
+<div class="Bd Pp Bd-indent">
+<pre>
+struct header_gnu_tar {
+	char name[100];
+	char mode[8];
+	char uid[8];
+	char gid[8];
+	char size[12];
+	char mtime[12];
+	char checksum[8];
+	char typeflag[1];
+	char linkname[100];
+	char magic[6];
+	char version[2];
+	char uname[32];
+	char gname[32];
+	char devmajor[8];
+	char devminor[8];
+	char atime[12];
+	char ctime[12];
+	char offset[12];
+	char longnames[4];
+	char unused[1];
+	struct {
+		char offset[12];
+		char numbytes[12];
+	} sparse[4];
+	char isextended[1];
+	char realsize[12];
+	char pad[17];
+};
+</pre>
+</div>
+<dl class="Bl-tag">
+  <dt><var class="Va">typeflag</var></dt>
+  <dd>GNU tar uses the following special entry types, in addition to those
+      defined by POSIX:
+    <dl class="Bl-tag">
+      <dt>7</dt>
+      <dd>GNU tar treats type &quot;7&quot; records identically to type
+          &quot;0&quot; records, except on one obscure RTOS where they are used
+          to indicate the pre-allocation of a contiguous file on disk.</dd>
+      <dt>D</dt>
+      <dd>This indicates a directory entry. Unlike the POSIX-standard
+          &quot;5&quot; typeflag, the header is followed by data records listing
+          the names of files in this directory. Each name is preceded by an
+          ASCII &quot;Y&quot; if the file is stored in this archive or
+          &quot;N&quot; if the file is not stored in this archive. Each name is
+          terminated with a null, and an extra null marks the end of the name
+          list. The purpose of this entry is to support incremental backups; a
+          program restoring from such an archive may wish to delete files on
+          disk that did not exist in the directory when the archive was made.
+        <p class="Pp">Note that the &quot;D&quot; typeflag specifically violates
+            POSIX, which requires that unrecognized typeflags be restored as
+            normal files. In this case, restoring the &quot;D&quot; entry as a
+            file could interfere with subsequent creation of the like-named
+            directory.</p>
+      </dd>
+      <dt>K</dt>
+      <dd>The data for this entry is a long linkname for the following regular
+          entry.</dd>
+      <dt>L</dt>
+      <dd>The data for this entry is a long pathname for the following regular
+          entry.</dd>
+      <dt>M</dt>
+      <dd>This is a continuation of the last file on the previous volume. GNU
+          multi-volume archives guarantee that each volume begins with a valid
+          entry header. To ensure this, a file may be split, with part stored at
+          the end of one volume, and part stored at the beginning of the next
+          volume. The &quot;M&quot; typeflag indicates that this entry continues
+          an existing file. Such entries can only occur as the first or second
+          entry in an archive (the latter only if the first entry is a volume
+          label). The <var class="Va">size</var> field specifies the size of
+          this entry. The <var class="Va">offset</var> field at bytes 369-380
+          specifies the offset where this file fragment begins. The
+          <var class="Va">realsize</var> field specifies the total size of the
+          file (which must equal <var class="Va">size</var> plus
+          <var class="Va">offset</var>). When extracting, GNU tar checks that
+          the header file name is the one it is expecting, that the header
+          offset is in the correct sequence, and that the sum of offset and size
+          is equal to realsize.</dd>
+      <dt>N</dt>
+      <dd>Type &quot;N&quot; records are no longer generated by GNU tar. They
+          contained a list of files to be renamed or symlinked after extraction;
+          this was originally used to support long names. The contents of this
+          record are a text description of the operations to be done, in the
+          form &#x201C;Rename %s to %s\n&#x201D; or &#x201C;Symlink %s to
+          %s\n&#x201D;; in either case, both filenames are escaped using K&amp;R
+          C syntax. Due to security concerns, &quot;N&quot; records are now
+          generally ignored when reading archives.</dd>
+      <dt>S</dt>
+      <dd>This is a &#x201C;sparse&#x201D; regular file. Sparse files are stored
+          as a series of fragments. The header contains a list of fragment
+          offset/length pairs. If more than four such entries are required, the
+          header is extended as necessary with &#x201C;extra&#x201D; header
+          extensions (an older format that is no longer used), or
+          &#x201C;sparse&#x201D; extensions.</dd>
+      <dt>V</dt>
+      <dd>The <var class="Va">name</var> field should be interpreted as a
+          tape/volume header name. This entry should generally be ignored on
+          extraction.</dd>
+    </dl>
+  </dd>
+  <dt><var class="Va">magic</var></dt>
+  <dd>The magic field holds the five characters &#x201C;ustar&#x201D; followed
+      by a space. Note that POSIX ustar archives have a trailing null.</dd>
+  <dt><var class="Va">version</var></dt>
+  <dd>The version field holds a space character followed by a null. Note that
+      POSIX ustar archives use two copies of the ASCII digit
+    &#x201C;0&#x201D;.</dd>
+  <dt><var class="Va">atime</var>, <var class="Va">ctime</var></dt>
+  <dd>The time the file was last accessed and the time of last change of file
+      information, stored in octal as with <var class="Va">mtime</var>.</dd>
+  <dt><var class="Va">longnames</var></dt>
+  <dd>This field is apparently no longer used.</dd>
+  <dt>Sparse <var class="Va">offset /</var> <var class="Va">numbytes</var></dt>
+  <dd>Each such structure specifies a single fragment of a sparse file. The two
+      fields store values as octal numbers. The fragments are each padded to a
+      multiple of 512 bytes in the archive. On extraction, the list of fragments
+      is collected from the header (including any extension headers), and the
+      data is then read and written to the file at appropriate offsets.</dd>
+  <dt><var class="Va">isextended</var></dt>
+  <dd>If this is set to non-zero, the header will be followed by additional
+      &#x201C;sparse header&#x201D; records. Each such record contains
+      information about as many as 21 additional sparse blocks as shown here:
+    <div class="Bd Pp Bd-indent">
+    <pre>
+struct gnu_sparse_header {
+	struct {
+		char offset[12];
+		char numbytes[12];
+	} sparse[21];
+	char    isextended[1];
+	char    padding[7];
+};
+    </pre>
+    </div>
+  </dd>
+  <dt><var class="Va">realsize</var></dt>
+  <dd>A binary representation of the file's complete size, with a much larger
+      range than the POSIX file size. In particular, with
+      <code class="Cm">M</code> type files, the current entry is only a portion
+      of the file. In that case, the POSIX size field will indicate the size of
+      this entry; the <var class="Va">realsize</var> field will indicate the
+      total size of the file.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="GNU_tar_pax_archives"><a class="permalink" href="#GNU_tar_pax_archives">GNU
+  tar pax archives</a></h2>
+GNU tar 1.14 (XXX check this XXX) and later will write pax interchange format
+  archives when you specify the <code class="Fl">--posix</code> flag. This
+  format follows the pax interchange format closely, using some
+  <code class="Cm">SCHILY</code> tags and introducing new keywords to store
+  sparse file information. There have been three iterations of the sparse file
+  support, referred to as &#x201C;0.0&#x201D;, &#x201C;0.1&#x201D;, and
+  &#x201C;1.0&#x201D;.
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#GNU.sparse.numblocks"><code class="Cm" id="GNU.sparse.numblocks">GNU.sparse.numblocks</code></a>,
+    <code class="Cm">GNU.sparse.offset</code>,
+    <code class="Cm">GNU.sparse.numbytes</code>,
+    <code class="Cm">GNU.sparse.size</code></dt>
+  <dd>The &#x201C;0.0&#x201D; format used an initial
+      <code class="Cm">GNU.sparse.numblocks</code> attribute to indicate the
+      number of blocks in the file, a pair of
+      <code class="Cm">GNU.sparse.offset</code> and
+      <code class="Cm">GNU.sparse.numbytes</code> to indicate the offset and
+      size of each block, and a single <code class="Cm">GNU.sparse.size</code>
+      to indicate the full size of the file. This is not the same as the size in
+      the tar header because the latter value does not include the size of any
+      holes. This format required that the order of attributes be preserved and
+      relied on readers accepting multiple appearances of the same attribute
+      names, which is not officially permitted by the standards.</dd>
+  <dt><a class="permalink" href="#GNU.sparse.map"><code class="Cm" id="GNU.sparse.map">GNU.sparse.map</code></a></dt>
+  <dd>The &#x201C;0.1&#x201D; format used a single attribute that stored a
+      comma-separated list of decimal numbers. Each pair of numbers indicated
+      the offset and size, respectively, of a block of data. This does not work
+      well if the archive is extracted by an archiver that does not recognize
+      this extension, since many pax implementations simply discard unrecognized
+      attributes.</dd>
+  <dt><a class="permalink" href="#GNU.sparse.major"><code class="Cm" id="GNU.sparse.major">GNU.sparse.major</code></a>,
+    <code class="Cm">GNU.sparse.minor</code>,
+    <code class="Cm">GNU.sparse.name</code>,
+    <code class="Cm">GNU.sparse.realsize</code></dt>
+  <dd>The &#x201C;1.0&#x201D; format stores the sparse block map in one or more
+      512-byte blocks prepended to the file data in the entry body. The pax
+      attributes indicate the existence of this map (via the
+      <code class="Cm">GNU.sparse.major</code> and
+      <code class="Cm">GNU.sparse.minor</code> fields) and the full size of the
+      file. The <code class="Cm">GNU.sparse.name</code> holds the true name of
+      the file. To avoid confusion, the name stored in the regular tar header is
+      a modified name so that extraction errors will be apparent to users.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Solaris_Tar"><a class="permalink" href="#Solaris_Tar">Solaris
+  Tar</a></h2>
+XXX More Details Needed XXX
+<p class="Pp">Solaris tar (beginning with SunOS XXX 5.7 ?? XXX) supports an
+    &#x201C;extended&#x201D; format that is fundamentally similar to pax
+    interchange format, with the following differences:</p>
+<ul class="Bl-bullet Bl-compact">
+  <li>Extended attributes are stored in an entry whose type is
+      <code class="Cm">X</code>, not <code class="Cm">x</code>, as used by pax
+      interchange format. The detailed format of this entry appears to be the
+      same as detailed above for the <code class="Cm">x</code> entry.</li>
+  <li>An additional <code class="Cm">A</code> header is used to store an ACL for
+      the following regular entry. The body of this entry contains a seven-digit
+      octal number followed by a zero byte, followed by the textual ACL
+      description. The octal value is the number of ACL entries plus a constant
+      that indicates the ACL type: 01000000 for POSIX.1e ACLs and 03000000 for
+      NFSv4 ACLs.</li>
+</ul>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="AIX_Tar"><a class="permalink" href="#AIX_Tar">AIX
+  Tar</a></h2>
+XXX More details needed XXX
+<p class="Pp">AIX Tar uses a ustar-formatted header with the type
+    <code class="Cm">A</code> for storing coded ACL information. Unlike the
+    Solaris format, AIX tar writes this header after the regular file body to
+    which it applies. The pathname in this header is either
+    <code class="Cm">NFS4</code> or <code class="Cm">AIXC</code> to indicate the
+    type of ACL stored. The actual ACL is stored in platform-specific binary
+    format.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Mac_OS_X_Tar"><a class="permalink" href="#Mac_OS_X_Tar">Mac
+  OS X Tar</a></h2>
+The tar distributed with Apple's Mac OS X stores most regular files as two
+  separate files in the tar archive. The two files have the same name except
+  that the first one has &#x201C;._&#x201D; prepended to the last path element.
+  This special file stores an AppleDouble-encoded binary blob with additional
+  metadata about the second file, including ACL, extended attributes, and
+  resources. To recreate the original file on disk, each separate file can be
+  extracted and the Mac OS X <code class="Fn">copyfile</code>() function can be
+  used to unpack the separate metadata file and apply it to th regular file.
+  Conversely, the same function provides a &#x201C;pack&#x201D; option to encode
+  the extended metadata from a file into a separate file whose contents can then
+  be put into a tar archive.
+<p class="Pp">Note that the Apple extended attributes interact badly with long
+    filenames. Since each file is stored with the full name, a separate set of
+    extensions needs to be included in the archive for each one, doubling the
+    overhead required for files with long names.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Summary_of_tar_type_codes"><a class="permalink" href="#Summary_of_tar_type_codes">Summary
+  of tar type codes</a></h2>
+The following list is a condensed summary of the type codes used in tar header
+  records generated by different tar implementations. More details about
+  specific implementations can be found above:
+<dl class="Bl-tag Bl-compact">
+  <dt>NUL</dt>
+  <dd>Early tar programs stored a zero byte for regular files.</dd>
+  <dt><a class="permalink" href="#0"><code class="Cm" id="0">0</code></a></dt>
+  <dd>POSIX standard type code for a regular file.</dd>
+  <dt><a class="permalink" href="#1"><code class="Cm" id="1">1</code></a></dt>
+  <dd>POSIX standard type code for a hard link description.</dd>
+  <dt><a class="permalink" href="#2"><code class="Cm" id="2">2</code></a></dt>
+  <dd>POSIX standard type code for a symbolic link description.</dd>
+  <dt><a class="permalink" href="#3"><code class="Cm" id="3">3</code></a></dt>
+  <dd>POSIX standard type code for a character device node.</dd>
+  <dt><a class="permalink" href="#4"><code class="Cm" id="4">4</code></a></dt>
+  <dd>POSIX standard type code for a block device node.</dd>
+  <dt><a class="permalink" href="#5"><code class="Cm" id="5">5</code></a></dt>
+  <dd>POSIX standard type code for a directory.</dd>
+  <dt><a class="permalink" href="#6"><code class="Cm" id="6">6</code></a></dt>
+  <dd>POSIX standard type code for a FIFO.</dd>
+  <dt><a class="permalink" href="#7"><code class="Cm" id="7">7</code></a></dt>
+  <dd>POSIX reserved.</dd>
+  <dt><a class="permalink" href="#7_2"><code class="Cm" id="7_2">7</code></a></dt>
+  <dd>GNU tar used for pre-allocated files on some systems.</dd>
+  <dt><a class="permalink" href="#A"><code class="Cm" id="A">A</code></a></dt>
+  <dd>Solaris tar ACL description stored prior to a regular file header.</dd>
+  <dt><a class="permalink" href="#A_2"><code class="Cm" id="A_2">A</code></a></dt>
+  <dd>AIX tar ACL description stored after the file body.</dd>
+  <dt><a class="permalink" href="#D"><code class="Cm" id="D">D</code></a></dt>
+  <dd>GNU tar directory dump.</dd>
+  <dt><a class="permalink" href="#K"><code class="Cm" id="K">K</code></a></dt>
+  <dd>GNU tar long linkname for the following header.</dd>
+  <dt><a class="permalink" href="#L"><code class="Cm" id="L">L</code></a></dt>
+  <dd>GNU tar long pathname for the following header.</dd>
+  <dt><a class="permalink" href="#M"><code class="Cm" id="M">M</code></a></dt>
+  <dd>GNU tar multivolume marker, indicating the file is a continuation of a
+      file from the previous volume.</dd>
+  <dt><a class="permalink" href="#N"><code class="Cm" id="N">N</code></a></dt>
+  <dd>GNU tar long filename support. Deprecated.</dd>
+  <dt><a class="permalink" href="#S"><code class="Cm" id="S">S</code></a></dt>
+  <dd>GNU tar sparse regular file.</dd>
+  <dt><a class="permalink" href="#V"><code class="Cm" id="V">V</code></a></dt>
+  <dd>GNU tar tape/volume header name.</dd>
+  <dt><a class="permalink" href="#X"><code class="Cm" id="X">X</code></a></dt>
+  <dd>Solaris tar general-purpose extension header.</dd>
+  <dt><a class="permalink" href="#g"><code class="Cm" id="g">g</code></a></dt>
+  <dd>POSIX pax interchange format global extensions.</dd>
+  <dt><a class="permalink" href="#x"><code class="Cm" id="x">x</code></a></dt>
+  <dd>POSIX pax interchange format per-file extensions.</dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<a class="Xr">ar(1)</a>, <a class="Xr">pax(1)</a>, <a class="Xr">tar(1)</a>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
+The <code class="Nm">tar</code> utility is no longer a part of POSIX or the
+  Single Unix Standard. It last appeared in <span class="St">Version&#x00A0;2 of
+  the Single UNIX Specification (&#x201C;SUSv2&#x201D;)</span>. It has been
+  supplanted in subsequent standards by <a class="Xr">pax(1)</a>. The ustar
+  format is currently part of the specification for the <a class="Xr">pax(1)</a>
+  utility. The pax interchange file format is new with <span class="St">IEEE Std
+  1003.1-2001 (&#x201C;POSIX.1&#x201D;)</span>.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+A <code class="Nm">tar</code> command appeared in Seventh Edition Unix, which
+  was released in January, 1979. It replaced the <code class="Nm">tp</code>
+  program from Fourth Edition Unix which in turn replaced the
+  <code class="Nm">tap</code> program from First Edition Unix. John Gilmore's
+  <code class="Nm">pdtar</code> public-domain implementation (circa 1987) was
+  highly influential and formed the basis of <code class="Nm">GNU tar</code>
+  (circa 1988). Joerg Shilling's <code class="Nm">star</code> archiver is
+  another open-source (CDDL) archiver (originally developed circa 1985) which
+  features complete support for pax interchange format.
+<p class="Pp">This documentation was written as part of the
+    <code class="Nm">libarchive</code> and <code class="Nm">bsdtar</code>
+    project by <span class="An">Tim Kientzle</span>
+    &#x27E8;kientzle@FreeBSD.org&#x27E9;.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">December 27, 2016</td>
+    <td class="foot-os">Mac OS X 11.0</td>
+  </tr>
+</table>
+</body>
+</html>

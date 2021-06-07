@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   **************************************************************************
+   *                                  _   _ ____  _
+   *  Project                     ___| | | |  _ \| |
+   *                             / __| | | | |_) | |
+   *                            | (__| |_| |  _ <| |___
+   *                             \___|\___/|_| \_\_____|
+   *
+   * Copyright (C) 1998 - 2020, Daniel Stenberg, <daniel@haxx.se>, et al.
+   *
+   * This software is licensed as described in the file COPYING, which
+   * you should have received as part of this distribution. The terms
+   * are also available at https://curl.se/docs/copyright.html.
+   *
+   * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+   * copies of the Software, and permit persons to whom the Software is
+   * furnished to do so, under the terms of the COPYING file.
+   *
+   * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+   * KIND, either express or implied.
+   *
+   **************************************************************************
+ -->
+<head>
+
+<style>
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #000;
+    color: #d0d0d0;
+  }
+
+  a, a:visited {
+    color: #1899eb;
+  }
+}
+</style>
+
+  <meta charset="utf-8"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    div.Pp { margin: 1ex 0ex; }
+    div.Nd, div.Bf, div.Op { display: inline; }
+    span.Pa, span.Ad { font-style: italic; }
+    span.Ms { font-weight: bold; }
+    dl.Bl-diag > dt { font-weight: bold; }
+    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
+    code.Cd { font-weight: bold; font-family: inherit; }
+  </style>
+  <title>curl_multi_poll(3)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">curl_multi_poll(3)</td>
+    <td class="head-vol">libcurl Manual</td>
+    <td class="head-rtitle">curl_multi_poll(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<p class="Pp"></p>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+curl_multi_poll - polls on all easy handles in a multi handle
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>
+#include &lt;curl/curl.h&gt;
+CURLMcode curl_multi_poll(CURLM *multi_handle,
+                          struct curl_waitfd extra_fds[],
+                          unsigned int extra_nfds,
+                          int timeout_ms,
+                          int *numfds);
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<i>curl_multi_poll(3)</i> polls all file descriptors used by the curl easy
+  handles contained in the given multi handle set. It will block until activity
+  is detected on at least one of the handles or <i>timeout_ms</i> has passed.
+  Alternatively, if the multi handle has a pending internal timeout that has a
+  shorter expiry time than <i>timeout_ms</i>, that shorter time will be used
+  instead to make sure timeout accuracy is reasonably kept.
+<p class="Pp">The calling application may pass additional curl_waitfd structures
+    which are similar to <i>poll(2)</i>'s pollfd structure to be waited on in
+    the same call.</p>
+<p class="Pp">On completion, if <i>numfds</i> is non-NULL, it will be populated
+    with the total number of file descriptors on which interesting events
+    occurred. This number can include both libcurl internal descriptors as well
+    as descriptors provided in <i>extra_fds</i>.</p>
+<p class="Pp">The <i>curl_multi_wakeup(3)</i> function can be used from another
+    thread to wake up this function and return faster. This is one of the
+    details that makes this function different than <i>curl_multi_wait(3)</i>
+    which cannot be woken up this way.</p>
+<p class="Pp">If no extra file descriptors are provided and libcurl has no file
+    descriptor to offer to wait for, this function will instead wait during
+    <i>timeout_ms</i> milliseconds (or shorter if an internal timer indicates
+    so). This is the other detail that makes this function different than
+    <i>curl_multi_wait(3)</i>.</p>
+<p class="Pp">This function is encouraged to be used instead of select(3) when
+    using the multi interface to allow applications to easier circumvent the
+    common problem with 1024 maximum file descriptors.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="curl_waitfd"><a class="permalink" href="#curl_waitfd">curl_waitfd</a></h1>
+<pre>
+struct curl_waitfd {
+  curl_socket_t fd;
+  short events;
+  short revents;
+};
+</pre>
+<dl class="Bl-tag">
+  <dt>CURL_WAIT_POLLIN</dt>
+  <dd>Bit flag to curl_waitfd.events indicating the socket should poll on read
+      events such as new data received.</dd>
+  <dt>CURL_WAIT_POLLPRI</dt>
+  <dd>Bit flag to curl_waitfd.events indicating the socket should poll on high
+      priority read events such as out of band data.</dd>
+  <dt>CURL_WAIT_POLLOUT</dt>
+  <dd>Bit flag to curl_waitfd.events indicating the socket should poll on write
+      events such as the socket being clear to write without blocking.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<pre>
+CURL *easy_handle;
+CURLM *multi_handle;
+/* add the individual easy handle */
+curl_multi_add_handle(multi_handle, easy_handle);
+do {
+  CURLMcode mc;
+  int numfds;
+  mc = curl_multi_perform(multi_handle, &amp;still_running);
+  if(mc == CURLM_OK) {
+    /* wait for activity or timeout */
+    mc = curl_multi_poll(multi_handle, NULL, 0, 1000, &amp;numfds);
+  }
+  if(mc != CURLM_OK) {
+    fprintf(stderr, &quot;curl_multi failed, code %d.\n&quot;, mc);
+    break;
+  }
+} while(still_running);
+curl_multi_remove_handle(multi_handle, easy_handle);
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+CURLMcode type, general libcurl multi interface error code. See
+  <i>libcurl-errors(3)</i>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
+This function was added in libcurl 7.66.0.
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<b>curl_multi_fdset</b>(3), <b>curl_multi_perform</b>(3),
+  <b>curl_multi_wait</b>(3), <b>curl_multi_wakeup</b>(3)
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">November 5, 2020</td>
+    <td class="foot-os">libcurl 7.76.0</td>
+  </tr>
+</table>
+</body>
+</html>
