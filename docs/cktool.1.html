@@ -78,7 +78,8 @@ cktool <b>verb</b> [<i>token</i>] [<b>--option</b> <i>value</i>] ...
     <b>--database-type</b> <i>public</i> | <i>shared</i> | <i>private</i>
     [<b>--zone-name</b> <i>zone-name</i>] <b>--record-type</b>
     <i>record-type</i> [<b>--fields-file</b> <i>fields-file</i>]
-    [<b>--fields-json</b> <i>fields-json</i>] [<b>--fields-stdin</b>]</p>
+    [<b>--fields-json</b> <i>fields-json</i>] [<b>--fields-stdin</b>]
+    [<b>--asset-files</b> <i>asset-key-to-file-path</i> ...]</p>
 <p class="Pp"><b>query-records</b> [<b>-t | --token</b> <i>token</i>]
     <b>--team-id</b> <i>team-id</i> <b>--container-id</b> <i>container-id</i>
     <b>--environment</b> <i>development</i> | <i>production</i>
@@ -88,6 +89,17 @@ cktool <b>verb</b> [<i>token</i>] [<b>--option</b> <i>value</i>] ...
     <i>sort-by</i> ...] [<b>--requested-fields</b> <i>requested-fields</i> ...]
     [<b>--limit</b> <i>limit</i>] [<b>--continuation-token</b>
     <i>continuation-token</i>]</p>
+<p class="Pp"><b>delete-record</b> [<b>-t | --token</b> <i>token</i>]
+    <b>--container-id</b> <i>container-id</i> <b>--environment</b>
+    <i>development</i> | <i>production</i> <b>--database-type</b> <i>public</i>
+    | <i>shared</i> | <i>private</i> [<b>--zone-name</b> <i>zone-name</i>]
+    [<b>--record-name</b> <i>record-name</i>] [<b>-y | --yes</b>]</p>
+<p class="Pp"><b>delete-records</b> [<b>-t | --token</b> <i>token</i>]
+    <b>--container-id</b> <i>container-id</i> <b>--environment</b>
+    <i>development</i> | <i>production</i> <b>--database-type</b> <i>public</i>
+    | <i>shared</i> | <i>private</i> [<b>--zone-name</b> <i>zone-name</i>]
+    [<b>--record-type</b> <i>record-type</i>] [<b>--filters</b> <i>filters</i>
+    ...] [<b>--dry-run</b> <i>true</i> | <i>false</i>] [<b>-y | --yes</b>]</p>
 <p class="Pp"><b>get-teams</b> [<b>-t | --token</b> <i>token</i>]</p>
 <p class="Pp">[<b>-h | --help</b>]</p>
 <p class="Pp"></p>
@@ -374,7 +386,8 @@ With these commands, one can create new records or query existing records.
   <dt>[<b>--fields-file</b> <i>fields-file</i>]</dt>
   <dd>Path to a file containing JSON-formatted fields in {&quot;KEY=&quot;:
       {&quot;type&quot;: FIELD_TYPE, &quot;value&quot;: VALUE}} format.
-      Optional.
+      Optional. Note that when FIELD_TYPE is assetType or assetListType, VALUE
+      should refer to a key defined by <b>--asset-files</b>.
     <p class="Pp"></p>
   </dd>
   <dt>[<b>--fields-json</b> <i>fields-json</i>]</dt>
@@ -383,7 +396,12 @@ With these commands, one can create new records or query existing records.
     <p class="Pp"></p>
   </dd>
   <dt>[<b>--fields-stdin</b>]</dt>
-  <dd>Takes the description from standard input. Optional.</dd>
+  <dd>Takes the description from standard input. Optional.
+    <p class="Pp"></p>
+  </dd>
+  <dt>[<b>--asset-files</b>]</dt>
+  <dd>A map of asset keys to local file paths referenced by the provided
+      JSON-formatted fields in KEY=/path/to/file format. Optional.</dd>
 </dl>
 </div>
 <p class="Pp"></p>
@@ -417,6 +435,19 @@ With these commands, one can create new records or query existing records.
   <dd>The unique iCloud container identifier. This option is mandatory.
     <p class="Pp"></p>
   </dd>
+  <dt><b>--database-type</b> <i>public</i> | <i>shared</i> | <i>private</i></dt>
+  <dd>The database type (public, shared or private). This option is mandatory.
+    <p class="Pp"></p>
+  </dd>
+  <dt>[<b>--zone-name</b> <i>zone-name</i>]</dt>
+  <dd>The record zone in which the records exist. Optional, defaults to
+      <i>_defaultZone</i>.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>--record-type</b> <i>record-type</i></dt>
+  <dd>The record type to be queried.
+    <p class="Pp"></p>
+  </dd>
   <dt>[<b>--filters</b> <i>filters</i> ...]</dt>
   <dd>One or more optional filters described by strings to query with.
     <p class="Pp"></p>
@@ -439,6 +470,104 @@ With these commands, one can create new records or query existing records.
   <dd>Continuation token used to request the next batch of result sets. It must
       be specified for querying and displaying subsequent results (e.g. greater
       than <b>--limit</b>).</dd>
+</dl>
+</div>
+<p class="Pp">To delete a single record:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>delete-record</b></dt>
+  <dd>Deletes a record from a given database by its unique record name.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>[<b>-t | --token</b> <i>token</i>]</dt>
+  <dd>The authorization token string, optional. If not present, it will be read
+      from the CLOUDKIT_USER_TOKEN environment variable, the local store config
+      file <i>~/.config/cktool</i> or the login keychain, in that order.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>--container-id</b> <i>container-id</i></dt>
+  <dd>The unique iCloud container identifier. This option is mandatory.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>--environment</b> <i>development</i> | <i>production</i></dt>
+  <dd>The container's environment, one of <i>development</i> or
+      <i>production</i>. This option is mandatory.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>--database-type</b> <i>public</i> | <i>shared</i> | <i>private</i></dt>
+  <dd>The database type (public, shared or private). This option is mandatory.
+    <p class="Pp"></p>
+  </dd>
+  <dt>[<b>--zone-name</b> <i>zone-name</i>]</dt>
+  <dd>The record zone in which the record exists. Optional, defaults to
+      <i>_defaultZone</i>.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>--record-name</b> <i>record-name</i></dt>
+  <dd>The unique name of the record to delete. Usually a UUID.
+    <p class="Pp"></p>
+  </dd>
+  <dt>[<b>-y | --yes</b>]</dt>
+  <dd>Confirms permanent deletion of any matching record, skipping interactive
+      confirmation. Optional.</dd>
+</dl>
+</div>
+<p class="Pp">To delete multiple records:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt><b>delete-records</b></dt>
+  <dd>Deletes records matching one or more filters from a given database.
+      Performed as a dry-run operation by default, returning how many records
+      match given filter set.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>[<b>-t | --token</b> <i>token</i>]</dt>
+  <dd>The authorization token string, optional. If not present, it will be read
+      from the CLOUDKIT_USER_TOKEN environment variable, the local store config
+      file <i>~/.config/cktool</i> or the login keychain, in that order.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>--container-id</b> <i>container-id</i></dt>
+  <dd>The unique iCloud container identifier. This option is mandatory.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>--environment</b> <i>development</i> | <i>production</i></dt>
+  <dd>The container's environment, one of <i>development</i> or
+      <i>production</i>. This option is mandatory.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>--database-type</b> <i>public</i> | <i>shared</i> | <i>private</i></dt>
+  <dd>The database type (public, shared or private). This option is mandatory.
+    <p class="Pp"></p>
+  </dd>
+  <dt>[<b>--zone-name</b> <i>zone-name</i>]</dt>
+  <dd>The record zone in which the record exists. Optional, defaults to
+      <i>_defaultZone</i>.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>--record-type</b> <i>record-type</i></dt>
+  <dd>The record type to be queried.
+    <p class="Pp"></p>
+  </dd>
+  <dt>[<b>--filters</b> <i>filters</i> ...]</dt>
+  <dd>One or more filters described by strings to match records with.
+    <p class="Pp"></p>
+  </dd>
+  <dt>[<b>--dry-run</b> <i>true</i> | <i>false</i>]</dt>
+  <dd>Whether the operation should be a dry-run, only returning a count of how
+      many records would be matched and deleted. Optional, defaults to
+      <i>true</i>.
+    <p class="Pp"></p>
+  </dd>
+  <dt>[<b>-y | --yes</b>]</dt>
+  <dd>Confirms permanent deletion of any matching records, skipping interactive
+      confirmation. Optional.</dd>
 </dl>
 </div>
 <p class="Pp"></p>
@@ -496,7 +625,7 @@ With these commands, one can create new records or query existing records.
   <dt>$ cktool create-record --team-id WWDRTEAMID --container-id
     iCloud.com.mycompany.mycontainer --environment development --database-type
     private --fields-file /path/to/records/data</dt>
-  <dd>Creates a record in the in the authorized user's private database in the
+  <dd>Creates a record in the authorized user's private database in the
       container using definitions from a file on the local filesystem. Reads the
       authorization token from the environment variable
       <b>CLOUDKIT_USER_TOKEN</b>, <i>~/.config/cktool</i> or the login keychain
@@ -505,22 +634,53 @@ With these commands, one can create new records or query existing records.
   </dd>
   <dt>$ cktool create-record --team-id WWDRTEAMID --container-id
     iCloud.com.mycompany.mycontainer --environment development --database-type
-    public --record-type Book --fields-json '{ &quot;title&quot;: {
-    &quot;type&quot;: &quot;stringType&quot;, &quot;value&quot;: &quot;The
-    Mysterious Island&quot; }, &quot;pageCount&quot;: { &quot;type&quot;:
-    &quot;int64Type&quot;, &quot;value&quot;: 1464 }, &quot;description&quot;: {
-    &quot;type&quot;: &quot;stringType&quot;, &quot;value&quot;: &quot;An
-    awesome book&quot; }, &quot;publishedOn&quot;: { &quot;type&quot;:
-    &quot;timestampType&quot;, &quot;value&quot;:
-    &quot;1875-09-12T21:12:42Z&quot; } }'</dt>
+    public --record-type Book --fields-json \</dt>
   <dd>
+     '{
+     &quot;title&quot;: { &quot;type&quot;: &quot;stringType&quot;,
+      &quot;value&quot;: &quot;The Mysterious Island&quot; },
+     &quot;pageCount&quot;: { &quot;type&quot;: &quot;int64Type&quot;,
+      &quot;value&quot;: 1464 },
+     &quot;description&quot;: { &quot;type&quot;: &quot;stringType&quot;,
+      &quot;value&quot;: &quot;An awesome book&quot; },
+     &quot;publishedOn&quot;: { &quot;type&quot;: &quot;timestampType&quot;,
+      &quot;value&quot;: &quot;1875-09-12T21:12:42Z&quot; },
+     &quot;authorImage&quot;: { &quot;type&quot;: &quot;assetType&quot;,
+      &quot;value&quot;: &quot;AUTHOR_IMG&quot; },
+     &quot;covers&quot;: { &quot;type&quot;: &quot;assetListType&quot;,
+      &quot;value&quot;: [&quot;COVER_IMG_1&quot;, &quot;COVER_IMG_2&quot;] }
+     }' \
+     --asset-files AUTHOR_IMG=~/Pictures/jverne.jpg COVER_IMG_1=/tmp/LM1.jpg
+      COVER_IMG_2=/tmp/LM2.jpg
     <p class="Pp">Creates a record in the public database of the container's
         development environment <i>iCloud.com.mycompany.mycontainer</i> for a
         previously-defined <b>Book</b> schema record type from an inline
-        definition in JSON format. Reads the authorization token from the
-        environment variable <b>CLOUDKIT_USER_TOKEN</b>, <i>~/.config/cktool</i>
-        or the login keychain (<i>com.apple.icloud.cktool
-        (cktooluser_auth)</i>), in that order.</p>
+        definition in JSON format. Note that the asset fields use keys with file
+        paths later defined by the <b>--asset-files</b> option. Reads the
+        authorization token from the environment variable
+        <b>CLOUDKIT_USER_TOKEN</b>, <i>~/.config/cktool</i> or the login
+        keychain (<i>com.apple.icloud.cktool (cktooluser_auth)</i>), in that
+        order.</p>
+    <p class="Pp"></p>
+  </dd>
+  <dt>$ cktool delete-record --container-id iCloud.com.mycompany.mycontainer
+    --environment development --database-type private --record-name
+    UNIQUE-RECORD-ID</dt>
+  <dd>Deletes a record matching the unique record name provided from the
+      authorized user's private database in the container. Reads the
+      authorization token from the environment variable
+      <b>CLOUDKIT_USER_TOKEN</b>, <i>~/.config/cktool</i> or the login keychain
+      (<i>com.apple.icloud.cktool (cktooluser_auth)</i>), in that order.
+    <p class="Pp"></p>
+  </dd>
+  <dt>$ cktool delete-records --container-id iCloud.com.mycompany.mycontainer
+    --environment development --database-type public --record-type Book
+    --filters &quot;pageCount &gt;= 1400&quot; --dry-run false</dt>
+  <dd>Deletes any <b>Book</b> records with a <i>pageCount</i> equal to or
+      greater than 1400 from the public database in the container. Reads the
+      authorization token from the environment variable
+      <b>CLOUDKIT_USER_TOKEN</b>, <i>~/.config/cktool</i> or the login keychain
+      (<i>com.apple.icloud.cktool (cktooluser_auth)</i>), in that order.
     <p class="Pp"></p>
   </dd>
 </dl>
