@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <!-- This is an automatically generated file.  Do not edit.
-   $OpenBSD: ssh-agent.1,v 1.72 2020/06/22 05:52:05 djm Exp $
+   $OpenBSD: ssh-agent.1,v 1.64 2016/11/30 06:54:26 jmc Exp $
   
    Author: Tatu Ylonen <ylo@cs.hut.fi>
    Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -79,7 +79,7 @@
 <section class="Sh">
 <h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
 <code class="Nm">ssh-agent</code> &#x2014;
-<div class="Nd">OpenSSH authentication agent</div>
+<div class="Nd">authentication agent</div>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
@@ -90,19 +90,9 @@
       [<code class="Fl">-Dd</code>] [<code class="Fl">-a</code>
       <var class="Ar">bind_address</var>] [<code class="Fl">-E</code>
       <var class="Ar">fingerprint_hash</var>] [<code class="Fl">-P</code>
-      <var class="Ar">allowed_providers</var>] [<code class="Fl">-t</code>
-      <var class="Ar">life</var>]</td>
-  </tr>
-</table>
-<br/>
-<table class="Nm">
-  <tr>
-    <td><code class="Nm">ssh-agent</code></td>
-    <td>[<code class="Fl">-a</code> <var class="Ar">bind_address</var>]
-      [<code class="Fl">-E</code> <var class="Ar">fingerprint_hash</var>]
-      [<code class="Fl">-P</code> <var class="Ar">allowed_providers</var>]
-      [<code class="Fl">-t</code> <var class="Ar">life</var>]
-      <var class="Ar">command</var> [<var class="Ar">arg ...</var>]</td>
+      <var class="Ar">pkcs11_whitelist</var>] [<code class="Fl">-t</code>
+      <var class="Ar">life</var>] [<var class="Ar">command</var>
+      [<var class="Ar">arg ...</var>]]</td>
   </tr>
 </table>
 <br/>
@@ -117,9 +107,20 @@
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
 <code class="Nm">ssh-agent</code> is a program to hold private keys used for
-  public key authentication. Through use of environment variables the agent can
-  be located and automatically used for authentication when logging in to other
-  machines using <a class="Xr">ssh(1)</a>.
+  public key authentication (RSA, DSA, ECDSA, Ed25519).
+  <code class="Nm">ssh-agent</code> is usually started in the beginning of an
+  X-session or a login session, and all other windows or programs are started as
+  clients to the ssh-agent program. Through use of environment variables the
+  agent can be located and automatically used for authentication when logging in
+  to other machines using <a class="Xr">ssh(1)</a>.
+<p class="Pp">The agent initially does not have any private keys. Keys are added
+    using <a class="Xr">ssh(1)</a> (see <code class="Cm">AddKeysToAgent</code>
+    in <a class="Xr">ssh_config(5)</a> for details) or
+    <a class="Xr">ssh-add(1)</a>. Multiple identities may be stored in
+    <code class="Nm">ssh-agent</code> concurrently and <a class="Xr">ssh(1)</a>
+    will automatically use them if present. <a class="Xr">ssh-add(1)</a> is also
+    used to remove keys from <code class="Nm">ssh-agent</code> and to query the
+    keys that are held in one.</p>
 <p class="Pp">The options are as follows:</p>
 <dl class="Bl-tag">
   <dt><a class="permalink" href="#a"><code class="Fl" id="a">-a</code></a>
@@ -147,14 +148,14 @@
   <dd>Kill the current agent (given by the <code class="Ev">SSH_AGENT_PID</code>
       environment variable).</dd>
   <dt><a class="permalink" href="#P"><code class="Fl" id="P">-P</code></a>
-    <var class="Ar">allowed_providers</var></dt>
-  <dd>Specify a pattern-list of acceptable paths for PKCS#11 provider and FIDO
-      authenticator middleware shared libraries that may be used with the
-      <code class="Fl">-S</code> or <code class="Fl">-s</code> options to
-      <a class="Xr">ssh-add(1)</a>. Libraries that do not match the pattern list
-      will be refused. See PATTERNS in <a class="Xr">ssh_config(5)</a> for a
-      description of pattern-list syntax. The default list is
-      &#x201C;/usr/lib/*,/usr/local/lib/*&#x201D;.</dd>
+    <var class="Ar">pkcs11_whitelist</var></dt>
+  <dd>Specify a pattern-list of acceptable paths for PKCS#11 shared libraries
+      that may be added using the <code class="Fl">-s</code> option to
+      <a class="Xr">ssh-add(1)</a>. The default is to allow loading PKCS#11
+      libraries from &#x201C;/usr/lib/*,/usr/local/lib/*&#x201D;. PKCS#11
+      libraries that do not match the whitelist will be refused. See PATTERNS in
+      <a class="Xr">ssh_config(5)</a> for a description of pattern-list
+    syntax.</dd>
   <dt><a class="permalink" href="#s"><code class="Fl" id="s">-s</code></a></dt>
   <dd>Generate Bourne shell commands on <code class="Dv">stdout</code>. This is
       the default if <code class="Ev">SHELL</code> does not look like it's a csh
@@ -166,53 +167,39 @@
       specified in <a class="Xr">sshd_config(5)</a>. A lifetime specified for an
       identity with <a class="Xr">ssh-add(1)</a> overrides this value. Without
       this option the default maximum lifetime is forever.</dd>
-  <dt><var class="Ar">command</var> [<var class="Ar">arg ...</var>]</dt>
-  <dd>If a command (and optional arguments) is given, this is executed as a
-      subprocess of the agent. The agent exits automatically when the command
-      given on the command line terminates.</dd>
 </dl>
-<p class="Pp">There are two main ways to get an agent set up. The first is at
-    the start of an X session, where all other windows or programs are started
-    as children of the <code class="Nm">ssh-agent</code> program. The agent
-    starts a command under which its environment variables are exported, for
-    example <code class="Cm">ssh-agent xterm &amp;</code>. When the command
-    terminates, so does the agent.</p>
-<p class="Pp">The second method is used for a login session. When
-    <code class="Nm">ssh-agent</code> is started, it prints the shell commands
-    required to set its environment variables, which in turn can be evaluated in
-    the calling shell, for example <code class="Cm">eval `ssh-agent
-  -s`</code>.</p>
-<p class="Pp">In both cases, <a class="Xr">ssh(1)</a> looks at these environment
-    variables and uses them to establish a connection to the agent.</p>
-<p class="Pp">The agent initially does not have any private keys. Keys are added
-    using <a class="Xr">ssh-add(1)</a> or by <a class="Xr">ssh(1)</a> when
-    <code class="Cm">AddKeysToAgent</code> is set in
-    <a class="Xr">ssh_config(5)</a>. Multiple identities may be stored in
-    <code class="Nm">ssh-agent</code> concurrently and <a class="Xr">ssh(1)</a>
-    will automatically use them if present. <a class="Xr">ssh-add(1)</a> is also
-    used to remove keys from <code class="Nm">ssh-agent</code> and to query the
-    keys that are held in one.</p>
-<p class="Pp">Connections to <code class="Nm">ssh-agent</code> may be forwarded
-    from further remote hosts using the <code class="Fl">-A</code> option to
-    <a class="Xr">ssh(1)</a> (but see the caveats documented therein), avoiding
-    the need for authentication data to be stored on other machines.
-    Authentication passphrases and private keys never go over the network: the
-    connection to the agent is forwarded over SSH remote connections and the
-    result is returned to the requester, allowing the user access to their
-    identities anywhere in the network in a secure fashion.</p>
-</section>
-<section class="Sh">
-<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
-<dl class="Bl-tag">
-  <dt><a class="permalink" href="#SSH_AGENT_PID"><code class="Ev" id="SSH_AGENT_PID">SSH_AGENT_PID</code></a></dt>
-  <dd>When <code class="Nm">ssh-agent</code> starts, it stores the name of the
-      agent's process ID (PID) in this variable.</dd>
-  <dt><a class="permalink" href="#SSH_AUTH_SOCK"><code class="Ev" id="SSH_AUTH_SOCK">SSH_AUTH_SOCK</code></a></dt>
-  <dd>When <code class="Nm">ssh-agent</code> starts, it creates a
-      <span class="Ux">UNIX</span>-domain socket and stores its pathname in this
-      variable. It is accessible only to the current user, but is easily abused
-      by root or another instance of the same user.</dd>
-</dl>
+<p class="Pp">If a command line is given, this is executed as a subprocess of
+    the agent. When the command dies, so does the agent.</p>
+<p class="Pp">The idea is that the agent is run in the user's local PC, laptop,
+    or terminal. Authentication data need not be stored on any other machine,
+    and authentication passphrases never go over the network. However, the
+    connection to the agent is forwarded over SSH remote logins, and the user
+    can thus use the privileges given by the identities anywhere in the network
+    in a secure way.</p>
+<p class="Pp">There are two main ways to get an agent set up: The first is that
+    the agent starts a new subcommand into which some environment variables are
+    exported, eg <code class="Cm">ssh-agent xterm &amp;</code>. The second is
+    that the agent prints the needed shell commands (either
+    <a class="Xr">sh(1)</a> or <a class="Xr">csh(1)</a> syntax can be generated)
+    which can be evaluated in the calling shell, eg <code class="Cm">eval
+    `ssh-agent -s`</code> for Bourne-type shells such as <a class="Xr">sh(1)</a>
+    or <a class="Xr">ksh(1)</a> and <code class="Cm">eval `ssh-agent -c`</code>
+    for <a class="Xr">csh(1)</a> and derivatives.</p>
+<p class="Pp">Later <a class="Xr">ssh(1)</a> looks at these variables and uses
+    them to establish a connection to the agent.</p>
+<p class="Pp">The agent will never send a private key over its request channel.
+    Instead, operations that require a private key will be performed by the
+    agent, and the result will be returned to the requester. This way, private
+    keys are not exposed to clients using the agent.</p>
+<p class="Pp">A <span class="Ux">UNIX</span>-domain socket is created and the
+    name of this socket is stored in the <code class="Ev">SSH_AUTH_SOCK</code>
+    environment variable. The socket is made accessible only to the current
+    user. This method is easily abused by root or another instance of the same
+    user.</p>
+<p class="Pp">The <code class="Ev">SSH_AGENT_PID</code> environment variable
+    holds the agent's process ID.</p>
+<p class="Pp">The agent exits automatically when the command given on the
+    command line terminates.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
@@ -228,8 +215,7 @@
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
 <a class="Xr">ssh(1)</a>, <a class="Xr">ssh-add(1)</a>,
-  <a class="Xr">ssh-keygen(1)</a>, <a class="Xr">ssh_config(5)</a>,
-  <a class="Xr">sshd(8)</a>
+  <a class="Xr">ssh-keygen(1)</a>, <a class="Xr">sshd(8)</a>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>

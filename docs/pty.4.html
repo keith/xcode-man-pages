@@ -86,15 +86,15 @@
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
 The <code class="Nm">pty</code> driver provides support for a device-pair termed
   a <i class="Em">pseudo terminal</i>. A pseudo terminal is a pair of character
-  devices, a <i class="Em">primary</i> device and a <i class="Em">replica</i>
-  device. The replica device provides to a process an interface identical to
-  that described in <a class="Xr">tty(4)</a>. However, whereas all other devices
+  devices, a <i class="Em">master</i> device and a <i class="Em">slave</i>
+  device. The slave device provides to a process an interface identical to that
+  described in <a class="Xr">tty(4)</a>. However, whereas all other devices
   which provide the interface described in <a class="Xr">tty(4)</a> have a
-  hardware device of some sort behind them, the replica device has, instead,
-  another process manipulating it through the primary half of the pseudo
-  terminal. That is, anything written on the primary device is given to the
-  replica device as input and anything written on the replica device is
-  presented as input on the primary device.
+  hardware device of some sort behind them, the slave device has, instead,
+  another process manipulating it through the master half of the pseudo
+  terminal. That is, anything written on the master device is given to the slave
+  device as input and anything written on the slave device is presented as input
+  on the master device.
 <p class="Pp">In configuring, if an optional <var class="Ar">count</var> is
     given in the specification, that number of pseudo terminal pairs are
     configured; the default count is 32.</p>
@@ -110,10 +110,10 @@ The <code class="Nm">pty</code> driver provides support for a device-pair termed
   <dt><a class="permalink" href="#TIOCPKT"><code class="Dv" id="TIOCPKT">TIOCPKT</code></a></dt>
   <dd>Enable/disable <i class="Em">packet</i> mode. Packet mode is enabled by
       specifying (by reference) a nonzero parameter and disabled by specifying
-      (by reference) a zero parameter. When applied to the primary side of a
+      (by reference) a zero parameter. When applied to the master side of a
       pseudo terminal, each subsequent <a class="Xr">read(2)</a> from the
-      terminal will return data written on the replica part of the pseudo
-      terminal preceded by a zero byte (symbolically defined as
+      terminal will return data written on the slave part of the pseudo terminal
+      preceded by a zero byte (symbolically defined as
       <code class="Dv">TIOCPKT_DATA</code>), or a single byte reflecting control
       status information. In the latter case, the byte is an inclusive-or of
       zero or more of the bits:
@@ -134,16 +134,17 @@ The <code class="Nm">pty</code> driver provides support for a device-pair termed
           &#x2018;<code class="Li">^Q</code>&#x2019;.</dd>
       <dt><a class="permalink" href="#TIOCPKT_NOSTOP"><code class="Dv" id="TIOCPKT_NOSTOP">TIOCPKT_NOSTOP</code></a></dt>
       <dd>whenever the start and stop characters are not
-          &#x2018;<code class="Li">^S/^Q</code>&#x2019;.</dd>
+          &#x2018;<code class="Li">^S/^Q</code>&#x2019;.
+        <p class="Pp">While this mode is in use, the presence of control status
+            information to be read from the master side may be detected by a
+            <a class="Xr">select(2)</a> for exceptional conditions.</p>
+        <p class="Pp">This mode is used by <a class="Xr">rlogin(1)</a> and
+            <a class="Xr">rlogind(8)</a> to implement a remote-echoed, locally
+            &#x2018;<code class="Li">^S/^Q</code>&#x2019; flow-controlled remote
+            login with proper back-flushing of output; it can be used by other
+            similar programs.</p>
+      </dd>
     </dl>
-    <p class="Pp">While this mode is in use, the presence of control status
-        information to be read from the primary side may be detected by a
-        <a class="Xr">select(2)</a> for exceptional conditions.</p>
-    <p class="Pp">This mode is used by <a class="Xr">rlogin(1)</a> and
-        <a class="Xr">rlogind(8)</a> to implement a remote-echoed, locally
-        &#x2018;<code class="Li">^S/^Q</code>&#x2019; flow-controlled remote
-        login with proper back-flushing of output; it can be used by other
-        similar programs.</p>
   </dd>
   <dt><a class="permalink" href="#TIOCUCNTL"><code class="Dv" id="TIOCUCNTL">TIOCUCNTL</code></a></dt>
   <dd>Enable/disable a mode that allows a small number of simple user
@@ -151,30 +152,41 @@ The <code class="Nm">pty</code> driver provides support for a device-pair termed
       pseudo-terminal, using a protocol similar to that of
       <code class="Dv">TIOCPKT</code>. The <code class="Dv">TIOCUCNTL</code> and
       <code class="Dv">TIOCPKT</code> modes are mutually exclusive. This mode is
-      enabled from the primary side of a pseudo terminal by specifying (by
+      enabled from the master side of a pseudo terminal by specifying (by
       reference) a nonzero parameter and disabled by specifying (by reference) a
-      zero parameter. Each subsequent <a class="Xr">read(2)</a> from the primary
-      side will return data written on the replica part of the pseudo terminal
+      zero parameter. Each subsequent <a class="Xr">read(2)</a> from the master
+      side will return data written on the slave part of the pseudo terminal
       preceded by a zero byte, or a single byte reflecting a user control
-      operation on the replica side. A user control command consists of a
-      special <a class="Xr">ioctl(2)</a> operation with no data; the command is
-      given as <code class="Dv">UIOCCMD</code>(n), where <var class="Ar">n</var>
-      is a number in the range 1-255. The operation value
-      <var class="Ar">n</var> will be received as a single byte on the next
-      <a class="Xr">read(2)</a> from the primary side. The
-      <a class="Xr">ioctl(2)</a> <code class="Dv">UIOCCMD</code>(0) is a no-op
-      that may be used to probe for the existence of this facility. As with
+      operation on the slave side. A user control command consists of a special
+      <a class="Xr">ioctl(2)</a> operation with no data; the command is given as
+      <code class="Dv">UIOCCMD</code>(n), where <var class="Ar">n</var> is a
+      number in the range 1-255. The operation value <var class="Ar">n</var>
+      will be received as a single byte on the next <a class="Xr">read(2)</a>
+      from the master side. The <a class="Xr">ioctl(2)</a>
+      <code class="Dv">UIOCCMD</code>(0) is a no-op that may be used to probe
+      for the existence of this facility. As with
       <code class="Dv">TIOCPKT</code> mode, command operations may be detected
       with a <a class="Xr">select(2)</a> for exceptional conditions.</dd>
+  <dt><a class="permalink" href="#TIOCREMOTE"><code class="Dv" id="TIOCREMOTE">TIOCREMOTE</code></a></dt>
+  <dd>A mode for the master half of a pseudo terminal, independent of
+      <code class="Dv">TIOCPKT</code>. This mode causes input to the pseudo
+      terminal to be flow controlled and not input edited (regardless of the
+      terminal mode). Each write to the control terminal produces a record
+      boundary for the process reading the terminal. In normal usage, a write of
+      data is like the data typed as a line on the terminal; a write of 0 bytes
+      is like typing an end-of-file character.
+      <code class="Dv">TIOCREMOTE</code> can be used when doing remote line
+      editing in a window manager, or whenever flow controlled input is
+      required.</dd>
 </dl>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
 <dl class="Bl-tag Bl-compact">
   <dt><span class="Pa">/dev/pty[p-sP-S][a-z0-9]</span></dt>
-  <dd>primary pseudo terminals</dd>
+  <dd>master pseudo terminals</dd>
   <dt><span class="Pa">/dev/tty[p-sP-S][a-z0-9]</span></dt>
-  <dd>replica pseudo terminals</dd>
+  <dd>slave pseudo terminals</dd>
 </dl>
 </section>
 <section class="Sh">
