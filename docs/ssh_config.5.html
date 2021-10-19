@@ -35,7 +35,7 @@
    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
    THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   
-   $OpenBSD: ssh_config.5,v 1.304 2019/09/13 04:52:34 djm Exp $
+   $OpenBSD: ssh_config.5,v 1.353 2021/04/04 11:36:56 jmc Exp $
  -->
 <head>
 
@@ -79,7 +79,7 @@
 <section class="Sh">
 <h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
 <code class="Nm">ssh_config</code> &#x2014;
-<div class="Nd">OpenSSH SSH client configuration files</div>
+<div class="Nd">OpenSSH client configuration file</div>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
@@ -194,18 +194,24 @@
       option is set to <code class="Cm">confirm</code>, each use of the key must
       be confirmed, as if the <code class="Fl">-c</code> option was specified to
       <a class="Xr">ssh-add(1)</a>. If this option is set to
-      <code class="Cm">no</code>, no keys are added to the agent. The argument
-      must be <code class="Cm">yes</code>, <code class="Cm">confirm</code>,
-      <code class="Cm">ask</code>, or <code class="Cm">no</code> (the
-    default).</dd>
+      <code class="Cm">no</code>, no keys are added to the agent. Alternately,
+      this option may be specified as a time interval using the format described
+      in the <a class="Sx" href="#TIME_FORMATS">TIME FORMATS</a> section of
+      <a class="Xr">sshd_config(5)</a> to specify the key's lifetime in
+      <a class="Xr">ssh-agent(1)</a>, after which it will automatically be
+      removed. The argument must be <code class="Cm">no</code> (the default),
+      <code class="Cm">yes</code>, <code class="Cm">confirm</code> (optionally
+      followed by a time interval), <code class="Cm">ask</code> or a time
+      interval.</dd>
   <dt><a class="permalink" href="#AddressFamily"><code class="Cm" id="AddressFamily">AddressFamily</code></a></dt>
   <dd>Specifies which address family to use when connecting. Valid arguments are
       <code class="Cm">any</code> (the default), <code class="Cm">inet</code>
       (use IPv4 only), or <code class="Cm">inet6</code> (use IPv6 only).</dd>
   <dt><a class="permalink" href="#BatchMode"><code class="Cm" id="BatchMode">BatchMode</code></a></dt>
-  <dd>If set to <code class="Cm">yes</code>, passphrase/password querying will
-      be disabled. This option is useful in scripts and other batch jobs where
-      no user is present to supply the password. The argument must be
+  <dd>If set to <code class="Cm">yes</code>, user interaction such as password
+      prompts and host key confirmation requests will be disabled. This option
+      is useful in scripts and other batch jobs where no user is present to
+      interact with <a class="Xr">ssh(1)</a>. The argument must be
       <code class="Cm">yes</code> or <code class="Cm">no</code> (the
     default).</dd>
   <dt><a class="permalink" href="#BindAddress"><code class="Cm" id="BindAddress">BindAddress</code></a></dt>
@@ -267,8 +273,9 @@
       certificate authorities (CAs). The default is:
     <div class="Bd Pp Bd-indent">
     <pre>
-ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
-ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
+ssh-ed25519,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
+sk-ssh-ed25519@openssh.com,sk-ecdsa-sha2-nistp256@openssh.com,
+rsa-sha2-512,rsa-sha2-256
     </pre>
     </div>
     <p class="Pp"><a class="Xr">ssh(1)</a> will not accept host certificates
@@ -280,10 +287,14 @@ ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
       certificate either from an <code class="Cm">IdentityFile</code> directive
       or <code class="Fl">-i</code> flag to <a class="Xr">ssh(1)</a>, via
       <a class="Xr">ssh-agent(1)</a>, or via a
-      <code class="Cm">PKCS11Provider</code>.
+      <code class="Cm">PKCS11Provider</code> or
+      <code class="Cm">SecurityKeyProvider</code>.
     <p class="Pp">Arguments to <code class="Cm">CertificateFile</code> may use
-        the tilde syntax to refer to a user's home directory or the tokens
-        described in the <a class="Sx" href="#TOKENS">TOKENS</a> section.</p>
+        the tilde syntax to refer to a user's home directory, the tokens
+        described in the <a class="Sx" href="#TOKENS">TOKENS</a> section and
+        environment variables as described in the
+        <a class="Sx" href="#ENVIRONMENT_VARIABLES">ENVIRONMENT VARIABLES</a>
+        section.</p>
     <p class="Pp">It is possible to have multiple certificate files specified in
         configuration files; these certificates will be tried in sequence.
         Multiple <code class="Cm">CertificateFile</code> directives will add to
@@ -294,14 +305,15 @@ ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
       to this keyword must be <code class="Cm">yes</code> (the default) or
       <code class="Cm">no</code>.</dd>
   <dt><a class="permalink" href="#CheckHostIP"><code class="Cm" id="CheckHostIP">CheckHostIP</code></a></dt>
-  <dd>If set to <code class="Cm">yes</code> (the default),
-      <a class="Xr">ssh(1)</a> will additionally check the host IP address in
-      the <span class="Pa">known_hosts</span> file. This allows it to detect if
-      a host key changed due to DNS spoofing and will add addresses of
-      destination hosts to <span class="Pa">~/.ssh/known_hosts</span> in the
-      process, regardless of the setting of
+  <dd>If set to <code class="Cm">yes</code> <a class="Xr">ssh(1)</a> will
+      additionally check the host IP address in the
+      <span class="Pa">known_hosts</span> file. This allows it to detect if a
+      host key changed due to DNS spoofing and will add addresses of destination
+      hosts to <span class="Pa">~/.ssh/known_hosts</span> in the process,
+      regardless of the setting of
       <code class="Cm">StrictHostKeyChecking</code>. If the option is set to
-      <code class="Cm">no</code>, the check will not be executed.</dd>
+      <code class="Cm">no</code> (the default), the check will not be
+    executed.</dd>
   <dt><a class="permalink" href="#Ciphers"><code class="Cm" id="Ciphers">Ciphers</code></a></dt>
   <dd>Specifies the ciphers allowed and their order of preference. Multiple
       ciphers must be comma-separated. If the specified list begins with a
@@ -392,23 +404,26 @@ aes128-gcm@openssh.com,aes256-gcm@openssh.com
       described in the <code class="Cm">ControlMaster</code> section above or
       the string <code class="Cm">none</code> to disable connection sharing.
       Arguments to <code class="Cm">ControlPath</code> may use the tilde syntax
-      to refer to a user's home directory or the tokens described in the
-      <a class="Sx" href="#TOKENS">TOKENS</a> section. It is recommended that
-      any <code class="Cm">ControlPath</code> used for opportunistic connection
-      sharing include at least %h, %p, and %r (or alternatively %C) and be
-      placed in a directory that is not writable by other users. This ensures
-      that shared connections are uniquely identified.</dd>
+      to refer to a user's home directory, the tokens described in the
+      <a class="Sx" href="#TOKENS">TOKENS</a> section and environment variables
+      as described in the
+      <a class="Sx" href="#ENVIRONMENT_VARIABLES">ENVIRONMENT VARIABLES</a>
+      section. It is recommended that any <code class="Cm">ControlPath</code>
+      used for opportunistic connection sharing include at least %h, %p, and %r
+      (or alternatively %C) and be placed in a directory that is not writable by
+      other users. This ensures that shared connections are uniquely
+    identified.</dd>
   <dt><a class="permalink" href="#ControlPersist"><code class="Cm" id="ControlPersist">ControlPersist</code></a></dt>
   <dd>When used in conjunction with <code class="Cm">ControlMaster</code>,
       specifies that the master connection should remain open in the background
       (waiting for future client connections) after the initial client
-      connection has been closed. If set to <code class="Cm">no</code>, then the
-      master connection will not be placed into the background, and will close
-      as soon as the initial client connection is closed. If set to
-      <code class="Cm">yes</code> or 0, then the master connection will remain
-      in the background indefinitely (until killed or closed via a mechanism
-      such as the &#x201C;ssh -O exit&#x201D;). If set to a time in seconds, or
-      a time in any of the formats documented in
+      connection has been closed. If set to <code class="Cm">no</code> (the
+      default), then the master connection will not be placed into the
+      background, and will close as soon as the initial client connection is
+      closed. If set to <code class="Cm">yes</code> or 0, then the master
+      connection will remain in the background indefinitely (until killed or
+      closed via a mechanism such as the &#x201C;ssh -O exit&#x201D;). If set to
+      a time in seconds, or a time in any of the formats documented in
       <a class="Xr">sshd_config(5)</a>, then the backgrounded master connection
       will automatically terminate after it has remained idle (with no client
       connections) for the specified time.</dd>
@@ -462,8 +477,10 @@ aes128-gcm@openssh.com,aes256-gcm@openssh.com
       <code class="Cm">sha256</code> (the default).</dd>
   <dt><a class="permalink" href="#ForwardAgent"><code class="Cm" id="ForwardAgent">ForwardAgent</code></a></dt>
   <dd>Specifies whether the connection to the authentication agent (if any) will
-      be forwarded to the remote machine. The argument must be
-      <code class="Cm">yes</code> or <code class="Cm">no</code> (the default).
+      be forwarded to the remote machine. The argument may be
+      <code class="Cm">yes</code>, <code class="Cm">no</code> (the default), an
+      explicit path to an agent socket or the name of an environment variable
+      (beginning with &#x2018;$&#x2019;) in which to find the path.
     <p class="Pp">Agent forwarding should be enabled with caution. Users with
         the ability to bypass file permissions on the remote host (for the
         agent's Unix-domain socket) can access the local agent through the
@@ -528,66 +545,80 @@ aes128-gcm@openssh.com,aes256-gcm@openssh.com
       addresses when they are added to
       <span class="Pa">~/.ssh/known_hosts</span>. These hashed names may be used
       normally by <a class="Xr">ssh(1)</a> and <a class="Xr">sshd(8)</a>, but
-      they do not reveal identifying information should the file's contents be
-      disclosed. The default is <code class="Cm">no</code>. Note that existing
-      names and addresses in known hosts files will not be converted
+      they do not visually reveal identifying information if the file's contents
+      are disclosed. The default is <code class="Cm">no</code>. Note that
+      existing names and addresses in known hosts files will not be converted
       automatically, but may be manually hashed using
       <a class="Xr">ssh-keygen(1)</a>.</dd>
+  <dt><a class="permalink" href="#HostbasedAcceptedAlgorithms"><code class="Cm" id="HostbasedAcceptedAlgorithms">HostbasedAcceptedAlgorithms</code></a></dt>
+  <dd>Specifies the signature algorithms that will be used for hostbased
+      authentication as a comma-separated list of patterns. Alternately if the
+      specified list begins with a &#x2018;+&#x2019; character, then the
+      specified signature algorithms will be appended to the default set instead
+      of replacing them. If the specified list begins with a &#x2018;-&#x2019;
+      character, then the specified signature algorithms (including wildcards)
+      will be removed from the default set instead of replacing them. If the
+      specified list begins with a &#x2018;^&#x2019; character, then the
+      specified signature algorithms will be placed at the head of the default
+      set. The default for this option is:
+    <div class="Bd Pp Bd-indent">
+    <pre>
+ssh-ed25519-cert-v01@openssh.com,
+ecdsa-sha2-nistp256-cert-v01@openssh.com,
+ecdsa-sha2-nistp384-cert-v01@openssh.com,
+ecdsa-sha2-nistp521-cert-v01@openssh.com,
+sk-ssh-ed25519-cert-v01@openssh.com,
+sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
+rsa-sha2-512-cert-v01@openssh.com,
+rsa-sha2-256-cert-v01@openssh.com,
+ssh-rsa-cert-v01@openssh.com,
+ssh-ed25519,
+ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
+sk-ssh-ed25519@openssh.com,
+sk-ecdsa-sha2-nistp256@openssh.com,
+rsa-sha2-512,rsa-sha2-256,ssh-rsa
+    </pre>
+    </div>
+    <p class="Pp">The <code class="Fl">-Q</code> option of
+        <a class="Xr">ssh(1)</a> may be used to list supported signature
+        algorithms. This was formerly named HostbasedKeyTypes.</p>
+  </dd>
   <dt><a class="permalink" href="#HostbasedAuthentication"><code class="Cm" id="HostbasedAuthentication">HostbasedAuthentication</code></a></dt>
   <dd>Specifies whether to try rhosts based authentication with public key
       authentication. The argument must be <code class="Cm">yes</code> or
       <code class="Cm">no</code> (the default).</dd>
-  <dt><a class="permalink" href="#HostbasedKeyTypes"><code class="Cm" id="HostbasedKeyTypes">HostbasedKeyTypes</code></a></dt>
-  <dd>Specifies the key types that will be used for hostbased authentication as
-      a comma-separated list of patterns. Alternately if the specified list
-      begins with a &#x2018;+&#x2019; character, then the specified key types
-      will be appended to the default set instead of replacing them. If the
-      specified list begins with a &#x2018;-&#x2019; character, then the
-      specified key types (including wildcards) will be removed from the default
-      set instead of replacing them. If the specified list begins with a
-      &#x2018;^&#x2019; character, then the specified key types will be placed
-      at the head of the default set. The default for this option is:
-    <div class="Bd Pp Bd-indent">
-    <pre>
-ecdsa-sha2-nistp256-cert-v01@openssh.com,
-ecdsa-sha2-nistp384-cert-v01@openssh.com,
-ecdsa-sha2-nistp521-cert-v01@openssh.com,
-ssh-ed25519-cert-v01@openssh.com,
-rsa-sha2-512-cert-v01@openssh.com,rsa-sha2-256-cert-v01@openssh.com,
-ssh-rsa-cert-v01@openssh.com,
-ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
-ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
-    </pre>
-    </div>
-    <p class="Pp">The <code class="Fl">-Q</code> option of
-        <a class="Xr">ssh(1)</a> may be used to list supported key types.</p>
-  </dd>
   <dt><a class="permalink" href="#HostKeyAlgorithms"><code class="Cm" id="HostKeyAlgorithms">HostKeyAlgorithms</code></a></dt>
-  <dd>Specifies the host key algorithms that the client wants to use in order of
-      preference. Alternately if the specified list begins with a
-      &#x2018;+&#x2019; character, then the specified key types will be appended
-      to the default set instead of replacing them. If the specified list begins
-      with a &#x2018;-&#x2019; character, then the specified key types
-      (including wildcards) will be removed from the default set instead of
-      replacing them. If the specified list begins with a &#x2018;^&#x2019;
-      character, then the specified key types will be placed at the head of the
-      default set. The default for this option is:
+  <dd>Specifies the host key signature algorithms that the client wants to use
+      in order of preference. Alternately if the specified list begins with a
+      &#x2018;+&#x2019; character, then the specified signature algorithms will
+      be appended to the default set instead of replacing them. If the specified
+      list begins with a &#x2018;-&#x2019; character, then the specified
+      signature algorithms (including wildcards) will be removed from the
+      default set instead of replacing them. If the specified list begins with a
+      &#x2018;^&#x2019; character, then the specified signature algorithms will
+      be placed at the head of the default set. The default for this option is:
     <div class="Bd Pp Bd-indent">
     <pre>
+ssh-ed25519-cert-v01@openssh.com,
 ecdsa-sha2-nistp256-cert-v01@openssh.com,
 ecdsa-sha2-nistp384-cert-v01@openssh.com,
 ecdsa-sha2-nistp521-cert-v01@openssh.com,
-ssh-ed25519-cert-v01@openssh.com,
-rsa-sha2-512-cert-v01@openssh.com,rsa-sha2-256-cert-v01@openssh.com,
+sk-ssh-ed25519-cert-v01@openssh.com,
+sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
+rsa-sha2-512-cert-v01@openssh.com,
+rsa-sha2-256-cert-v01@openssh.com,
 ssh-rsa-cert-v01@openssh.com,
+ssh-ed25519,
 ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
-ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
+sk-ecdsa-sha2-nistp256@openssh.com,
+sk-ssh-ed25519@openssh.com,
+rsa-sha2-512,rsa-sha2-256,ssh-rsa
     </pre>
     </div>
     <p class="Pp">If hostkeys are known for the destination host then this
         default is modified to prefer their algorithms.</p>
-    <p class="Pp">The list of available key types may also be obtained using
-        &#x201C;ssh -Q key&#x201D;.</p>
+    <p class="Pp">The list of available signature algorithms may also be
+        obtained using &#x201C;ssh -Q HostKeyAlgorithms&#x201D;.</p>
   </dd>
   <dt><a class="permalink" href="#HostKeyAlias"><code class="Cm" id="HostKeyAlias">HostKeyAlias</code></a></dt>
   <dd>Specifies an alias that should be used instead of the real host name when
@@ -608,10 +639,10 @@ ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
       or those explicitly configured in the <code class="Nm">ssh_config</code>
       files or passed on the <a class="Xr">ssh(1)</a> command-line), even if
       <a class="Xr">ssh-agent(1)</a> or a <code class="Cm">PKCS11Provider</code>
-      offers more identities. The argument to this keyword must be
-      <code class="Cm">yes</code> or <code class="Cm">no</code> (the default).
-      This option is intended for situations where ssh-agent offers many
-      different identities.</dd>
+      or <code class="Cm">SecurityKeyProvider</code> offers more identities. The
+      argument to this keyword must be <code class="Cm">yes</code> or
+      <code class="Cm">no</code> (the default). This option is intended for
+      situations where ssh-agent offers many different identities.</dd>
   <dt><a class="permalink" href="#IdentityAgent"><code class="Cm" id="IdentityAgent">IdentityAgent</code></a></dt>
   <dd>Specifies the <span class="Ux">UNIX</span>-domain socket used to
       communicate with the authentication agent.
@@ -626,15 +657,20 @@ ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
         will be treated as an environment variable containing the location of
         the socket.</p>
     <p class="Pp">Arguments to <code class="Cm">IdentityAgent</code> may use the
-        tilde syntax to refer to a user's home directory or the tokens described
-        in the <a class="Sx" href="#TOKENS">TOKENS</a> section.</p>
+        tilde syntax to refer to a user's home directory, the tokens described
+        in the <a class="Sx" href="#TOKENS">TOKENS</a> section and environment
+        variables as described in the
+        <a class="Sx" href="#ENVIRONMENT_VARIABLES">ENVIRONMENT VARIABLES</a>
+        section.</p>
   </dd>
   <dt><a class="permalink" href="#IdentityFile"><code class="Cm" id="IdentityFile">IdentityFile</code></a></dt>
-  <dd>Specifies a file from which the user's DSA, ECDSA, Ed25519 or RSA
-      authentication identity is read. The default is
-      <span class="Pa">~/.ssh/id_dsa</span>,
+  <dd>Specifies a file from which the user's DSA, ECDSA, authenticator-hosted
+      ECDSA, Ed25519, authenticator-hosted Ed25519 or RSA authentication
+      identity is read. The default is <span class="Pa">~/.ssh/id_dsa</span>,
       <span class="Pa">~/.ssh/id_ecdsa</span>,
-      <span class="Pa">~/.ssh/id_ed25519</span> and
+      <span class="Pa">~/.ssh/id_ecdsa_sk</span>,
+      <span class="Pa">~/.ssh/id_ed25519</span>,
+      <span class="Pa">~/.ssh/id_ed25519_sk</span> and
       <span class="Pa">~/.ssh/id_rsa</span>. Additionally, any identities
       represented by the authentication agent will be used for authentication
       unless <code class="Cm">IdentitiesOnly</code> is set. If no certificates
@@ -669,12 +705,13 @@ ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
   <dd>Include the specified configuration file(s). Multiple pathnames may be
       specified and each pathname may contain <a class="Xr">glob(7)</a>
       wildcards and, for user configurations, shell-like &#x2018;~&#x2019;
-      references to user home directories. Files without absolute paths are
-      assumed to be in <span class="Pa">~/.ssh</span> if included in a user
-      configuration file or <span class="Pa">/etc/ssh</span> if included from
-      the system configuration file. <code class="Cm">Include</code> directive
-      may appear inside a <code class="Cm">Match</code> or
-      <code class="Cm">Host</code> block to perform conditional inclusion.</dd>
+      references to user home directories. Wildcards will be expanded and
+      processed in lexical order. Files without absolute paths are assumed to be
+      in <span class="Pa">~/.ssh</span> if included in a user configuration file
+      or <span class="Pa">/etc/ssh</span> if included from the system
+      configuration file. <code class="Cm">Include</code> directive may appear
+      inside a <code class="Cm">Match</code> or <code class="Cm">Host</code>
+      block to perform conditional inclusion.</dd>
   <dt><a class="permalink" href="#IPQoS"><code class="Cm" id="IPQoS">IPQoS</code></a></dt>
   <dd>Specifies the IPv4 type-of-service or DSCP class for connections. Accepted
       values are <code class="Cm">af11</code>, <code class="Cm">af12</code>,
@@ -687,16 +724,17 @@ ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
       <code class="Cm">cs2</code>, <code class="Cm">cs3</code>,
       <code class="Cm">cs4</code>, <code class="Cm">cs5</code>,
       <code class="Cm">cs6</code>, <code class="Cm">cs7</code>,
-      <code class="Cm">ef</code>, <code class="Cm">lowdelay</code>,
-      <code class="Cm">throughput</code>, <code class="Cm">reliability</code>, a
-      numeric value, or <code class="Cm">none</code> to use the operating system
-      default. This option may take one or two arguments, separated by
-      whitespace. If one argument is specified, it is used as the packet class
-      unconditionally. If two values are specified, the first is automatically
-      selected for interactive sessions and the second for non-interactive
-      sessions. The default is <code class="Cm">af21</code> (Low-Latency Data)
-      for interactive sessions and <code class="Cm">cs1</code> (Lower Effort)
-      for non-interactive sessions.</dd>
+      <code class="Cm">ef</code>, <code class="Cm">le</code>,
+      <code class="Cm">lowdelay</code>, <code class="Cm">throughput</code>,
+      <code class="Cm">reliability</code>, a numeric value, or
+      <code class="Cm">none</code> to use the operating system default. This
+      option may take one or two arguments, separated by whitespace. If one
+      argument is specified, it is used as the packet class unconditionally. If
+      two values are specified, the first is automatically selected for
+      interactive sessions and the second for non-interactive sessions. The
+      default is <code class="Cm">af21</code> (Low-Latency Data) for interactive
+      sessions and <code class="Cm">cs1</code> (Lower Effort) for
+      non-interactive sessions.</dd>
   <dt><a class="permalink" href="#KbdInteractiveAuthentication"><code class="Cm" id="KbdInteractiveAuthentication">KbdInteractiveAuthentication</code></a></dt>
   <dd>Specifies whether to use keyboard-interactive authentication. The argument
       to this keyword must be <code class="Cm">yes</code> (the default) or
@@ -724,13 +762,28 @@ ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,
 diffie-hellman-group-exchange-sha256,
 diffie-hellman-group16-sha512,
 diffie-hellman-group18-sha512,
-diffie-hellman-group14-sha256,
-diffie-hellman-group14-sha1
+diffie-hellman-group14-sha256
     </pre>
     </div>
     <p class="Pp">The list of available key exchange algorithms may also be
         obtained using &#x201C;ssh -Q kex&#x201D;.</p>
   </dd>
+  <dt><a class="permalink" href="#KnownHostsCommand"><code class="Cm" id="KnownHostsCommand">KnownHostsCommand</code></a></dt>
+  <dd>Specifies a command to use to obtain a list of host keys, in addition to
+      those listed in <code class="Cm">UserKnownHostsFile</code> and
+      <code class="Cm">GlobalKnownHostsFile</code>. This command is executed
+      after the files have been read. It may write host key lines to standard
+      output in identical format to the usual files (described in the
+      <a class="Sx" href="#VERIFYING_HOST_KEYS">VERIFYING HOST KEYS</a> section
+      in <a class="Xr">ssh(1)</a>). Arguments to
+      <code class="Cm">KnownHostsCommand</code> accept the tokens described in
+      the <a class="Sx" href="#TOKENS">TOKENS</a> section. The command may be
+      invoked multiple times per connection: once when preparing the preference
+      list of host key algorithms to use, again to obtain the host key for the
+      requested host name and, if <code class="Cm">CheckHostIP</code> is
+      enabled, one more time to obtain the host key matching the server's
+      address. If the command exits abnormally or returns a non-zero exit status
+      then the connection is terminated.</dd>
   <dt><a class="permalink" href="#LocalCommand"><code class="Cm" id="LocalCommand">LocalCommand</code></a></dt>
   <dd>Specifies a command to execute on the local machine after successfully
       connecting to the server. The command string extends to the end of the
@@ -746,26 +799,48 @@ diffie-hellman-group14-sha1
   <dt><a class="permalink" href="#LocalForward"><code class="Cm" id="LocalForward">LocalForward</code></a></dt>
   <dd>Specifies that a TCP port on the local machine be forwarded over the
       secure channel to the specified host and port from the remote machine. The
-      first argument must be
-      [<var class="Ar">bind_address</var>:]<var class="Ar">port</var> and the
-      second argument must be
-      <var class="Ar">host</var>:<var class="Ar">hostport</var>. IPv6 addresses
-      can be specified by enclosing addresses in square brackets. Multiple
-      forwardings may be specified, and additional forwardings can be given on
-      the command line. Only the superuser can forward privileged ports. By
-      default, the local port is bound in accordance with the
-      <code class="Cm">GatewayPorts</code> setting. However, an explicit
-      <var class="Ar">bind_address</var> may be used to bind the connection to a
-      specific address. The <var class="Ar">bind_address</var> of
-      <code class="Cm">localhost</code> indicates that the listening port be
-      bound for local use only, while an empty address or &#x2018;*&#x2019;
-      indicates that the port should be available from all interfaces.</dd>
+      first argument specifies the listener and may be
+      [<var class="Ar">bind_address</var>:]<var class="Ar">port</var> or a Unix
+      domain socket path. The second argument is the destination and may be
+      <var class="Ar">host</var>:<var class="Ar">hostport</var> or a Unix domain
+      socket path if the remote host supports it.
+    <p class="Pp">IPv6 addresses can be specified by enclosing addresses in
+        square brackets. Multiple forwardings may be specified, and additional
+        forwardings can be given on the command line. Only the superuser can
+        forward privileged ports. By default, the local port is bound in
+        accordance with the <code class="Cm">GatewayPorts</code> setting.
+        However, an explicit <var class="Ar">bind_address</var> may be used to
+        bind the connection to a specific address. The
+        <var class="Ar">bind_address</var> of <code class="Cm">localhost</code>
+        indicates that the listening port be bound for local use only, while an
+        empty address or &#x2018;*&#x2019; indicates that the port should be
+        available from all interfaces. Unix domain socket paths may use the
+        tokens described in the <a class="Sx" href="#TOKENS">TOKENS</a> section
+        and environment variables as described in the
+        <a class="Sx" href="#ENVIRONMENT_VARIABLES">ENVIRONMENT VARIABLES</a>
+        section.</p>
+  </dd>
   <dt><a class="permalink" href="#LogLevel"><code class="Cm" id="LogLevel">LogLevel</code></a></dt>
   <dd>Gives the verbosity level that is used when logging messages from
       <a class="Xr">ssh(1)</a>. The possible values are: QUIET, FATAL, ERROR,
       INFO, VERBOSE, DEBUG, DEBUG1, DEBUG2, and DEBUG3. The default is INFO.
       DEBUG and DEBUG1 are equivalent. DEBUG2 and DEBUG3 each specify higher
       levels of verbose output.</dd>
+  <dt><a class="permalink" href="#LogVerbose"><code class="Cm" id="LogVerbose">LogVerbose</code></a></dt>
+  <dd>Specify one or more overrides to LogLevel. An override consists of a
+      pattern lists that matches the source file, function and line number to
+      force detailed logging for. For example, an override pattern of:
+    <div class="Bd Pp Bd-indent">
+    <pre>
+kex.c:*:1000,*:kex_exchange_identification():*,packet.c:*
+    </pre>
+    </div>
+    <p class="Pp">would enable detailed logging for line 1000 of
+        <span class="Pa">kex.c</span>, everything in the
+        <code class="Fn">kex_exchange_identification</code>() function, and all
+        code in the <span class="Pa">packet.c</span> file. This option is
+        intended for debugging and no overrides are enabled by default.</p>
+  </dd>
   <dt><a class="permalink" href="#MACs"><code class="Cm" id="MACs">MACs</code></a></dt>
   <dd>Specifies the MAC (message authentication code) algorithms in order of
       preference. The MAC algorithm is used for data integrity protection.
@@ -810,6 +885,27 @@ hmac-sha2-256,hmac-sha2-512,hmac-sha1
       escape sequence in <a class="Xr">ssh(1)</a>. The argument must be
       <code class="Cm">yes</code> or <code class="Cm">no</code> (the
     default).</dd>
+  <dt><a class="permalink" href="#PermitRemoteOpen"><code class="Cm" id="PermitRemoteOpen">PermitRemoteOpen</code></a></dt>
+  <dd>Specifies the destinations to which remote TCP port forwarding is
+      permitted when <code class="Cm">RemoteForward</code> is used as a SOCKS
+      proxy. The forwarding specification must be one of the following forms:
+    <p class="Pp"></p>
+    <ul class="Bl-item Bd-indent Bl-compact">
+      <li><a class="permalink" href="#PermitRemoteOpen_2"><code class="Cm" id="PermitRemoteOpen_2">PermitRemoteOpen</code></a>
+          <var class="Ar">host</var>:<var class="Ar">port</var></li>
+      <li><a class="permalink" href="#PermitRemoteOpen_3"><code class="Cm" id="PermitRemoteOpen_3">PermitRemoteOpen</code></a>
+          <var class="Ar">IPv4_addr</var>:<var class="Ar">port</var></li>
+      <li><a class="permalink" href="#PermitRemoteOpen_4"><code class="Cm" id="PermitRemoteOpen_4">PermitRemoteOpen</code></a>
+          <var class="Ar">[IPv6_addr]</var>:<var class="Ar">port</var></li>
+    </ul>
+    <p class="Pp">Multiple forwards may be specified by separating them with
+        whitespace. An argument of <code class="Cm">any</code> can be used to
+        remove all restrictions and permit any forwarding requests. An argument
+        of <code class="Cm">none</code> can be used to prohibit all forwarding
+        requests. The wildcard &#x2018;*&#x2019; can be used for host or port to
+        allow all hosts or ports respectively. Otherwise, no pattern matching or
+        address lookups are performed on supplied names.</p>
+  </dd>
   <dt><a class="permalink" href="#PKCS11Provider"><code class="Cm" id="PKCS11Provider">PKCS11Provider</code></a></dt>
   <dd>Specifies which PKCS#11 provider to use or <code class="Cm">none</code> to
       indicate that no provider should be used (the default). The argument to
@@ -864,7 +960,8 @@ ProxyCommand /usr/bin/nc -X connect -x 192.0.2.0:8080 %h %p
       <a class="Xr">ssh(1)</a> to connect to the target host by first making a
       <a class="Xr">ssh(1)</a> connection to the specified
       <code class="Cm">ProxyJump</code> host and then establishing a TCP
-      forwarding to the ultimate target from there.
+      forwarding to the ultimate target from there. Setting the host to
+      <code class="Cm">none</code> disables this option entirely.
     <p class="Pp">Note that this option will compete with the
         <code class="Cm">ProxyCommand</code> option - whichever is specified
         first will prevent later instances of the other from taking effect.</p>
@@ -877,30 +974,36 @@ ProxyCommand /usr/bin/nc -X connect -x 192.0.2.0:8080 %h %p
   <dd>Specifies that <code class="Cm">ProxyCommand</code> will pass a connected
       file descriptor back to <a class="Xr">ssh(1)</a> instead of continuing to
       execute and pass data. The default is <code class="Cm">no</code>.</dd>
-  <dt><a class="permalink" href="#PubkeyAcceptedKeyTypes"><code class="Cm" id="PubkeyAcceptedKeyTypes">PubkeyAcceptedKeyTypes</code></a></dt>
-  <dd>Specifies the key types that will be used for public key authentication as
-      a comma-separated list of patterns. If the specified list begins with a
-      &#x2018;+&#x2019; character, then the key types after it will be appended
-      to the default instead of replacing it. If the specified list begins with
-      a &#x2018;-&#x2019; character, then the specified key types (including
-      wildcards) will be removed from the default set instead of replacing them.
-      If the specified list begins with a &#x2018;^&#x2019; character, then the
-      specified key types will be placed at the head of the default set. The
-      default for this option is:
+  <dt><a class="permalink" href="#PubkeyAcceptedAlgorithms"><code class="Cm" id="PubkeyAcceptedAlgorithms">PubkeyAcceptedAlgorithms</code></a></dt>
+  <dd>Specifies the signature algorithms that will be used for public key
+      authentication as a comma-separated list of patterns. If the specified
+      list begins with a &#x2018;+&#x2019; character, then the algorithms after
+      it will be appended to the default instead of replacing it. If the
+      specified list begins with a &#x2018;-&#x2019; character, then the
+      specified algorithms (including wildcards) will be removed from the
+      default set instead of replacing them. If the specified list begins with a
+      &#x2018;^&#x2019; character, then the specified algorithms will be placed
+      at the head of the default set. The default for this option is:
     <div class="Bd Pp Bd-indent">
     <pre>
+ssh-ed25519-cert-v01@openssh.com,
 ecdsa-sha2-nistp256-cert-v01@openssh.com,
 ecdsa-sha2-nistp384-cert-v01@openssh.com,
 ecdsa-sha2-nistp521-cert-v01@openssh.com,
-ssh-ed25519-cert-v01@openssh.com,
-rsa-sha2-512-cert-v01@openssh.com,rsa-sha2-256-cert-v01@openssh.com,
+sk-ssh-ed25519-cert-v01@openssh.com,
+sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
+rsa-sha2-512-cert-v01@openssh.com,
+rsa-sha2-256-cert-v01@openssh.com,
 ssh-rsa-cert-v01@openssh.com,
+ssh-ed25519,
 ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
-ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
+sk-ssh-ed25519@openssh.com,
+sk-ecdsa-sha2-nistp256@openssh.com,
+rsa-sha2-512,rsa-sha2-256,ssh-rsa
     </pre>
     </div>
-    <p class="Pp">The list of available key types may also be obtained using
-        &#x201C;ssh -Q key&#x201D;.</p>
+    <p class="Pp">The list of available signature algorithms may also be
+        obtained using &#x201C;ssh -Q PubkeyAcceptedAlgorithms&#x201D;.</p>
   </dd>
   <dt><a class="permalink" href="#PubkeyAuthentication"><code class="Cm" id="PubkeyAuthentication">PubkeyAuthentication</code></a></dt>
   <dd>Specifies whether to try public key authentication. The argument to this
@@ -908,9 +1011,9 @@ ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
       <code class="Cm">no</code>.</dd>
   <dt><a class="permalink" href="#RekeyLimit"><code class="Cm" id="RekeyLimit">RekeyLimit</code></a></dt>
   <dd>Specifies the maximum amount of data that may be transmitted before the
-      session key is renegotiated, optionally followed a maximum amount of time
-      that may pass before the session key is renegotiated. The first argument
-      is specified in bytes and may have a suffix of &#x2018;K&#x2019;,
+      session key is renegotiated, optionally followed by a maximum amount of
+      time that may pass before the session key is renegotiated. The first
+      argument is specified in bytes and may have a suffix of &#x2018;K&#x2019;,
       &#x2018;M&#x2019;, or &#x2018;G&#x2019; to indicate Kilobytes, Megabytes,
       or Gigabytes, respectively. The default is between &#x2018;1G&#x2019; and
       &#x2018;4G&#x2019;, depending on the cipher. The optional second value is
@@ -931,16 +1034,24 @@ ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
       secure channel. The remote port may either be forwarded to a specified
       host and port from the local machine, or may act as a SOCKS 4/5 proxy that
       allows a remote client to connect to arbitrary destinations from the local
-      machine. The first argument must be
-      [<var class="Ar">bind_address</var>:]<var class="Ar">port</var> If
-      forwarding to a specific destination then the second argument must be
-      <var class="Ar">host</var>:<var class="Ar">hostport</var>, otherwise if no
-      destination argument is specified then the remote forwarding will be
-      established as a SOCKS proxy.
+      machine. The first argument is the listening specification and may be
+      [<var class="Ar">bind_address</var>:]<var class="Ar">port</var> or, if the
+      remote host supports it, a Unix domain socket path. If forwarding to a
+      specific destination then the second argument must be
+      <var class="Ar">host</var>:<var class="Ar">hostport</var> or a Unix domain
+      socket path, otherwise if no destination argument is specified then the
+      remote forwarding will be established as a SOCKS proxy. When acting as a
+      SOCKS proxy the destination of the connection can be restricted by
+      <code class="Cm">PermitRemoteOpen</code>.
     <p class="Pp">IPv6 addresses can be specified by enclosing addresses in
         square brackets. Multiple forwardings may be specified, and additional
         forwardings can be given on the command line. Privileged ports can be
-        forwarded only when logging in as root on the remote machine.</p>
+        forwarded only when logging in as root on the remote machine. Unix
+        domain socket paths may use the tokens described in the
+        <a class="Sx" href="#TOKENS">TOKENS</a> section and environment
+        variables as described in the
+        <a class="Sx" href="#ENVIRONMENT_VARIABLES">ENVIRONMENT VARIABLES</a>
+        section.</p>
     <p class="Pp">If the <var class="Ar">port</var> argument is 0, the listen
         port will be dynamically allocated on the server and reported to the
         client at run time.</p>
@@ -969,6 +1080,14 @@ ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
       as an OpenSSH Key Revocation List (KRL) as generated by
       <a class="Xr">ssh-keygen(1)</a>. For more information on KRLs, see the KEY
       REVOCATION LISTS section in <a class="Xr">ssh-keygen(1)</a>.</dd>
+  <dt><a class="permalink" href="#SecurityKeyProvider"><code class="Cm" id="SecurityKeyProvider">SecurityKeyProvider</code></a></dt>
+  <dd>Specifies a path to a library that will be used when loading any FIDO
+      authenticator-hosted keys, overriding the default of using the built-in
+      USB HID support.
+    <p class="Pp">If the specified value begins with a &#x2018;$&#x2019;
+        character, then it will be treated as an environment variable containing
+        the path to the library.</p>
+  </dd>
   <dt><a class="permalink" href="#SendEnv"><code class="Cm" id="SendEnv">SendEnv</code></a></dt>
   <dd>Specifies what variables from the local <a class="Xr">environ(7)</a>
       should be sent to the server. The server must also support it, and the
@@ -1098,16 +1217,26 @@ ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
       additional hostkeys from the server sent after authentication has
       completed and add them to <code class="Cm">UserKnownHostsFile</code>. The
       argument must be <code class="Cm">yes</code>, <code class="Cm">no</code>
-      (the default) or <code class="Cm">ask</code>. Enabling this option allows
-      learning alternate hostkeys for a server and supports graceful key
-      rotation by allowing a server to send replacement public keys before old
-      ones are removed. Additional hostkeys are only accepted if the key used to
-      authenticate the host was already trusted or explicitly accepted by the
-      user. If <code class="Cm">UpdateHostKeys</code> is set to
-      <code class="Cm">ask</code>, then the user is asked to confirm the
-      modifications to the known_hosts file. Confirmation is currently
-      incompatible with <code class="Cm">ControlPersist</code>, and will be
-      disabled if it is enabled.
+      or <code class="Cm">ask</code>. This option allows learning alternate
+      hostkeys for a server and supports graceful key rotation by allowing a
+      server to send replacement public keys before old ones are removed.
+    <p class="Pp">Additional hostkeys are only accepted if the key used to
+        authenticate the host was already trusted or explicitly accepted by the
+        user, the host was authenticated via
+        <code class="Cm">UserKnownHostsFile</code> (i.e. not
+        <code class="Cm">GlobalKnownHostsFile</code>) and the host was
+        authenticated using a plain key and not a certificate.</p>
+    <p class="Pp"><code class="Cm">UpdateHostKeys</code> is enabled by default
+        if the user has not overridden the default
+        <code class="Cm">UserKnownHostsFile</code> setting and has not enabled
+        <code class="Cm">VerifyHostKeyDNS</code>, otherwise
+        <code class="Cm">UpdateHostKeys</code> will be set to
+        <code class="Cm">no</code>.</p>
+    <p class="Pp">If <code class="Cm">UpdateHostKeys</code> is set to
+        <code class="Cm">ask</code>, then the user is asked to confirm the
+        modifications to the known_hosts file. Confirmation is currently
+        incompatible with <code class="Cm">ControlPersist</code>, and will be
+        disabled if it is enabled.</p>
     <p class="Pp">Presently, only <a class="Xr">sshd(8)</a> from OpenSSH 6.8 and
         greater support the &#x201C;hostkeys@openssh.com&#x201D; protocol
         extension used to inform the client of all the server's hostkeys.</p>
@@ -1125,8 +1254,12 @@ ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
       remember to give the user name on the command line.</dd>
   <dt><a class="permalink" href="#UserKnownHostsFile"><code class="Cm" id="UserKnownHostsFile">UserKnownHostsFile</code></a></dt>
   <dd>Specifies one or more files to use for the user host key database,
-      separated by whitespace. The default is
-      <span class="Pa">~/.ssh/known_hosts</span>,
+      separated by whitespace. Each filename may use tilde notation to refer to
+      the user's home directory, the tokens described in the
+      <a class="Sx" href="#TOKENS">TOKENS</a> section and environment variables
+      as described in the
+      <a class="Sx" href="#ENVIRONMENT_VARIABLES">ENVIRONMENT VARIABLES</a>
+      section. The default is <span class="Pa">~/.ssh/known_hosts</span>,
       <span class="Pa">~/.ssh/known_hosts2</span>.</dd>
   <dt><a class="permalink" href="#VerifyHostKeyDNS"><code class="Cm" id="VerifyHostKeyDNS">VerifyHostKeyDNS</code></a></dt>
   <dd>Specifies whether to verify the remote key using DNS and SSHFP resource
@@ -1200,10 +1333,28 @@ Arguments to some keywords can make use of tokens, which are expanded at
   <dd>Hash of %l%h%p%r.</dd>
   <dt>%d</dt>
   <dd>Local user's home directory.</dd>
+  <dt>%f</dt>
+  <dd>The fingerprint of the server's host key.</dd>
+  <dt>%H</dt>
+  <dd>The <span class="Pa">known_hosts</span> hostname or address that is being
+      searched for.</dd>
   <dt>%h</dt>
   <dd>The remote hostname.</dd>
+  <dt>%I</dt>
+  <dd>A string describing the reason for a
+      <code class="Cm">KnownHostsCommand</code> execution: either
+      <code class="Cm">ADDRESS</code> when looking up a host by address (only
+      when <code class="Cm">CheckHostIP</code> is enabled),
+      <code class="Cm">HOSTNAME</code> when searching by hostname, or
+      <code class="Cm">ORDER</code> when preparing the host key algorithm
+      preference list to use for the destination host.</dd>
   <dt>%i</dt>
   <dd>The local user ID.</dd>
+  <dt>%K</dt>
+  <dd>The base64 encoded host key.</dd>
+  <dt>%k</dt>
+  <dd>The host key alias if specified, otherwise the original remote hostname
+      given on the command line.</dd>
   <dt>%L</dt>
   <dd>The local hostname.</dd>
   <dt>%l</dt>
@@ -1218,26 +1369,45 @@ Arguments to some keywords can make use of tokens, which are expanded at
   <dd>The local <a class="Xr">tun(4)</a> or <a class="Xr">tap(4)</a> network
       interface assigned if tunnel forwarding was requested, or
       &#x201C;NONE&#x201D; otherwise.</dd>
+  <dt>%t</dt>
+  <dd>The type of the server host key, e.g.
+    <code class="Cm">ssh-ed25519</code></dd>
   <dt>%u</dt>
   <dd>The local username.</dd>
 </dl>
 </div>
-<p class="Pp"><code class="Cm">Match exec</code> accepts the tokens %%, %h, %i,
-    %L, %l, %n, %p, %r, and %u.</p>
-<p class="Pp"><code class="Cm">CertificateFile</code> accepts the tokens %%, %d,
-    %h, %i, %l, %r, and %u.</p>
-<p class="Pp"><code class="Cm">ControlPath</code> accepts the tokens %%, %C, %h,
-    %i, %L, %l, %n, %p, %r, and %u.</p>
+<p class="Pp"><code class="Cm">CertificateFile</code>,
+    <code class="Cm">ControlPath</code>, <code class="Cm">IdentityAgent</code>,
+    <code class="Cm">IdentityFile</code>,
+    <code class="Cm">KnownHostsCommand</code>,
+    <code class="Cm">LocalForward</code>, <code class="Cm">Match exec</code>,
+    <code class="Cm">RemoteCommand</code>,
+    <code class="Cm">RemoteForward</code>, and
+    <code class="Cm">UserKnownHostsFile</code> accept the tokens %%, %C, %d, %h,
+    %i, %k, %L, %l, %n, %p, %r, and %u.</p>
+<p class="Pp"><code class="Cm">KnownHostsCommand</code> additionally accepts the
+    tokens %f, %H, %I, %K and %t.</p>
 <p class="Pp"><code class="Cm">Hostname</code> accepts the tokens %% and %h.</p>
-<p class="Pp"><code class="Cm">IdentityAgent</code> and
-    <code class="Cm">IdentityFile</code> accept the tokens %%, %d, %h, %i, %l,
-    %r, and %u.</p>
-<p class="Pp"><code class="Cm">LocalCommand</code> accepts the tokens %%, %C,
-    %d, %h, %i, %l, %n, %p, %r, %T, and %u.</p>
+<p class="Pp"><code class="Cm">LocalCommand</code> accepts all tokens.</p>
 <p class="Pp"><code class="Cm">ProxyCommand</code> accepts the tokens %%, %h,
     %n, %p, and %r.</p>
-<p class="Pp"><code class="Cm">RemoteCommand</code> accepts the tokens %%, %C,
-    %d, %h, %i, %l, %n, %p, %r, and %u.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT_VARIABLES"><a class="permalink" href="#ENVIRONMENT_VARIABLES">ENVIRONMENT
+  VARIABLES</a></h1>
+Arguments to some keywords can be expanded at runtime from environment variables
+  on the client by enclosing them in <code class="Ic">${}</code>, for example
+  <code class="Ic">${HOME}/.ssh</code> would refer to the user's .ssh directory.
+  If a specified environment variable does not exist then an error will be
+  returned and the setting for that keyword will be ignored.
+<p class="Pp">The keywords <code class="Cm">CertificateFile</code>,
+    <code class="Cm">ControlPath</code>, <code class="Cm">IdentityAgent</code>,
+    <code class="Cm">IdentityFile</code>,
+    <code class="Cm">KnownHostsCommand</code>, and
+    <code class="Cm">UserKnownHostsFile</code> support environment variables.
+    The keywords <code class="Cm">LocalForward</code> and
+    <code class="Cm">RemoteForward</code> support environment variables only for
+    Unix domain socket paths.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>

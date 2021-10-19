@@ -35,7 +35,7 @@
    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
    THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   
-   $OpenBSD: sshd.8,v 1.304 2018/07/22 12:16:59 dtucker Exp $
+   $OpenBSD: sshd.8,v 1.314 2021/04/03 05:46:41 djm Exp $
  -->
 <head>
 
@@ -79,7 +79,7 @@
 <section class="Sh">
 <h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
 <code class="Nm">sshd</code> &#x2014;
-<div class="Nd">OpenSSH SSH daemon</div>
+<div class="Nd">OpenSSH daemon</div>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
@@ -236,14 +236,12 @@
 The OpenSSH SSH daemon supports SSH protocol 2 only. Each host has a
   host-specific key, used to identify the host. Whenever a client connects, the
   daemon responds with its public host key. The client compares the host key
-  against its own database to verify that it has not changed. Forward security
-  is provided through a Diffie-Hellman key agreement. This key agreement results
-  in a shared session key. The rest of the session is encrypted using a
-  symmetric cipher, currently 128-bit AES, Blowfish, 3DES, CAST128, Arcfour,
-  192-bit AES, or 256-bit AES. The client selects the encryption algorithm to
-  use from those offered by the server. Additionally, session integrity is
-  provided through a cryptographic message authentication code (hmac-md5,
-  hmac-sha1, umac-64, umac-128, hmac-sha2-256 or hmac-sha2-512).
+  against its own database to verify that it has not changed. Forward secrecy is
+  provided through a Diffie-Hellman key agreement. This key agreement results in
+  a shared session key. The rest of the session is encrypted using a symmetric
+  cipher. The client selects the encryption algorithm to use from those offered
+  by the server. Additionally, session integrity is provided through a
+  cryptographic message authentication code (MAC).
 <p class="Pp">Finally, the server and the client enter an authentication dialog.
     The client tries to authenticate itself using host-based authentication,
     public key authentication, challenge-response authentication, or password
@@ -349,17 +347,29 @@ fi
   contains one key (empty lines and lines starting with a
   &#x2018;<code class="Li">#</code>&#x2019; are ignored as comments). Public
   keys consist of the following space-separated fields: options, keytype,
-  base64-encoded key, comment. The options field is optional. The keytype is
-  &#x201C;ecdsa-sha2-nistp256&#x201D;, &#x201C;ecdsa-sha2-nistp384&#x201D;,
-  &#x201C;ecdsa-sha2-nistp521&#x201D;, &#x201C;ssh-ed25519&#x201D;,
-  &#x201C;ssh-dss&#x201D; or &#x201C;ssh-rsa&#x201D;; the comment field is not
-  used for anything (but may be convenient for the user to identify the key).
+  base64-encoded key, comment. The options field is optional. The supported key
+  types are:
+<p class="Pp"></p>
+<ul class="Bl-item Bd-indent Bl-compact">
+  <li>sk-ecdsa-sha2-nistp256@openssh.com</li>
+  <li>ecdsa-sha2-nistp256</li>
+  <li>ecdsa-sha2-nistp384</li>
+  <li>ecdsa-sha2-nistp521</li>
+  <li>sk-ssh-ed25519@openssh.com</li>
+  <li>ssh-ed25519</li>
+  <li>ssh-dss</li>
+  <li>ssh-rsa</li>
+</ul>
+<p class="Pp">The comment field is not used for anything (but may be convenient
+    for the user to identify the key).</p>
 <p class="Pp">Note that lines in this file can be several hundred bytes long
     (because of the size of the public key encoding) up to a limit of 8
-    kilobytes, which permits DSA keys up to 8 kilobits and RSA keys up to 16
-    kilobits. You don't want to type them in; instead, copy the
-    <span class="Pa">id_dsa.pub</span>, <span class="Pa">id_ecdsa.pub</span>,
-    <span class="Pa">id_ed25519.pub</span>, or the
+    kilobytes, which permits RSA keys up to 16 kilobits. You don't want to type
+    them in; instead, copy the <span class="Pa">id_dsa.pub</span>,
+    <span class="Pa">id_ecdsa.pub</span>,
+    <span class="Pa">id_ecdsa_sk.pub</span>,
+    <span class="Pa">id_ed25519.pub</span>,
+    <span class="Pa">id_ed25519_sk.pub</span>, or the
     <span class="Pa">id_rsa.pub</span> file and edit it.</p>
 <p class="Pp"><code class="Nm">sshd</code> enforces a minimum RSA key modulus
     size of 1024 bits.</p>
@@ -460,10 +470,10 @@ fi
       <code class="Fl">-L</code> option such that it may only connect to the
       specified host and port. IPv6 addresses can be specified by enclosing the
       address in square brackets. Multiple <code class="Cm">permitopen</code>
-      options may be applied separated by commas. No pattern matching is
-      performed on the specified hostnames, they must be literal domains or
-      addresses. A port specification of <code class="Cm">*</code> matches any
-      port.</dd>
+      options may be applied separated by commas. No pattern matching or name
+      lookup is performed on the specified hostnames, they must be literal host
+      names and/or addresses. A port specification of <code class="Cm">*</code>
+      matches any port.</dd>
   <dt><a class="permalink" href="#port-forwarding"><code class="Cm" id="port-forwarding">port-forwarding</code></a></dt>
   <dd>Enable port forwarding previously disabled by the
       <code class="Cm">restrict</code> option.</dd>
@@ -477,6 +487,16 @@ fi
   <dt><a class="permalink" href="#pty"><code class="Cm" id="pty">pty</code></a></dt>
   <dd>Permits tty allocation previously disabled by the
       <code class="Cm">restrict</code> option.</dd>
+  <dt><a class="permalink" href="#no-touch-required"><code class="Cm" id="no-touch-required">no-touch-required</code></a></dt>
+  <dd>Do not require demonstration of user presence for signatures made using
+      this key. This option only makes sense for the FIDO authenticator
+      algorithms <code class="Cm">ecdsa-sk</code> and
+      <code class="Cm">ed25519-sk</code>.</dd>
+  <dt><a class="permalink" href="#verify-required"><code class="Cm" id="verify-required">verify-required</code></a></dt>
+  <dd>Require that signatures made using this key attest that they verified the
+      user, e.g. via a PIN. This option only makes sense for the FIDO
+      authenticator algorithms <code class="Cm">ecdsa-sk</code> and
+      <code class="Cm">ed25519-sk</code>.</dd>
   <dt><a class="permalink" href="#restrict"><code class="Cm" id="restrict">restrict</code></a></dt>
   <dd>Enable all restrictions, i.e. disable port, agent and X11 forwarding, as
       well as disabling PTY allocation and execution of
@@ -512,6 +532,8 @@ restrict,command=&quot;uptime&quot; ssh-rsa AAAA1C8...32Tv==
 user@example.net
 restrict,pty,command=&quot;nethack&quot; ssh-rsa AAAA1f8...IrrC5==
 user@example.net
+no-touch-required sk-ecdsa-sha2-nistp256@openssh.com AAAAInN...Ko==
+user@example.net
 </pre>
 </div>
 </section>
@@ -523,7 +545,7 @@ The <span class="Pa">/etc/ssh/ssh_known_hosts</span> and
   all known hosts. The global file should be prepared by the administrator
   (optional), and the per-user file is maintained automatically: whenever the
   user connects to an unknown host, its key is added to the per-user file.
-<p class="Pp">Each line in these files contains the following fields: markers
+<p class="Pp">Each line in these files contains the following fields: marker
     (optional), hostnames, keytype, base64-encoded key, comment. The fields are
     separated by spaces.</p>
 <p class="Pp">The marker is optional, but if it is present then it must be one

@@ -251,9 +251,10 @@
 <div class="Bd-indent">
 <dl class="Bl-tag">
   <dt><a class="permalink" href="#O_NONBLOCK"><code class="Dv" id="O_NONBLOCK">O_NONBLOCK</code></a></dt>
-  <dd>Non-blocking I/O; if no data is available to a <a class="Xr">read</a>
-      call, or if a <a class="Xr">write</a> operation would block, the read or
-      write call returns -1 with the error <code class="Er">EAGAIN</code>.</dd>
+  <dd>Non-blocking I/O; if no data is available to a <a class="Xr">read(2)</a>
+      call, or if a <a class="Xr">write(2)</a> operation would block, the read
+      or write call returns -1 with the error
+    <code class="Er">EAGAIN</code>.</dd>
   <dt><a class="permalink" href="#O_APPEND"><code class="Dv" id="O_APPEND">O_APPEND</code></a></dt>
   <dd>Force each write to append at the end of file; corresponds to the
       <code class="Dv">O_APPEND</code> flag of <a class="Xr">open(2)</a>.</dd>
@@ -287,7 +288,12 @@
       <var class="Fa">flock</var> structure. If no lock is found that would
       prevent this lock from being created, the structure is left unchanged by
       this function call except for the lock type which is set to
-      <code class="Dv">F_UNLCK</code>.</dd>
+      <code class="Dv">F_UNLCK</code>. If a lock that does not support the
+      discovery of lock ownership by process (one created by the
+      <a class="Xr">flock(2)</a> system call or the <a class="Xr">open(2)</a>
+      system call with the <code class="Dv">O_SHLOCK</code> or
+      <code class="Dv">O_EXLOCK</code> flag) is found,
+      <var class="Fa">l_pid</var> is set to -1.</dd>
   <dt><a class="permalink" href="#F_SETLK"><code class="Dv" id="F_SETLK">F_SETLK</code></a></dt>
   <dd>Set or clear a file segment lock according to the lock description pointed
       to by the third argument, <var class="Fa">arg</var>, taken as a pointer to
@@ -367,7 +373,7 @@
     <a class="Xr">Flock(2)</a> is recommended for applications that want to
     ensure the integrity of their locks when using library routines or wish to
     pass locks to their children. Note that <a class="Xr">flock(2)</a> and
-    <a class="Xr">fcntl(2)</a> locks may be safely used concurrently.</p>
+    <code class="Nm">fcntl</code> locks may be safely used concurrently.</p>
 <p class="Pp">All locks associated with a file for a given process are removed
     when the process terminates.</p>
 <p class="Pp">A potential for deadlock occurs if a process controlling a locked
@@ -393,7 +399,8 @@
 <div class="Bd-indent">
 <dl class="Bl-tag">
   <dt><a class="permalink" href="#F_ALLOCATECONTIG"><code class="Dv" id="F_ALLOCATECONTIG">F_ALLOCATECONTIG</code></a></dt>
-  <dd>Allocate contiguous space.</dd>
+  <dd>Allocate contiguous space. (Note that the file system may ignore this
+      request if <var class="Fa">fst_length</var> is very large.)</dd>
   <dt><a class="permalink" href="#F_ALLOCATEALL"><code class="Dv" id="F_ALLOCATEALL">F_ALLOCATEALL</code></a></dt>
   <dd>Allocate all requested space or no space at all.</dd>
 </dl>
@@ -432,17 +439,6 @@
            off_t   ra_offset;  /* offset into the file */
            int     ra_count;   /* size of the read     */
         };
-</pre>
-</div>
-<p class="Pp">The <code class="Dv">F_READBOOTSTRAP and F_WRITEBOOTSTRAP</code>
-    commands operate on the following structure.</p>
-<div class="Bd Pp">
-<pre>
-        typedef struct fbootstraptransfer {
-            off_t fbt_offset;       /* IN: offset to start read/write */
-            size_t fbt_length;      /* IN: number of bytes to transfer */
-            void *fbt_buffer;       /* IN: buffer to be read/written */
-        } fbootstraptransfer_t;
 </pre>
 </div>
 <p class="Pp">The <code class="Dv">F_LOG2PHYS</code> command operates on the
@@ -539,6 +535,12 @@ The <code class="Fn">fcntl</code>() system call will fail if:
   <dd>The argument <var class="Fa">cmd</var> is
       <code class="Dv">F_SETLKW</code>, and a deadlock condition was
     detected.</dd>
+  <dt>[<a class="permalink" href="#EFBIG"><code class="Er" id="EFBIG">EFBIG</code></a>]</dt>
+  <dd>The argument <var class="Fa">cmd</var> is
+      <code class="Dv">F_PREALLOCATE</code>,
+      <code class="Dv">F_PEOFPOSMODE</code> is set and preallocating
+      <var class="Fa">fst_length</var> bytes on <var class="Fa">fildes</var>
+      would exceed the maximum file size.</dd>
   <dt>[<a class="permalink" href="#EINTR"><code class="Er" id="EINTR">EINTR</code></a>]</dt>
   <dd>The argument <var class="Fa">cmd</var> is
       <code class="Dv">F_SETLKW</code>, and the function was interrupted by a
@@ -566,10 +568,6 @@ The <code class="Fn">fcntl</code>() system call will fail if:
         negative, or both <var class="Fa">fp_offset</var> and
         <var class="Fa">fp_length</var> are not multiples of the file system
         block size.</p>
-    <p class="Pp">The argument <var class="Fa">cmd</var> is either
-        <code class="Dv">F_READBOOTSTRAP</code> or
-        <code class="Dv">F_WRITEBOOTSTRAP</code> and the operation was attempted
-        on a non-HFS disk type.</p>
   </dd>
   <dt>[<a class="permalink" href="#EMFILE"><code class="Er" id="EMFILE">EMFILE</code></a>]</dt>
   <dd><var class="Fa">Cmd</var> is <code class="Dv">F_DUPFD</code> and the
@@ -618,7 +616,7 @@ The <code class="Fn">fcntl</code>() system call will fail if:
 <a class="Xr">close(2)</a>, <a class="Xr">execve(2)</a>,
   <a class="Xr">flock(2)</a>, <a class="Xr">getdtablesize(2)</a>,
   <a class="Xr">open(2)</a>, <a class="Xr">pipe(2)</a>,
-  <a class="Xr">socket(2)</a>, <a class="Xr">setsockopt(2)</a>,
+  <a class="Xr">setsockopt(2)</a>, <a class="Xr">socket(2)</a>,
   <a class="Xr">sigaction(3)</a>
 </section>
 <section class="Sh">

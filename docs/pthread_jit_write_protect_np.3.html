@@ -64,7 +64,8 @@
 <section class="Sh">
 <h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
 <code class="Nm">pthread_jit_write_protect_supported_np</code>,
-  <code class="Nm">pthread_jit_write_protect_np</code> &#x2014;
+  <code class="Nm">pthread_jit_write_protect_np</code>,
+  <code class="Nm">pthread_jit_write_with_callback_np</code> &#x2014;
 <div class="Nd">thread JIT region write protection settings</div>
 </section>
 <section class="Sh">
@@ -77,35 +78,83 @@
   <br/>
   <code class="Fn">pthread_jit_write_protect_np</code>(<var class="Fa" style="white-space: nowrap;">int
     enabled</var>);</p>
+<p class="Pp"><var class="Ft">typedef int (*pthread_jit_write_callback_t)(void
+    *)</var>;
+  <br/>
+  <var class="Ft">int</var>
+  <br/>
+  <code class="Fn">pthread_jit_write_with_callback_np</code>(<var class="Fa" style="white-space: nowrap;">pthread_jit_write_callback_t
+    callback</var>, <var class="Fa" style="white-space: nowrap;">void
+    *ctx</var>);</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
 The <code class="Fn">pthread_jit_write_protect_supported_np</code>() function
-  returns whether the <code class="Fn">pthread_jit_write_protect_np</code>() API
-  is supported on this platform. If
-  <code class="Fn">pthread_jit_write_protect_np</code>() API is supported on
-  this platform, <code class="Fn">pthread_jit_write_protect_np</code>() must be
-  called to toggle per-thread write protection on the MAP_JIT region before the
-  thread writes to or executes from the MAP_JIT region.
-<p class="Pp">The <code class="Fn">pthread_jit_write_protect_np</code>()
-    function sets whether MAP_JIT region write protection is enabled for this
-    thread.</p>
+  returns whether per-thread write protection on the MAP_JIT region is supported
+  on this platform.
 <p class="Pp">On platforms where
     <code class="Fn">pthread_jit_write_protect_supported_np</code>() is true,
     MAP_JIT regions are never writeable and executable simultaneously. When
     write protection is enabled for the thread, writes by the thread to the
     MAP_JIT region are denied and the MAP_JIT region is executable. When write
     protection is disabled for the thread, writes by the thread to the MAP_JIT
-    region are allowed and the MAP_JIT region is not executable. Pass a non-zero
-    value for the <var class="Fa">enabled</var> parameter to enable thread JIT
-    region write protection and allow execution. Pass a zero value for the
-    <var class="Fa">enabled</var> parameter to disable thread JIT write
-    protection and deny execution.</p>
+    region are allowed and the MAP_JIT region is not executable.</p>
+<p class="Pp">The <code class="Fn">pthread_jit_write_protect_np</code>()
+    function sets whether MAP_JIT region write protection is enabled for this
+    thread. Pass a non-zero value for the <var class="Fa">enabled</var>
+    parameter to enable thread JIT region write protection and allow execution.
+    Pass a zero value for the <var class="Fa">enabled</var> parameter to disable
+    thread JIT write protection and deny execution.</p>
+<p class="Pp">The <code class="Fn">pthread_jit_write_with_callback_np</code>()
+    function disables write protection, calls the supplied
+    <var class="Fa">callback</var> with <var class="Fa">ctx</var> to write to
+    the JIT region after validating its input for safety according to
+    application logic, and then re-enables write protection. That is, it's
+    roughly equivalent to:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+pthread_jit_write_protect_np(false);
+int rc = callback(ctx);
+pthread_jit_write_protect_np(true);
+return rc;
+</pre>
+</div>
+<p class="Pp">However,
+    <code class="Fn">pthread_jit_write_with_callback_np</code>() enforces that
+    <var class="Fa">callback</var> function must have been previously enumerated
+    in a static list of allowed JIT write callbacks declared using the
+    <b>PTHREAD_JIT_WRITE_ALLOW_CALLBACKS_NP</b> macro. Note that each image
+    (i.e. main executable or framework/dylib) can specify its own list, and each
+    image may specify at most one list. For example, an invocation of
+    <b>PTHREAD_JIT_WRITE_ALLOW_CALLBACKS_NP</b> to allow a JIT write callback
+    <b>jit_write_cb()</b> would be:</p>
+<div class="Bd Pp Bd-indent">
+<pre>
+static void *jit_region;
+
+int
+jit_write_cb(void *ctx)
+{
+	size_t len = 0;
+	void *insns = validate_instructions(ctx, &amp;len);
+	if (!insns) {
+		__builtin_trap();
+	}
+
+	memcpy(jit_region, insns, len);
+	return 0;
+}
+
+PTHREAD_JIT_WRITE_ALLOW_CALLBACKS_NP(jit_write_cb);
+</pre>
+</div>
 <p class="Pp">On platforms where
-    <code class="Fn">pthread_jit_write_protect_supported_np</code>() is not
-    supported, MAP_JIT regions are both simultaenously writeable and executable.
-    Calls to <code class="Fn">pthread_jit_write_protect_np</code>() are no-ops
-    on unsupported platforms.</p>
+    <code class="Fn">pthread_jit_write_protect_supported_np</code>() is false,
+    MAP_JIT regions are simultaenously writeable and executable. Calls to
+    <code class="Fn">pthread_jit_write_protect_np</code>() are no-ops on
+    unsupported platforms. Calls to
+    <code class="Fn">pthread_jit_write_with_callback_np</code>() result in a
+    direct call to <var class="Fa">callback</var> on unsupported platforms.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
@@ -113,6 +162,43 @@ The <code class="Fn">pthread_jit_write_protect_supported_np</code>() function
 If supported, the
   <code class="Fn">pthread_jit_write_protect_supported_np</code>() function will
   return one. Otherwise the function will return zero.
+<p class="Pp"><code class="Fn">pthread_jit_write_with_callback_np</code>()
+    returns the result returned by the <var class="Fa">callback</var>
+  function.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SECURITY_CONSIDERATIONS"><a class="permalink" href="#SECURITY_CONSIDERATIONS">SECURITY
+  CONSIDERATIONS</a></h1>
+The purpose of per-thread JIT region write protection is to serve as a hardening
+  measure against attacks that attempt to gain code execution by exploiting
+  vulnerabilities to write unintended code into the JIT region.
+<p class="Pp">Some attacks may attempt to defeat JIT write protection by
+    inducing unexpected/unintended calls to
+    <code class="Fn">pthread_jit_write_protect_np</code>(), e.g. dynamically via
+    <code class="Fn">dlsym</code>(). To further harden against such attacks, the
+    <code class="Fn">pthread_jit_write_with_callback_np</code>() interface is
+    intended to allow even tighter control over code permitted to write to the
+    JIT region; in applications that adopt the
+    <b>com.apple.security.cs.jit-write-allowlist</b> entitlement, only callbacks
+    specifically enumerated in an invocation of
+    <b>PTHREAD_JIT_WRITE_ALLOW_CALLBACKS_NP</b> can do so, and
+    <code class="Fn">pthread_jit_write_protect_np</code>() is disabled.</p>
+<p class="Pp">Applications and frameworks should prefer to use
+    <code class="Fn">pthread_jit_write_with_callback_np</code>() as a
+    defense-in-depth hardening if relevant for their threat model.</p>
+<p class="Pp">Allowed callbacks should assume that their input is
+    attacker-controlled and make an effort to validate that the instructions to
+    be written should be permitted.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENTITLEMENTS"><a class="permalink" href="#ENTITLEMENTS">ENTITLEMENTS</a></h1>
+<dl class="Bl-tag">
+  <dt><a class="permalink" href="#com.apple.security.cs.jit-write-allowlist"><code class="Dv" id="com.apple.security.cs.jit-write-allowlist">com.apple.security.cs.jit-write-allowlist</code></a></dt>
+  <dd>A Boolean value that indicates whether
+      <code class="Fn">pthread_jit_write_protect_np</code>() should be disabled
+      and <code class="Fn">pthread_jit_write_with_callback_np</code>() must be
+      used instead to write to the JIT region.</dd>
+</dl>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE

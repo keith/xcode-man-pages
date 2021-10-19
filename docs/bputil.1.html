@@ -50,7 +50,7 @@
 <table class="Nm">
   <tr>
     <td><code class="Nm">bputil</code></td>
-    <td>[<code class="Fl">-ldfgnmkcas</code>] [<code class="Fl">-u</code>
+    <td>[<code class="Fl">-ldefgnmkcas</code>] [<code class="Fl">-u</code>
       <var class="Ar">username</var>] [<code class="Fl">-p</code>
       <var class="Ar">password</var>] [<code class="Fl">-v</code>
       <var class="Ar">APFS Volume Group UUID</var>]</td>
@@ -62,11 +62,12 @@
 This utility is not meant for normal users or even sysadmins. It provides
   unabstracted access to capabilities which are normally handled for the user
   automatically when changing the security policy through GUIs such as the
-  Startup Security Utility in macOS Recovery. It is possible to make your system
-  security much weaker and therefore easier to compromise using this tool. This
-  tool is not to be used in production environments. It is possible to render
-  your system unbootable with this tool. It should only be used to understand
-  how the security of Apple Silicon Macs works. Use at your own risk!
+  Startup Security Utility in macOS Recovery (&quot;recoveryOS&quot;). It is
+  possible to make your system security much weaker and therefore easier to
+  compromise using this tool. This tool is not to be used in production
+  environments. It is possible to render your system unbootable with this tool.
+  It should only be used to understand how the security of Apple Silicon Macs
+  works. Use at your own risk!
 <p class="Pp"><code class="Nm">bputil</code> performs actions by calling the
     BootPolicy library. This modifies the security configuration of the system,
     which is stored in a file called the LocalPolicy. This file is digitally
@@ -75,21 +76,44 @@ This utility is not meant for normal users or even sysadmins. It provides
     accessible when a user has put in their password as part of a successful
     authentication. This is why this tool must either have a username and
     password specified on the command line, or via the interactive prompt.</p>
+<p class="Pp">macOS 12 Monterey introduced a new concept of &quot;paired
+    recoveryOS&quot;, and a new set of restrictions related to it. Every
+    installation of macOS 12 has its own paired recoveryOS with matching version
+    stored on the same APFS volume group. Installations of macOS 11 Big Sur are
+    paired to a single recoveryOS stored on a separate APFS volume group called
+    &#x201C;system recoveryOS&#x201D;.</p>
 <p class="Pp">By design, the SEP application which is responsible for making
     changes to the LocalPolicy will inspect the boot state of the main
-    Application Processor (AP). It will only allow the below
-    security-downgrading operations if it detects that the AP is in the intended
-    boot state. When System Integrity Protection (SIP) was first introduced to
-    Macs, it was decided that requiring a reboot to macOS Recovery would provide
-    intentional friction which would make it harder for malicious software to
-    downgrade the system. That precedent is extended here to detect the special
-    boot to macOS Recovery via holding the power key at boot time. We refer to
-    this as One True Recovery (1TR), and most of the below downgrade options
-    will only work when booted into 1TR, not when called from normal macOS. This
-    helps ensure that only a physically-present user, not malicious software
-    running in macOS, can permanently downgrade the security settings. The below
-    CLI options specify what boot environments a downgrade can be performed
-    from.</p>
+    Application Processor (AP), and the pairing status between the booted OS and
+    the target LocalPolicy. It will only allow the below security-downgrading
+    operations if it detects that the AP is in the intended boot state, and the
+    OS pairing status is valid. When System Integrity Protection (SIP) was first
+    introduced to Macs, it was decided that requiring a reboot to recoveryOS
+    would provide intentional friction which would make it harder for malicious
+    software to downgrade the system. That precedent is extended here to detect
+    the special boot to recoveryOS via holding the power key at boot time. We
+    refer to this as One True Recovery (1TR), and most of the below downgrade
+    options will only work when booted into 1TR, not when called from normal
+    macOS or any other OS environment. This helps ensure that only a
+    physically-present user, not malicious software running in macOS, can
+    permanently downgrade the security settings. The below CLI options specify
+    what boot environments a downgrade can be performed from.</p>
+<p class="Pp">The pairing restrictions are enforced as follows:</p>
+<dl class="Bl-tag">
+  <dt>- All installations of macOS 11 are paired to the system recoveryOS. If a
+    macOS 11 installation is selected to boot by default, then the system
+    recoveryOS will be booted by holding down the power key at boot time. The
+    system recoveryOS can downgrade security settings of any macOS 11
+    installations, but not any installations of macOS 12.</dt>
+  <dd style="width: auto;">&#x00A0;</dd>
+  <dt>- Every installation of macOS 12 is paired to a recoveryOS stored on the
+    corresponding APFS volume group. If a macOS 12 installation is selected to
+    boot by default, then its paired recoveryOS will be booted by holding down
+    the power key at boot time. The paired recoveryOS can downgrade security
+    settings for the paired macOS installation, but not any other macOS
+    installation.</dt>
+  <dd style="width: auto;">&#x00A0;</dd>
+</dl>
 <p class="Pp">The SEP-signed LocalPolicy is evaluated at boot time by iBoot.
     Configurations within the LocalPolicy change iBoot's behavior, such as
     whether it will require that all boot objects must be signed with metadata
@@ -124,10 +148,10 @@ This utility is not meant for normal users or even sysadmins. It provides
     <var class="Ar">AABBCCDD-EEFF-0011-2233-4455667788990</var></dt>
   <dd>
     <p class="Pp">Specify the APFS Volume Group UUID of the OS intended to have
-        its policy changed. If no option is specified, the default value will be
-        set to the APFS Volume Group UUID of the running OS. The Volume Group
-        UUID for a given OS can be found with 'diskutil apfs
-      listVolumeGroups'.</p>
+        its policy changed. If no option is specified, and there are multiple OS
+        installations detected, an interactive prompt will request the UUID. The
+        Volume Group UUID for a given OS can be found with 'diskutil apfs
+        listVolumeGroups'.</p>
   </dd>
   <dt><a class="permalink" href="#l,"><code class="Fl" id="l,">-l,</code></a>
     <code class="Fl">--debug-logging</code></dt>
@@ -143,8 +167,14 @@ This utility is not meant for normal users or even sysadmins. It provides
         structure which is used to capture the customer-specified security
         policy. More details about the displayed entries are available in the
         &quot;Apple Platform Security&quot; website documentation. If the system
-        has multiple bootable volumes, an interactive prompt will ask to select
-        a volume to display the policy for.</p>
+        has multiple bootable OSes, an interactive prompt will ask to select an
+        OS volume to display the policy for.</p>
+  </dd>
+  <dt><a class="permalink" href="#e,"><code class="Fl" id="e,">-e,</code></a>
+    <code class="Fl">--display-all-policies</code></dt>
+  <dd>
+    <p class="Pp">Display the detailed contents of the LocalPolicy for every
+        bootable OS installation.</p>
   </dd>
   <dt><a class="permalink" href="#f,"><code class="Fl" id="f,">-f,</code></a>
     <code class="Fl">--full-security</code></dt>
@@ -165,7 +195,9 @@ This utility is not meant for normal users or even sysadmins. It provides
         is Full Security despite not being the latest software version. Full
         Security only indicates the state as of the latest install or
       upgrade.</p>
-    <p class="Pp">Boot environment requirements: None.</p>
+    <p class="Pp">Boot environment requirements: None.
+      <br/>
+      Pairing requirements: None.</p>
   </dd>
   <dt><a class="permalink" href="#g,"><code class="Fl" id="g,">-g,</code></a>
     <code class="Fl">--reduced-security</code></dt>
@@ -183,8 +215,10 @@ This utility is not meant for normal users or even sysadmins. It provides
         does not preserve any existing security policy options) and only the
         options specified via this tool will exist in the output local
       policy.</p>
-    <p class="Pp">Boot environment requirements: software-launched macOS
-        Recovery or 1TR.</p>
+    <p class="Pp">Boot environment requirements: software-launched recoveryOS or
+        1TR.
+      <br/>
+      Pairing requirements: None.</p>
   </dd>
   <dt><a class="permalink" href="#n,"><code class="Fl" id="n,">-n,</code></a>
     <code class="Fl">--permissive-security</code></dt>
@@ -206,7 +240,9 @@ This utility is not meant for normal users or even sysadmins. It provides
         scratch, (i.e. it does not preserve any existing security policy
         options) and only the options specified via this tool will exist in the
         output local policy.</p>
-    <p class="Pp">Boot environment requirements: 1TR.</p>
+    <p class="Pp">Boot environment requirements: 1TR.
+      <br/>
+      Pairing requirements: Paired only.</p>
   </dd>
   <dt><a class="permalink" href="#k,"><code class="Fl" id="k,">-k,</code></a>
     <code class="Fl">--enable-kexts.</code></dt>
@@ -214,7 +250,7 @@ This utility is not meant for normal users or even sysadmins. It provides
     <p class="Pp">Because this option automatically downgrades to Reduced
         Security mode if not already true, selecting this option will make your
         system easier to compromise!</p>
-    <p class="Pp">The AuxilaryKernelCache is a SEP-signed boot object which can
+    <p class="Pp">The AuxiliaryKernelCache is a SEP-signed boot object which can
         be verified and loaded into kernel memory before that memory is
         restricted to being non-writable by a &quot;Configurable Text Read-only
         Region&quot; (CTRR) hardware register. Introducing 3rd party kernel
@@ -223,12 +259,14 @@ This utility is not meant for normal users or even sysadmins. It provides
         iOS-like security properties, 3rd party kexts must be denied by default,
         and only loadable if the customer consciously opts in to lowering their
         security from 1TR.</p>
-    <p class="Pp">Boot environment requirements: 1TR.</p>
+    <p class="Pp">Boot environment requirements: 1TR.
+      <br/>
+      Pairing requirements: Paired only.</p>
   </dd>
   <dt><a class="permalink" href="#c,"><code class="Fl" id="c,">-c,</code></a>
     <code class="Fl">--disable-kernel-ctrr</code></dt>
   <dd>
-    <p class="Pp">Because this option automatically downgrades to Reduced
+    <p class="Pp">Because this option automatically downgrades to Permissive
         Security mode if not already true, selecting this option will make your
         system easier to compromise!</p>
     <p class="Pp">This disables the enforcement of the &quot;Configurable Text
@@ -238,12 +276,14 @@ This utility is not meant for normal users or even sysadmins. It provides
         3rd party kernel extension debugging. However, the lack of CTRR
         enforcement makes it much easier for an attacker to modify the kernel
         with exploits.</p>
-    <p class="Pp">Boot environment requirements: 1TR.</p>
+    <p class="Pp">Boot environment requirements: 1TR.
+      <br/>
+      Pairing requirements: Paired only.</p>
   </dd>
   <dt><a class="permalink" href="#a,"><code class="Fl" id="a,">-a,</code></a>
     <code class="Fl">--disable-boot-args-restriction</code></dt>
   <dd>
-    <p class="Pp">Because this option automatically downgrades to Reduced
+    <p class="Pp">Because this option automatically downgrades to Permissive
         Security mode if not already true, selecting this option will make your
         system easier to compromise!</p>
     <p class="Pp">The macOS kernel accepts a variety of configuration options
@@ -252,7 +292,9 @@ This utility is not meant for normal users or even sysadmins. It provides
         order to achieve iOS-like security properties, this security-downgrading
         behavior needs to be denied by default, and only available if the
         customer consciously opts in to lowering their security from 1TR.</p>
-    <p class="Pp">Boot environment requirements: 1TR.</p>
+    <p class="Pp">Boot environment requirements: 1TR.
+      <br/>
+      Pairing requirements: Paired only.</p>
   </dd>
   <dt><a class="permalink" href="#s,"><code class="Fl" id="s,">-s,</code></a>
     <code class="Fl">--disable-ssv</code></dt>
@@ -269,7 +311,9 @@ This utility is not meant for normal users or even sysadmins. It provides
         allow customers to modify the System volume. SSV cannot be disabled
         while FileVault is enabled. Customer modifications to the System volume
         are not expected to persist across software updates.</p>
-    <p class="Pp">Boot environment requirements: 1TR.</p>
+    <p class="Pp">Boot environment requirements: 1TR.
+      <br/>
+      Pairing requirements: Paired only.</p>
   </dd>
   <dt><a class="permalink" href="#m,"><code class="Fl" id="m,">-m,</code></a>
     <code class="Fl">--enable-mdm</code></dt>
@@ -283,13 +327,16 @@ This utility is not meant for normal users or even sysadmins. It provides
         architectural or implementation flaws which can lead to kernel
         compromise. Therefore this requires a person to explicitly approve this
         capability for the MDM.</p>
-    <p class="Pp">Boot environment requirements: 1TR.</p>
+    <p class="Pp">Boot environment requirements: 1TR.
+      <br/>
+      Pairing requirements: Paired only.</p>
   </dd>
 </dl>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
-<code class="Nm">bputil</code> first appeared in macOS 11 for Apple Silicon Macs
+<code class="Nm">bputil</code> first appeared in macOS 11 for Apple Silicon
+  Macs.
 </section>
 </div>
 <table class="foot">
