@@ -156,8 +156,8 @@ This hook is invoked by <b>git-commit</b>(1) right after preparing the default
     configuration option <b>commit.template</b> is set); <b>merge</b> (if the
     commit is a merge or a <b>.git/MERGE_MSG</b> file exists); <b>squash</b> (if
     a <b>.git/SQUASH_MSG</b> file exists); or <b>commit</b>, followed by a
-    commit SHA-1 (if a <b>-c</b>, <b>-C</b> or <b>--amend</b> option was
-  given).</p>
+    commit object name (if a <b>-c</b>, <b>-C</b> or <b>--amend</b> option was
+    given).</p>
 <p class="Pp">If the exit status is non-zero, <b>git commit</b> will abort.</p>
 <p class="Pp">The purpose of the hook is to edit the message file in place, and
     it is not suppressed by the <b>--no-verify</b> option. A non-zero exit means
@@ -237,7 +237,7 @@ This hook is called by <b>git-push</b>(1) and can be used to prevent a push from
 <p class="Pp"></p>
 <div class="Bd-indent">
 <pre>
-&lt;local ref&gt; SP &lt;local sha1&gt; SP &lt;remote ref&gt; SP &lt;remote sha1&gt; LF
+&lt;local ref&gt; SP &lt;local object name&gt; SP &lt;remote ref&gt; SP &lt;remote object name&gt; LF
 </pre>
 </div>
 <p class="Pp">For instance, if the command <b>git push origin master:foreign</b>
@@ -248,13 +248,14 @@ This hook is called by <b>git-push</b>(1) and can be used to prevent a push from
 refs/heads/master 67890 refs/heads/foreign 12345
 </pre>
 </div>
-<p class="Pp">although the full, 40-character SHA-1s would be supplied. If the
-    foreign ref does not yet exist the <b>&lt;remote SHA-1&gt;</b> will be 40
-    <b>0</b>. If a ref is to be deleted, the <b>&lt;local ref&gt;</b> will be
-    supplied as <b>(delete)</b> and the <b>&lt;local SHA-1&gt;</b> will be 40
-    <b>0</b>. If the local commit was specified by something other than a name
-    which could be expanded (such as <b>HEAD~</b>, or a SHA-1) it will be
-    supplied as it was originally given.</p>
+<p class="Pp">although the full object name would be supplied. If the foreign
+    ref does not yet exist the <b>&lt;remote object name&gt;</b> will be the
+    all-zeroes object name. If a ref is to be deleted, the <b>&lt;local
+    ref&gt;</b> will be supplied as <b>(delete)</b> and the <b>&lt;local object
+    name&gt;</b> will be the all-zeroes object name. If the local commit was
+    specified by something other than a name which could be expanded (such as
+    <b>HEAD~</b>, or an object name) it will be supplied as it was originally
+    given.</p>
 <p class="Pp">If this hook exits with a non-zero status, <b>git push</b> will
     abort without pushing anything. Information about why the push is rejected
     may be sent to the user by writing to standard error.</p>
@@ -277,7 +278,7 @@ This hook is invoked by <b>git-receive-pack</b>(1) when it reacts to <b>git
 <p class="Pp">where <b>&lt;old-value&gt;</b> is the old object name stored in
     the ref, <b>&lt;new-value&gt;</b> is the new object name to be stored in the
     ref and <b>&lt;ref-name&gt;</b> is the full name of the ref. When creating a
-    new ref, <b>&lt;old-value&gt;</b> is 40 <b>0</b>.</p>
+    new ref, <b>&lt;old-value&gt;</b> is the all-zeroes object name.</p>
 <p class="Pp">If the hook exits with non-zero status, none of the refs will be
     updated. If the hook exits with zero, updating of individual refs can still
     be prevented by the <i>update</i> hook.</p>
@@ -455,7 +456,8 @@ This hook is invoked by <b>git-receive-pack</b>(1) when it reacts to <b>git
 <h2 class="Ss" id="reference_-transaction"><a class="permalink" href="#reference_-transaction">reference-transaction</a></h2>
 This hook is invoked by any Git command that performs reference updates. It
   executes whenever a reference transaction is prepared, committed or aborted
-  and may thus get called multiple times.
+  and may thus get called multiple times. The hook does not cover symbolic
+  references (but that may change in the future).
 <p class="Pp">The hook takes exactly one argument, which is the current state
     the given reference transaction is in:</p>
 <p class="Pp"></p>
@@ -475,6 +477,13 @@ This hook is invoked by any Git command that performs reference updates. It
 &lt;old-value&gt; SP &lt;new-value&gt; SP &lt;ref-name&gt; LF
 </pre>
 </div>
+<p class="Pp">where <b>&lt;old-value&gt;</b> is the old object name passed into
+    the reference transaction, <b>&lt;new-value&gt;</b> is the new object name
+    to be stored in the ref and <b>&lt;ref-name&gt;</b> is the full name of the
+    ref. When force updating the reference regardless of its current value or
+    when the reference is to be created anew, <b>&lt;old-value&gt;</b> is the
+    all-zeroes object name. To distinguish these cases, you can inspect the
+    current value of <b>&lt;ref-name&gt;</b> via <b>git rev-parse</b>.</p>
 <p class="Pp">The exit status of the hook is ignored for any state except for
     the &quot;prepared&quot; state. In the &quot;prepared&quot; state, a
     non-zero exit status will cause the transaction to be aborted. The hook will
@@ -524,7 +533,7 @@ This hook is invoked by commands that rewrite commits (<b>git-commit</b>(1) when
 <p class="Pp"></p>
 <div class="Bd-indent">
 <pre>
-&lt;old-sha1&gt; SP &lt;new-sha1&gt; [ SP &lt;extra-info&gt; ] LF
+&lt;old-object-name&gt; SP &lt;new-object-name&gt; [ SP &lt;extra-info&gt; ] LF
 </pre>
 </div>
 <p class="Pp">The <i>extra-info</i> is again command-dependent. If it is empty,
@@ -538,7 +547,7 @@ This hook is invoked by commands that rewrite commits (<b>git-commit</b>(1) when
 <div class="Bd-indent">For the <i>squash</i> and <i>fixup</i> operation, all
   commits that were squashed are listed as being rewritten to the squashed
   commit. This means that there will be several lines sharing the same
-  <i>new-sha1</i>.
+  <i>new-object-name</i>.
 <p class="Pp">The commits are guaranteed to be listed in the order that they
     were processed by rebase.</p>
 </div>

@@ -127,6 +127,8 @@ unmerged       :000000 000000 0000000... 0000000... U file6
 <div class="Bd-indent">&#x2022;diffcore-pickaxe</div>
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;diffcore-order</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;diffcore-rotate</div>
 <p class="Pp">These are applied in sequence. The set of filepairs <i>git
     diff-*</i> commands find are used as the input to diffcore-break, and the
     output from diffcore-break is used as the input to the next transformation.
@@ -225,6 +227,24 @@ This transformation is used to detect renames and copies, and is controlled by
     similarity score different from the default of 50% by giving a number after
     the &quot;-M&quot; or &quot;-C&quot; option (e.g. &quot;-M8&quot; to tell it
     to use 8/10 = 80%).</p>
+<p class="Pp">Note that when rename detection is on but both copy and break
+    detection are off, rename detection adds a preliminary step that first
+    checks if files are moved across directories while keeping their filename
+    the same. If there is a file added to a directory whose contents is
+    sufficiently similar to a file with the same name that got deleted from a
+    different directory, it will mark them as renames and exclude them from the
+    later quadratic step (the one that pairwise compares all unmatched files to
+    find the &quot;best&quot; matches, determined by the highest content
+    similarity). So, for example, if a deleted docs/ext.txt and an added
+    docs/config/ext.txt are similar enough, they will be marked as a rename and
+    prevent an added docs/ext.md that may be even more similar to the deleted
+    docs/ext.txt from being considered as the rename destination in the later
+    step. For this reason, the preliminary &quot;match same filename&quot; step
+    uses a bit higher threshold to mark a file pair as a rename and stop
+    considering other candidates for better matches. At most, one comparison is
+    done per file in this preliminary pass; so if there are several remaining
+    ext.txt files throughout the directory hierarchy after exact rename
+    detection, this preliminary step may be skipped for those files.</p>
 <p class="Pp">Note. When the &quot;-C&quot; option is used with
     <b>--find-copies-harder</b> option, <i>git diff-*</i> commands feed
     unmodified filepairs to diffcore mechanism as well as modified ones. This
@@ -322,6 +342,23 @@ t
 </pre>
 </div>
 <p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DIFFCORE_-ROTATE:_FOR_CHANGING_AT_WHICH_PATH_OUTPUT_STARTS"><a class="permalink" href="#DIFFCORE_-ROTATE:_FOR_CHANGING_AT_WHICH_PATH_OUTPUT_STARTS">DIFFCORE-ROTATE:
+  FOR CHANGING AT WHICH PATH OUTPUT STARTS</a></h1>
+This transformation takes one pathname, and rotates the set of filepairs so that
+  the filepair for the given pathname comes first, optionally discarding the
+  paths that come before it. This is used to implement the <b>--skip-to</b> and
+  the <b>--rotate-to</b> options. It is an error when the specified pathname is
+  not in the set of filepairs, but it is not useful to error out when used with
+  &quot;git log&quot; family of commands, because it is unreasonable to expect
+  that a given path would be modified by each and every commit shown by the
+  &quot;git log&quot; command. For this reason, when used with &quot;git
+  log&quot;, the filepair that sorts the same as, or the first one that sorts
+  after, the given pathname is where the output starts.
+<p class="Pp">Use of this transformation combined with diffcore-order will
+    produce unexpected results, as the input to this transformation is likely
+    not sorted when diffcore-order is in effect.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE

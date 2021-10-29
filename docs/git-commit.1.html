@@ -57,12 +57,13 @@ git-commit - Record changes to the repository
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
 <pre>
 <i>git commit</i> [-a | --interactive | --patch] [-s] [-v] [-u&lt;mode&gt;] [--amend]
-           [--dry-run] [(-c | -C | --fixup | --squash) &lt;commit&gt;]
+           [--dry-run] [(-c | -C | --squash) &lt;commit&gt; | --fixup [(amend|reword):]&lt;commit&gt;)]
            [-F &lt;file&gt; | -m &lt;msg&gt;] [--reset-author] [--allow-empty]
            [--allow-empty-message] [--no-verify] [-e] [--author=&lt;author&gt;]
            [--date=&lt;date&gt;] [--cleanup=&lt;mode&gt;] [--[no-]status]
            [-i | -o] [--pathspec-from-file=&lt;file&gt; [--pathspec-file-nul]]
-           [-S[&lt;keyid&gt;]] [--] [&lt;pathspec&gt;...]
+           [(--trailer &lt;token&gt;[(=|:)&lt;value&gt;])...] [-S[&lt;keyid&gt;]]
+           [--] [&lt;pathspec&gt;...]
 </pre>
 <p class="Pp"></p>
 </section>
@@ -121,11 +122,42 @@ Create a new commit containing the current contents of the index and the given
 <p class="Pp">-c &lt;commit&gt;, --reedit-message=&lt;commit&gt;</p>
 <div class="Bd-indent">Like <i>-C</i>, but with <b>-c</b> the editor is invoked,
   so that the user can further edit the commit message.</div>
-<p class="Pp">--fixup=&lt;commit&gt;</p>
-<div class="Bd-indent">Construct a commit message for use with <b>rebase
-  --autosquash</b>. The commit message will be the subject line from the
-  specified commit with a prefix of &quot;fixup! &quot;. See
-  <b>git-rebase</b>(1) for details.</div>
+<p class="Pp">--fixup=[(amend|reword):]&lt;commit&gt;</p>
+<div class="Bd-indent">Create a new commit which &quot;fixes up&quot;
+  <b>&lt;commit&gt;</b> when applied with <b>git rebase --autosquash</b>. Plain
+  <b>--fixup=&lt;commit&gt;</b> creates a &quot;fixup!&quot; commit which
+  changes the content of <b>&lt;commit&gt;</b> but leaves its log message
+  untouched. <b>--fixup=amend:&lt;commit&gt;</b> is similar but creates an
+  &quot;amend!&quot; commit which also replaces the log message of
+  <b>&lt;commit&gt;</b> with the log message of the &quot;amend!&quot; commit.
+  <b>--fixup=reword:&lt;commit&gt;</b> creates an &quot;amend!&quot; commit
+  which replaces the log message of <b>&lt;commit&gt;</b> with its own log
+  message but makes no changes to the content of <b>&lt;commit&gt;</b>.
+<p class="Pp">The commit created by plain <b>--fixup=&lt;commit&gt;</b> has a
+    subject composed of &quot;fixup!&quot; followed by the subject line from
+    &lt;commit&gt;, and is recognized specially by <b>git rebase
+    --autosquash</b>. The <b>-m</b> option may be used to supplement the log
+    message of the created commit, but the additional commentary will be thrown
+    away once the &quot;fixup!&quot; commit is squashed into
+    <b>&lt;commit&gt;</b> by <b>git rebase --autosquash</b>.</p>
+<p class="Pp">The commit created by <b>--fixup=amend:&lt;commit&gt;</b> is
+    similar but its subject is instead prefixed with &quot;amend!&quot;. The log
+    message of &lt;commit&gt; is copied into the log message of the
+    &quot;amend!&quot; commit and opened in an editor so it can be refined. When
+    <b>git rebase --autosquash</b> squashes the &quot;amend!&quot; commit into
+    <b>&lt;commit&gt;</b>, the log message of <b>&lt;commit&gt;</b> is replaced
+    by the refined log message from the &quot;amend!&quot; commit. It is an
+    error for the &quot;amend!&quot; commit&#x2019;s log message to be empty
+    unless <b>--allow-empty-message</b> is specified.</p>
+<p class="Pp"><b>--fixup=reword:&lt;commit&gt;</b> is shorthand for
+    <b>--fixup=amend:&lt;commit&gt; --only</b>. It creates an &quot;amend!&quot;
+    commit with only a log message (ignoring any changes staged in the index).
+    When squashed by <b>git rebase --autosquash</b>, it replaces the log message
+    of <b>&lt;commit&gt;</b> without making any other changes.</p>
+<p class="Pp">Neither &quot;fixup!&quot; nor &quot;amend!&quot; commits change
+    authorship of <b>&lt;commit&gt;</b> when applied by <b>git rebase
+    --autosquash</b>. See <b>git-rebase</b>(1) for details.</p>
+</div>
 <p class="Pp">--squash=&lt;commit&gt;</p>
 <div class="Bd-indent">Construct a commit message for use with <b>rebase
   --autosquash</b>. The commit message subject line is taken from the specified
@@ -199,6 +231,16 @@ Create a new commit containing the current contents of the index and the given
 <p class="Pp">The --no-signoff option can be used to countermand an earlier
     --signoff option on the command line.</p>
 </div>
+<p class="Pp">--trailer &lt;token&gt;[(=|:)&lt;value&gt;]</p>
+<div class="Bd-indent">Specify a (&lt;token&gt;, &lt;value&gt;) pair that should
+  be applied as a trailer. (e.g. <b>git commit --trailer &quot;Signed-off-by:C O
+  Mitter \ &lt;committer@example.com&gt;&quot; --trailer &quot;Helped-by:C O
+  Mitter \ &lt;committer@example.com&gt;&quot;</b> will add the
+  &quot;Signed-off-by&quot; trailer and the &quot;Helped-by&quot; trailer to the
+  commit message.) The <b>trailer.*</b> configuration variables
+  (<b>git-interpret-trailers</b>(1)) can be used to define if a duplicated
+  trailer is omitted, where in the run of trailers each trailer would appear,
+  and other details.</div>
 <p class="Pp">-n, --no-verify</p>
 <div class="Bd-indent">This option bypasses the pre-commit and commit-msg hooks.
   See also <b>githooks</b>(5).</div>
@@ -499,8 +541,8 @@ GIT_COMMITTER_DATE
 <section class="Sh">
 <h1 class="Sh" id="DATE_FORMATS"><a class="permalink" href="#DATE_FORMATS">DATE
   FORMATS</a></h1>
-The <b>GIT_AUTHOR_DATE</b>, <b>GIT_COMMITTER_DATE</b> environment variables and
-  the <b>--date</b> option support the following date formats:
+The <b>GIT_AUTHOR_DATE</b> and <b>GIT_COMMITTER_DATE</b> environment variables
+  support the following date formats:
 <p class="Pp">Git internal format</p>
 <div class="Bd-indent">It is <b>&lt;unix timestamp&gt; &lt;time zone
   offset&gt;</b>, where <b>&lt;unix timestamp&gt;</b> is the number of seconds
@@ -526,6 +568,10 @@ In addition, the date part is accepted in the following formats:
 <p class="Pp"></p>
 </div>
 </div>
+<p class="Pp">In addition to recognizing all date formats above, the
+    <b>--date</b> option will also try to make sense of other, more
+    human-centric date formats, such as relative dates like
+    &quot;yesterday&quot; or &quot;last Friday at noon&quot;.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DISCUSSION"><a class="permalink" href="#DISCUSSION">DISCUSSION</a></h1>
@@ -570,8 +616,8 @@ Though not required, it&#x2019;s a good idea to begin the commit message with a
 <div class="Bd-indent"> 1.<i>git commit</i> and <i>git commit-tree</i> issues a
   warning if the commit log message given to it does not look like a valid UTF-8
   string, unless you explicitly say your project uses a legacy encoding. The way
-  to say this is to have i18n.commitencoding in <b>.git/config</b> file, like
-  this:
+  to say this is to have <b>i18n.commitEncoding</b> in <b>.git/config</b> file,
+  like this:
 <p class="Pp"></p>
 <div class="Bd-indent">
 <pre>

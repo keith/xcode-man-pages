@@ -274,6 +274,14 @@ Besides specifying a range of commits that should be listed using the special
   is primarily meant to allow the caller to test the exit status to see if a
   range of objects is fully connected (or not). It is faster than redirecting
   stdout to <b>/dev/null</b> as the output does not have to be formatted.</div>
+<p class="Pp">--disk-usage</p>
+<div class="Bd-indent">Suppress normal output; instead, print the sum of the
+  bytes used for on-disk storage by the selected commits or objects. This is
+  equivalent to piping the output into <b>git cat-file
+  --batch-check='%(objectsize:disk)'</b>, except that it runs much faster
+  (especially with <b>--use-bitmap-index</b>). See the <b>CAVEATS</b> section in
+  <b>git-cat-file</b>(1) for the limitations of what &quot;on-disk storage&quot;
+  means.</div>
 <p class="Pp">--cherry-mark</p>
 <div class="Bd-indent">Like <b>--cherry-pick</b> (see below) but mark equivalent
   commits with <b>=</b> rather than omitting them, and inequivalent ones with
@@ -888,6 +896,8 @@ These options are mostly targeted for packing of Git repositories.
     larger than n bytes or units. n may be zero. The suffixes k, m, and g can be
     used to name units in KiB, MiB, or GiB. For example, <i>blob:limit=1k</i> is
     the same as <i>blob:limit=1024</i>.</p>
+<p class="Pp">The form <i>--filter=object:type=(tag|commit|tree|blob)</i> omits
+    all objects which are not of the requested type.</p>
 <p class="Pp">The form <i>--filter=sparse:oid=&lt;blob-ish&gt;</i> uses a
     sparse-checkout specification contained in the blob (or blob-expression)
     <i>&lt;blob-ish&gt;</i> to omit blobs that would not be not required for a
@@ -923,6 +933,10 @@ These options are mostly targeted for packing of Git repositories.
 </div>
 <p class="Pp">--no-filter</p>
 <div class="Bd-indent">Turn off any previous <b>--filter=</b> argument.</div>
+<p class="Pp">--filter-provided-objects</p>
+<div class="Bd-indent">Filter the list of explicitly provided objects, which
+  would otherwise always be printed even if they did not match any of the
+  filters. Only useful with <b>--filter=</b>.</div>
 <p class="Pp">--filter-print-omitted</p>
 <div class="Bd-indent">Only useful with <b>--filter=</b>; prints a list of the
   objects omitted by the filter. Object IDs are prefixed with a
@@ -1429,6 +1443,9 @@ The title was &gt;&gt;t4119: test autocomputing -p&lt;n&gt; for traditional diff
 <div class="Bd-indent">author date, strict ISO 8601 format</div>
 <p class="Pp"><i>%as</i></p>
 <div class="Bd-indent">author date, short format (<b>YYYY-MM-DD</b>)</div>
+<p class="Pp"><i>%ah</i></p>
+<div class="Bd-indent">author date, human style (like the <b>--date=human</b>
+  option of <b>git-rev-list</b>(1))</div>
 <p class="Pp"><i>%cn</i></p>
 <div class="Bd-indent">committer name</div>
 <p class="Pp"><i>%cN</i></p>
@@ -1459,12 +1476,29 @@ The title was &gt;&gt;t4119: test autocomputing -p&lt;n&gt; for traditional diff
 <div class="Bd-indent">committer date, strict ISO 8601 format</div>
 <p class="Pp"><i>%cs</i></p>
 <div class="Bd-indent">committer date, short format (<b>YYYY-MM-DD</b>)</div>
+<p class="Pp"><i>%ch</i></p>
+<div class="Bd-indent">committer date, human style (like the <b>--date=human</b>
+  option of <b>git-rev-list</b>(1))</div>
 <p class="Pp"><i>%d</i></p>
 <div class="Bd-indent">ref names, like the --decorate option of
   <b>git-log</b>(1)</div>
 <p class="Pp"><i>%D</i></p>
 <div class="Bd-indent">ref names without the &quot; (&quot;, &quot;)&quot;
   wrapping.</div>
+<p class="Pp"><i>%(describe[:options])</i></p>
+<div class="Bd-indent">human-readable name, like <b>git-describe</b>(1); empty
+  string for undescribable commits. The <b>describe</b> string may be followed
+  by a colon and zero or more comma-separated options. Descriptions can be
+  inconsistent when tags are added or removed at the same time.
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<i>match=&lt;pattern&gt;</i>: Only consider tags
+  matching the given <b>glob(7)</b> pattern, excluding the
+  &quot;refs/tags/&quot; prefix.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<i>exclude=&lt;pattern&gt;</i>: Do not consider
+  tags matching the given <b>glob(7)</b> pattern, excluding the
+  &quot;refs/tags/&quot; prefix.</div>
+</div>
 <p class="Pp"><i>%S</i></p>
 <div class="Bd-indent">ref name given on the command line by which the commit
   was reached (like <b>git log --source</b>), only works with <b>git
@@ -1528,7 +1562,7 @@ The title was &gt;&gt;t4119: test autocomputing -p&lt;n&gt; for traditional diff
 <div class="Bd-indent">display the trailers of the body as interpreted by
   <b>git-interpret-trailers</b>(1). The <b>trailers</b> string may be followed
   by a colon and zero or more comma-separated options. If any option is provided
-  multiple times the last occurance wins.
+  multiple times the last occurrence wins.
 <p class="Pp">The boolean options accept an optional value
     <b>[=&lt;BOOL&gt;]</b>. The values <b>true</b>, <b>false</b>, <b>on</b>,
     <b>off</b> etc. are all accepted. See the &quot;boolean&quot; sub-section in
@@ -1629,14 +1663,147 @@ $ git log -2 --pretty=%h 4da45bef
 </div>
 </section>
 <section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<div class="Bd-indent">&#x2022;Print the list of commits reachable from the
+  current branch.
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+git rev-list HEAD
+</pre>
+</div>
+<p class="Pp"></p>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Print the list of commits on this branch, but not
+  present in the upstream branch.
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+git rev-list @{upstream}..HEAD
+</pre>
+</div>
+<p class="Pp"></p>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Format commits with their author and commit
+  message (see also the porcelain <b>git-log</b>(1)).
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+git rev-list --format=medium HEAD
+</pre>
+</div>
+<p class="Pp"></p>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Format commits along with their diffs (see also
+  the porcelain <b>git-log</b>(1), which can do this in a single process).
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+git rev-list HEAD |
+git diff-tree --stdin --format=medium -p
+</pre>
+</div>
+<p class="Pp"></p>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Print the list of commits on the current branch
+  that touched any file in the <b>Documentation</b> directory.
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+git rev-list HEAD -- Documentation/
+</pre>
+</div>
+<p class="Pp"></p>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Print the list of commits authored by you in the
+  past year, on any branch, tag, or other ref.
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+git rev-list --author=you@example.com --since=1.year.ago --all
+</pre>
+</div>
+<p class="Pp"></p>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Print the list of objects reachable from the
+  current branch (i.e., all commits and the blobs and trees they contain).
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+git rev-list --objects HEAD
+</pre>
+</div>
+<p class="Pp"></p>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Compare the disk size of all reachable objects,
+  versus those reachable from reflogs, versus the total packed size. This can
+  tell you whether running <b>git repack -ad</b> might reduce the repository
+  size (by dropping unreachable objects), and whether expiring reflogs might
+  help.
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+# reachable objects
+git rev-list --disk-usage --objects --all
+# plus reflogs
+git rev-list --disk-usage --objects --all --reflog
+# total disk size used
+du -c .git/objects/pack/*.pack .git/objects/??/*
+# alternative to du: add up &quot;size&quot; and &quot;size-pack&quot; fields
+git count-objects -v
+</pre>
+</div>
+<p class="Pp"></p>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Report the disk size of each branch, not
+  including objects used by the current branch. This can find outliers that are
+  contributing to a bloated repository size (e.g., because somebody accidentally
+  committed large build artifacts).
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+git for-each-ref --format='%(refname)' |
+while read branch
+do
+        size=$(git rev-list --disk-usage --objects HEAD..$branch)
+        echo &quot;$size $branch&quot;
+done |
+sort -n
+</pre>
+</div>
+<p class="Pp"></p>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Compare the on-disk size of branches in one group
+  of refs, excluding another. If you co-mingle objects from multiple remotes in
+  a single repository, this can show which remotes are contributing to the
+  repository size (taking the size of <b>origin</b> as a baseline).
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+git rev-list --disk-usage --objects --remotes=$suspect --not --remotes=origin
+</pre>
+</div>
+<p class="Pp"></p>
+</div>
+</section>
+<section class="Sh">
 <h1 class="Sh" id="GIT"><a class="permalink" href="#GIT">GIT</a></h1>
 Part of the <b>git</b>(1) suite
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">11/04/2019</td>
-    <td class="foot-os">Git 2.24.0</td>
+    <td class="foot-date">06/06/2021</td>
+    <td class="foot-os">Git 2.32.0</td>
   </tr>
 </table>
 </body>

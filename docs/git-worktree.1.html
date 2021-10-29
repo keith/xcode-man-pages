@@ -144,7 +144,8 @@ $ git worktree add --track -b &lt;branch&gt; &lt;path&gt; &lt;remote&gt;/&lt;bra
   is listed first, followed by each of the linked working trees. The output
   details include whether the working tree is bare, the revision currently
   checked out, the branch currently checked out (or &quot;detached HEAD&quot; if
-  none), and &quot;locked&quot; if the worktree is locked.</div>
+  none), &quot;locked&quot; if the worktree is locked, &quot;prunable&quot; if
+  the worktree can be pruned by <b>prune</b> command.</div>
 <p class="Pp">lock</p>
 <div class="Bd-indent">If a working tree is on a portable device or network
   share which is not always mounted, lock it to prevent its administrative files
@@ -251,10 +252,16 @@ $ git worktree add --track -b &lt;branch&gt; &lt;path&gt; &lt;remote&gt;/&lt;bra
 <p class="Pp">-q, --quiet</p>
 <div class="Bd-indent">With <b>add</b>, suppress feedback messages.</div>
 <p class="Pp">-v, --verbose</p>
-<div class="Bd-indent">With <b>prune</b>, report all removals.</div>
+<div class="Bd-indent">With <b>prune</b>, report all removals.
+<p class="Pp">With <b>list</b>, output additional information about worktrees
+    (see below).</p>
+</div>
 <p class="Pp">--expire &lt;time&gt;</p>
 <div class="Bd-indent">With <b>prune</b>, only expire unused working trees older
-  than <b>&lt;time&gt;</b>.</div>
+  than <b>&lt;time&gt;</b>.
+<p class="Pp">With <b>list</b>, annotate missing working trees as prunable if
+    they are older than <b>&lt;time&gt;</b>.</p>
+</div>
 <p class="Pp">--reason &lt;string&gt;</p>
 <div class="Bd-indent">With <b>lock</b>, an explanation why the working tree is
   locked.</div>
@@ -394,14 +401,53 @@ $ git worktree list
 </pre>
 </div>
 <p class="Pp"></p>
+<p class="Pp">The command also shows annotations for each working tree,
+    according to its state. These annotations are:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>locked</b>, if the working tree is
+  locked.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>prunable</b>, if the working tree can be
+  pruned via <b>git worktree prune</b>.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git worktree list
+/path/to/linked-worktree    abcd1234 [master]
+/path/to/locked-worktreee   acbd5678 (brancha) locked
+/path/to/prunable-worktree  5678abc  (detached HEAD) prunable
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">For these annotations, a reason might also be available and this
+    can be seen using the verbose mode. The annotation is then moved to the next
+    line indented followed by the additional information.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git worktree list --verbose
+/path/to/linked-worktree              abcd1234 [master]
+/path/to/locked-worktree-no-reason    abcd5678 (detached HEAD) locked
+/path/to/locked-worktree-with-reason  1234abcd (brancha)
+        locked: working tree path is mounted on a portable device
+/path/to/prunable-worktree            5678abc1 (detached HEAD)
+        prunable: gitdir file points to non-existent location
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Note that the annotation is moved to the next line if the
+    additional information is available, otherwise it stays on the same line as
+    the working tree itself.</p>
 <section class="Ss">
 <h2 class="Ss" id="Porcelain_Format"><a class="permalink" href="#Porcelain_Format">Porcelain
   Format</a></h2>
 The porcelain format has a line per attribute. Attributes are listed with a
   label and value separated by a single space. Boolean attributes (like
   <b>bare</b> and <b>detached</b>) are listed as a label only, and are present
-  only if the value is true. The first attribute of a working tree is always
-  <b>worktree</b>, an empty line indicates the end of the record. For example:
+  only if the value is true. Some attributes (like <b>locked</b>) can be listed
+  as a label only or with a value depending upon whether a reason is available.
+  The first attribute of a working tree is always <b>worktree</b>, an empty line
+  indicates the end of the record. For example:
 <p class="Pp"></p>
 <div class="Bd-indent">
 <pre>
@@ -414,6 +460,32 @@ branch refs/heads/master
 worktree /path/to/other-linked-worktree
 HEAD 1234abc1234abc1234abc1234abc1234abc1234a
 detached
+worktree /path/to/linked-worktree-locked-no-reason
+HEAD 5678abc5678abc5678abc5678abc5678abc5678c
+branch refs/heads/locked-no-reason
+locked
+worktree /path/to/linked-worktree-locked-with-reason
+HEAD 3456def3456def3456def3456def3456def3456b
+branch refs/heads/locked-with-reason
+locked reason why is locked
+worktree /path/to/linked-worktree-prunable
+HEAD 1233def1234def1234def1234def1234def1234b
+detached
+prunable gitdir file points to non-existent location
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">If the lock reason contains &quot;unusual&quot; characters such as
+    newline, they are escaped and the entire reason is quoted as explained for
+    the configuration variable <b>core.quotePath</b> (see <b>git-config</b>(1)).
+    For Example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+$ git worktree list --porcelain
+...
+locked &quot;reason\nwhy is locked&quot;
+...
 </pre>
 </div>
 <p class="Pp"></p>
