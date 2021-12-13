@@ -6,16 +6,6 @@
    Standard preamble:
    ========================================================================
    Vertical space (when we can't use .PP)
-   Begin verbatim text
-   End verbatim text
-   Set up some character translations and predefined strings.  \*(-- will
-   give an unbreakable dash, \*(PI will give pi, \*(L" will give a left
-   double quote, and \*(R" will give a right double quote.  \*(C+ will
-   give a nicer C++.  Capital omega is used to do unbreakable dashes and
-   therefore won't be available.  \*(C` and \*(C' expand to `' in nroff,
-   nothing in troff, for use with C<>.
-   diablo 10 pitch
-    diablo 12 pitch
  -->
 <head>
 
@@ -33,17 +23,17 @@
 </style>
 
   <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <style>
     table.head, table.foot { width: 100%; }
     td.head-rtitle, td.foot-os { text-align: right; }
     td.head-vol { text-align: center; }
-    div.Pp { margin: 1ex 0ex; }
-    div.Nd, div.Bf, div.Op { display: inline; }
-    span.Pa, span.Ad { font-style: italic; }
-    span.Ms { font-weight: bold; }
-    dl.Bl-diag > dt { font-weight: bold; }
-    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
-    code.Cd { font-weight: bold; font-family: inherit; }
+    .Nd, .Bf, .Op { display: inline; }
+    .Pa, .Ad { font-style: italic; }
+    .Ms { font-weight: bold; }
+    .Bl-diag > dt { font-weight: bold; }
+    code.Nm, .Fl, .Cm, .Ic, code.In, .Fd, .Fn, .Cd { font-weight: bold;
+      font-family: inherit; }
   </style>
   <title>Pegex::Tutorial::Calculator(3)</title>
 </head>
@@ -60,7 +50,7 @@
 <section class="Sh">
 <h1 class="Sh" id="Pegex_Tutorial_Calculator"><a class="permalink" href="#Pegex_Tutorial_Calculator">Pegex
   Tutorial Calculator</a></h1>
-A Pegex Calculator
+<p class="Pp">A Pegex Calculator</p>
 <p class="Pp">When you look around the web for stuff about parsing, you
     inevitably find a bunch of examples about how to write a precedence parser
     for mathematical expressions.</p>
@@ -84,27 +74,24 @@ A Pegex Calculator
 <section class="Sh">
 <h1 class="Sh" id="The_Problem"><a class="permalink" href="#The_Problem">The
   Problem</a></h1>
-Precedence parsers are interesting because you need to deal with operators that
-  have the same precedence, different precedences and both left and right
-  associativity.
+<p class="Pp">Precedence parsers are interesting because you need to deal with
+    operators that have the same precedence, different precedences and both left
+    and right associativity.</p>
 <p class="Pp">Consider the equation:</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
-    1 - 2 ^ 3 ^ 4 + 5 * 6 / 7
+<p class="Pp"></p>
+<pre>    1 - 2 ^ 3 ^ 4 + 5 * 6 / 7
 </pre>
 <p class="Pp">Normal precedence and associativity rules make this the same
   as:</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
-    (1 - (2 ^ (3 ^ 4)) + ((5 * 6) / 7))
+<p class="Pp"></p>
+<pre>    (1 - (2 ^ (3 ^ 4)) + ((5 * 6) / 7))
 </pre>
 <p class="Pp">Our calculator should produce the same result for both. Note that
     this means we will be parsing numbers, 5 operators, parentheses, and
     separating whitespace.</p>
 <p class="Pp">Here's an example of the calculator program running:</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
-    &gt; perl eg/calculator1.pl
+<p class="Pp"></p>
+<pre>    &gt; perl eg/calculator1.pl
     Enter an equation: 1+2*3
     1+2*3 = 7
     Enter an equation: (1 + 2) * 3
@@ -115,28 +102,30 @@ Precedence parsers are interesting because you need to deal with operators that
 <section class="Sh">
 <h1 class="Sh" id="The_Solutions"><a class="permalink" href="#The_Solutions">The
   Solutions</a></h1>
-Most of the solutions that you'll read about on the web, involve (or assume) a
-  lexing/tokenizing step before parsing. Pegex always parses an input stream
-  directly, pulling out &quot;tokens&quot; that it needs using regex captures.
-  So the parse happens as one operation, which has many advantages.
+<p class="Pp">Most of the solutions that you'll read about on the web, involve
+    (or assume) a lexing/tokenizing step before parsing. Pegex always parses an
+    input stream directly, pulling out &quot;tokens&quot; that it needs using
+    regex captures. So the parse happens as one operation, which has many
+    advantages.</p>
 <p class="Pp">But how do we get the operator precedence rules into this? Well,
     we have 2 different ways:</p>
 <section class="Ss">
-<h2 class="Ss" id="calculator1.pl__-_Operator_Precedence_Climbing"><a class="permalink" href="#calculator1.pl__-_Operator_Precedence_Climbing">calculator1.pl
+<h2 class="Ss" id="calculator1.pl_"><a class="permalink" href="#calculator1.pl_">calculator1.pl
   - Operator Precedence Climbing</a></h2>
-Note: The code in this example is copy/pasted from &quot;calculator/&quot; in
-  example
- files. The code in those running files is slightly different but
- rewritten to make more sense in this doc.
+<p class="Pp">Note: The code in this example is copy/pasted from
+    &quot;calculator/&quot; in example
+  <br/>
+   files. The code in those running files is slightly different but
+  <br/>
+   rewritten to make more sense in this doc.</p>
 <p class="Pp">Our first example calculator uses what is known as the Operator
     Precedence Climbing method. See:
     &lt;http://en.wikipedia.org/wiki/Operator-precedence_parser#Precedence_climbing_method&gt;.</p>
 <p class="Pp">This is basically a clever technique of specifying our grammar
     rules such that they imply precedence. Here's the pegex grammar from the
     code:</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
-    expr: add-sub
+<p class="Pp"></p>
+<pre>    expr: add-sub
     add-sub: mul-div+ % /- ( [ '+-' ])/
     mul-div: power+ % /- ([ '*/' ])/
     power: token+ % /- '^' /
@@ -153,16 +142,13 @@ Note: The code in this example is copy/pasted from &quot;calculator/&quot; in
     numbers in the correct order, immediately evaluates the answer and returns
     the answer for each level. Whatever the return value of the final operation
     is, becomes the result of the parse. Here's the receiver class:</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
-    {
+<p class="Pp"></p>
+<pre>    {
         package Calculator;
         use base 'Pegex::Tree';
-
         sub gotrule {
             my ($self, $list) = @_;
             return $list unless ref $list;
-
             # Right associative:
             if ($self-&gt;rule eq 'power') {
                 while (@$list &gt; 1) {
@@ -191,16 +177,14 @@ Note: The code in this example is copy/pasted from &quot;calculator/&quot; in
     from left to right or right to left depends on the associativity that we
     want to use.</p>
 <p class="Pp">Our runner code looks like this:</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
-    while (1) {
+<p class="Pp"></p>
+<pre>    while (1) {
         print &quot;\nEnter an equation: &quot;;
         my $expr = &lt;&gt; || '';
         chomp $expr;
         last unless length $expr;
         calc($expr);
     }
-
     sub calc {
         my ($expr) = @_;
         my $result = pegex($grammar, 'Calculator')-&gt;parse($expr);
@@ -218,21 +202,19 @@ Note: The code in this example is copy/pasted from &quot;calculator/&quot; in
     Let's try another approach...</p>
 </section>
 <section class="Ss">
-<h2 class="Ss" id="calculator2.pl__-_Shunting_Yard_Algorithm"><a class="permalink" href="#calculator2.pl__-_Shunting_Yard_Algorithm">calculator2.pl
+<h2 class="Ss" id="calculator2.pl_"><a class="permalink" href="#calculator2.pl_">calculator2.pl
   - Shunting Yard Algorithm</a></h2>
-An age old way of parsing expressions is to somehow get the numbers and
-  operators into an RPN (Reverse Polish Notation) stack, which is each operand
-  follow by its operator. Once in that form, precedence and associativity are
-  accounted for.
+<p class="Pp">An age old way of parsing expressions is to somehow get the
+    numbers and operators into an RPN (Reverse Polish Notation) stack, which is
+    each operand follow by its operator. Once in that form, precedence and
+    associativity are accounted for.</p>
 <p class="Pp">For example:</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
-    1 / 2 - ( -3 * 4 )
+<p class="Pp"></p>
+<pre>    1 / 2 - ( -3 * 4 )
 </pre>
 <p class="Pp">becomes:</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
-    1, 2, /, -3, 4, *, -
+<p class="Pp"></p>
+<pre>    1, 2, /, -3, 4, *, -
 </pre>
 <p class="Pp">To evaluate an RPN you pop off an operator and then attempt to pop
     off and operand. If the operand is another operator you recurse. When you
@@ -241,9 +223,8 @@ An age old way of parsing expressions is to somehow get the numbers and
   result.</p>
 <p class="Pp">Let's look at our new grammar in
     <span class="Li">&quot;calculator2.pl&quot;</span>:</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
-    expr: operand (operator operand)*
+<p class="Pp"></p>
+<pre>    expr: operand (operator operand)*
     operator: /- (['+-*/^'])/
     operand: num | /- '('/ expr /- ')'/
     num: /- ('-'? DIGIT+)/
@@ -251,12 +232,10 @@ An age old way of parsing expressions is to somehow get the numbers and
 <p class="Pp">This is much easier to understand. We are just parsing out the
     tokens. In a (very real) sense, we are using Pegex as a lexer.</p>
 <p class="Pp">Now let's look at the receiver class:</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
-    {
+<p class="Pp"></p>
+<pre>    {
         package Calculator;
         use base 'Pegex::Tree', 'Precedence';
-
         my $operator_precedence_table = {
             '+' =&gt; {p =&gt; 1, a =&gt; 'l'},
             '-' =&gt; {p =&gt; 1, a =&gt; 'l'},
@@ -264,7 +243,6 @@ An age old way of parsing expressions is to somehow get the numbers and
             '/' =&gt; {p =&gt; 2, a =&gt; 'l'},
             '^' =&gt; {p =&gt; 3, a =&gt; 'r'},
         };
-
         sub got_expr {
             my ($self, $expr) = @_;
             $self-&gt;precedence_rpn($expr, $operator_precedence_table);
@@ -286,9 +264,8 @@ An age old way of parsing expressions is to somehow get the numbers and
     more like something an actually language compiler would do.</p>
 <p class="Pp">But we are writing a calculator and we still need to evaluate this
     puppy. I changed the runner code to look like this:</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
-    sub calc {
+<p class="Pp"></p>
+<pre>    sub calc {
         my $expr = shift;
         my $calculator = pegex($grammar, 'Calculator');
         my $rpn = eval { $calculator-&gt;parse($expr) };
@@ -302,10 +279,11 @@ An age old way of parsing expressions is to somehow get the numbers and
 </section>
 <section class="Sh">
 <h1 class="Sh" id="Conclusion"><a class="permalink" href="#Conclusion">Conclusion</a></h1>
-Pegex strives to be the nicest and most reusable way to write new parsers.
-  Operator precedence parsers are a necessary part of parsing mathematical
-  expressions and computer languages. This tutorial showed you 2 ways to do it.
-  As the demands for Pegex grow, we may see even more ways to do it.
+<p class="Pp">Pegex strives to be the nicest and most reusable way to write new
+    parsers. Operator precedence parsers are a necessary part of parsing
+    mathematical expressions and computer languages. This tutorial showed you 2
+    ways to do it. As the demands for Pegex grow, we may see even more ways to
+    do it.</p>
 </section>
 </div>
 <table class="foot">

@@ -6,16 +6,6 @@
    Standard preamble:
    ========================================================================
    Vertical space (when we can't use .PP)
-   Begin verbatim text
-   End verbatim text
-   Set up some character translations and predefined strings.  \*(-- will
-   give an unbreakable dash, \*(PI will give pi, \*(L" will give a left
-   double quote, and \*(R" will give a right double quote.  \*(C+ will
-   give a nicer C++.  Capital omega is used to do unbreakable dashes and
-   therefore won't be available.  \*(C` and \*(C' expand to `' in nroff,
-   nothing in troff, for use with C<>.
-   diablo 10 pitch
-    diablo 12 pitch
  -->
 <head>
 
@@ -33,17 +23,17 @@
 </style>
 
   <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <style>
     table.head, table.foot { width: 100%; }
     td.head-rtitle, td.foot-os { text-align: right; }
     td.head-vol { text-align: center; }
-    div.Pp { margin: 1ex 0ex; }
-    div.Nd, div.Bf, div.Op { display: inline; }
-    span.Pa, span.Ad { font-style: italic; }
-    span.Ms { font-weight: bold; }
-    dl.Bl-diag > dt { font-weight: bold; }
-    code.Nm, code.Fl, code.Cm, code.Ic, code.In, code.Fd, code.Fn,
-    code.Cd { font-weight: bold; font-family: inherit; }
+    .Nd, .Bf, .Op { display: inline; }
+    .Pa, .Ad { font-style: italic; }
+    .Ms { font-weight: bold; }
+    .Bl-diag > dt { font-weight: bold; }
+    code.Nm, .Fl, .Cm, .Ic, code.In, .Fd, .Fn, .Cd { font-weight: bold;
+      font-family: inherit; }
   </style>
   <title>PERLREGUTS(1)</title>
 </head>
@@ -59,16 +49,18 @@
 <br/>
 <section class="Sh">
 <h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
-perlreguts - Description of the Perl regular expression engine.
+<p class="Pp">perlreguts - Description of the Perl regular expression
+  engine.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
-This document is an attempt to shine some light on the guts of the regex engine
-  and how it works. The regex engine represents a significant chunk of the perl
-  codebase, but is relatively poorly understood. This document is a meagre
-  attempt at addressing this situation. It is derived from the author's
-  experience, comments in the source code, other papers on the regex engine,
-  feedback on the perl5-porters mail list, and no doubt other places as well.
+<p class="Pp">This document is an attempt to shine some light on the guts of the
+    regex engine and how it works. The regex engine represents a significant
+    chunk of the perl codebase, but is relatively poorly understood. This
+    document is a meagre attempt at addressing this situation. It is derived
+    from the author's experience, comments in the source code, other papers on
+    the regex engine, feedback on the perl5-porters mail list, and no doubt
+    other places as well.</p>
 <p class="Pp"><b>NOTICE!</b> It should be clearly understood that the behavior
     and structures discussed in this represents the state of the engine as the
     author understood it at the time of writing. It is <b>NOT</b> an API
@@ -84,9 +76,10 @@ This document is an attempt to shine some light on the guts of the regex engine
 <section class="Ss">
 <h2 class="Ss" id="A_quick_note_on_terms"><a class="permalink" href="#A_quick_note_on_terms">A
   quick note on terms</a></h2>
-There is some debate as to whether to say &quot;regexp&quot; or
-  &quot;regex&quot;. In this document we will use the term &quot;regex&quot;
-  unless there is a special reason not to, in which case we will explain why.
+<p class="Pp">There is some debate as to whether to say &quot;regexp&quot; or
+    &quot;regex&quot;. In this document we will use the term &quot;regex&quot;
+    unless there is a special reason not to, in which case we will explain
+  why.</p>
 <p class="Pp">When speaking about regexes we need to distinguish between their
     source code form and their internal form. In this document we will use the
     term &quot;pattern&quot; when we speak of their textual, source code form,
@@ -98,10 +91,10 @@ There is some debate as to whether to say &quot;regexp&quot; or
 <section class="Ss">
 <h2 class="Ss" id="What_is_a_regular_expression_engine?"><a class="permalink" href="#What_is_a_regular_expression_engine?">What
   is a regular expression engine?</a></h2>
-A regular expression engine is a program that takes a set of constraints
-  specified in a mini-language, and then applies those constraints to a target
-  string, and determines whether or not the string satisfies the constraints.
-  See perlre for a full definition of the language.
+<p class="Pp">A regular expression engine is a program that takes a set of
+    constraints specified in a mini-language, and then applies those constraints
+    to a target string, and determines whether or not the string satisfies the
+    constraints. See perlre for a full definition of the language.</p>
 <p class="Pp">In less grandiose terms, the first part of the job is to turn a
     pattern into something the computer can efficiently use to find the matching
     point in the string, and the second part is performing the search
@@ -113,7 +106,7 @@ A regular expression engine is a program that takes a set of constraints
 <section class="Ss">
 <h2 class="Ss" id="Structure_of_a_Regexp_Program"><a class="permalink" href="#Structure_of_a_Regexp_Program">Structure
   of a Regexp Program</a></h2>
-<i>High Level</i>
+<p class="Pp"><i>High Level</i></p>
 <p class="Pp">Although it is a bit confusing and some people object to the
     terminology, it is worth taking a look at a comment that has been in
     <i>regexp.h</i> for years:</p>
@@ -134,9 +127,8 @@ A regular expression engine is a program that takes a set of constraints
 <p class="Pp">Thus the pattern
     <span class="Li">&quot;/foo(?:\w+|\d+|\s+)bar/&quot;</span> can be thought
     of as the following chart:</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
-                      [start]
+<p class="Pp"></p>
+<pre>                      [start]
                          |
                        &lt;foo&gt;
                          |
@@ -187,9 +179,8 @@ A regular expression engine is a program that takes a set of constraints
 <p class="Pp"><i>Regops</i></p>
 <p class="Pp">The base structure of a regop is defined in <i>regexp.h</i> as
     follows:</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
-    struct regnode {
+<p class="Pp"></p>
+<pre>    struct regnode {
         U8  flags;    /* Various purposes, sometimes overridden */
         U8  type;     /* Opcode value as specified by regnodes.h */
         U16 next_off; /* Offset in size regnode */
@@ -210,9 +201,8 @@ A regular expression engine is a program that takes a set of constraints
       header, followed by a single four-byte argument;
       <span class="Li">&quot;regnode_2&quot;</span> structures contain two
       two-byte arguments instead:
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-    regnode_1                U32 arg1;
+    <p class="Pp"></p>
+    <pre>    regnode_1                U32 arg1;
     regnode_2                U16 arg1;  U16 arg2;
     </pre>
   </dd>
@@ -221,9 +211,8 @@ A regular expression engine is a program that takes a set of constraints
       literal strings, follow the header with a one-byte length and then the
       string data. Strings are padded on the end with zero bytes so that the
       total length of the node is a multiple of four bytes:
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-    regnode_string           char string[1];
+    <p class="Pp"></p>
+    <pre>    regnode_string           char string[1];
                              U8 str_len; /* overrides flags */
     </pre>
   </dd>
@@ -232,9 +221,8 @@ A regular expression engine is a program that takes a set of constraints
       <span class="Li">&quot;regnode_charclass&quot;</span> structures, which
       have a four-byte argument and then a 32-byte (256-bit) bitmap indicating
       which characters in the Latin1 range are included in the class.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-    regnode_charclass        U32 arg1;
+    <p class="Pp"></p>
+    <pre>    regnode_charclass        U32 arg1;
                              char bitmap[ANYOF_BITMAP_SIZE];
     </pre>
     <p class="Pp">Various flags whose names begin with
@@ -248,9 +236,8 @@ A regular expression engine is a program that takes a set of constraints
       called <span class="Li">&quot;regnode_charclass_posixl&quot;</span> which
       has an additional 32-bit bitmap indicating which POSIX char classes have
       been included.
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-   regnode_charclass_posixl U32 arg1;
+    <p class="Pp"></p>
+    <pre>   regnode_charclass_posixl U32 arg1;
                             char bitmap[ANYOF_BITMAP_SIZE];
                             U32 classflags;
     </pre>
@@ -310,10 +297,10 @@ A regular expression engine is a program that takes a set of constraints
 <section class="Sh">
 <h1 class="Sh" id="Process_Overview"><a class="permalink" href="#Process_Overview">Process
   Overview</a></h1>
-Broadly speaking, performing a match of a string against a pattern involves the
-  following steps:
+<p class="Pp">Broadly speaking, performing a match of a string against a pattern
+    involves the following steps:</p>
 <dl class="Bl-tag">
-  <dt>A. Compilation</dt>
+  <dt id="A."><a class="permalink" href="#A.">A. Compilation</a></dt>
   <dd></dd>
 </dl>
 <div class="Bd-indent">
@@ -328,7 +315,7 @@ Broadly speaking, performing a match of a string against a pattern involves the
 </div>
 <div class="Bd-indent"></div>
 <dl class="Bl-tag">
-  <dt>B. Execution</dt>
+  <dt id="B."><a class="permalink" href="#B.">B. Execution</a></dt>
   <dd></dd>
 </dl>
 <div class="Bd-indent">
@@ -349,8 +336,8 @@ Broadly speaking, performing a match of a string against a pattern involves the
     doesn't really care that much.</p>
 <section class="Ss">
 <h2 class="Ss" id="Compilation"><a class="permalink" href="#Compilation">Compilation</a></h2>
-This code resides primarily in <i>regcomp.c</i>, along with the header files
-  <i>regcomp.h</i>, <i>regexp.h</i> and <i>regnodes.h</i>.
+<p class="Pp">This code resides primarily in <i>regcomp.c</i>, along with the
+    header files <i>regcomp.h</i>, <i>regexp.h</i> and <i>regnodes.h</i>.</p>
 <p class="Pp">Compilation starts with
     <span class="Li">&quot;pregcomp()&quot;</span>, which is mostly an
     initialisation wrapper which farms work out to two other routines for the
@@ -423,9 +410,8 @@ This code resides primarily in <i>regcomp.c</i>, along with the header files
     converts single branch alternations into the simpler form.</p>
 <p class="Pp"><i>Parse Call Graph and a Grammar</i></p>
 <p class="Pp">The call graph looks like this:</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
- reg()                        # parse a top level regex, or inside of
+<p class="Pp"></p>
+<pre> reg()                        # parse a top level regex, or inside of
                               # parens
      regbranch()              # parse a single branch of an alternation
          regpiece()           # parse a pattern followed by a quantifier
@@ -444,9 +430,8 @@ This code resides primarily in <i>regcomp.c</i>, along with the header files
                               # regtail_study().
 </pre>
 <p class="Pp">A grammar form might be something like this:</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
-    atom  : constant | class
+<p class="Pp"></p>
+<pre>    atom  : constant | class
     quant : '*' | '+' | '?' | '{min,max}'
     _branch: piece
            | piece _branch
@@ -531,9 +516,8 @@ This code resides primarily in <i>regcomp.c</i>, along with the header files
     it less dense on the screen. 'tsdy' is a special form of
     <span class="Li">&quot;regtail()&quot;</span> which does some extra
     analysis.</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
- &gt;foo&lt;             1    reg
+<p class="Pp"></p>
+<pre> &gt;foo&lt;             1    reg
                           brnc
                             piec
                               atom
@@ -541,9 +525,8 @@ This code resides primarily in <i>regcomp.c</i>, along with the header files
                               ~ attach to END (3) offset to 2
 </pre>
 <p class="Pp">The resulting program then looks like:</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
-   1: EXACT &lt;foo&gt;(3)
+<p class="Pp"></p>
+<pre>   1: EXACT &lt;foo&gt;(3)
    3: END(0)
 </pre>
 <p class="Pp">As you can see, even though we parsed out a branch and a piece, it
@@ -560,9 +543,8 @@ This code resides primarily in <i>regcomp.c</i>, along with the header files
     we have the pattern <span class="Li">&quot;/foo+/&quot;</span>. We will see
     that <span class="Li">&quot;regbranch()&quot;</span> calls
     <span class="Li">&quot;regpiece()&quot;</span> twice.</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
- &gt;foo+&lt;            1    reg
+<p class="Pp"></p>
+<pre> &gt;foo+&lt;            1    reg
                           brnc
                             piec
                               atom
@@ -574,9 +556,8 @@ This code resides primarily in <i>regcomp.c</i>, along with the header files
                               ~ attach to END (6) offset to 3
 </pre>
 <p class="Pp">And we end up with the program:</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
-   1: EXACT &lt;fo&gt;(3)
+<p class="Pp"></p>
+<pre>   1: EXACT &lt;fo&gt;(3)
    3: PLUS(6)
    4:   EXACT &lt;o&gt;(0)
    6: END(0)
@@ -591,9 +572,8 @@ This code resides primarily in <i>regcomp.c</i>, along with the header files
     at least once, or failing if it didn't).</p>
 <p class="Pp">Now for something much more complex:
     <span class="Li">&quot;/x(?:foo*|b[a][rR])(foo|bar)$/&quot;</span></p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
- &gt;x(?:foo*|b...    1    reg
+<p class="Pp"></p>
+<pre> &gt;x(?:foo*|b...    1    reg
                           brnc
                             piec
                               atom
@@ -666,9 +646,8 @@ This code resides primarily in <i>regcomp.c</i>, along with the header files
                               ~ attach to END (37) offset to 1
 </pre>
 <p class="Pp">Resulting in the program</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
-   1: EXACT &lt;x&gt;(3)
+<p class="Pp"></p>
+<pre>   1: EXACT &lt;x&gt;(3)
    3: BRANCH(9)
    4:   EXACT &lt;fo&gt;(6)
    6:   STAR(26)
@@ -709,9 +688,8 @@ This code resides primarily in <i>regcomp.c</i>, along with the header files
     long strings and complex patterns it can end up having to do a lot of work
     to find a match, and even more to decide that no match is possible. Consider
     a situation like the following pattern.</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
-   'ababababababababababab' =~ /(a|b)*z/
+<p class="Pp"></p>
+<pre>   'ababababababababababab' =~ /(a|b)*z/
 </pre>
 <p class="Pp">The <span class="Li">&quot;(a|b)*&quot;</span> part can match at
     every char in the string, and then fail every time because there is no
@@ -719,9 +697,8 @@ This code resides primarily in <i>regcomp.c</i>, along with the header files
     avoid using the regex engine unless there is a
     <span class="Li">&quot;z&quot;</span> in the string. Likewise in a pattern
     like:</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
-   /foo(\w+)bar/
+<p class="Pp"></p>
+<pre>   /foo(\w+)bar/
 </pre>
 <p class="Pp">In this case we know that the string must contain a
     <span class="Li">&quot;foo&quot;</span> which must be followed by
@@ -768,9 +745,9 @@ This code resides primarily in <i>regcomp.c</i>, along with the header files
 </section>
 <section class="Ss">
 <h2 class="Ss" id="Execution"><a class="permalink" href="#Execution">Execution</a></h2>
-Execution of a regex generally involves two phases, the first being finding the
-  start point in the string where we should match from, and the second being
-  running the regop interpreter.
+<p class="Pp">Execution of a regex generally involves two phases, the first
+    being finding the start point in the string where we should match from, and
+    the second being running the regop interpreter.</p>
 <p class="Pp">If we can tell that there is no valid start point then we don't
     bother running the interpreter at all. Likewise, if we know from the
     analysis phase that we cannot detect a short-cut to the start position, we
@@ -840,13 +817,13 @@ Execution of a regex generally involves two phases, the first being finding the
 <section class="Ss">
 <h2 class="Ss" id="Unicode_and_Localisation_Support"><a class="permalink" href="#Unicode_and_Localisation_Support">Unicode
   and Localisation Support</a></h2>
-When dealing with strings containing characters that cannot be represented using
-  an eight-bit character set, perl uses an internal representation that is a
-  permissive version of Unicode's UTF-8 encoding[2]. This uses single bytes to
-  represent characters from the ASCII character set, and sequences of two or
-  more bytes for all other characters. (See perlunitut for more information
-  about the relationship between UTF-8 and perl's encoding, utf8. The difference
-  isn't important for this discussion.)
+<p class="Pp">When dealing with strings containing characters that cannot be
+    represented using an eight-bit character set, perl uses an internal
+    representation that is a permissive version of Unicode's UTF-8 encoding[2].
+    This uses single bytes to represent characters from the ASCII character set,
+    and sequences of two or more bytes for all other characters. (See perlunitut
+    for more information about the relationship between UTF-8 and perl's
+    encoding, utf8. The difference isn't important for this discussion.)</p>
 <p class="Pp">No matter how you look at it, Unicode support is going to be a
     pain in a regex engine. Tricks that might be fine when you have 256 possible
     characters often won't scale to handle the size of the UTF-8 character set.
@@ -873,16 +850,16 @@ When dealing with strings containing characters that cannot be represented using
 <section class="Ss">
 <h2 class="Ss" id="Base_Structures"><a class="permalink" href="#Base_Structures">Base
   Structures</a></h2>
-The <span class="Li">&quot;regexp&quot;</span> structure described in perlreapi
-  is common to all regex engines. Two of its fields are intended for the private
-  use of the regex engine that compiled the pattern. These are the
-  <span class="Li">&quot;intflags&quot;</span> and pprivate members. The
-  <span class="Li">&quot;pprivate&quot;</span> is a void pointer to an arbitrary
-  structure whose use and management is the responsibility of the compiling
-  engine. perl will never modify either of these values. In the case of the
-  stock engine the structure pointed to by
-  <span class="Li">&quot;pprivate&quot;</span> is called
-  <span class="Li">&quot;regexp_internal&quot;</span>.
+<p class="Pp">The <span class="Li">&quot;regexp&quot;</span> structure described
+    in perlreapi is common to all regex engines. Two of its fields are intended
+    for the private use of the regex engine that compiled the pattern. These are
+    the <span class="Li">&quot;intflags&quot;</span> and pprivate members. The
+    <span class="Li">&quot;pprivate&quot;</span> is a void pointer to an
+    arbitrary structure whose use and management is the responsibility of the
+    compiling engine. perl will never modify either of these values. In the case
+    of the stock engine the structure pointed to by
+    <span class="Li">&quot;pprivate&quot;</span> is called
+    <span class="Li">&quot;regexp_internal&quot;</span>.</p>
 <p class="Pp">Its <span class="Li">&quot;pprivate&quot;</span> and
     <span class="Li">&quot;intflags&quot;</span> fields contain data specific to
     each engine.</p>
@@ -914,14 +891,14 @@ The <span class="Li">&quot;regexp&quot;</span> structure described in perlreapi
     <span class="Li">&quot;pprivate&quot;</span> will be a pointer to a
     regexp_internal structure which holds the compiled program and any
     additional data that is private to the regex engine implementation.</p>
-<p class="Pp"><i>Perl's </i><i>&quot;pprivate&quot;</i><i> structure</i></p>
+<p class="Pp"><i>Perl's
+    </i><span class="Li"><i>&quot;pprivate&quot;</i></span><i> structure</i></p>
 <p class="Pp">The following structure is used as the
     <span class="Li">&quot;pprivate&quot;</span> struct by perl's regex engine.
     Since it is specific to perl it is only of curiosity value to other engine
     implementations.</p>
-<p class="Pp"><span class="Li"></span></p>
-<pre>
- typedef struct regexp_internal {
+<p class="Pp"></p>
+<pre> typedef struct regexp_internal {
          U32 *offsets;           /* offset annotations 20001228 MJD
                                   * data about mapping the program to
                                   * the string*/
@@ -957,9 +934,8 @@ The <span class="Li">&quot;regexp&quot;</span> structure described in perlreapi
   <dt>&quot;data&quot;</dt>
   <dd>This field points at a <span class="Li">&quot;reg_data&quot;</span>
       structure, which is defined as follows
-    <p class="Pp"><span class="Li"></span></p>
-    <pre>
-    struct reg_data {
+    <p class="Pp"></p>
+    <pre>    struct reg_data {
         U32 count;
         U8 *what;
         void* data[1];
@@ -981,31 +957,31 @@ The <span class="Li">&quot;regexp&quot;</span> structure described in perlreapi
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
-perlreapi
+<p class="Pp">perlreapi</p>
 <p class="Pp">perlre</p>
 <p class="Pp">perlunitut</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
-by Yves Orton, 2006.
+<p class="Pp">by Yves Orton, 2006.</p>
 <p class="Pp">With excerpts from Perl, and contributions and suggestions from
     Ronald J. Kimball, Dave Mitchell, Dominic Dunlop, Mark Jason Dominus,
     Stephen McCamant, and David Landgren.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="LICENCE"><a class="permalink" href="#LICENCE">LICENCE</a></h1>
-Same terms as Perl.
+<p class="Pp">Same terms as Perl.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="REFERENCES"><a class="permalink" href="#REFERENCES">REFERENCES</a></h1>
-[1] &lt;http://perl.plover.com/Rx/paper/&gt;
+<p class="Pp">[1] &lt;http://perl.plover.com/Rx/paper/&gt;</p>
 <p class="Pp">[2] &lt;http://www.unicode.org&gt;</p>
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">2019-10-24</td>
-    <td class="foot-os">perl v5.30.2</td>
+    <td class="foot-date">2019-10-21</td>
+    <td class="foot-os">perl v5.30.3</td>
   </tr>
 </table>
 </body>
