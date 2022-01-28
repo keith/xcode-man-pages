@@ -16,7 +16,7 @@
    2. Redistributions in binary form must reproduce the above copyright
       notice, this list of conditions and the following disclaimer in the
       documentation and/or other materials provided with the distribution.
-   4. Neither the name of the University nor the names of its contributors
+   3. Neither the name of the University nor the names of its contributors
       may be used to endorse or promote products derived from this software
       without specific prior written permission.
   
@@ -33,7 +33,7 @@
    SUCH DAMAGE.
   
   	@(#)chflags.1	8.4 (Berkeley) 5/2/95
-   $FreeBSD: src/bin/chflags/chflags.1,v 1.30.2.1.2.1 2009/10/25 01:10:29 kensmith Exp $
+   $FreeBSD$
    -->
 <head>
 
@@ -84,7 +84,7 @@
 <table class="Nm">
   <tr>
     <td><code class="Nm">chflags</code></td>
-    <td>[<code class="Fl">-fhv</code>] [<code class="Fl">-R</code>
+    <td>[<code class="Fl">-fhvx</code>] [<code class="Fl">-R</code>
       [<code class="Fl">-H</code> | <code class="Fl">-L</code> |
       <code class="Fl">-P</code>]] <var class="Ar">flags</var>
       <var class="Ar">file ...</var></td>
@@ -104,8 +104,8 @@
       exit status to reflect such failures.</dd>
   <dt id="H"><a class="permalink" href="#H"><code class="Fl">-H</code></a></dt>
   <dd>If the <code class="Fl">-R</code> option is specified, symbolic links on
-      the command line are followed. (Symbolic links encountered in the tree
-      traversal are not followed.)</dd>
+      the command line are followed and hence unaffected by the command.
+      (Symbolic links encountered during traversal are not followed.)</dd>
   <dt id="h"><a class="permalink" href="#h"><code class="Fl">-h</code></a></dt>
   <dd>If the <var class="Ar">file</var> is a symbolic link, change the file
       flags of the link itself rather than the file to which it points.</dd>
@@ -116,13 +116,18 @@
   <dd>If the <code class="Fl">-R</code> option is specified, no symbolic links
       are followed. This is the default.</dd>
   <dt id="R"><a class="permalink" href="#R"><code class="Fl">-R</code></a></dt>
-  <dd>Change the file flags for the file hierarchies rooted in the files instead
-      of just the files themselves.</dd>
+  <dd>Change the file flags of the file hierarchies rooted in the files, instead
+      of just the files themselves. Beware of unintentionally matching the
+      &#x201C;<span class="Pa">..</span>&#x201D; hard link to the parent
+      directory when using wildcards like
+      &#x201C;<code class="Li">.*</code>&#x201D;.</dd>
   <dt id="v"><a class="permalink" href="#v"><code class="Fl">-v</code></a></dt>
   <dd>Cause <code class="Nm">chflags</code> to be verbose, showing filenames as
       the flags are modified. If the <code class="Fl">-v</code> option is
       specified more than once, the old and new flags of the file will also be
       printed, in octal notation.</dd>
+  <dt id="x"><a class="permalink" href="#x"><code class="Fl">-x</code></a></dt>
+  <dd>Do not cross mount points.</dd>
 </dl>
 <p class="Pp">The flags are specified as an octal number or a comma separated
     list of keywords. The following keywords are currently defined:</p>
@@ -131,11 +136,11 @@
   <dt id="arch"><a class="permalink" href="#arch"><code class="Cm">arch</code></a>,
     <code class="Cm">archived</code></dt>
   <dd>set the archived flag (super-user only)</dd>
-  <dt id="opaque"><a class="permalink" href="#opaque"><code class="Cm">opaque</code></a></dt>
-  <dd>set the opaque flag (owner or super-user only). [Directory is opaque when
-      viewed through a union mount]</dd>
   <dt id="nodump"><a class="permalink" href="#nodump"><code class="Cm">nodump</code></a></dt>
   <dd>set the nodump flag (owner or super-user only)</dd>
+  <dt id="opaque"><a class="permalink" href="#opaque"><code class="Cm">opaque</code></a></dt>
+  <dd>set the opaque flag (owner or super-user only) [Directory is opaque when
+      viewed through a union mount]</dd>
   <dt id="sappnd"><a class="permalink" href="#sappnd"><code class="Cm">sappnd</code></a>,
     <code class="Cm">sappend</code></dt>
   <dd>set the system append-only flag (super-user only)</dd>
@@ -158,9 +163,9 @@
 <p class="Pp"></p>
 <div class="Bd-indent">
 <dl class="Bl-tag Bl-compact">
-  <dt><var class="Ar">nouchg</var></dt>
+  <dt id="nouchg"><a class="permalink" href="#nouchg"><code class="Cm">nouchg</code></a></dt>
   <dd>clear the user immutable flag (owner or super-user only)</dd>
-  <dt><var class="Ar">dump</var></dt>
+  <dt id="dump"><a class="permalink" href="#dump"><code class="Cm">dump</code></a></dt>
   <dd>clear the nodump flag (owner or super-user only)</dd>
 </dl>
 </div>
@@ -174,12 +179,24 @@
     specified.</p>
 <p class="Pp">You can use &quot;ls -lO&quot; to see the flags of existing
   files.</p>
+<p class="Pp">If <code class="Nm">chflags</code> receives a
+    <code class="Dv">SIGINFO</code> signal (see the
+    <code class="Cm">status</code> argument for <a class="Xr">stty(1)</a>), then
+    the current filename as well as the old and new flags are displayed.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT
   STATUS</a></h1>
 <p class="Pp">The <code class="Nm">chflags</code> utility exits&#x00A0;0 on
     success, and&#x00A0;&gt;0 if an error occurs.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">Recursively clear all flags on files and directories contained
+    within the <var class="Fa">foobar</var> directory hierarchy:</p>
+<div class="Bd Bd-indent"><code class="Li"><code class="Nm">chflags</code>
+  <code class="Fl">-R</code> <var class="Ar">0</var>
+  <var class="Ar">foobar</var></code></div>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
