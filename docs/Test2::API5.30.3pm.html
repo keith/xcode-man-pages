@@ -35,14 +35,14 @@
     code.Nm, .Fl, .Cm, .Ic, code.In, .Fd, .Fn, .Cd { font-weight: bold;
       font-family: inherit; }
   </style>
-  <title>Test2::API(3)</title>
+  <title>Test2::API(3pm)</title>
 </head>
 <body>
 <table class="head">
   <tr>
-    <td class="head-ltitle">Test2::API(3)</td>
-    <td class="head-vol">User Contributed Perl Documentation</td>
-    <td class="head-rtitle">Test2::API(3)</td>
+    <td class="head-ltitle">Test2::API(3pm)</td>
+    <td class="head-vol">Perl Programmers Reference Guide</td>
+    <td class="head-rtitle">Test2::API(3pm)</td>
   </tr>
 </table>
 <div class="manual-text">
@@ -114,11 +114,41 @@
         my_ok(1, &quot;pass&quot;);
         my_ok(0, &quot;fail&quot;);
     };
+    my_ok(@$events == 2, &quot;got 2 events, the pass and the fail&quot;);
+    my_ok($events-&gt;[0]-&gt;pass, &quot;first event passed&quot;);
+    my_ok(!$events-&gt;[1]-&gt;pass, &quot;second event failed&quot;);
 </pre>
-<p class="Pp">As of version 1.302178 this now returns an arrayref that is also
-    an instance of Test2::API::InterceptResult. See the
-    Test2::API::InterceptResult documentation for details on how to best use
-  it.</p>
+<p class="Pp"><i>DEEP EVENT INTERCEPTION</i></p>
+<p class="Pp">Normally <span class="Li">&quot;intercept { ... }&quot;</span>
+    only intercepts events sent to the main hub (as added by intercept itself).
+    Nested hubs, such as those created by subtests, will not be intercepted.
+    This is normally what you will still see the nested events by inspecting the
+    subtest event. However there are times where you want to verify each event
+    as it is sent, in that case use <span class="Li">&quot;intercept_deep { ...
+    }&quot;</span>.</p>
+<p class="Pp"></p>
+<pre>    my $events = intercept_Deep {
+        buffered_subtest foo =&gt; sub {
+            ok(1, &quot;pass&quot;);
+        };
+    };
+</pre>
+<p class="Pp"><span class="Li">$events</span> in this case will contain 3
+  items:</p>
+<dl class="Bl-tag">
+  <dt id="The"><a class="permalink" href="#The">The event from &quot;ok(1,
+    &quot;pass&quot;)&quot;</a></dt>
+  <dd></dd>
+  <dt id="The~2"><a class="permalink" href="#The~2">The plan event for the
+    subtest</a></dt>
+  <dd></dd>
+  <dt id="The~3"><a class="permalink" href="#The~3">The subtest event itself,
+    with the first 2 events nested inside it as children.</a></dt>
+  <dd></dd>
+</dl>
+<p class="Pp">This lets you see the order in which the events were sent, unlike
+    <span class="Li">&quot;intercept { ... }&quot;</span> which only lets you
+    see events as the main hub sees them.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss">OTHER API FUNCTIONS</h2>
@@ -130,7 +160,6 @@
         test2_ipc
         test2_formatter_set
         test2_formatter
-        test2_is_testing_done
     };
     my $init  = test2_init_done();
     my $stack = test2_stack();
@@ -385,12 +414,9 @@
     prototype. It will execute the codeblock, intercepting any generated events
     in the process. It will return an array reference with all the generated
     event objects. All events should be subclasses of Test2::Event.</p>
-<p class="Pp">As of version 1.302178 the events array that is returned is blssed
-    as an Test2::API::InterceptResult instance. Test2::API::InterceptResult
-    Provides a helpful interface for filtering and/or inspecting the events list
-    overall, or individual events within the list.</p>
-<p class="Pp">This is intended to help you test your test code. This is not
-    intended for people simply writing tests.</p>
+<p class="Pp">This is a very low-level subtest tool. This is useful for writing
+    tools which produce subtests. This is not intended for people simply writing
+    tests.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="run_subtest(...)"><a class="permalink" href="#run_subtest(...)">run_subtest(...)</a></h2>
@@ -531,25 +557,6 @@
   <dt>$stack = <b>test2_stack()</b></dt>
   <dd>This will return the global Test2::API::Stack instance. If this has not
       yet been initialized it will be initialized now.</dd>
-  <dt>$bool = <b>test2_is_testing_done()</b></dt>
-  <dd>This will return true if testing is complete and no other events should be
-      sent. This is useful in things like warning handlers where you might want
-      to turn warnings into events, but need them to start acting like normal
-      warnings when testing is done.
-    <p class="Pp"></p>
-    <pre>    $SIG{__WARN__} = sub {
-        my ($warning) = @_;
-        if (test2_is_testing_done()) {
-            warn @_;
-        }
-        else {
-            my $ctx = context();
-            ...
-            $ctx-&gt;release
-        }
-    }
-    </pre>
-  </dd>
   <dt id="test2_ipc_disable"><a class="permalink" href="#test2_ipc_disable">test2_ipc_disable</a></dt>
   <dd>Disable IPC.</dd>
   <dt>$bool = test2_ipc_diabled</dt>

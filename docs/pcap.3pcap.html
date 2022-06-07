@@ -78,12 +78,54 @@
     captured packets to a ``savefile'', and reading packets from a
   ``savefile''.</p>
 <section class="Ss">
+<h2 class="Ss" id="Initializing"><a class="permalink" href="#Initializing">Initializing</a></h2>
+<p class="Pp"><b>pcap_init</b>() initializes the library. It takes an argument
+    giving options; currently, the options are:</p>
+<dl class="Bl-tag">
+  <dt id="PCAP_CHAR_ENC_LOCAL"><a class="permalink" href="#PCAP_CHAR_ENC_LOCAL"><b>PCAP_CHAR_ENC_LOCAL</b></a></dt>
+  <dd>Treat all strings supplied as arguments, and return all strings to the
+      caller, as being in the local character encoding.</dd>
+  <dt id="PCAP_CHAR_ENC_UTF_8"><a class="permalink" href="#PCAP_CHAR_ENC_UTF_8"><b>PCAP_CHAR_ENC_UTF_8</b></a></dt>
+  <dd>Treat all strings supplied as arguments, and return all strings to the
+      caller, as being in UTF-8.</dd>
+</dl>
+<p class="Pp">On UNIX-like systems, the local character encoding is assumed to
+    be UTF-8, so no character encoding transformations are done.</p>
+<p class="Pp">On Windows, the local character encoding is the local ANSI code
+    page.</p>
+<p class="Pp">If <b>pcap_init</b>() is called, the deprecated
+    <b>pcap_lookupdev</b>() routine always fails, so it should not be used, and,
+    on Windows, <b>pcap_create</b>() does not attempt to handle UTF-16LE
+    strings.</p>
+<p class="Pp">If <b>pcap_init</b>() is not called, strings are treated as being
+    in the local ANSI code page on Windows, <b>pcap_lookupdev</b>() will succeed
+    if there is a device on which to capture, and <b>pcap_create</b>() makes an
+    attempt to check whether the string passed as an argument is a UTF-16LE
+    string - note that this attempt is unsafe, as it may run past the end of the
+    string - to handle <b>pcap_lookupdev</b>() returning a UTF-16LE string.
+    Programs that don't call <b>pcap_init</b>() should, on Windows, call
+    <b>pcap_wsockinit</b>() to initialize Winsock; this is not necessary if
+    <b>pcap_init</b>() is called, as <b>pcap_init</b>() will initialize Winsock
+    itself on Windows.</p>
+<dl class="Bl-tag">
+  <dt id="Routines"><a class="permalink" href="#Routines"><b>Routines</b></a></dt>
+  <dd></dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="pcap_init"><a class="permalink" href="#pcap_init"><b>pcap_init</b>(3PCAP)</a></dt>
+  <dd>initialize the library</dd>
+</dl>
+</div>
+</section>
+<section class="Ss">
 <h2 class="Ss" id="Opening_a_capture_handle_for_reading"><a class="permalink" href="#Opening_a_capture_handle_for_reading">Opening
   a capture handle for reading</a></h2>
 <p class="Pp">To open a handle for a live capture, given the name of the network
     or other interface on which the capture should be done, call
     <b>pcap_create</b>(), set the appropriate options on the handle, and then
-    activate it with <b>pcap_activate</b>().</p>
+    activate it with <b>pcap_activate</b>(). If <b>pcap_activate</b>() fails,
+    the handle should be closed with <b>pcap_close</b>().</p>
 <p class="Pp">To obtain a list of devices that can be opened for a live capture,
     call <b>pcap_findalldevs</b>(); to free the list returned by
     <b>pcap_findalldevs</b>(), call <b>pcap_freealldevs</b>().
@@ -141,8 +183,8 @@
       adapter could well be in promiscuous mode for some other reason.</dd>
   <dt></dt>
   <dd>For now, this doesn't work on the &quot;any&quot; device; if an argument
-      of &quot;any&quot; or NULL is supplied, the setting of promiscuous mode is
-      ignored.</dd>
+      of &quot;any&quot; or <b>NULL</b> is supplied, the setting of promiscuous
+      mode is ignored.</dd>
   <dt></dt>
   <dd>Promiscuous mode is set with <b>pcap_set_promisc</b>().</dd>
   <dt id="monitor"><a class="permalink" href="#monitor">monitor mode</a></dt>
@@ -256,7 +298,7 @@
       give you access to the network pseudo-device - there is no need to change
       the privileges on that device. A user can be given that privilege by, for
       example, adding that privilege to the user's <b>defaultpriv</b> key with
-      the <b>usermod (@MAN_ADMIN_COMMANDS@)</b> command.</dd>
+      the <b>usermod</b>(@MAN_ADMIN_COMMANDS@) command.</dd>
 </dl>
 <dl class="Bl-tag">
   <dt id="Under~3"><a class="permalink" href="#Under~3"><b>Under HP-UX with
@@ -270,12 +312,11 @@
   <dt id="Under~5"><a class="permalink" href="#Under~5"><b>Under
     Linux:</b></a></dt>
   <dd>You must be root or the application capturing packets must be installed
-      setuid to root (unless your distribution has a kernel that supports
+      setuid to root, unless your distribution has a kernel that supports
       capability bits such as CAP_NET_RAW and code to allow those capability
       bits to be given to particular accounts and to cause those bits to be set
       on a user's initial processes when they log in, in which case you must
-      have CAP_NET_RAW in order to capture and CAP_NET_ADMIN to enumerate
-      network devices with, for example, the <b>-D</b> flag).</dd>
+      have CAP_NET_RAW in order to capture.</dd>
   <dt id="Under~6"><a class="permalink" href="#Under~6"><b>Under ULTRIX and
     Digital UNIX/Tru64 UNIX:</b></a></dt>
   <dd>Any user may capture network traffic. However, no user (not even the
@@ -310,13 +351,14 @@
 <p class="Pp">Do <b>NOT</b> assume that the packets for a given capture or
     ``savefile`` will have any given link-layer header type, such as
     <b>DLT_EN10MB</b> for Ethernet. For example, the &quot;any&quot; device on
-    Linux will have a link-layer header type of <b>DLT_LINUX_SLL</b> even if all
-    devices on the system at the time the &quot;any&quot; device is opened have
-    some other data link type, such as <b>DLT_EN10MB</b> for Ethernet.</p>
+    Linux will have a link-layer header type of <b>DLT_LINUX_SLL</b> or
+    <b>DLT_LINUX_SLL2</b> even if all devices on the system at the time the
+    &quot;any&quot; device is opened have some other data link type, such as
+    <b>DLT_EN10MB</b> for Ethernet.</p>
 <p class="Pp">To obtain the <b>FILE&#x00A0;*</b> corresponding to a
     <b>pcap_t</b> opened for a ``savefile'', call <b>pcap_file</b>().</p>
 <dl class="Bl-tag">
-  <dt id="Routines"><a class="permalink" href="#Routines"><b>Routines</b></a></dt>
+  <dt id="Routines~2"><a class="permalink" href="#Routines~2"><b>Routines</b></a></dt>
   <dd></dd>
 </dl>
 <div class="Bd-indent">
@@ -418,7 +460,7 @@
     device has been activated but before any packets are read and before any
     filters are compiled or installed.</p>
 <dl class="Bl-tag">
-  <dt id="Routines~2"><a class="permalink" href="#Routines~2"><b>Routines</b></a></dt>
+  <dt id="Routines~3"><a class="permalink" href="#Routines~3"><b>Routines</b></a></dt>
   <dd></dd>
 </dl>
 <div class="Bd-indent">
@@ -432,6 +474,8 @@
   <dt id="pcap_datalink_val_to_name"><a class="permalink" href="#pcap_datalink_val_to_name"><b>pcap_datalink_val_to_name</b>(3PCAP)</a></dt>
   <dd>get name for a link-layer header type</dd>
   <dt id="pcap_datalink_val_to_description"><a class="permalink" href="#pcap_datalink_val_to_description"><b>pcap_datalink_val_to_description</b>(3PCAP)</a></dt>
+  <dd></dd>
+  <dt id="pcap_datalink_val_to_description_or_dlt"><a class="permalink" href="#pcap_datalink_val_to_description_or_dlt"><b>pcap_datalink_val_to_description_or_dlt</b>(3PCAP)</a></dt>
   <dd>get description for a link-layer header type</dd>
   <dt id="pcap_datalink_name_to_val"><a class="permalink" href="#pcap_datalink_name_to_val"><b>pcap_datalink_name_to_val</b>(3PCAP)</a></dt>
   <dd>get link-layer header type corresponding to a name</dd>
@@ -474,7 +518,7 @@
 <p class="Pp"><b>pcap_next</b>() is passed an argument that points to a
     <i>struct pcap_pkthdr</i> structure, and fills it in with the time stamp and
     length values for the packet. It returns a <i>const u_char</i> to the first
-    <b>caplen</b> bytes of the packet on success, and NULL on error.</p>
+    <b>caplen</b> bytes of the packet on success, and <b>NULL</b> on error.</p>
 <p class="Pp"><b>pcap_next_ex</b>() is passed two pointer arguments, one of
     which points to a <i>struct</i>pcap_pkthdr<i>*</i> and one of which points
     to a <i>const u_char</i>*. It sets the first pointer to point to a <i>struct
@@ -508,15 +552,15 @@
     available to read on the descriptor, an attempt should be made to read from
     the device.</p>
 <p class="Pp">Not all handles have such a descriptor available;
-    <b>pcap_get_selectable_fd</b>() will return <b>PCAP_ERROR</b> if no such
-    descriptor is available. If no such descriptor is available, this may be
-    because the device must be polled periodically for packets; in that case,
+    <b>pcap_get_selectable_fd</b>() will return <b>-1</b> if no such descriptor
+    is available. If no such descriptor is available, this may be because the
+    device must be polled periodically for packets; in that case,
     <b>pcap_get_required_select_timeout</b>() will return a pointer to a
     <b>struct timeval</b> whose value can be used as a timeout in those
     routines. When the routine returns, an attmept should be made to read
     packets from the device. If <b>pcap_get_required_select_timeout</b>()
-    returns NULL, no such timeout is available, and those routines cannot be
-    used with the device.</p>
+    returns <b>NULL</b>, no such timeout is available, and those routines cannot
+    be used with the device.</p>
 <p class="Pp">In addition, for various reasons, one or more of those routines
     will not work properly with the descriptor; the documentation for
     <b>pcap_get_selectable_fd</b>() gives details. Note that, just as an attempt
@@ -526,7 +570,7 @@
     descriptor is ready to read even if there are no packets available to
   read.</p>
 <dl class="Bl-tag">
-  <dt id="Routines~3"><a class="permalink" href="#Routines~3"><b>Routines</b></a></dt>
+  <dt id="Routines~4"><a class="permalink" href="#Routines~4"><b>Routines</b></a></dt>
   <dd></dd>
 </dl>
 <div class="Bd-indent">
@@ -554,9 +598,8 @@
   <dd>attempt to get a descriptor for a <b>pcap_t</b> that can be used in calls
       such as <b>select</b>(2) and <b>poll</b>(2)</dd>
   <dt id="pcap_get_required_select_timeout"><a class="permalink" href="#pcap_get_required_select_timeout"><b>pcap_get_required_select_timeout</b>(3PCAP)</a></dt>
-  <dd>if no descriptor usable with <b>select</b>(2) and <b>poll</b>(2) is
-      available for the <b>pcap_t</b>, attempt to get a timeout usable with
-      those routines</dd>
+  <dd>attempt to get a timeout required for using a <b>pcap_t</b> in calls such
+      as <b>select</b>(2) and <b>poll</b>(2)</dd>
 </dl>
 </div>
 </section>
@@ -578,7 +621,7 @@
 <p class="Pp">A compiled filter can also be applied directly to a packet that
     has been read using <b>pcap_offline_filter</b>().</p>
 <dl class="Bl-tag">
-  <dt id="Routines~4"><a class="permalink" href="#Routines~4"><b>Routines</b></a></dt>
+  <dt id="Routines~5"><a class="permalink" href="#Routines~5"><b>Routines</b></a></dt>
   <dd></dd>
 </dl>
 <div class="Bd-indent">
@@ -604,7 +647,7 @@
     only packets received by the machine or, if possible, only packets sent by
     the machine, call <b>pcap_setdirection</b>().</p>
 <dl class="Bl-tag">
-  <dt id="Routines~5"><a class="permalink" href="#Routines~5"><b>Routines</b></a></dt>
+  <dt id="Routines~6"><a class="permalink" href="#Routines~6"><b>Routines</b></a></dt>
   <dd></dd>
 </dl>
 <div class="Bd-indent">
@@ -621,7 +664,7 @@
 <p class="Pp">To get statistics about packets received and dropped in a live
     capture, call <b>pcap_stats</b>().</p>
 <dl class="Bl-tag">
-  <dt id="Routines~6"><a class="permalink" href="#Routines~6"><b>Routines</b></a></dt>
+  <dt id="Routines~7"><a class="permalink" href="#Routines~7"><b>Routines</b></a></dt>
   <dd></dd>
 </dl>
 <div class="Bd-indent">
@@ -645,7 +688,7 @@
     doesn't exist and truncated the file if it does exist. To close a
     <b>pcap_dumper_t</b>, call <b>pcap_dump_close</b>().</p>
 <dl class="Bl-tag">
-  <dt id="Routines~7"><a class="permalink" href="#Routines~7"><b>Routines</b></a></dt>
+  <dt id="Routines~8"><a class="permalink" href="#Routines~8"><b>Routines</b></a></dt>
   <dd></dd>
 </dl>
 <div class="Bd-indent">
@@ -676,7 +719,7 @@
     ``savefile'', without closing the <b>pcap_dumper_t</b>, call
     <b>pcap_dump_flush</b>().</p>
 <dl class="Bl-tag">
-  <dt id="Routines~8"><a class="permalink" href="#Routines~8"><b>Routines</b></a></dt>
+  <dt id="Routines~9"><a class="permalink" href="#Routines~9"><b>Routines</b></a></dt>
   <dd></dd>
 </dl>
 <div class="Bd-indent">
@@ -697,10 +740,10 @@
 <p class="Pp">If you have the required privileges, you can inject packets onto a
     network with a <b>pcap_t</b> for a live capture, using <b>pcap_inject</b>()
     or <b>pcap_sendpacket</b>(). (The two routines exist for compatibility with
-    both OpenBSD and WinPcap; they perform the same function, but have different
-    return values.)</p>
+    both OpenBSD and WinPcap/Npcap; they perform the same function, but have
+    different return values.)</p>
 <dl class="Bl-tag">
-  <dt id="Routines~9"><a class="permalink" href="#Routines~9"><b>Routines</b></a></dt>
+  <dt id="Routines~10"><a class="permalink" href="#Routines~10"><b>Routines</b></a></dt>
   <dd></dd>
 </dl>
 <div class="Bd-indent">
@@ -718,7 +761,7 @@
 <p class="Pp">Some routines return error or warning status codes; to convert
     them to a string, use <b>pcap_statustostr</b>().</p>
 <dl class="Bl-tag">
-  <dt id="Routines~10"><a class="permalink" href="#Routines~10"><b>Routines</b></a></dt>
+  <dt id="Routines~11"><a class="permalink" href="#Routines~11"><b>Routines</b></a></dt>
   <dd></dd>
 </dl>
 <div class="Bd-indent">
@@ -734,7 +777,7 @@
 <p class="Pp">To get a string giving version information about libpcap, call
     <b>pcap_lib_version</b>().</p>
 <dl class="Bl-tag">
-  <dt id="Routines~11"><a class="permalink" href="#Routines~11"><b>Routines</b></a></dt>
+  <dt id="Routines~12"><a class="permalink" href="#Routines~12"><b>Routines</b></a></dt>
   <dd></dd>
 </dl>
 <div class="Bd-indent">
@@ -765,8 +808,9 @@
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
-<p class="Pp">autoconf(1), tcpdump(1), tcpslice(1), pcap-filter(7), pfconfig(8),
-    usermod(@MAN_ADMIN_COMMANDS@)</p>
+<p class="Pp"><b>autoconf</b>(1), <b>tcpdump</b>(1), <b>tcpslice</b>(1),
+    <b>pcap-filter</b>(7), <b>pfconfig</b>(8),
+    <b>usermod</b>(@MAN_ADMIN_COMMANDS@)</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
@@ -784,12 +828,12 @@
     security@tcpdump.org.</p>
 <p class="Pp">To report bugs and other problems, contribute patches, request a
     feature, provide generic feedback etc please see the file
-    <i>CONTRIBUTING</i> in the libpcap source tree root.</p>
+    <i>CONTRIBUTING.md</i> in the libpcap source tree root.</p>
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">25 July 2018</td>
+    <td class="foot-date">9 September 2020</td>
     <td class="foot-os"></td>
   </tr>
 </table>

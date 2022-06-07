@@ -61,8 +61,8 @@
 <div class="manual-text">
 <section class="Sh">
 <h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
-<p class="Pp">pcap_get_required_select_timeout - get a file descriptor on which
-    a select() can be done for a live capture</p>
+<p class="Pp">pcap_get_required_select_timeout - get a timeout to be used when
+    doing select() for a live capture</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
@@ -70,31 +70,49 @@
 <b>#include &lt;pcap/pcap.h&gt;</b>
 </pre>
 <pre>
-<b>struct timeval *pcap_get_required_select_timeout(pcap_t *p);</b>
+<b>const struct timeval *pcap_get_required_select_timeout(pcap_t *p);</b>
 </pre>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
-<p class="Pp"><b>pcap_get_required_select_timeout()</b> returns, on UNIX, a
+<p class="Pp"><b>pcap_get_required_select_timeout</b>() returns, on UNIX, a
     pointer to a <b>struct timeval</b> containing a value that must be used as
-    the minimum timeout in <b>select(2)</b>, <b>poll(2)</b>,
-    <b>epoll_wait(2)</b>, and <b>kevent()</b> calls if
-    <b>pcap_get_selectable_fd(3PCAP)</b> returns <b>PCAP_ERROR</b>.</p>
-<p class="Pp">The timeout that should be used in those calls must be no larger
-    than the smallest of all timeouts returned by
-    <b>pcap_get_required_select_timeout()</b> for devices from which packets
-    will be captured.</p>
-<p class="Pp">The device for which <b>pcap_get_selectable_fd()</b> returned
-    <b>PCAP_ERROR</b> must be put in non-blocking mode with
-    <b>pcap_setnonblock(3PCAP)</b>, and an attempt must always be made to read
-    packets from the device when the <b>select()</b>, <b>poll()</b>,
-    <b>epoll_wait()</b>, or <b>kevent()</b> call returns.</p>
+    the minimum timeout in <b>select</b>(2), <b>poll</b>(2),
+    <b>epoll_wait</b>(2), and <b>kevent</b>(2) calls, or <b>NULL</b> if there is
+    no such timeout. If a non-<b>NULL</b> value is returned, it must be used
+    regardless of whether <b>pcap_get_selectable_fd</b>(3PCAP) returns <b>-1</b>
+    for any descriptor on which those calls are being done.
+    <b>pcap_get_required_select_timeout</b>() should be called for all
+    <b>pcap_t</b>s before a call to <b>select</b>(), <b>poll</b>(),
+    <b>epoll_wait</b>(), or <b>kevent</b>(), and any timeouts used for those
+    calls should be updated as appropriate given the new value of the
+  timeout.</p>
+<p class="Pp">For <b>kevent</b>(), one <b>EVFILT_TIMER</b> filter per selectable
+    descriptor can be used, rather than using the timeout argument to
+    <b>kevent</b>(); if the <b>EVFILT_TIMER</b> event for a particular
+    selectable descriptor signals an event, <b>pcap_dispatch</b>(3PCAP) should
+    be called for the corresponding <b>pcap_t</b>.</p>
+<p class="Pp">On Linux systems with <b>timerfd_create</b>(2), one timer object
+    created by <b>timerfd_create</b>() per selectable descriptor can be used,
+    rather than using the timeout argument to <b>epoll_wait</b>(); if the timer
+    object for a particular selectable descriptor signals an event,
+    <b>pcap_dispatch</b>(3PCAP) should be called for the corresponding
+    <b>pcap_t</b>.</p>
+<p class="Pp">Otherwise, a timeout value no larger than the smallest of all
+    timeouts returned by <b>pcap_get_required_select_timeout</b>() for devices
+    from which packets will be captured and any other timeouts to be used in the
+    call should be used as the timeout for the call, and, when the call returns,
+    <b>pcap_dispatch</b>(3PCAP) should be called for all <b>pcap_t</b>s for
+    which a non-<b>NULL</b> timeout was returned, regardless of whether it's
+    indicated as having anything to read from it or not.</p>
+<p class="Pp">All devices with a non-<b>NULL</b> timeout must be put in
+    non-blocking mode with <b>pcap_setnonblock</b>(3PCAP).</p>
 <p class="Pp">Note that a device on which a read can be done without blocking
     may, on some platforms, not have any packets to read if the packet buffer
-    timeout has expired. A call to <b>pcap_dispatch(3PCAP)</b> or
-    <b>pcap_next_ex(3PCAP)</b> will return 0 in this case, but will not
-  block.</p>
-<p class="Pp"><b>pcap_get_required_select_timeout()</b> is not available on
+    timeout has expired. A call to <b>pcap_dispatch</b>() or
+    <b>pcap_next_ex</b>(3PCAP) will return <b>0</b> in this case, but will not
+    block.</p>
+<p class="Pp"><b>pcap_get_required_select_timeout</b>() is not available on
     Windows.</p>
 </section>
 <section class="Sh">
@@ -104,23 +122,38 @@
     required; otherwise <b>NULL</b> is returned.</p>
 </section>
 <section class="Sh">
-<h1 class="Sh" id="BACKWARD_COMPATIBILITY"><a class="permalink" href="#BACKWARD_COMPATIBILITY">BACKWARD
-  COMPATIBILITY</a></h1>
+<h1 class="Sh">BACKWARD COMPATIBILITY</h1>
 <p class="Pp">This function became available in libpcap release 1.9.0. In
-    previous releases, <b>select()</b>, <b>poll()</b>, <b>epoll_wait()</b>, and
-    <b>kevent()</b> cannot be used on any capture source for which
-    <b>pcap_get_selectable_fd</b> returns -1.</p>
+    previous releases, <b>select</b>(), <b>poll</b>(), <b>epoll_wait</b>(), and
+    <b>kevent</b>() cannot be used on any capture source for which
+    <b>pcap_get_selectable_fd</b>() returns <b>-1</b>.</p>
+<p class="Pp">In libpcap release 1.10.0 and later, the timeout value can change
+    from call to call, so <b>pcap_get_required_select_timeout</b>() must be
+    called before each call to <b>select</b>(), <b>poll</b>(),
+    <b>epoll_wait</b>(), or <b>kevent</b>(), and the new value must be used to
+    calculate timeouts for the call. Code that does that will also work with
+    libpcap 1.9.x releases, so code using
+    <b>pcap_get_required_select_timeout</b>() should be changed to call it for
+    each call to <b>select</b>(), <b>poll</b>(), <b>epoll_wait</b>(), or
+    <b>kevent</b>() even if the code must also work with libpcap 1.9.x.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh">BACKWARD COMPATIBILITY</h1>
+<p class="Pp">This function became available in libpcap release 1.9.0. In
+    previous releases, <b>select</b>(), <b>poll</b>(), <b>epoll_wait</b>(), and
+    <b>kevent</b>() could not be used for devices that don't provide a
+    selectable file descriptor.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
-<p class="Pp">pcap(3PCAP), pcap_get_selectable_fd(3PCAP), select(2), poll(2),
-    epoll_wait(2), kqueue(2)</p>
+<p class="Pp"><b>pcap</b>(3PCAP), <b>pcap_get_selectable_fd</b>(3PCAP),
+    <b>select</b>(2), <b>poll</b>(2), <b>epoll_wait</b>(2), <b>kqueue</b>(2)</p>
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">25 July 2018</td>
+    <td class="foot-date">29 January 2020</td>
     <td class="foot-os"></td>
   </tr>
 </table>

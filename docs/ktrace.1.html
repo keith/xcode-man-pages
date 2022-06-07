@@ -44,12 +44,196 @@
 <div class="manual-text">
 <section class="Sh">
 <h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
-<p class="Pp"><code class="Nm">ktrace</code> &#x2014;
-    <span class="Nd">configure, record, and print events from kernel
-    trace</span></p>
+<p class="Pp"><code class="Nm">ktrace</code> &#x2014; <span class="Nd">record
+    kernel trace files</span></p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<dl class="Bl-hang Bl-compact">
+  <dt><code class="Nm">ktrace</code> <code class="Cm">record</code>
+    [<var class="Ar">plan</var>] [options]</dt>
+  <dd></dd>
+  <dt><code class="Nm">ktrace</code> <code class="Cm">plans</code>
+    [options]</dt>
+  <dd></dd>
+  <dt><code class="Nm">ktrace</code> <code class="Cm">decode</code>
+    <var class="Ar">debug-id</var></dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><code class="Nm">ktrace</code> records software events for
+    performance analysis. A trace file captures what the system was doing over a
+    period of time, like which threads are scheduled, what memory is used for
+    the first time, and thousands of other kinds of events from software running
+    in the kernel, user space, or on coprocessors. The
+    &#x2018;<code class="Li">ktrace</code>&#x2019; feature is supported by two
+    kernel subsystems: kdebug provides the event format and buffering system and
+    kperf emits sampling information as events based on triggers.</p>
+<p class="Pp">The event format used by kdebug is simple and constraining, but
+    effective. Events are classified using a 32-bit debug ID:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre> class  subclass     code     function
+&#x256D;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x252C;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x252C;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x252C;&#x2500;&#x256E;
+&#x2502;  8   &#x2502;   8   &#x2502;     14      &#x2502;2&#x2502;
+&#x2570;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2534;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2534;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2534;&#x2500;&#x256F;
+&#x2570;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x256F;               &#x2502;
+ class-subclass              00&#x2502;
+&#x2570;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x256F;
+&#x2502;          event ID            &#x2502;
+&#x2570;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x256F;
+           debug ID</pre>
+</div>
+<p class="Pp">Classes are assigned in
+    <code class="In">&lt;<a class="In">sys/kdebug.h</a>&gt;</code> for broad
+    parts of the system. Each class can assign its own subclasses. The
+    class-subclass is the finest granularity that can be filtered on. Codes are
+    for specific events in each subclass, and functions denote whether the event
+    is a start (<code class="Dv">DBG_FUNC_START</code>), end
+    (<code class="Dv">DBG_FUNC_END</code>), or impulse (left unset.) An event ID
+    is a debug ID with the function bits set to 0. Events also contain a
+    timestamp, 4 word-sized arguments, the ID of the thread that emitted the
+    event, and the CPU ID on which it was emitted. The CPU ID may be greater
+    than the number of CPUs on the system &#x2014; denoting a coprocessor
+  event.</p>
+<p class="Pp">Trace files can be analyzed with dedicated tools, including
+    <a class="Xr">fs_usage(1)</a>, <a class="Xr">spindump(1)</a>, or
+    Instruments, depending on how they were recorded and the filters in
+  effect.</p>
+<p class="Pp">This tool also supports other, legacy functionality, which is
+    described at the end of this document.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RECORD"><a class="permalink" href="#RECORD">RECORD</a></h1>
+<p class="Pp">Kernel trace files (with the
+    <a class="permalink" href="#.ktrace"><b class="Sy" id=".ktrace">.ktrace</b></a>
+    extension) capture how a Darwin system behaves for a period of time. By
+    default, they include a selection of kdebug trace events, Unified Logging
+    information, and metadata to support analysis, like symbolication
+    information.</p>
+<p class="Pp">The <code class="Cm">record</code> subcommand creates these files
+    from the current system, according to a plan and options passed in on the
+    command line. The optional positional argument is the plan name. Default
+    plan produces files for Instruments System Trace.</p>
+<dl class="Bl-tag">
+  <dt id="help"><a class="permalink" href="#help"><code class="Fl">--help</code></a>
+    | <a class="permalink" href="#h"><code class="Fl" id="h">-h</code></a></dt>
+  <dd>Present a help message for the <code class="Cm">record</code>
+    subcommand.</dd>
+  <dt id="output"><a class="permalink" href="#output"><code class="Fl">--output</code></a>
+    | <a class="permalink" href="#o"><code class="Fl" id="o">-o</code></a></dt>
+  <dd>Provide a <var class="Ar">path</var> to the desired location of the file,
+      or an existing directory to start writing a unique file location. By
+      default, <code class="Nm">ktrace</code> <code class="Cm">record</code>
+      creates uniquely-named files in the current working directory.</dd>
+  <dt id="add"><a class="permalink" href="#add"><code class="Fl">--add</code></a>
+    <var class="Ar">layer</var></dt>
+  <dd>Add a layer to the chosen plan, augmenting its behavior. The list of
+      layers is shown in the help message or <code class="Nm">ktrace</code>
+      <code class="Cm">plans</code>.</dd>
+  <dt id="omit"><a class="permalink" href="#omit"><code class="Fl">--omit</code></a>
+    <var class="Ar">layer</var></dt>
+  <dd>Omit a default layer from the chosen plan.</dd>
+  <dt id="notify-after-start"><a class="permalink" href="#notify-after-start"><code class="Fl">--notify-after-start</code></a>
+    <var class="Ar">notification-name</var></dt>
+  <dd>Emit a Darwin notification named <var class="Ar">notification-name</var>
+      with <a class="Xr">notify(3)</a> after starting the trace session. Other
+      systems can use this notification to stage their workloads, either with
+      the <a class="Xr">notify(3)</a> interfaces or
+      <a class="Xr">notifyutil(1)</a>. For instance,
+      &#x2018;<code class="Li">notifyutil -1 ktrace-start</code>&#x2019; will
+      wait for the notification named <var class="Ar">ktrace-start</var> to be
+      published and then exit.</dd>
+  <dt id="end-after-duration"><a class="permalink" href="#end-after-duration"><code class="Fl">--end-after-duration</code></a>
+    <var class="Ar">duration</var></dt>
+  <dd>End tracing after the specified time elapses. The time unit is
+    seconds.</dd>
+  <dt id="end-on-notification"><a class="permalink" href="#end-on-notification"><code class="Fl">--end-on-notification</code></a>
+    <var class="Ar">notification-name</var></dt>
+  <dd>End tracing when a Darwin notification matching the
+      <var class="Ar">notification-nameis published with</var>
+      <a class="Xr">notify(3)</a>.</dd>
+  <dt id="end-on-kdebug-event"><a class="permalink" href="#end-on-kdebug-event"><code class="Fl">--end-on-kdebug-event</code></a>
+    <var class="Ar">event-id</var></dt>
+  <dd>End tracing when a kdebug event with the given
+      <var class="Ar">event-id</var> is emitted. This is currently experimental
+      and unsafe if the event is not part of the plan.</dd>
+  <dt id="start-on-notification"><a class="permalink" href="#start-on-notification"><code class="Fl">--start-on-notification</code></a>
+    <var class="Ar">notification-name</var></dt>
+  <dd>Wait to start tracing until a Darwin notification matching the
+      <var class="Ar">notification-name</var> is published with
+      <a class="Xr">notify(3)</a> or <a class="Xr">notifyutil(1)</a>. For
+      instance, &#x2018;<code class="Li">notifyutil -p ktrace-end</code>&#x2019;
+      published a notification named <var class="Ar">ktrace-end</var>.</dd>
+</dl>
+<p class="Pp">The following options are unsafe and have a higher likelihood of
+    producing an invaild trace file.</p>
+<dl class="Bl-tag">
+  <dt id="unsafe"><a class="permalink" href="#unsafe"><code class="Fl">--unsafe</code></a></dt>
+  <dd>Allow unsafe options to be used.</dd>
+  <dt id="experimental"><a class="permalink" href="#experimental"><code class="Fl">--experimental</code></a></dt>
+  <dd>Allow experimental plans and options to be used.</dd>
+  <dt id="kdebug-buffer-size"><a class="permalink" href="#kdebug-buffer-size"><code class="Fl">--kdebug-buffer-size</code></a>
+    <var class="Ar">size-with-suffix</var></dt>
+  <dd>Override the default buffer size for the kdebug trace system. Smaller
+      buffers are likely to lose events, while larger buffers can have a more
+      significant impact on the system.</dd>
+  <dt id="kdebug-filter-include"><a class="permalink" href="#kdebug-filter-include"><code class="Fl">--kdebug-filter-include</code></a>
+    <var class="Ar">filter-description</var></dt>
+  <dd>Specify additional kdebug events to include in the trace file, following a
+      filter description. Filter descriptions are a comma-separated list of
+      either two rules:
+    <dl class="Bl-tag">
+      <dt>C<var class="Ar">0x01</var></dt>
+      <dd>Filter all events in the given class; in this case, class 1.</dd>
+      <dt>S<var class="Ar">0x0140</var></dt>
+      <dd>Filter events in a particular subclass, where the top byte is the
+          class and the bottom byte is the subclass within that class. In this
+          case, class 1 and subclass 0x40.</dd>
+    </dl>
+    <p class="Pp">Additional events may require changes to the buffer size.</p>
+  </dd>
+  <dt id="kdebug-filter-exclude"><a class="permalink" href="#kdebug-filter-exclude"><code class="Fl">--kdebug-filter-exclude</code></a>
+    <var class="Ar">filter-description</var></dt>
+  <dd>Prevent kdebug events from being included in the trace file, following a
+      filter description. Some events are necessary for particular analysis
+      tools.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PLANS"><a class="permalink" href="#PLANS">PLANS</a></h1>
+<p class="Pp"><code class="Nm">ktrace</code> <code class="Cm">plans</code> lists
+    the plans available to <code class="Nm">ktrace</code>
+    <code class="Cm">record</code> and the layers that can be added to them.</p>
+<dl class="Bl-tag">
+  <dt id="verbose"><a class="permalink" href="#verbose"><code class="Fl">--verbose</code></a></dt>
+  <dd>Print additional information about each plan, like its documentation.</dd>
+  <dt id="experimental~2"><a class="permalink" href="#experimental~2"><code class="Fl">--experimental</code></a></dt>
+  <dd>Show experimental plans.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DECODE"><a class="permalink" href="#DECODE">DECODE</a></h1>
+<p class="Pp"><code class="Nm">ktrace</code> <code class="Cm">decode</code>
+    <var class="Ar">debug-id</var> deconstructs and prints a human-readable name
+    for the given <var class="Ar">debug-id</var>, if one is defined.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
+<dl class="Bl-tag">
+  <dt id="KTRACE_PLAN_PATH"><a class="permalink" href="#KTRACE_PLAN_PATH"><code class="Ev">KTRACE_PLAN_PATH</code></a></dt>
+  <dd>Redirect the plan finder to search for plans under the value stored in
+      this environment variable. This requires the
+      <code class="Fl">--experimental</code> flag.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LEGACY_SYNOPSIS"><a class="permalink" href="#LEGACY_SYNOPSIS">LEGACY
+  SYNOPSIS</a></h1>
+<p class="Pp">The following commands are maintained for low-level analysis and
+    collection of trace files, but are not seeing active development.</p>
+<p class="Pp"></p>
 <dl class="Bl-hang Bl-compact">
   <dt><code class="Nm">ktrace</code> <code class="Cm">info</code></dt>
   <dd></dd>
@@ -138,7 +322,7 @@
 </dl>
 </section>
 <section class="Sh">
-<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<h1 class="Sh" id="DESCRIPTION~2"><a class="permalink" href="#DESCRIPTION~2">DESCRIPTION</a></h1>
 <p class="Pp"><code class="Nm">ktrace</code> can configure the system to trace
     events, or record them to a file, and print a human-readable representation
     of the events.</p>
@@ -416,7 +600,7 @@
       By default, this measures scheduler, VM, and system call usage, and
       samples threads on-core periodically.
     <dl class="Bl-tag">
-      <dt id="o"><a class="permalink" href="#o"><code class="Fl">-o</code></a>
+      <dt id="o~2"><a class="permalink" href="#o~2"><code class="Fl">-o</code></a>
         <var class="Ar">path</var></dt>
       <dd>Specify the name of the file to be created.</dd>
       <dt id="f~4"><a class="permalink" href="#f~4"><code class="Fl">-f</code></a>
@@ -571,13 +755,13 @@
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
-<p class="Pp"><a class="Xr">fs_usage(1)</a>, <a class="Xr">ktrace(5)</a>,
-    <a class="Xr">notify(3)</a>, and <a class="Xr">trace(1)</a></p>
+<p class="Pp"><a class="Xr">fs_usage(1)</a>, <a class="Xr">notify(3)</a>,
+    <a class="Xr">ktrace(5)</a>, and <a class="Xr">trace(1)</a></p>
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">February 10, 2020</td>
+    <td class="foot-date">October 10, 2021</td>
     <td class="foot-os">Darwin</td>
   </tr>
 </table>
