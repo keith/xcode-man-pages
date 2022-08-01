@@ -70,7 +70,9 @@
         [(-r | --remotes) | (-a | --all)]
 <br/>
         [--list] [&lt;pattern&gt;...]
-<i>git branch</i> [--track | --no-track] [-f] &lt;branchname&gt; [&lt;start-point&gt;]
+<i>git branch</i> [--track[=(direct|inherit)] | --no-track] [-f]
+<br/>
+        [--recurse-submodules] &lt;branchname&gt; [&lt;start-point&gt;]
 <i>git branch</i> (--set-upstream-to=&lt;upstream&gt; | -u &lt;upstream&gt;) [&lt;branchname&gt;]
 <i>git branch</i> --unset-upstream [&lt;branchname&gt;]
 <i>git branch</i> (-m | -M) [&lt;oldbranch&gt;] &lt;newbranch&gt;
@@ -158,16 +160,17 @@
 <div class="Bd-indent">Reset &lt;branchname&gt; to &lt;startpoint&gt;, even if
   &lt;branchname&gt; exists already. Without <b>-f</b>, <i>git branch</i>
   refuses to change an existing branch. In combination with <b>-d</b> (or
-  <b>--delete</b>), allow deleting the branch irrespective of its merged status.
-  In combination with <b>-m</b> (or <b>--move</b>), allow renaming the branch
-  even if the new branch name already exists, the same applies for <b>-c</b> (or
-  <b>--copy</b>).</div>
+  <b>--delete</b>), allow deleting the branch irrespective of its merged status,
+  or whether it even points to a valid commit. In combination with <b>-m</b> (or
+  <b>--move</b>), allow renaming the branch even if the new branch name already
+  exists, the same applies for <b>-c</b> (or <b>--copy</b>).</div>
 <p class="Pp">-m, --move</p>
-<div class="Bd-indent">Move/rename a branch and the corresponding reflog.</div>
+<div class="Bd-indent">Move/rename a branch, together with its config and
+  reflog.</div>
 <p class="Pp">-M</p>
 <div class="Bd-indent">Shortcut for <b>--move --force</b>.</div>
 <p class="Pp">-c, --copy</p>
-<div class="Bd-indent">Copy a branch and the corresponding reflog.</div>
+<div class="Bd-indent">Copy a branch, together with its config and reflog.</div>
 <p class="Pp">-C</p>
 <div class="Bd-indent">Shortcut for <b>--copy --force</b>.</div>
 <p class="Pp">--color[=&lt;when&gt;]</p>
@@ -218,24 +221,52 @@
 <p class="Pp">--no-abbrev</p>
 <div class="Bd-indent">Display the full sha1s in the output listing rather than
   abbreviating them.</div>
-<p class="Pp">-t, --track</p>
+<p class="Pp">-t, --track[=(direct|inherit)]</p>
 <div class="Bd-indent">When creating a new branch, set up
   <b>branch.&lt;name&gt;.remote</b> and <b>branch.&lt;name&gt;.merge</b>
-  configuration entries to mark the start-point branch as &quot;upstream&quot;
-  from the new branch. This configuration will tell git to show the relationship
+  configuration entries to set &quot;upstream&quot; tracking configuration for
+  the new branch. This configuration will tell git to show the relationship
   between the two branches in <b>git status</b> and <b>git branch -v</b>.
   Furthermore, it directs <b>git pull</b> without arguments to pull from the
   upstream when the new branch is checked out.
-<p class="Pp">This behavior is the default when the start point is a
-    remote-tracking branch. Set the branch.autoSetupMerge configuration variable
-    to <b>false</b> if you want <b>git switch</b>, <b>git checkout</b> and
-    <b>git branch</b> to always behave as if <b>--no-track</b> were given. Set
-    it to <b>always</b> if you want this behavior when the start-point is either
-    a local or remote-tracking branch.</p>
+<p class="Pp">The exact upstream branch is chosen depending on the optional
+    argument: <b>-t</b>, <b>--track</b>, or <b>--track=direct</b> means to use
+    the start-point branch itself as the upstream; <b>--track=inherit</b> means
+    to copy the upstream configuration of the start-point branch.</p>
+<p class="Pp">The branch.autoSetupMerge configuration variable specifies how
+    <b>git switch</b>, <b>git checkout</b> and <b>git branch</b> should behave
+    when neither <b>--track</b> nor <b>--no-track</b> are specified:</p>
+<p class="Pp">The default option, <b>true</b>, behaves as though
+    <b>--track=direct</b> were given whenever the start-point is a
+    remote-tracking branch. <b>false</b> behaves as if <b>--no-track</b> were
+    given. <b>always</b> behaves as though <b>--track=direct</b> were given.
+    <b>inherit</b> behaves as though <b>--track=inherit</b> were given.
+    <b>simple</b> behaves as though <b>--track=direct</b> were given only when
+    the start-point is a remote-tracking branch and the new branch has the same
+    name as the remote branch.</p>
+<p class="Pp">See <b>git-pull</b>(1) and <b>git-config</b>(1) for additional
+    discussion on how the <b>branch.&lt;name&gt;.remote</b> and
+    <b>branch.&lt;name&gt;.merge</b> options are used.</p>
 </div>
 <p class="Pp">--no-track</p>
 <div class="Bd-indent">Do not set up &quot;upstream&quot; configuration, even if
-  the branch.autoSetupMerge configuration variable is true.</div>
+  the branch.autoSetupMerge configuration variable is set.</div>
+<p class="Pp">--recurse-submodules</p>
+<div class="Bd-indent">THIS OPTION IS EXPERIMENTAL! Causes the current command
+  to recurse into submodules if <b>submodule.propagateBranches</b> is enabled.
+  See <b>submodule.propagateBranches</b> in <b>git-config</b>(1). Currently,
+  only branch creation is supported.
+<p class="Pp">When used in branch creation, a new branch &lt;branchname&gt; will
+    be created in the superproject and all of the submodules in the
+    superproject&#x2019;s &lt;start-point&gt;. In submodules, the branch will
+    point to the submodule commit in the superproject&#x2019;s
+    &lt;start-point&gt; but the branch&#x2019;s tracking information will be set
+    up based on the submodule&#x2019;s branches and remotes e.g. <b>git branch
+    --recurse-submodules topic origin/main</b> will create the submodule branch
+    &quot;topic&quot; that points to the submodule commit in the
+    superproject&#x2019;s &quot;origin/main&quot;, but tracks the
+    submodule&#x2019;s &quot;origin/main&quot;.</p>
+</div>
 <p class="Pp">--set-upstream</p>
 <div class="Bd-indent">As this option had confusing syntax, it is no longer
   supported. Please use <b>--track</b> or <b>--set-upstream-to</b>

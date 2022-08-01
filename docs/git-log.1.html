@@ -55,7 +55,7 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
-<pre><i>git log</i> [&lt;options&gt;] [&lt;revision range&gt;] [[--] &lt;path&gt;...]</pre>
+<pre><i>git log</i> [&lt;options&gt;] [&lt;revision-range&gt;] [[--] &lt;path&gt;...]</pre>
 <p class="Pp"></p>
 </section>
 <section class="Sh">
@@ -116,7 +116,9 @@ $ git log A...B</pre>
   is specified, the full ref name (including prefix) will be printed. If
   <i>auto</i> is specified, then if the output is going to a terminal, the ref
   names are shown as if <i>short</i> were given, otherwise no ref names are
-  shown. The default option is <i>short</i>.</div>
+  shown. The option <b>--decorate</b> is short-hand for <b>--decorate=short</b>.
+  Default to configuration value of <b>log.decorate</b> if configured,
+  otherwise, <b>auto</b>.</div>
 <p class="Pp">--decorate-refs=&lt;pattern&gt;,
     --decorate-refs-exclude=&lt;pattern&gt;</p>
 <div class="Bd-indent">If no <b>--decorate-refs</b> is given, pretend as if all
@@ -193,13 +195,13 @@ $ git log A...B</pre>
     same way as <b>git diff</b> works out patch hunk headers (see <i>Defining a
     custom hunk-header</i> in <b>gitattributes</b>(5)).</p>
 </div>
-<p class="Pp">&lt;revision range&gt;</p>
+<p class="Pp">&lt;revision-range&gt;</p>
 <div class="Bd-indent">Show only commits in the specified revision range. When
-  no &lt;revision range&gt; is specified, it defaults to <b>HEAD</b> (i.e. the
+  no &lt;revision-range&gt; is specified, it defaults to <b>HEAD</b> (i.e. the
   whole history leading to the current commit). <b>origin..HEAD</b> specifies
   all the commits reachable from the current commit (i.e. <b>HEAD</b>), but not
-  from <b>origin</b>. For a complete list of ways to spell &lt;revision
-  range&gt;, see the <i>Specifying Ranges</i> section of
+  from <b>origin</b>. For a complete list of ways to spell
+  &lt;revision-range&gt;, see the <i>Specifying Ranges</i> section of
   <b>gitrevisions</b>(7).</div>
 <p class="Pp">[--] &lt;path&gt;...</p>
 <div class="Bd-indent">Show only commits that are enough to explain how the
@@ -228,6 +230,10 @@ $ git log A...B</pre>
   commit output.</div>
 <p class="Pp">--since=&lt;date&gt;, --after=&lt;date&gt;</p>
 <div class="Bd-indent">Show commits more recent than a specific date.</div>
+<p class="Pp">--since-as-filter=&lt;date&gt;</p>
+<div class="Bd-indent">Show all commits more recent than a specific date. This
+  visits all commits in the range, rather than stopping at the first commit
+  which is older than a specific date.</div>
 <p class="Pp">--until=&lt;date&gt;, --before=&lt;date&gt;</p>
 <div class="Bd-indent">Show commits older than a specific date.</div>
 <p class="Pp">--author=&lt;pattern&gt;, --committer=&lt;pattern&gt;</p>
@@ -296,15 +302,21 @@ $ git log A...B</pre>
     denote no upper limit).</p>
 </div>
 <p class="Pp">--first-parent</p>
-<div class="Bd-indent">Follow only the first parent commit upon seeing a merge
-  commit. This option can give a better overview when viewing the evolution of a
-  particular topic branch, because merges into a topic branch tend to be only
-  about adjusting to updated upstream from time to time, and this option allows
-  you to ignore the individual commits brought in to your history by such a
-  merge.
+<div class="Bd-indent">When finding commits to include, follow only the first
+  parent commit upon seeing a merge commit. This option can give a better
+  overview when viewing the evolution of a particular topic branch, because
+  merges into a topic branch tend to be only about adjusting to updated upstream
+  from time to time, and this option allows you to ignore the individual commits
+  brought in to your history by such a merge.
 <p class="Pp">This option also changes default diff format for merge commits to
     <b>first-parent</b>, see <b>--diff-merges=first-parent</b> for details.</p>
 </div>
+<p class="Pp">--exclude-first-parent-only</p>
+<div class="Bd-indent">When finding commits to exclude (with a <i>^</i>), follow
+  only the first parent commit upon seeing a merge commit. This can be used to
+  find the set of changes in a topic branch from the point where it diverged
+  from the remote branch, given that arbitrary merges can be valid topic branch
+  changes.</div>
 <p class="Pp">--not</p>
 <div class="Bd-indent">Reverses the meaning of the <i>^</i> prefix (or lack
   thereof) for all following revision specifiers, up to the next
@@ -974,13 +986,14 @@ $ git log A...B</pre>
 <div class="Bd-indent">This is a shorthand for &quot;--pretty=oneline
   --abbrev-commit&quot; used together.</div>
 <p class="Pp">--encoding=&lt;encoding&gt;</p>
-<div class="Bd-indent">The commit objects record the encoding used for the log
-  message in their encoding header; this option can be used to tell the command
-  to re-code the commit log message in the encoding preferred by the user. For
-  non plumbing commands this defaults to UTF-8. Note that if an object claims to
-  be encoded in <b>X</b> and we are outputting in <b>X</b>, we will output the
-  object verbatim; this means that invalid sequences in the original commit may
-  be copied to the output.</div>
+<div class="Bd-indent">Commit objects record the character encoding used for the
+  log message in their encoding header; this option can be used to tell the
+  command to re-code the commit log message in the encoding preferred by the
+  user. For non plumbing commands this defaults to UTF-8. Note that if an object
+  claims to be encoded in <b>X</b> and we are outputting in <b>X</b>, we will
+  output the object verbatim; this means that invalid sequences in the original
+  commit may be copied to the output. Likewise, if iconv(3) fails to convert the
+  commit, we will quietly output the original object verbatim.</div>
 <p class="Pp">--expand-tabs=&lt;n&gt;, --expand-tabs, --no-expand-tabs</p>
 <div class="Bd-indent">Perform a tab expansion (replace each tab with enough
   spaces to fill to the next display column that is multiple of
@@ -1071,11 +1084,11 @@ $ git log A...B</pre>
     (seconds since 1970). As with <b>--raw</b>, this is always in UTC and
     therefore <b>-local</b> has no effect.</p>
 <p class="Pp"><b>--date=format:...</b> feeds the format <b>...</b> to your
-    system <b>strftime</b>, except for %z and %Z, which are handled internally.
-    Use <b>--date=format:%c</b> to show the date in your system locale&#x2019;s
-    preferred format. See the <b>strftime</b> manual for a complete list of
-    format placeholders. When using <b>-local</b>, the correct syntax is
-    <b>--date=format-local:...</b>.</p>
+    system <b>strftime</b>, except for %s, %z, and %Z, which are handled
+    internally. Use <b>--date=format:%c</b> to show the date in your system
+    locale&#x2019;s preferred format. See the <b>strftime</b> manual for a
+    complete list of format placeholders. When using <b>-local</b>, the correct
+    syntax is <b>--date=format-local:...</b>.</p>
 <p class="Pp"><b>--date=default</b> is the default format, and is similar to
     <b>--date=rfc2822</b>, with a few exceptions:</p>
 <p class="Pp"></p>
@@ -1169,7 +1182,7 @@ $ git log A...B</pre>
 <div class="Bd-indent">&#x2022;<i>oneline</i>
 <p class="Pp"></p>
 <div class="Bd-indent">
-<pre>&lt;hash&gt; &lt;title line&gt;</pre>
+<pre>&lt;hash&gt; &lt;title-line&gt;</pre>
 </div>
 <p class="Pp">This is designed to be as compact as possible.</p>
 </div>
@@ -1182,7 +1195,7 @@ Author: &lt;author&gt;</pre>
 </div>
 <p class="Pp"></p>
 <div class="Bd-indent">
-<pre>&lt;title line&gt;</pre>
+<pre>&lt;title-line&gt;</pre>
 </div>
 </div>
 <p class="Pp"></p>
@@ -1191,15 +1204,15 @@ Author: &lt;author&gt;</pre>
 <div class="Bd-indent">
 <pre>commit &lt;hash&gt;
 Author: &lt;author&gt;
-Date:   &lt;author date&gt;</pre>
+Date:   &lt;author-date&gt;</pre>
 </div>
 <p class="Pp"></p>
 <div class="Bd-indent">
-<pre>&lt;title line&gt;</pre>
+<pre>&lt;title-line&gt;</pre>
 </div>
 <p class="Pp"></p>
 <div class="Bd-indent">
-<pre>&lt;full commit message&gt;</pre>
+<pre>&lt;full-commit-message&gt;</pre>
 </div>
 </div>
 <p class="Pp"></p>
@@ -1212,11 +1225,11 @@ Commit: &lt;committer&gt;</pre>
 </div>
 <p class="Pp"></p>
 <div class="Bd-indent">
-<pre>&lt;title line&gt;</pre>
+<pre>&lt;title-line&gt;</pre>
 </div>
 <p class="Pp"></p>
 <div class="Bd-indent">
-<pre>&lt;full commit message&gt;</pre>
+<pre>&lt;full-commit-message&gt;</pre>
 </div>
 </div>
 <p class="Pp"></p>
@@ -1225,24 +1238,24 @@ Commit: &lt;committer&gt;</pre>
 <div class="Bd-indent">
 <pre>commit &lt;hash&gt;
 Author:     &lt;author&gt;
-AuthorDate: &lt;author date&gt;
+AuthorDate: &lt;author-date&gt;
 Commit:     &lt;committer&gt;
-CommitDate: &lt;committer date&gt;</pre>
+CommitDate: &lt;committer-date&gt;</pre>
 </div>
 <p class="Pp"></p>
 <div class="Bd-indent">
-<pre>&lt;title line&gt;</pre>
+<pre>&lt;title-line&gt;</pre>
 </div>
 <p class="Pp"></p>
 <div class="Bd-indent">
-<pre>&lt;full commit message&gt;</pre>
+<pre>&lt;full-commit-message&gt;</pre>
 </div>
 </div>
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;<i>reference</i>
 <p class="Pp"></p>
 <div class="Bd-indent">
-<pre>&lt;abbrev hash&gt; (&lt;title line&gt;, &lt;short author date&gt;)</pre>
+<pre>&lt;abbrev-hash&gt; (&lt;title-line&gt;, &lt;short-author-date&gt;)</pre>
 </div>
 <p class="Pp">This format is used to refer to another commit in a commit message
     and is the same as <b>--pretty='format:%C(auto)%h (%s, %ad)'</b>. By
@@ -1257,12 +1270,12 @@ CommitDate: &lt;committer date&gt;</pre>
 <div class="Bd-indent">
 <pre>From &lt;hash&gt; &lt;date&gt;
 From: &lt;author&gt;
-Date: &lt;author date&gt;
-Subject: [PATCH] &lt;title line&gt;</pre>
+Date: &lt;author-date&gt;
+Subject: [PATCH] &lt;title-line&gt;</pre>
 </div>
 <p class="Pp"></p>
 <div class="Bd-indent">
-<pre>&lt;full commit message&gt;</pre>
+<pre>&lt;full-commit-message&gt;</pre>
 </div>
 </div>
 <p class="Pp"></p>
@@ -1284,11 +1297,11 @@ Subject: [PATCH] &lt;title line&gt;</pre>
     <b>--no-abbrev</b>.</p>
 </div>
 <p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>format:&lt;string&gt;</i>
-<p class="Pp">The <i>format:&lt;string&gt;</i> format allows you to specify
-    which information you want to show. It works a little bit like printf
-    format, with the notable exception that you get a newline with <i>%n</i>
-    instead of <i>\n</i>.</p>
+<div class="Bd-indent">&#x2022;<i>format:&lt;format-string&gt;</i>
+<p class="Pp">The <i>format:&lt;format-string&gt;</i> format allows you to
+    specify which information you want to show. It works a little bit like
+    printf format, with the notable exception that you get a newline with
+    <i>%n</i> instead of <i>\n</i>.</p>
 <p class="Pp">E.g, <i>format:&quot;The author of %h was %an, %ar%nThe title was
     &gt;&gt;%s&lt;&lt;%n&quot;</i> would show something like this:</p>
 <p class="Pp"></p>
@@ -1450,6 +1463,15 @@ The title was &gt;&gt;t4119: test autocomputing -p&lt;n&gt; for traditional diff
   by a colon and zero or more comma-separated options. Descriptions can be
   inconsistent when tags are added or removed at the same time.
 <p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<i>tags[=&lt;bool-value&gt;]</i>: Instead of only
+  considering annotated tags, consider lightweight tags as well.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<i>abbrev=&lt;number&gt;</i>: Instead of using
+  the default number of hexadecimal digits (which will vary according to the
+  number of objects in the repository with a default of 7) of the abbreviated
+  object name, use &lt;number&gt; digits, or as many digits as needed to form a
+  unique object name.</div>
+<p class="Pp"></p>
 <div class="Bd-indent">&#x2022;<i>match=&lt;pattern&gt;</i>: Only consider tags
   matching the given <b>glob(7)</b> pattern, excluding the
   &quot;refs/tags/&quot; prefix.</div>
@@ -1524,46 +1546,41 @@ The title was &gt;&gt;t4119: test autocomputing -p&lt;n&gt; for traditional diff
   <b>git-interpret-trailers</b>(1). The <b>trailers</b> string may be followed
   by a colon and zero or more comma-separated options. If any option is provided
   multiple times the last occurrence wins.
-<p class="Pp">The boolean options accept an optional value
-    <b>[=&lt;BOOL&gt;]</b>. The values <b>true</b>, <b>false</b>, <b>on</b>,
-    <b>off</b> etc. are all accepted. See the &quot;boolean&quot; sub-section in
-    &quot;EXAMPLES&quot; in <b>git-config</b>(1). If a boolean option is given
-    with no value, it&#x2019;s enabled.</p>
 <p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>key=&lt;K&gt;</i>: only show trailers with
-  specified key. Matching is done case-insensitively and trailing colon is
-  optional. If option is given multiple times trailer lines matching any of the
-  keys are shown. This option automatically enables the <b>only</b> option so
-  that non-trailer lines in the trailer block are hidden. If that is not desired
-  it can be disabled with <b>only=false</b>. E.g.,
+<div class="Bd-indent">&#x2022;<i>key=&lt;key&gt;</i>: only show trailers with
+  specified &lt;key&gt;. Matching is done case-insensitively and trailing colon
+  is optional. If option is given multiple times trailer lines matching any of
+  the keys are shown. This option automatically enables the <b>only</b> option
+  so that non-trailer lines in the trailer block are hidden. If that is not
+  desired it can be disabled with <b>only=false</b>. E.g.,
   <b>%(trailers:key=Reviewed-by)</b> shows trailer lines with key
   <b>Reviewed-by</b>.</div>
 <p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>only[=&lt;BOOL&gt;]</i>: select whether
+<div class="Bd-indent">&#x2022;<i>only[=&lt;bool&gt;]</i>: select whether
   non-trailer lines from the trailer block should be included.</div>
 <p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>separator=&lt;SEP&gt;</i>: specify a separator
+<div class="Bd-indent">&#x2022;<i>separator=&lt;sep&gt;</i>: specify a separator
   inserted between trailer lines. When this option is not given each trailer
-  line is terminated with a line feed character. The string SEP may contain the
-  literal formatting codes described above. To use comma as separator one must
-  use <b>%x2C</b> as it would otherwise be parsed as next option. E.g.,
-  <b>%(trailers:key=Ticket,separator=%x2C )</b> shows all trailer lines whose
-  key is &quot;Ticket&quot; separated by a comma and a space.</div>
+  line is terminated with a line feed character. The string &lt;sep&gt; may
+  contain the literal formatting codes described above. To use comma as
+  separator one must use <b>%x2C</b> as it would otherwise be parsed as next
+  option. E.g., <b>%(trailers:key=Ticket,separator=%x2C )</b> shows all trailer
+  lines whose key is &quot;Ticket&quot; separated by a comma and a space.</div>
 <p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>unfold[=&lt;BOOL&gt;]</i>: make it behave as
+<div class="Bd-indent">&#x2022;<i>unfold[=&lt;bool&gt;]</i>: make it behave as
   if interpret-trailer&#x2019;s <b>--unfold</b> option was given. E.g.,
   <b>%(trailers:only,unfold=true)</b> unfolds and shows all trailer lines.</div>
 <p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>keyonly[=&lt;BOOL&gt;]</i>: only show the key
+<div class="Bd-indent">&#x2022;<i>keyonly[=&lt;bool&gt;]</i>: only show the key
   part of the trailer.</div>
 <p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>valueonly[=&lt;BOOL&gt;]</i>: only show the
+<div class="Bd-indent">&#x2022;<i>valueonly[=&lt;bool&gt;]</i>: only show the
   value part of the trailer.</div>
 <p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<i>key_value_separator=&lt;SEP&gt;</i>: specify a
+<div class="Bd-indent">&#x2022;<i>key_value_separator=&lt;sep&gt;</i>: specify a
   separator inserted between trailer lines. When this option is not given each
   trailer key-value pair is separated by &quot;: &quot;. Otherwise it shares the
-  same semantics as <i>separator=&lt;SEP&gt;</i> above.</div>
+  same semantics as <i>separator=&lt;sep&gt;</i> above.</div>
 </div>
 </div>
 </div>
@@ -1579,6 +1596,11 @@ The title was &gt;&gt;t4119: test autocomputing -p&lt;n&gt; for traditional diff
     provided on the command line.</p>
 <p class="Pp"></p>
 </div>
+<p class="Pp">The boolean options accept an optional value
+    <b>[=&lt;bool-value&gt;]</b>. The values <b>true</b>, <b>false</b>,
+    <b>on</b>, <b>off</b> etc. are all accepted. See the &quot;boolean&quot;
+    sub-section in &quot;EXAMPLES&quot; in <b>git-config</b>(1). If a boolean
+    option is given with no value, it&#x2019;s enabled.</p>
 <p class="Pp">If you add a <b>+</b> (plus sign) after <i>%</i> of a placeholder,
     a line-feed is inserted immediately before the expansion if and only if the
     placeholder expands to a non-empty string.</p>
@@ -1638,7 +1660,7 @@ $ git log -2 --pretty=%h 4da45bef</pre>
 <div class="Bd-indent">Suppress diff output. Useful for commands like <b>git
   show</b> that show the patch by default, or to cancel the effect of
   <b>--patch</b>.</div>
-<p class="Pp">--diff-merges=(off|none|on|first-parent|1|separate|m|combined|c|dense-combined|cc),
+<p class="Pp">--diff-merges=(off|none|on|first-parent|1|separate|m|combined|c|dense-combined|cc|remerge|r),
     --no-diff-merges</p>
 <div class="Bd-indent">Specify diff format to be used for merge commits. Default
   is <b>off</b> unless <b>--first-parent</b> is in use, in which case
@@ -1659,6 +1681,15 @@ $ git log -2 --pretty=%h 4da45bef</pre>
 <div class="Bd-indent">This makes merge commits show the full diff with respect
   to each of the parents. Separate log entry and diff is generated for each
   parent.</div>
+<p class="Pp">--diff-merges=remerge, --diff-merges=r, --remerge-diff</p>
+<div class="Bd-indent">With this option, two-parent merge commits are remerged
+  to create a temporary tree object &#x2014; potentially containing files with
+  conflict markers and such. A diff is then shown between that temporary tree
+  and the actual merge commit.
+<p class="Pp">The output emitted when this option is used is subject to change,
+    and so is its interaction with other options (unless explicitly
+  documented).</p>
+</div>
 <p class="Pp">--diff-merges=combined, --diff-merges=c, -c</p>
 <div class="Bd-indent">With this option, diff output for a merge commit shows
   the differences from each of the parents to the merge result simultaneously
@@ -2053,10 +2084,16 @@ $ git log -2 --pretty=%h 4da45bef</pre>
     deletion part of a delete/create pair.</p>
 </div>
 <p class="Pp">-l&lt;num&gt;</p>
-<div class="Bd-indent">The <b>-M</b> and <b>-C</b> options require O(n^2)
-  processing time where n is the number of potential rename/copy targets. This
-  option prevents rename/copy detection from running if the number of
-  rename/copy targets exceeds the specified number.</div>
+<div class="Bd-indent">The <b>-M</b> and <b>-C</b> options involve some
+  preliminary steps that can detect subsets of renames/copies cheaply, followed
+  by an exhaustive fallback portion that compares all remaining unpaired
+  destinations to all relevant sources. (For renames, only remaining unpaired
+  sources are relevant; for copies, all original sources are relevant.) For N
+  sources and destinations, this exhaustive check is O(N^2). This option
+  prevents the exhaustive portion of rename/copy detection from running if the
+  number of source/destination files involved exceeds the specified number.
+  Defaults to diff.renameLimit. Note that a value of 0 is treated as
+  unlimited.</div>
 <p class="Pp">--diff-filter=[(A|C|D|M|R|T|U|X|B)...[*]]</p>
 <div class="Bd-indent">Select only files that are Added (<b>A</b>), Copied
   (<b>C</b>), Deleted (<b>D</b>), Modified (<b>M</b>), Renamed (<b>R</b>), have
@@ -2069,11 +2106,9 @@ $ git log -2 --pretty=%h 4da45bef</pre>
   selected.
 <p class="Pp">Also, these upper-case letters can be downcased to exclude. E.g.
     <b>--diff-filter=ad</b> excludes added and deleted paths.</p>
-<p class="Pp">Note that not all diffs can feature all types. For instance, diffs
-    from the index to the working tree can never have Added entries (because the
-    set of paths included in the diff is limited by what is in the index).
-    Similarly, copied and renamed entries cannot appear if detection for those
-    types is disabled.</p>
+<p class="Pp">Note that not all diffs can feature all types. For instance,
+    copied and renamed entries cannot appear if detection for those types is
+    disabled.</p>
 </div>
 <p class="Pp">-S&lt;string&gt;</p>
 <div class="Bd-indent">Look for differences that change the number of

@@ -64,7 +64,9 @@
     Git clients accessing the repository over http:// and https:// protocols.
     The program supports clients fetching using both the smart HTTP protocol and
     the backwards-compatible dumb HTTP protocol, as well as clients pushing
-    using the smart HTTP protocol.</p>
+    using the smart HTTP protocol. It also supports Git&#x2019;s more-efficient
+    &quot;v2&quot; protocol if properly configured; see the discussion of
+    <b>GIT_PROTOCOL</b> in the ENVIRONMENT section below.</p>
 <p class="Pp">It verifies that the directory has the magic file
     &quot;git-daemon-export-ok&quot;, and it will refuse to export any Git
     directory that hasn&#x2019;t explicitly been marked for export this way
@@ -121,7 +123,18 @@
 <div class="Bd-indent">
 <pre>SetEnv GIT_PROJECT_ROOT /var/www/git
 SetEnv GIT_HTTP_EXPORT_ALL
-ScriptAlias /git/ /usr/libexec/git-core/git-http-backend/</pre>
+ScriptAlias /git/ /usr/libexec/git-core/git-http-backend/
+# This is not strictly necessary using Apache and a modern version of
+# git-http-backend, as the webserver will pass along the header in the
+# environment as HTTP_GIT_PROTOCOL, and http-backend will copy that into
+# GIT_PROTOCOL. But you may need this line (or something similar if you
+# are using a different webserver), or if you want to support older Git
+# versions that did not do that copying.
+#
+# Having the webserver set up GIT_PROTOCOL is perfectly fine even with
+# modern versions (and will take precedence over HTTP_GIT_PROTOCOL,
+# which means it can be used to override the client's request).
+SetEnvIf Git-Protocol &quot;.*&quot; GIT_PROTOCOL=$0</pre>
 </div>
 <p class="Pp">To enable anonymous read access but authenticated write access,
     require authorization for both the initial ref advertisement (which we
@@ -343,6 +356,16 @@ $HTTP[&quot;url&quot;] =~ &quot;^/git/.*/git-receive-pack$&quot; {
     repository with an extremely large number of refs. The value can be
     specified with a unit (e.g., <b>100M</b> for 100 megabytes). The default is
     10 megabytes.</p>
+<p class="Pp">Clients may probe for optional protocol capabilities (like the v2
+    protocol) using the <b>Git-Protocol</b> HTTP header. In order to support
+    these, the contents of that header must appear in the <b>GIT_PROTOCOL</b>
+    environment variable. Most webservers will pass this header to the CGI via
+    the <b>HTTP_GIT_PROTOCOL</b> variable, and <b>git-http-backend</b> will
+    automatically copy that to <b>GIT_PROTOCOL</b>. However, some webservers may
+    be more selective about which headers they&#x2019;ll pass, in which case
+    they need to be configured explicitly (see the mention of
+    <b>Git-Protocol</b> in the Apache config from the earlier EXAMPLES
+  section).</p>
 <p class="Pp">The backend process sets GIT_COMMITTER_NAME to <i>$REMOTE_USER</i>
     and GIT_COMMITTER_EMAIL to <i>${REMOTE_USER}@http.${REMOTE_ADDR}</i>,
     ensuring that any reflogs created by <i>git-receive-pack</i> contain some

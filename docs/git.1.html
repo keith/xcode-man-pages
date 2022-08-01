@@ -55,7 +55,7 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
-<pre><i>git</i> [--version] [--help] [-C &lt;path&gt;] [-c &lt;name&gt;=&lt;value&gt;]
+<pre><i>git</i> [-v | --version] [-h | --help] [-C &lt;path&gt;] [-c &lt;name&gt;=&lt;value&gt;]
 <br/>
     [--exec-path[=&lt;path&gt;]] [--html-path] [--man-path] [--info-path]
 <br/>
@@ -86,10 +86,14 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
-<p class="Pp">--version</p>
+<p class="Pp">-v, --version</p>
 <div class="Bd-indent">Prints the Git suite version that the <i>git</i> program
-  came from.</div>
-<p class="Pp">--help</p>
+  came from.
+<p class="Pp">This option is internally converted to <b>git version ...</b> and
+    accepts the same options as the <b>git-version</b>(1) command. If
+    <b>--help</b> is also given, it takes precedence over <b>--version</b>.</p>
+</div>
+<p class="Pp">-h, --help</p>
 <div class="Bd-indent">Prints the synopsis and a list of the most commonly used
   commands. If the option <b>--all</b> or <b>-a</b> is given then all available
   commands are printed. If a Git command is named this option will bring up the
@@ -329,7 +333,8 @@ git --git-dir=c/a.git --work-tree=c/b status</pre>
 <p class="Pp"><b>git-show</b>(1)</p>
 <div class="Bd-indent">Show various types of objects.</div>
 <p class="Pp"><b>git-sparse-checkout</b>(1)</p>
-<div class="Bd-indent">Initialize and modify the sparse-checkout.</div>
+<div class="Bd-indent">Reduce your working tree to a subset of tracked
+  files.</div>
 <p class="Pp"><b>git-stash</b>(1)</p>
 <div class="Bd-indent">Stash the changes in a dirty working directory
   away.</div>
@@ -633,6 +638,8 @@ git --git-dir=c/a.git --work-tree=c/b status</pre>
 <div class="Bd-indent">Helper to store credentials on disk.</div>
 <p class="Pp"><b>git-fmt-merge-msg</b>(1)</p>
 <div class="Bd-indent">Produce a merge commit message.</div>
+<p class="Pp"><b>git-hook</b>(1)</p>
+<div class="Bd-indent">Run git hooks.</div>
 <p class="Pp"><b>git-interpret-trailers</b>(1)</p>
 <div class="Bd-indent">Add or parse structured information in commit
   messages.</div>
@@ -1119,9 +1126,9 @@ git --git-dir=c/a.git --work-tree=c/b status</pre>
   <b>Trace2 documentation</b>[2] for full details.</div>
 <p class="Pp"><b>GIT_TRACE_REDACT</b></p>
 <div class="Bd-indent">By default, when tracing is activated, Git redacts the
-  values of cookies, the &quot;Authorization:&quot; header, and the
-  &quot;Proxy-Authorization:&quot; header. Set this variable to <b>0</b> to
-  prevent this redaction.</div>
+  values of cookies, the &quot;Authorization:&quot; header, the
+  &quot;Proxy-Authorization:&quot; header and packfile URIs. Set this variable
+  to <b>0</b> to prevent this redaction.</div>
 <p class="Pp"><b>GIT_LITERAL_PATHSPECS</b></p>
 <div class="Bd-indent">Setting this variable to <b>1</b> will cause Git to treat
   all pathspecs literally, rather than as glob patterns. For example, running
@@ -1148,14 +1155,15 @@ git --git-dir=c/a.git --work-tree=c/b status</pre>
   it is invoked as the top level command by the end user, to be recorded in the
   body of the reflog.</div>
 <p class="Pp"><b>GIT_REF_PARANOIA</b></p>
-<div class="Bd-indent">If set to <b>1</b>, include broken or badly named refs
-  when iterating over lists of refs. In a normal, non-corrupted repository, this
-  does nothing. However, enabling it may help git to detect and abort some
-  operations in the presence of broken refs. Git sets this variable
-  automatically when performing destructive operations like <b>git-prune</b>(1).
-  You should not need to set it yourself unless you want to be paranoid about
-  making sure an operation has touched every ref (e.g., because you are cloning
-  a repository to make a backup).</div>
+<div class="Bd-indent">If set to <b>0</b>, ignore broken or badly named refs
+  when iterating over lists of refs. Normally Git will try to include any such
+  refs, which may cause some operations to fail. This is usually preferable, as
+  potentially destructive operations (e.g., <b>git-prune</b>(1)) are better off
+  aborting rather than ignoring broken refs (and thus considering the history
+  they point to as not worth saving). The default value is <b>1</b> (i.e., be
+  paranoid about detecting and aborting all operations). You should not normally
+  need to set this to <b>0</b>, but it may be useful when trying to salvage data
+  from a corrupted repository.</div>
 <p class="Pp"><b>GIT_ALLOW_PROTOCOL</b></p>
 <div class="Bd-indent">If set to a colon-separated list of protocols, behave as
   if <b>protocol.allow</b> is set to <b>never</b>, and each of the listed
@@ -1174,7 +1182,21 @@ git --git-dir=c/a.git --work-tree=c/b status</pre>
 <div class="Bd-indent">For internal use only. Used in handshaking the wire
   protocol. Contains a colon <i>:</i> separated list of keys with optional
   values <i>key[=value]</i>. Presence of unknown keys and values must be
-  ignored.</div>
+  ignored.
+<p class="Pp">Note that servers may need to be configured to allow this variable
+    to pass over some transports. It will be propagated automatically when
+    accessing local repositories (i.e., <b>file://</b> or a filesystem path), as
+    well as over the <b>git://</b> protocol. For git-over-http, it should work
+    automatically in most configurations, but see the discussion in
+    <b>git-http-backend</b>(1). For git-over-ssh, the ssh server may need to be
+    configured to allow clients to pass this variable (e.g., by using
+    <b>AcceptEnv GIT_PROTOCOL</b> with OpenSSH).</p>
+<p class="Pp">This configuration is optional. If the variable is not propagated,
+    then clients will fall back to the original &quot;v0&quot; protocol (but may
+    miss out on some performance improvements or features). This variable
+    currently only affects clones and fetches; it is not yet used for pushes
+    (but may be in the future).</p>
+</div>
 <p class="Pp"><b>GIT_OPTIONAL_LOCKS</b></p>
 <div class="Bd-indent">If set to <b>0</b>, Git will complete any requested
   operation without performing any optional sub-operations that require taking a

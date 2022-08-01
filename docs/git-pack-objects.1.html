@@ -63,9 +63,11 @@
 <br/>
         [--revs [--unpacked | --all]] [--keep-pack=&lt;pack-name&gt;]
 <br/>
-        [--stdout [--filter=&lt;filter-spec&gt;] | base-name]
+        [--cruft] [--cruft-expiration=&lt;time&gt;]
 <br/>
-        [--shallow] [--keep-true-parents] [--[no-]sparse] &lt; object-list</pre>
+        [--stdout [--filter=&lt;filter-spec&gt;] | &lt;base-name&gt;]
+<br/>
+        [--shallow] [--keep-true-parents] [--[no-]sparse] &lt; &lt;object-list&gt;</pre>
 <p class="Pp"></p>
 </section>
 <section class="Sh">
@@ -132,6 +134,34 @@
     <b>--revs</b> (such as <b>--all</b>), with the exception of
     <b>--unpacked</b>, which is compatible.</p>
 </div>
+<p class="Pp">--cruft</p>
+<div class="Bd-indent">Packs unreachable objects into a separate
+  &quot;cruft&quot; pack, denoted by the existence of a <b>.mtimes</b> file.
+  Typically used by <b>git repack --cruft</b>. Callers provide a list of pack
+  names and indicate which packs will remain in the repository, along with which
+  packs will be deleted (indicated by the <b>-</b> prefix). The contents of the
+  cruft pack are all objects not contained in the surviving packs which have not
+  exceeded the grace period (see <b>--cruft-expiration</b> below), or which have
+  exceeded the grace period, but are reachable from an other object which
+  hasn&#x2019;t.
+<p class="Pp">When the input lists a pack containing all reachable objects (and
+    lists all other packs as pending deletion), the corresponding cruft pack
+    will contain all unreachable objects (with mtime newer than the
+    <b>--cruft-expiration</b>) along with any unreachable objects whose mtime is
+    older than the <b>--cruft-expiration</b>, but are reachable from an
+    unreachable object whose mtime is newer than the
+  <b>--cruft-expiration</b>).</p>
+<p class="Pp">Incompatible with <b>--unpack-unreachable</b>,
+    <b>--keep-unreachable</b>, <b>--pack-loose-unreachable</b>,
+    <b>--stdin-packs</b>, as well as any other options which imply
+    <b>--revs</b>. Also incompatible with <b>--max-pack-size</b>; when this
+    option is set, the maximum pack size is not inferred from
+    <b>pack.packSizeLimit</b>.</p>
+</div>
+<p class="Pp">--cruft-expiration=&lt;approxidate&gt;</p>
+<div class="Bd-indent">If specified, objects are eliminated from the cruft pack
+  if they have an mtime older than <b>&lt;approxidate&gt;</b>. If unspecified
+  (and given <b>--cruft</b>), then no objects are eliminated.</div>
 <p class="Pp">--window=&lt;n&gt;, --depth=&lt;n&gt;</p>
 <div class="Bd-indent">These two options affect how the objects contained in the
   pack are stored using delta compression. The objects are first internally
@@ -159,9 +189,9 @@
   tell the command to split the output packfile into multiple independent
   packfiles, each not larger than the given size. The size can be suffixed with
   &quot;k&quot;, &quot;m&quot;, or &quot;g&quot;. The minimum size allowed is
-  limited to 1 MiB. This option prevents the creation of a bitmap index. The
-  default is unlimited, unless the config variable <b>pack.packSizeLimit</b> is
-  set.</div>
+  limited to 1 MiB. The default is unlimited, unless the config variable
+  <b>pack.packSizeLimit</b> is set. Note that this option may result in a larger
+  and slower repository; see the discussion in <b>pack.packSizeLimit</b>.</div>
 <p class="Pp">--honor-pack-keep</p>
 <div class="Bd-indent">This flag causes an object already in a local pack that
   has a .keep file to be ignored, even if it would have otherwise been

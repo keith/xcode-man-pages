@@ -55,7 +55,9 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
-<pre><i>git maintenance</i> run [&lt;options&gt;]</pre>
+<pre><i>git maintenance</i> run [&lt;options&gt;]
+<i>git maintenance</i> start [--scheduler=&lt;scheduler&gt;]
+<i>git maintenance</i> (stop|register|unregister)</pre>
 <p class="Pp"></p>
 </section>
 <section class="Sh">
@@ -72,6 +74,21 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SUBCOMMANDS"><a class="permalink" href="#SUBCOMMANDS">SUBCOMMANDS</a></h1>
+<p class="Pp">run</p>
+<div class="Bd-indent">Run one or more maintenance tasks. If one or more
+  <b>--task</b> options are specified, then those tasks are run in that order.
+  Otherwise, the tasks are determined by which
+  <b>maintenance.&lt;task&gt;.enabled</b> config options are true. By default,
+  only <b>maintenance.gc.enabled</b> is true.</div>
+<p class="Pp">start</p>
+<div class="Bd-indent">Start running maintenance on the current repository. This
+  performs the same config updates as the <b>register</b> subcommand, then
+  updates the background scheduler to run <b>git maintenance run --scheduled</b>
+  on an hourly basis.</div>
+<p class="Pp">stop</p>
+<div class="Bd-indent">Halt the background maintenance schedule. The current
+  repository is not removed from the list of maintained repositories, in case
+  the background maintenance is restarted later.</div>
 <p class="Pp">register</p>
 <div class="Bd-indent">Initialize Git config values so any scheduled maintenance
   will start running on this repository. This adds the repository to the
@@ -98,21 +115,6 @@
     repository. This config setting will remain after a <b>git maintenance
     unregister</b> command.</p>
 </div>
-<p class="Pp">run</p>
-<div class="Bd-indent">Run one or more maintenance tasks. If one or more
-  <b>--task</b> options are specified, then those tasks are run in that order.
-  Otherwise, the tasks are determined by which
-  <b>maintenance.&lt;task&gt;.enabled</b> config options are true. By default,
-  only <b>maintenance.gc.enabled</b> is true.</div>
-<p class="Pp">start</p>
-<div class="Bd-indent">Start running maintenance on the current repository. This
-  performs the same config updates as the <b>register</b> subcommand, then
-  updates the background scheduler to run <b>git maintenance run --scheduled</b>
-  on an hourly basis.</div>
-<p class="Pp">stop</p>
-<div class="Bd-indent">Halt the background maintenance schedule. The current
-  repository is not removed from the list of maintained repositories, in case
-  the background maintenance is restarted later.</div>
 <p class="Pp">unregister</p>
 <div class="Bd-indent">Remove the current repository from background
   maintenance. This only removes the repository from the configured list. It
@@ -209,6 +211,15 @@
   <b>maintenance.&lt;task&gt;.enabled</b> configured as <b>true</b> are
   considered. See the <i>TASKS</i> section for the list of accepted
   <b>&lt;task&gt;</b> values.</div>
+<p class="Pp">--scheduler=auto|crontab|systemd-timer|launchctl|schtasks</p>
+<div class="Bd-indent">When combined with the <b>start</b> subcommand, specify
+  the scheduler for running the hourly, daily and weekly executions of <b>git
+  maintenance run</b>. Possible values for <b>&lt;scheduler&gt;</b> are
+  <b>auto</b>, <b>crontab</b> (POSIX), <b>systemd-timer</b> (Linux),
+  <b>launchctl</b> (macOS), and <b>schtasks</b> (Windows). When <b>auto</b> is
+  specified, the appropriate platform-specific scheduler is used; on Linux,
+  <b>systemd-timer</b> is used if available, otherwise <b>crontab</b>. Default
+  is <b>auto</b>.</div>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="TROUBLESHOOTING"><a class="permalink" href="#TROUBLESHOOTING">TROUBLESHOOTING</a></h1>
@@ -300,6 +311,48 @@
     Please do use the full path and <b>--exec-path</b> techniques from the
     default schedule to ensure you are executing the correct binaries in your
     schedule.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BACKGROUND_MAINTENANCE_ON_LINUX_SYSTEMD_SYSTEMS"><a class="permalink" href="#BACKGROUND_MAINTENANCE_ON_LINUX_SYSTEMD_SYSTEMS">BACKGROUND
+  MAINTENANCE ON LINUX SYSTEMD SYSTEMS</a></h1>
+<p class="Pp">While Linux supports <b>cron</b>, depending on the distribution,
+    <b>cron</b> may be an optional package not necessarily installed. On modern
+    Linux distributions, systemd timers are superseding it.</p>
+<p class="Pp">If user systemd timers are available, they will be used as a
+    replacement of <b>cron</b>.</p>
+<p class="Pp">In this case, <b>git maintenance start</b> will create user
+    systemd timer units and start the timers. The current list of user-scheduled
+    tasks can be found by running <b>systemctl --user list-timers</b>. The
+    timers written by <b>git maintenance start</b> are similar to this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ systemctl --user list-timers
+NEXT                         LEFT          LAST                         PASSED     UNIT                         ACTIVATES
+Thu 2021-04-29 19:00:00 CEST 42min left    Thu 2021-04-29 18:00:11 CEST 17min ago  git-maintenance@hourly.timer git-maintenance@hourly.service
+Fri 2021-04-30 00:00:00 CEST 5h 42min left Thu 2021-04-29 00:00:11 CEST 18h ago    git-maintenance@daily.timer  git-maintenance@daily.service
+Mon 2021-05-03 00:00:00 CEST 3 days left   Mon 2021-04-26 00:00:11 CEST 3 days ago git-maintenance@weekly.timer git-maintenance@weekly.service</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">One timer is registered for each
+    <b>--schedule=&lt;frequency&gt;</b> option.</p>
+<p class="Pp">The definition of the systemd units can be inspected in the
+    following files:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>~/.config/systemd/user/git-maintenance@.timer
+~/.config/systemd/user/git-maintenance@.service
+~/.config/systemd/user/timers.target.wants/git-maintenance@hourly.timer
+~/.config/systemd/user/timers.target.wants/git-maintenance@daily.timer
+~/.config/systemd/user/timers.target.wants/git-maintenance@weekly.timer</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp"><b>git maintenance start</b> will overwrite these files and start
+    the timer again with <b>systemctl --user</b>, so any customization should be
+    done by creating a drop-in file, i.e. a <b>.conf</b> suffixed file in the
+    <b>~/.config/systemd/user/git-maintenance@.service.d</b> directory.</p>
+<p class="Pp"><b>git maintenance stop</b> will stop the user systemd timers and
+    delete the above mentioned files.</p>
+<p class="Pp">For more details, see <b>systemd.timer(5)</b>.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="BACKGROUND_MAINTENANCE_ON_MACOS_SYSTEMS"><a class="permalink" href="#BACKGROUND_MAINTENANCE_ON_MACOS_SYSTEMS">BACKGROUND

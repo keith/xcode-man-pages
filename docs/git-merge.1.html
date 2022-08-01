@@ -61,7 +61,9 @@
 <br/>
         [--[no-]allow-unrelated-histories]
 <br/>
-        [--[no-]rerere-autoupdate] [-m &lt;msg&gt;] [-F &lt;file&gt;] [&lt;commit&gt;...]
+        [--[no-]rerere-autoupdate] [-m &lt;msg&gt;] [-F &lt;file&gt;]
+<br/>
+        [--into-name &lt;branch&gt;] [&lt;commit&gt;...]
 <i>git merge</i> (--continue | --abort | --quit)</pre>
 <p class="Pp"></p>
 </section>
@@ -207,15 +209,15 @@
     option can be used to override --squash.</p>
 <p class="Pp">With --squash, --commit is not allowed, and will fail.</p>
 </div>
-<p class="Pp">--no-verify</p>
-<div class="Bd-indent">This option bypasses the pre-merge and commit-msg hooks.
-  See also <b>githooks</b>(5).</div>
+<p class="Pp">--[no-]verify</p>
+<div class="Bd-indent">By default, the pre-merge and commit-msg hooks are run.
+  When <b>--no-verify</b> is given, these are bypassed. See also
+  <b>githooks</b>(5).</div>
 <p class="Pp">-s &lt;strategy&gt;, --strategy=&lt;strategy&gt;</p>
 <div class="Bd-indent">Use the given merge strategy; can be supplied more than
   once to specify them in the order they should be tried. If there is no
-  <b>-s</b> option, a built-in list of strategies is used instead (<i>git
-  merge-recursive</i> when merging a single head, <i>git merge-octopus</i>
-  otherwise).</div>
+  <b>-s</b> option, a built-in list of strategies is used instead (<b>ort</b>
+  when merging a single head, <b>octopus</b> otherwise).</div>
 <p class="Pp">-X &lt;option&gt;, --strategy-option=&lt;option&gt;</p>
 <div class="Bd-indent">Pass merge strategy specific option through to the merge
   strategy.</div>
@@ -238,10 +240,10 @@
   all merge strategies may support progress reporting.</div>
 <p class="Pp">--autostash, --no-autostash</p>
 <div class="Bd-indent">Automatically create a temporary stash entry before the
-  operation begins, and apply it after the operation ends. This means that you
-  can run the operation on a dirty worktree. However, use with care: the final
-  stash application after a successful merge might result in non-trivial
-  conflicts.</div>
+  operation begins, record it in the special ref <b>MERGE_AUTOSTASH</b> and
+  apply it after the operation ends. This means that you can run the operation
+  on a dirty worktree. However, use with care: the final stash application after
+  a successful merge might result in non-trivial conflicts.</div>
 <p class="Pp">--allow-unrelated-histories</p>
 <div class="Bd-indent">By default, <b>git merge</b> command refuses to merge
   histories that do not share a common ancestor. This option can be used to
@@ -257,6 +259,10 @@
     default for automated <i>git merge</i> invocations. The automated message
     can include the branch description.</p>
 </div>
+<p class="Pp">--into-name &lt;branch&gt;</p>
+<div class="Bd-indent">Prepare the default merge message as if merging to the
+  branch <b>&lt;branch&gt;</b>, instead of the name of the real branch to which
+  the merge is made.</div>
 <p class="Pp">-F &lt;file&gt;, --file=&lt;file&gt;</p>
 <div class="Bd-indent">Read the commit message to be used for the merge commit
   (in case one is created).
@@ -407,7 +413,8 @@ git merge --ff-only v1.2.3</pre>
 <p class="Pp"></p>
 <div class="Bd-indent">
 <pre>Here are lines that are either unchanged from the common
-ancestor, or cleanly resolved because only one side changed.
+ancestor, or cleanly resolved because only one side changed,
+or cleanly resolved because both sides changed the same way.
 &lt;&lt;&lt;&lt;&lt;&lt;&lt; yours:sample.txt
 Conflict resolution is hard;
 let's go shopping.
@@ -427,16 +434,38 @@ And here is another line that is cleanly resolved or unmodified.</pre>
     that your side wants to say it is hard and you&#x2019;d prefer to go
     shopping, while the other side wants to claim it is easy.</p>
 <p class="Pp">An alternative style can be used by setting the
-    &quot;merge.conflictStyle&quot; configuration variable to &quot;diff3&quot;.
-    In &quot;diff3&quot; style, the above conflict may look like this:</p>
+    &quot;merge.conflictStyle&quot; configuration variable to either
+    &quot;diff3&quot; or &quot;zdiff3&quot;. In &quot;diff3&quot; style, the
+    above conflict may look like this:</p>
 <p class="Pp"></p>
 <div class="Bd-indent">
 <pre>Here are lines that are either unchanged from the common
-ancestor, or cleanly resolved because only one side changed.
+ancestor, or cleanly resolved because only one side changed,
+&lt;&lt;&lt;&lt;&lt;&lt;&lt; yours:sample.txt
+or cleanly resolved because both sides changed the same way.
+Conflict resolution is hard;
+let's go shopping.
+||||||| base:sample.txt
+or cleanly resolved because both sides changed identically.
+Conflict resolution is hard.
+=======
+or cleanly resolved because both sides changed the same way.
+Git makes conflict resolution easy.
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; theirs:sample.txt
+And here is another line that is cleanly resolved or unmodified.</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">while in &quot;zdiff3&quot; style, it may look like this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>Here are lines that are either unchanged from the common
+ancestor, or cleanly resolved because only one side changed,
+or cleanly resolved because both sides changed the same way.
 &lt;&lt;&lt;&lt;&lt;&lt;&lt; yours:sample.txt
 Conflict resolution is hard;
 let's go shopping.
-|||||||
+||||||| base:sample.txt
+or cleanly resolved because both sides changed identically.
 Conflict resolution is hard.
 =======
 Git makes conflict resolution easy.
@@ -526,22 +555,20 @@ And here is another line that is cleanly resolved or unmodified.</pre>
     <b>-s</b> option. Some strategies can also take their own options, which can
     be passed by giving <b>-X&lt;option&gt;</b> arguments to <b>git merge</b>
     and/or <b>git pull</b>.</p>
-<p class="Pp">resolve</p>
-<div class="Bd-indent">This can only resolve two heads (i.e. the current branch
-  and another branch you pulled from) using a 3-way merge algorithm. It tries to
-  carefully detect criss-cross merge ambiguities and is considered generally
-  safe and fast.</div>
-<p class="Pp">recursive</p>
-<div class="Bd-indent">This can only resolve two heads using a 3-way merge
-  algorithm. When there is more than one common ancestor that can be used for
-  3-way merge, it creates a merged tree of the common ancestors and uses that as
-  the reference tree for the 3-way merge. This has been reported to result in
-  fewer merge conflicts without causing mismerges by tests done on actual merge
-  commits taken from Linux 2.6 kernel development history. Additionally this can
-  detect and handle merges involving renames, but currently cannot make use of
-  detected copies. This is the default merge strategy when pulling or merging
-  one branch.
-<p class="Pp">The <i>recursive</i> strategy can take the following options:</p>
+<p class="Pp">ort</p>
+<div class="Bd-indent">This is the default merge strategy when pulling or
+  merging one branch. This strategy can only resolve two heads using a 3-way
+  merge algorithm. When there is more than one common ancestor that can be used
+  for 3-way merge, it creates a merged tree of the common ancestors and uses
+  that as the reference tree for the 3-way merge. This has been reported to
+  result in fewer merge conflicts without causing mismerges by tests done on
+  actual merge commits taken from Linux 2.6 kernel development history.
+  Additionally this strategy can detect and handle merges involving renames. It
+  does not make use of detected copies. The name for this algorithm is an
+  acronym (&quot;Ostensibly Recursive&#x2019;s Twin&quot;) and came from the
+  fact that it was written as a replacement for the previous default algorithm,
+  <b>recursive</b>.
+<p class="Pp">The <i>ort</i> strategy can take the following options:</p>
 <p class="Pp">ours</p>
 <div class="Bd-indent">This option forces conflicting hunks to be auto-resolved
   cleanly by favoring <i>our</i> version. Changes from the other tree that do
@@ -556,17 +583,6 @@ And here is another line that is cleanly resolved or unmodified.</pre>
 <div class="Bd-indent">This is the opposite of <i>ours</i>; note that, unlike
   <i>ours</i>, there is no <i>theirs</i> merge strategy to confuse this merge
   option with.</div>
-<p class="Pp">patience</p>
-<div class="Bd-indent">With this option, <i>merge-recursive</i> spends a little
-  extra time to avoid mismerges that sometimes occur due to unimportant matching
-  lines (e.g., braces from distinct functions). Use this when the branches to be
-  merged have diverged wildly. See also <b>git-diff</b>(1)
-  <b>--patience</b>.</div>
-<p class="Pp">diff-algorithm=[patience|minimal|histogram|myers]</p>
-<div class="Bd-indent">Tells <i>merge-recursive</i> to use a different diff
-  algorithm, which can help avoid mismerges that occur due to unimportant
-  matching lines (such as braces from distinct functions). See also
-  <b>git-diff</b>(1) <b>--diff-algorithm</b>.</div>
 <p class="Pp">ignore-space-change, ignore-all-space, ignore-space-at-eol,
     ignore-cr-at-eol</p>
 <div class="Bd-indent">Treats lines with the indicated type of whitespace change
@@ -595,10 +611,6 @@ And here is another line that is cleanly resolved or unmodified.</pre>
 <p class="Pp">no-renormalize</p>
 <div class="Bd-indent">Disables the <b>renormalize</b> option. This overrides
   the <b>merge.renormalize</b> configuration variable.</div>
-<p class="Pp">no-renames</p>
-<div class="Bd-indent">Turn off rename detection. This overrides the
-  <b>merge.renames</b> configuration variable. See also <b>git-diff</b>(1)
-  <b>--no-renames</b>.</div>
 <p class="Pp">find-renames[=&lt;n&gt;]</p>
 <div class="Bd-indent">Turn on rename detection, optionally setting the
   similarity threshold. This is the default. This overrides the
@@ -614,6 +626,40 @@ And here is another line that is cleanly resolved or unmodified.</pre>
   (or stripped from the beginning) to make the shape of two trees to
   match.</div>
 </div>
+<p class="Pp">recursive</p>
+<div class="Bd-indent">This can only resolve two heads using a 3-way merge
+  algorithm. When there is more than one common ancestor that can be used for
+  3-way merge, it creates a merged tree of the common ancestors and uses that as
+  the reference tree for the 3-way merge. This has been reported to result in
+  fewer merge conflicts without causing mismerges by tests done on actual merge
+  commits taken from Linux 2.6 kernel development history. Additionally this can
+  detect and handle merges involving renames. It does not make use of detected
+  copies. This was the default strategy for resolving two heads from Git
+  v0.99.9k until v2.33.0.
+<p class="Pp">The <i>recursive</i> strategy takes the same options as
+    <i>ort</i>. However, there are three additional options that <i>ort</i>
+    ignores (not documented above) that are potentially useful with the
+    <i>recursive</i> strategy:</p>
+<p class="Pp">patience</p>
+<div class="Bd-indent">Deprecated synonym for
+  <b>diff-algorithm=patience</b>.</div>
+<p class="Pp">diff-algorithm=[patience|minimal|histogram|myers]</p>
+<div class="Bd-indent">Use a different diff algorithm while merging, which can
+  help avoid mismerges that occur due to unimportant matching lines (such as
+  braces from distinct functions). See also <b>git-diff</b>(1)
+  <b>--diff-algorithm</b>. Note that <b>ort</b> specifically uses
+  <b>diff-algorithm=histogram</b>, while <b>recursive</b> defaults to the
+  <b>diff.algorithm</b> config setting.</div>
+<p class="Pp">no-renames</p>
+<div class="Bd-indent">Turn off rename detection. This overrides the
+  <b>merge.renames</b> configuration variable. See also <b>git-diff</b>(1)
+  <b>--no-renames</b>.</div>
+</div>
+<p class="Pp">resolve</p>
+<div class="Bd-indent">This can only resolve two heads (i.e. the current branch
+  and another branch you pulled from) using a 3-way merge algorithm. It tries to
+  carefully detect criss-cross merge ambiguities. It does not handle
+  renames.</div>
 <p class="Pp">octopus</p>
 <div class="Bd-indent">This resolves cases with more than two heads, but refuses
   to do a complex merge that needs manual resolution. It is primarily meant to
@@ -626,17 +672,17 @@ And here is another line that is cleanly resolved or unmodified.</pre>
   development history of side branches. Note that this is different from the
   -Xours option to the <i>recursive</i> merge strategy.</div>
 <p class="Pp">subtree</p>
-<div class="Bd-indent">This is a modified recursive strategy. When merging trees
-  A and B, if B corresponds to a subtree of A, B is first adjusted to match the
-  tree structure of A, instead of reading the trees at the same level. This
-  adjustment is also done to the common ancestor tree.</div>
+<div class="Bd-indent">This is a modified <b>ort</b> strategy. When merging
+  trees A and B, if B corresponds to a subtree of A, B is first adjusted to
+  match the tree structure of A, instead of reading the trees at the same level.
+  This adjustment is also done to the common ancestor tree.</div>
 <p class="Pp">With the strategies that use 3-way merge (including the default,
-    <i>recursive</i>), if a change is made on both branches, but later reverted
-    on one of the branches, that change will be present in the merged result;
-    some people find this behavior confusing. It occurs because only the heads
-    and the merge base are considered when performing a merge, not the
-    individual commits. The merge algorithm therefore considers the reverted
-    change as no change at all, and substitutes the changed version instead.</p>
+    <i>ort</i>), if a change is made on both branches, but later reverted on one
+    of the branches, that change will be present in the merged result; some
+    people find this behavior confusing. It occurs because only the heads and
+    the merge base are considered when performing a merge, not the individual
+    commits. The merge algorithm therefore considers the reverted change as no
+    change at all, and substitutes the changed version instead.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="CONFIGURATION"><a class="permalink" href="#CONFIGURATION">CONFIGURATION</a></h1>
@@ -647,7 +693,13 @@ And here is another line that is cleanly resolved or unmodified.</pre>
   one side, a <b>=======</b> marker, changes made by the other side, and then a
   <b>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</b> marker. An alternate style,
   &quot;diff3&quot;, adds a <b>|||||||</b> marker and the original text before
-  the <b>=======</b> marker.</div>
+  the <b>=======</b> marker. The &quot;merge&quot; style tends to produce
+  smaller conflict regions than diff3, both because of the exclusion of the
+  original text, and because when a subset of lines match on the two sides they
+  are just pulled out of the conflict region. Another alternate style,
+  &quot;zdiff3&quot;, is similar to diff3 but removes matching lines on the two
+  sides from the conflict region when those matching lines appear near either
+  the beginning or end of a conflict region.</div>
 <p class="Pp">merge.defaultToUpstream</p>
 <div class="Bd-indent">If merge is called without any commit argument, merge the
   upstream branches configured for the current branch by using their last
@@ -656,7 +708,7 @@ And here is another line that is cleanly resolved or unmodified.</pre>
   remote named by <b>branch.&lt;current branch&gt;.remote</b> are consulted, and
   then they are mapped via <b>remote.&lt;remote&gt;.fetch</b> to their
   corresponding remote-tracking branches, and the tips of these tracking
-  branches are merged.</div>
+  branches are merged. Defaults to true.</div>
 <p class="Pp">merge.ff</p>
 <div class="Bd-indent">By default, Git does not create an extra merge commit
   when merging a commit that is a descendant of the current commit. Instead, the
@@ -688,10 +740,11 @@ And here is another line that is cleanly resolved or unmodified.</pre>
     <b>master</b> is used for backward compatibility.</p>
 </div>
 <p class="Pp">merge.renameLimit</p>
-<div class="Bd-indent">The number of files to consider when performing rename
-  detection during a merge; if not specified, defaults to the value of
-  diff.renameLimit. This setting has no effect if rename detection is turned
-  off.</div>
+<div class="Bd-indent">The number of files to consider in the exhaustive portion
+  of rename detection during a merge. If not specified, defaults to the value of
+  diff.renameLimit. If neither merge.renameLimit nor diff.renameLimit are
+  specified, currently defaults to 7000. This setting has no effect if rename
+  detection is turned off.</div>
 <p class="Pp">merge.renames</p>
 <div class="Bd-indent">Whether Git detects renames. If set to &quot;false&quot;,
   rename detection is disabled. If set to &quot;true&quot;, basic rename
@@ -736,72 +789,85 @@ And here is another line that is cleanly resolved or unmodified.</pre>
   shows the valid built-in values. Any other value is treated as a custom merge
   tool and requires that a corresponding mergetool.&lt;guitool&gt;.cmd variable
   is defined.
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;araxis</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;bc</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;bc3</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;bc4</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;codecompare</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;deltawalker</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;diffmerge</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;diffuse</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;ecmerge</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;emerge</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;examdiff</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;guiffy</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;gvimdiff</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;gvimdiff1</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;gvimdiff2</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;gvimdiff3</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;kdiff3</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;meld</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;nvimdiff</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;nvimdiff1</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;nvimdiff2</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;nvimdiff3</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;opendiff</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;p4merge</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;smerge</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;tkdiff</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;tortoisemerge</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;vimdiff</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;vimdiff1</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;vimdiff2</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;vimdiff3</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;winmerge</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;xxdiff</div>
+<p class="Pp"><b>araxis</b></p>
+<div class="Bd-indent">Use Araxis Merge (requires a graphical session)</div>
+<p class="Pp"><b>bc</b></p>
+<div class="Bd-indent">Use Beyond Compare (requires a graphical session)</div>
+<p class="Pp"><b>bc3</b></p>
+<div class="Bd-indent">Use Beyond Compare (requires a graphical session)</div>
+<p class="Pp"><b>bc4</b></p>
+<div class="Bd-indent">Use Beyond Compare (requires a graphical session)</div>
+<p class="Pp"><b>codecompare</b></p>
+<div class="Bd-indent">Use Code Compare (requires a graphical session)</div>
+<p class="Pp"><b>deltawalker</b></p>
+<div class="Bd-indent">Use DeltaWalker (requires a graphical session)</div>
+<p class="Pp"><b>diffmerge</b></p>
+<div class="Bd-indent">Use DiffMerge (requires a graphical session)</div>
+<p class="Pp"><b>diffuse</b></p>
+<div class="Bd-indent">Use Diffuse (requires a graphical session)</div>
+<p class="Pp"><b>ecmerge</b></p>
+<div class="Bd-indent">Use ECMerge (requires a graphical session)</div>
+<p class="Pp"><b>emerge</b></p>
+<div class="Bd-indent">Use Emacs' Emerge</div>
+<p class="Pp"><b>examdiff</b></p>
+<div class="Bd-indent">Use ExamDiff Pro (requires a graphical session)</div>
+<p class="Pp"><b>guiffy</b></p>
+<div class="Bd-indent">Use Guiffy&#x2019;s Diff Tool (requires a graphical
+  session)</div>
+<p class="Pp"><b>gvimdiff</b></p>
+<div class="Bd-indent">Use gVim (requires a graphical session) with a custom
+  layout (see <b>git help mergetool</b>'s <b>BACKEND SPECIFIC HINTS</b>
+  section)</div>
+<p class="Pp"><b>gvimdiff1</b></p>
+<div class="Bd-indent">Use gVim (requires a graphical session) with a 2 panes
+  layout (LOCAL and REMOTE)</div>
+<p class="Pp"><b>gvimdiff2</b></p>
+<div class="Bd-indent">Use gVim (requires a graphical session) with a 3 panes
+  layout (LOCAL, MERGED and REMOTE)</div>
+<p class="Pp"><b>gvimdiff3</b></p>
+<div class="Bd-indent">Use gVim (requires a graphical session) where only the
+  MERGED file is shown</div>
+<p class="Pp"><b>kdiff3</b></p>
+<div class="Bd-indent">Use KDiff3 (requires a graphical session)</div>
+<p class="Pp"><b>meld</b></p>
+<div class="Bd-indent">Use Meld (requires a graphical session) with optional
+  <b>auto merge</b> (see <b>git help mergetool</b>'s <b>CONFIGURATION</b>
+  section)</div>
+<p class="Pp"><b>nvimdiff</b></p>
+<div class="Bd-indent">Use Neovim with a custom layout (see <b>git help
+  mergetool</b>'s <b>BACKEND SPECIFIC HINTS</b> section)</div>
+<p class="Pp"><b>nvimdiff1</b></p>
+<div class="Bd-indent">Use Neovim with a 2 panes layout (LOCAL and REMOTE)</div>
+<p class="Pp"><b>nvimdiff2</b></p>
+<div class="Bd-indent">Use Neovim with a 3 panes layout (LOCAL, MERGED and
+  REMOTE)</div>
+<p class="Pp"><b>nvimdiff3</b></p>
+<div class="Bd-indent">Use Neovim where only the MERGED file is shown</div>
+<p class="Pp"><b>opendiff</b></p>
+<div class="Bd-indent">Use FileMerge (requires a graphical session)</div>
+<p class="Pp"><b>p4merge</b></p>
+<div class="Bd-indent">Use HelixCore P4Merge (requires a graphical
+  session)</div>
+<p class="Pp"><b>smerge</b></p>
+<div class="Bd-indent">Use Sublime Merge (requires a graphical session)</div>
+<p class="Pp"><b>tkdiff</b></p>
+<div class="Bd-indent">Use TkDiff (requires a graphical session)</div>
+<p class="Pp"><b>tortoisemerge</b></p>
+<div class="Bd-indent">Use TortoiseMerge (requires a graphical session)</div>
+<p class="Pp"><b>vimdiff</b></p>
+<div class="Bd-indent">Use Vim with a custom layout (see <b>git help
+  mergetool</b>'s <b>BACKEND SPECIFIC HINTS</b> section)</div>
+<p class="Pp"><b>vimdiff1</b></p>
+<div class="Bd-indent">Use Vim with a 2 panes layout (LOCAL and REMOTE)</div>
+<p class="Pp"><b>vimdiff2</b></p>
+<div class="Bd-indent">Use Vim with a 3 panes layout (LOCAL, MERGED and
+  REMOTE)</div>
+<p class="Pp"><b>vimdiff3</b></p>
+<div class="Bd-indent">Use Vim where only the MERGED file is shown</div>
+<p class="Pp"><b>winmerge</b></p>
+<div class="Bd-indent">Use WinMerge (requires a graphical session)</div>
+<p class="Pp"><b>xxdiff</b></p>
+<div class="Bd-indent">Use xxdiff (requires a graphical session)</div>
 </div>
 <p class="Pp">merge.verbosity</p>
 <div class="Bd-indent">Controls the amount of output shown by the recursive

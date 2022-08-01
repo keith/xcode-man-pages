@@ -62,12 +62,15 @@
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
 <p class="Pp">Incorporates changes from a remote repository into the current
-    branch. In its default mode, <b>git pull</b> is shorthand for <b>git
-    fetch</b> followed by <b>git merge FETCH_HEAD</b>.</p>
-<p class="Pp">More precisely, <i>git pull</i> runs <i>git fetch</i> with the
-    given parameters and calls <i>git merge</i> to merge the retrieved branch
-    heads into the current branch. With <b>--rebase</b>, it runs <i>git
-    rebase</i> instead of <i>git merge</i>.</p>
+    branch. If the current branch is behind the remote, then by default it will
+    fast-forward the current branch to match the remote. If the current branch
+    and the remote have diverged, the user needs to specify how to reconcile the
+    divergent branches with <b>--rebase</b> or <b>--no-rebase</b> (or the
+    corresponding configuration option in <b>pull.rebase</b>).</p>
+<p class="Pp">More precisely, <b>git pull</b> runs <b>git fetch</b> with the
+    given parameters and then depending on configuration options or command line
+    flags, will call either <b>git rebase</b> or <b>git merge</b> to reconcile
+    diverging branches.</p>
 <p class="Pp">&lt;repository&gt; should be the name of a remote repository as
     passed to <b>git-fetch</b>(1). &lt;refspec&gt; can name an arbitrary remote
     ref (for example, the name of a tag) or even a collection of refs with
@@ -146,7 +149,7 @@
   related to merging</a></h2>
 <p class="Pp">--commit, --no-commit</p>
 <div class="Bd-indent">Perform the merge and commit the result. This option can
-  be used to override --no-commit.
+  be used to override --no-commit. Only useful when merging.
 <p class="Pp">With --no-commit perform the merge and stop just before creating a
     merge commit, to give the user a chance to inspect and further tweak the
     merge result before committing.</p>
@@ -173,21 +176,22 @@
   addition, if the <i>&lt;mode&gt;</i> is given a value of <b>scissors</b>,
   scissors will be appended to <b>MERGE_MSG</b> before being passed on to the
   commit machinery in the case of a merge conflict.</div>
-<p class="Pp">--ff, --no-ff, --ff-only</p>
-<div class="Bd-indent">Specifies how a merge is handled when the merged-in
-  history is already a descendant of the current history. <b>--ff</b> is the
-  default unless merging an annotated (and possibly signed) tag that is not
-  stored in its natural place in the <b>refs/tags/</b> hierarchy, in which case
-  <b>--no-ff</b> is assumed.
+<p class="Pp">--ff-only</p>
+<div class="Bd-indent">Only update to the new history if there is no divergent
+  local history. This is the default when no method for reconciling divergent
+  histories is provided (via the --rebase=* flags).</div>
+<p class="Pp">--ff, --no-ff</p>
+<div class="Bd-indent">When merging rather than rebasing, specifies how a merge
+  is handled when the merged-in history is already a descendant of the current
+  history. If merging is requested, <b>--ff</b> is the default unless merging an
+  annotated (and possibly signed) tag that is not stored in its natural place in
+  the <b>refs/tags/</b> hierarchy, in which case <b>--no-ff</b> is assumed.
 <p class="Pp">With <b>--ff</b>, when possible resolve the merge as a
     fast-forward (only update the branch pointer to match the merged branch; do
     not create a merge commit). When not possible (when the merged-in history is
     not a descendant of the current history), create a merge commit.</p>
 <p class="Pp">With <b>--no-ff</b>, create a merge commit in all cases, even when
     the merge could instead be resolved as a fast-forward.</p>
-<p class="Pp">With <b>--ff-only</b>, resolve the merge as a fast-forward when
-    possible. When not possible, refuse to merge and exit with a non-zero
-    status.</p>
 </div>
 <p class="Pp">-S[&lt;keyid&gt;], --gpg-sign[=&lt;keyid&gt;], --no-gpg-sign</p>
 <div class="Bd-indent">GPG-sign the resulting merge commit. The <b>keyid</b>
@@ -198,7 +202,7 @@
 <p class="Pp">--log[=&lt;n&gt;], --no-log</p>
 <div class="Bd-indent">In addition to branch names, populate the log message
   with one-line descriptions from at most &lt;n&gt; actual commits that are
-  being merged. See also <b>git-fmt-merge-msg</b>(1).
+  being merged. See also <b>git-fmt-merge-msg</b>(1). Only useful when merging.
 <p class="Pp">With --no-log do not list one-line descriptions from the actual
     commits being merged.</p>
 </div>
@@ -231,16 +235,17 @@
 <p class="Pp">With --no-squash perform the merge and commit the result. This
     option can be used to override --squash.</p>
 <p class="Pp">With --squash, --commit is not allowed, and will fail.</p>
+<p class="Pp">Only useful when merging.</p>
 </div>
-<p class="Pp">--no-verify</p>
-<div class="Bd-indent">This option bypasses the pre-merge and commit-msg hooks.
-  See also <b>githooks</b>(5).</div>
+<p class="Pp">--[no-]verify</p>
+<div class="Bd-indent">By default, the pre-merge and commit-msg hooks are run.
+  When <b>--no-verify</b> is given, these are bypassed. See also
+  <b>githooks</b>(5). Only useful when merging.</div>
 <p class="Pp">-s &lt;strategy&gt;, --strategy=&lt;strategy&gt;</p>
 <div class="Bd-indent">Use the given merge strategy; can be supplied more than
   once to specify them in the order they should be tried. If there is no
-  <b>-s</b> option, a built-in list of strategies is used instead (<i>git
-  merge-recursive</i> when merging a single head, <i>git merge-octopus</i>
-  otherwise).</div>
+  <b>-s</b> option, a built-in list of strategies is used instead (<b>ort</b>
+  when merging a single head, <b>octopus</b> otherwise).</div>
 <p class="Pp">-X &lt;option&gt;, --strategy-option=&lt;option&gt;</p>
 <div class="Bd-indent">Pass merge strategy specific option through to the merge
   strategy.</div>
@@ -249,23 +254,27 @@
   merged is signed with a valid key, i.e. a key that has a valid uid: in the
   default trust model, this means the signing key has been signed by a trusted
   key. If the tip commit of the side branch is not signed with a valid key, the
-  merge is aborted.</div>
+  merge is aborted.
+<p class="Pp">Only useful when merging.</p>
+</div>
 <p class="Pp">--summary, --no-summary</p>
 <div class="Bd-indent">Synonyms to --stat and --no-stat; these are deprecated
   and will be removed in the future.</div>
 <p class="Pp">--autostash, --no-autostash</p>
 <div class="Bd-indent">Automatically create a temporary stash entry before the
-  operation begins, and apply it after the operation ends. This means that you
-  can run the operation on a dirty worktree. However, use with care: the final
-  stash application after a successful merge might result in non-trivial
-  conflicts.</div>
+  operation begins, record it in the special ref <b>MERGE_AUTOSTASH</b> and
+  apply it after the operation ends. This means that you can run the operation
+  on a dirty worktree. However, use with care: the final stash application after
+  a successful merge might result in non-trivial conflicts.</div>
 <p class="Pp">--allow-unrelated-histories</p>
 <div class="Bd-indent">By default, <b>git merge</b> command refuses to merge
   histories that do not share a common ancestor. This option can be used to
   override this safety when merging histories of two projects that started their
   lives independently. As that is a very rare occasion, no configuration
-  variable to enable this by default exists and will not be added.</div>
-<p class="Pp">-r, --rebase[=false|true|merges|preserve|interactive]</p>
+  variable to enable this by default exists and will not be added.
+<p class="Pp">Only useful when merging.</p>
+</div>
+<p class="Pp">-r, --rebase[=false|true|merges|interactive]</p>
 <div class="Bd-indent">When true, rebase the current branch on top of the
   upstream branch after fetching. If there is a remote-tracking branch
   corresponding to the upstream branch and the upstream branch was rebased since
@@ -274,11 +283,7 @@
 <p class="Pp">When set to <b>merges</b>, rebase using <b>git rebase
     --rebase-merges</b> so that the local merge commits are included in the
     rebase (see <b>git-rebase</b>(1) for details).</p>
-<p class="Pp">When set to <b>preserve</b> (deprecated in favor of
-    <b>merges</b>), rebase with the <b>--preserve-merges</b> option passed to
-    <b>git rebase</b> so that locally created merge commits will not be
-    flattened.</p>
-<p class="Pp">When false, merge the current branch into the upstream branch.</p>
+<p class="Pp">When false, merge the upstream branch into the current branch.</p>
 <p class="Pp">When <b>interactive</b>, enable the interactive mode of
   rebase.</p>
 <p class="Pp">See <b>pull.rebase</b>, <b>branch.&lt;name&gt;.rebase</b> and
@@ -297,7 +302,7 @@ This is a potentially <i>dangerous</i> mode of operation. It rewrites history,
 </div>
 </div>
 <p class="Pp">--no-rebase</p>
-<div class="Bd-indent">Override earlier --rebase.</div>
+<div class="Bd-indent">This is shorthand for --rebase=false.</div>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="Options_related_to_fetching"><a class="permalink" href="#Options_related_to_fetching">Options
@@ -354,8 +359,17 @@ This is a potentially <i>dangerous</i> mode of operation. It rewrites history,
     the (possibly abbreviated) SHA-1 of a commit. Specifying a glob is
     equivalent to specifying this option multiple times, one for each matching
     ref name.</p>
-<p class="Pp">See also the <b>fetch.negotiationAlgorithm</b> configuration
-    variable documented in <b>git-config</b>(1).</p>
+<p class="Pp">See also the <b>fetch.negotiationAlgorithm</b> and
+    <b>push.negotiate</b> configuration variables documented in
+    <b>git-config</b>(1), and the <b>--negotiate-only</b> option below.</p>
+</div>
+<p class="Pp">--negotiate-only</p>
+<div class="Bd-indent">Do not fetch anything from the server, and instead print
+  the ancestors of the provided <b>--negotiation-tip=*</b> arguments, which we
+  have in common with the server.
+<p class="Pp">This is incompatible with
+    <b>--recurse-submodules=[yes|on-demand]</b>. Internally this is used to
+    implement the <b>push.negotiate</b> option, see <b>git-config</b>(1).</p>
 </div>
 <p class="Pp">--dry-run</p>
 <div class="Bd-indent">Show what would be done, without making any
@@ -693,7 +707,7 @@ There is a difference between listing multiple &lt;refspec&gt; directly on
 <br/>
         [remote &quot;&lt;name&gt;&quot;]
 <br/>
-                url = &lt;url&gt;
+                url = &lt;URL&gt;
 <br/>
                 pushurl = &lt;pushurl&gt;
 <br/>
@@ -703,7 +717,7 @@ There is a difference between listing multiple &lt;refspec&gt; directly on
 </div>
 <p class="Pp"></p>
 <p class="Pp">The <b>&lt;pushurl&gt;</b> is used for pushes only. It is optional
-    and defaults to <b>&lt;url&gt;</b>.</p>
+    and defaults to <b>&lt;URL&gt;</b>.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss">Named file in <b>$GIT_DIR/remotes</b></h2>
@@ -737,10 +751,10 @@ There is a difference between listing multiple &lt;refspec&gt; directly on
 <div class="Bd-indent">
 <pre>
 <br/>
-        &lt;url&gt;#&lt;head&gt;</pre>
+        &lt;URL&gt;#&lt;head&gt;</pre>
 </div>
 <p class="Pp"></p>
-<p class="Pp"><b>&lt;url&gt;</b> is required; <b>#&lt;head&gt;</b> is
+<p class="Pp"><b>&lt;URL&gt;</b> is required; <b>#&lt;head&gt;</b> is
   optional.</p>
 <p class="Pp">Depending on the operation, git will use one of the following
     refspecs, if you don&#x2019;t provide one on the command line.
@@ -772,22 +786,20 @@ There is a difference between listing multiple &lt;refspec&gt; directly on
     <b>-s</b> option. Some strategies can also take their own options, which can
     be passed by giving <b>-X&lt;option&gt;</b> arguments to <b>git merge</b>
     and/or <b>git pull</b>.</p>
-<p class="Pp">resolve</p>
-<div class="Bd-indent">This can only resolve two heads (i.e. the current branch
-  and another branch you pulled from) using a 3-way merge algorithm. It tries to
-  carefully detect criss-cross merge ambiguities and is considered generally
-  safe and fast.</div>
-<p class="Pp">recursive</p>
-<div class="Bd-indent">This can only resolve two heads using a 3-way merge
-  algorithm. When there is more than one common ancestor that can be used for
-  3-way merge, it creates a merged tree of the common ancestors and uses that as
-  the reference tree for the 3-way merge. This has been reported to result in
-  fewer merge conflicts without causing mismerges by tests done on actual merge
-  commits taken from Linux 2.6 kernel development history. Additionally this can
-  detect and handle merges involving renames, but currently cannot make use of
-  detected copies. This is the default merge strategy when pulling or merging
-  one branch.
-<p class="Pp">The <i>recursive</i> strategy can take the following options:</p>
+<p class="Pp">ort</p>
+<div class="Bd-indent">This is the default merge strategy when pulling or
+  merging one branch. This strategy can only resolve two heads using a 3-way
+  merge algorithm. When there is more than one common ancestor that can be used
+  for 3-way merge, it creates a merged tree of the common ancestors and uses
+  that as the reference tree for the 3-way merge. This has been reported to
+  result in fewer merge conflicts without causing mismerges by tests done on
+  actual merge commits taken from Linux 2.6 kernel development history.
+  Additionally this strategy can detect and handle merges involving renames. It
+  does not make use of detected copies. The name for this algorithm is an
+  acronym (&quot;Ostensibly Recursive&#x2019;s Twin&quot;) and came from the
+  fact that it was written as a replacement for the previous default algorithm,
+  <b>recursive</b>.
+<p class="Pp">The <i>ort</i> strategy can take the following options:</p>
 <p class="Pp">ours</p>
 <div class="Bd-indent">This option forces conflicting hunks to be auto-resolved
   cleanly by favoring <i>our</i> version. Changes from the other tree that do
@@ -802,17 +814,6 @@ There is a difference between listing multiple &lt;refspec&gt; directly on
 <div class="Bd-indent">This is the opposite of <i>ours</i>; note that, unlike
   <i>ours</i>, there is no <i>theirs</i> merge strategy to confuse this merge
   option with.</div>
-<p class="Pp">patience</p>
-<div class="Bd-indent">With this option, <i>merge-recursive</i> spends a little
-  extra time to avoid mismerges that sometimes occur due to unimportant matching
-  lines (e.g., braces from distinct functions). Use this when the branches to be
-  merged have diverged wildly. See also <b>git-diff</b>(1)
-  <b>--patience</b>.</div>
-<p class="Pp">diff-algorithm=[patience|minimal|histogram|myers]</p>
-<div class="Bd-indent">Tells <i>merge-recursive</i> to use a different diff
-  algorithm, which can help avoid mismerges that occur due to unimportant
-  matching lines (such as braces from distinct functions). See also
-  <b>git-diff</b>(1) <b>--diff-algorithm</b>.</div>
 <p class="Pp">ignore-space-change, ignore-all-space, ignore-space-at-eol,
     ignore-cr-at-eol</p>
 <div class="Bd-indent">Treats lines with the indicated type of whitespace change
@@ -841,10 +842,6 @@ There is a difference between listing multiple &lt;refspec&gt; directly on
 <p class="Pp">no-renormalize</p>
 <div class="Bd-indent">Disables the <b>renormalize</b> option. This overrides
   the <b>merge.renormalize</b> configuration variable.</div>
-<p class="Pp">no-renames</p>
-<div class="Bd-indent">Turn off rename detection. This overrides the
-  <b>merge.renames</b> configuration variable. See also <b>git-diff</b>(1)
-  <b>--no-renames</b>.</div>
 <p class="Pp">find-renames[=&lt;n&gt;]</p>
 <div class="Bd-indent">Turn on rename detection, optionally setting the
   similarity threshold. This is the default. This overrides the
@@ -860,6 +857,40 @@ There is a difference between listing multiple &lt;refspec&gt; directly on
   (or stripped from the beginning) to make the shape of two trees to
   match.</div>
 </div>
+<p class="Pp">recursive</p>
+<div class="Bd-indent">This can only resolve two heads using a 3-way merge
+  algorithm. When there is more than one common ancestor that can be used for
+  3-way merge, it creates a merged tree of the common ancestors and uses that as
+  the reference tree for the 3-way merge. This has been reported to result in
+  fewer merge conflicts without causing mismerges by tests done on actual merge
+  commits taken from Linux 2.6 kernel development history. Additionally this can
+  detect and handle merges involving renames. It does not make use of detected
+  copies. This was the default strategy for resolving two heads from Git
+  v0.99.9k until v2.33.0.
+<p class="Pp">The <i>recursive</i> strategy takes the same options as
+    <i>ort</i>. However, there are three additional options that <i>ort</i>
+    ignores (not documented above) that are potentially useful with the
+    <i>recursive</i> strategy:</p>
+<p class="Pp">patience</p>
+<div class="Bd-indent">Deprecated synonym for
+  <b>diff-algorithm=patience</b>.</div>
+<p class="Pp">diff-algorithm=[patience|minimal|histogram|myers]</p>
+<div class="Bd-indent">Use a different diff algorithm while merging, which can
+  help avoid mismerges that occur due to unimportant matching lines (such as
+  braces from distinct functions). See also <b>git-diff</b>(1)
+  <b>--diff-algorithm</b>. Note that <b>ort</b> specifically uses
+  <b>diff-algorithm=histogram</b>, while <b>recursive</b> defaults to the
+  <b>diff.algorithm</b> config setting.</div>
+<p class="Pp">no-renames</p>
+<div class="Bd-indent">Turn off rename detection. This overrides the
+  <b>merge.renames</b> configuration variable. See also <b>git-diff</b>(1)
+  <b>--no-renames</b>.</div>
+</div>
+<p class="Pp">resolve</p>
+<div class="Bd-indent">This can only resolve two heads (i.e. the current branch
+  and another branch you pulled from) using a 3-way merge algorithm. It tries to
+  carefully detect criss-cross merge ambiguities. It does not handle
+  renames.</div>
 <p class="Pp">octopus</p>
 <div class="Bd-indent">This resolves cases with more than two heads, but refuses
   to do a complex merge that needs manual resolution. It is primarily meant to
@@ -872,17 +903,17 @@ There is a difference between listing multiple &lt;refspec&gt; directly on
   development history of side branches. Note that this is different from the
   -Xours option to the <i>recursive</i> merge strategy.</div>
 <p class="Pp">subtree</p>
-<div class="Bd-indent">This is a modified recursive strategy. When merging trees
-  A and B, if B corresponds to a subtree of A, B is first adjusted to match the
-  tree structure of A, instead of reading the trees at the same level. This
-  adjustment is also done to the common ancestor tree.</div>
+<div class="Bd-indent">This is a modified <b>ort</b> strategy. When merging
+  trees A and B, if B corresponds to a subtree of A, B is first adjusted to
+  match the tree structure of A, instead of reading the trees at the same level.
+  This adjustment is also done to the common ancestor tree.</div>
 <p class="Pp">With the strategies that use 3-way merge (including the default,
-    <i>recursive</i>), if a change is made on both branches, but later reverted
-    on one of the branches, that change will be present in the merged result;
-    some people find this behavior confusing. It occurs because only the heads
-    and the merge base are considered when performing a merge, not the
-    individual commits. The merge algorithm therefore considers the reverted
-    change as no change at all, and substitutes the changed version instead.</p>
+    <i>ort</i>), if a change is made on both branches, but later reverted on one
+    of the branches, that change will be present in the merged result; some
+    people find this behavior confusing. It occurs because only the heads and
+    the merge base are considered when performing a merge, not the individual
+    commits. The merge algorithm therefore considers the reverted change as no
+    change at all, and substitutes the changed version instead.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DEFAULT_BEHAVIOUR"><a class="permalink" href="#DEFAULT_BEHAVIOUR">DEFAULT

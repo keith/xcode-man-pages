@@ -138,8 +138,17 @@
     the (possibly abbreviated) SHA-1 of a commit. Specifying a glob is
     equivalent to specifying this option multiple times, one for each matching
     ref name.</p>
-<p class="Pp">See also the <b>fetch.negotiationAlgorithm</b> configuration
-    variable documented in <b>git-config</b>(1).</p>
+<p class="Pp">See also the <b>fetch.negotiationAlgorithm</b> and
+    <b>push.negotiate</b> configuration variables documented in
+    <b>git-config</b>(1), and the <b>--negotiate-only</b> option below.</p>
+</div>
+<p class="Pp">--negotiate-only</p>
+<div class="Bd-indent">Do not fetch anything from the server, and instead print
+  the ancestors of the provided <b>--negotiation-tip=*</b> arguments, which we
+  have in common with the server.
+<p class="Pp">This is incompatible with
+    <b>--recurse-submodules=[yes|on-demand]</b>. Internally this is used to
+    implement the <b>push.negotiate</b> option, see <b>git-config</b>(1).</p>
 </div>
 <p class="Pp">--dry-run</p>
 <div class="Bd-indent">Show what would be done, without making any
@@ -196,6 +205,13 @@
   option disables this automatic tag following. The default behavior for a
   remote may be specified with the remote.&lt;name&gt;.tagOpt setting. See
   <b>git-config</b>(1).</div>
+<p class="Pp">--refetch</p>
+<div class="Bd-indent">Instead of negotiating with the server to avoid
+  transferring commits and associated objects that are already present locally,
+  this option fetches all objects as a fresh clone would. Use this to reapply a
+  partial clone filter from configuration or using <b>--filter=</b> when the
+  filter definition has changed. Automatic post-fetch maintenance will perform
+  object database pack consolidation to remove any duplicate objects.</div>
 <p class="Pp">--refmap=&lt;refspec&gt;</p>
 <div class="Bd-indent">When fetching refs listed on the command line, use the
   specified refspec (can be given more than once) to map the refs to
@@ -214,15 +230,23 @@
   <b>--prune</b>).</div>
 <p class="Pp">--recurse-submodules[=yes|on-demand|no]</p>
 <div class="Bd-indent">This option controls if and under what conditions new
-  commits of populated submodules should be fetched too. It can be used as a
-  boolean option to completely disable recursion when set to <i>no</i> or to
-  unconditionally recurse into all populated submodules when set to <i>yes</i>,
-  which is the default when this option is used without any value. Use
-  <i>on-demand</i> to only recurse into a populated submodule when the
-  superproject retrieves a commit that updates the submodule&#x2019;s reference
-  to a commit that isn&#x2019;t already in the local submodule clone. By
-  default, <i>on-demand</i> is used, unless <b>fetch.recurseSubmodules</b> is
-  set (see <b>git-config</b>(1)).</div>
+  commits of submodules should be fetched too. When recursing through
+  submodules, <b>git fetch</b> always attempts to fetch &quot;changed&quot;
+  submodules, that is, a submodule that has commits that are referenced by a
+  newly fetched superproject commit but are missing in the local submodule
+  clone. A changed submodule can be fetched as long as it is present locally
+  e.g. in <b>$GIT_DIR/modules/</b> (see <b>gitsubmodules</b>(7)); if the
+  upstream adds a new submodule, that submodule cannot be fetched until it is
+  cloned e.g. by <b>git submodule update</b>.
+<p class="Pp">When set to <i>on-demand</i>, only changed submodules are fetched.
+    When set to <i>yes</i>, all populated submodules are fetched and submodules
+    that are both unpopulated and changed are fetched. When set to <i>no</i>,
+    submodules are never fetched.</p>
+<p class="Pp">When unspecified, this uses the value of
+    <b>fetch.recurseSubmodules</b> if it is set (see <b>git-config</b>(1)),
+    defaulting to <i>on-demand</i> if unset. When this option is used without
+    any value, it defaults to <i>yes</i>.</p>
+</div>
 <p class="Pp">-j, --jobs=&lt;n&gt;</p>
 <div class="Bd-indent">Number of parallel children to be used for all forms of
   fetching.
@@ -524,7 +548,7 @@ When the remote branch you want to fetch is known to be rewound and rebased
 <br/>
         [remote &quot;&lt;name&gt;&quot;]
 <br/>
-                url = &lt;url&gt;
+                url = &lt;URL&gt;
 <br/>
                 pushurl = &lt;pushurl&gt;
 <br/>
@@ -534,7 +558,7 @@ When the remote branch you want to fetch is known to be rewound and rebased
 </div>
 <p class="Pp"></p>
 <p class="Pp">The <b>&lt;pushurl&gt;</b> is used for pushes only. It is optional
-    and defaults to <b>&lt;url&gt;</b>.</p>
+    and defaults to <b>&lt;URL&gt;</b>.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss">Named file in <b>$GIT_DIR/remotes</b></h2>
@@ -568,10 +592,10 @@ When the remote branch you want to fetch is known to be rewound and rebased
 <div class="Bd-indent">
 <pre>
 <br/>
-        &lt;url&gt;#&lt;head&gt;</pre>
+        &lt;URL&gt;#&lt;head&gt;</pre>
 </div>
 <p class="Pp"></p>
-<p class="Pp"><b>&lt;url&gt;</b> is required; <b>#&lt;head&gt;</b> is
+<p class="Pp"><b>&lt;URL&gt;</b> is required; <b>#&lt;head&gt;</b> is
   optional.</p>
 <p class="Pp">Depending on the operation, git will use one of the following
     refspecs, if you don&#x2019;t provide one on the command line.
@@ -665,8 +689,8 @@ $ git remote prune &lt;name&gt;</pre>
     <b>git-config</b>(1).</p>
 <p class="Pp">Here&#x2019;s where things get tricky and more specific. The
     pruning feature doesn&#x2019;t actually care about branches, instead
-    it&#x2019;ll prune local &lt;&#x2192; remote-references as a function of the
-    refspec of the remote (see <b>&lt;refspec&gt;</b> and CONFIGURED
+    it&#x2019;ll prune local &#x2190;&#x2192; remote-references as a function of
+    the refspec of the remote (see <b>&lt;refspec&gt;</b> and CONFIGURED
     REMOTE-TRACKING BRANCHES above).</p>
 <p class="Pp">Therefore if the refspec for the remote includes e.g.
     <b>refs/tags/*:refs/tags/*</b>, or you manually run e.g. <b>git fetch
@@ -846,12 +870,11 @@ $ git log FETCH_HEAD</pre>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
-<p class="Pp">Using --recurse-submodules can only fetch new commits in already
-    checked out submodules right now. When e.g. upstream added a new submodule
-    in the just fetched commits of the superproject the submodule itself cannot
-    be fetched, making it impossible to check out that submodule later without
-    having to do a fetch again. This is expected to be fixed in a future Git
-    version.</p>
+<p class="Pp">Using --recurse-submodules can only fetch new commits in
+    submodules that are present locally e.g. in <b>$GIT_DIR/modules/</b>. If the
+    upstream adds a new submodule, that submodule cannot be fetched until it is
+    cloned e.g. by <b>git submodule update</b>. This is expected to be fixed in
+    a future Git version.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE

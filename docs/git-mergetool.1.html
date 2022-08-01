@@ -173,6 +173,11 @@
   <b>--auto-merge</b> is supported and will only use <b>--auto-merge</b> when
   available. A value of <b>false</b> avoids using <b>--auto-merge</b>
   altogether, and is the default value.</div>
+<p class="Pp">mergetool.vimdiff.layout</p>
+<div class="Bd-indent">The vimdiff backend uses this variable to control how its
+  split windows look like. Applies even if you are using Neovim (<b>nvim</b>) or
+  gVim (<b>gvim</b>) as the merge tool. See BACKEND SPECIFIC HINTS section for
+  details.</div>
 <p class="Pp">mergetool.hideResolved</p>
 <div class="Bd-indent">During a merge Git will automatically resolve as many
   conflicts as possible and write the <i>MERGED</i> file containing conflict
@@ -214,14 +219,241 @@
     as files are successfully merged.</p>
 </section>
 <section class="Sh">
+<h1 class="Sh" id="BACKEND_SPECIFIC_HINTS"><a class="permalink" href="#BACKEND_SPECIFIC_HINTS">BACKEND
+  SPECIFIC HINTS</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="vimdiff"><a class="permalink" href="#vimdiff">vimdiff</a></h2>
+<p class="Pp"><b>Description</b>
+  <br/>
+</p>
+<div class="Bd-indent">
+<p class="Pp">When specifying <b>--tool=vimdiff</b> in <b>git mergetool</b> Git
+    will open Vim with a 4 windows layout distributed in the following way:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>------------------------------------------
+|             |           |              |
+|   LOCAL     |   BASE    |   REMOTE     |
+|             |           |              |
+------------------------------------------
+|                                        |
+|                MERGED                  |
+|                                        |
+------------------------------------------</pre>
+</div>
+<p class="Pp"><b>LOCAL</b>, <b>BASE</b> and <b>REMOTE</b> are read-only buffers
+    showing the contents of the conflicting file in specific commits
+    (&quot;commit you are merging into&quot;, &quot;common ancestor commit&quot;
+    and &quot;commit you are merging from&quot; respectively)</p>
+<p class="Pp"><b>MERGED</b> is a writable buffer where you have to resolve the
+    conflicts (using the other read-only buffers as a reference). Once you are
+    done, save and exit Vim as usual (<b>:wq</b>) or, if you want to abort, exit
+    using <b>:cq</b>.</p>
+</div>
+<p class="Pp"><b>Layout configuration</b>
+  <br/>
+</p>
+<div class="Bd-indent">
+<p class="Pp">You can change the windows layout used by Vim by setting
+    configuration variable <b>mergetool.vimdiff.layout</b> which accepts a
+    string where the following separators have special meaning:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>+</b> is used to &quot;open a new
+  tab&quot;</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>,</b> is used to &quot;open a new vertical
+  split&quot;</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>/</b> is used to &quot;open a new horizontal
+  split&quot;</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>@</b> is used to indicate which is the file
+  containing the final version after solving the conflicts. If not present,
+  <b>MERGED</b> will be used by default.</div>
+<p class="Pp">The precedence of the operators is this one (you can use
+    parentheses to change it):</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>`@` &gt; `+` &gt; `/` &gt; `,`</pre>
+</div>
+<p class="Pp">Let&#x2019;s see some examples to understand how it works:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>layout =
+  &quot;(LOCAL,BASE,REMOTE)/MERGED&quot;</b>
+<p class="Pp">This is exactly the same as the default layout we have already
+    seen.</p>
+<p class="Pp">Note that <b>/</b> has precedence over <b>,</b> and thus the
+    parenthesis are not needed in this case. The next layout definition is
+    equivalent:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>layout = &quot;LOCAL,BASE,REMOTE / MERGED&quot;</pre>
+</div>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>layout = &quot;LOCAL,MERGED,REMOTE&quot;</b>
+<p class="Pp">If, for some reason, we are not interested in the <b>BASE</b>
+    buffer.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>------------------------------------------
+|             |           |              |
+|             |           |              |
+|   LOCAL     |   MERGED  |   REMOTE     |
+|             |           |              |
+|             |           |              |
+------------------------------------------</pre>
+</div>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>layout = &quot;MERGED&quot;</b>
+<p class="Pp">Only the <b>MERGED</b> buffer will be shown. Note, however, that
+    all the other ones are still loaded in vim, and you can access them with the
+    &quot;buffers&quot; command.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>------------------------------------------
+|                                        |
+|                                        |
+|                 MERGED                 |
+|                                        |
+|                                        |
+------------------------------------------</pre>
+</div>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>layout = &quot;@LOCAL,REMOTE&quot;</b>
+<p class="Pp">When <b>MERGED</b> is not present in the layout, you must
+    &quot;mark&quot; one of the buffers with an asterisk. That will become the
+    buffer you need to edit and save after resolving the conflicts.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>------------------------------------------
+|                   |                    |
+|                   |                    |
+|                   |                    |
+|     LOCAL         |    REMOTE          |
+|                   |                    |
+|                   |                    |
+|                   |                    |
+------------------------------------------</pre>
+</div>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>layout = &quot;LOCAL,BASE,REMOTE / MERGED +
+  BASE,LOCAL + BASE,REMOTE&quot;</b>
+<p class="Pp">Three tabs will open: the first one is a copy of the default
+    layout, while the other two only show the differences between (<b>BASE</b>
+    and <b>LOCAL</b>) and (<b>BASE</b> and <b>REMOTE</b>) respectively.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>------------------------------------------
+| &lt;TAB #1&gt; |  TAB #2  |  TAB #3  |       |
+------------------------------------------
+|             |           |              |
+|   LOCAL     |   BASE    |   REMOTE     |
+|             |           |              |
+------------------------------------------
+|                                        |
+|                MERGED                  |
+|                                        |
+------------------------------------------</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>------------------------------------------
+|  TAB #1  | &lt;TAB #2&gt; |  TAB #3  |       |
+------------------------------------------
+|                   |                    |
+|                   |                    |
+|                   |                    |
+|     BASE          |    LOCAL           |
+|                   |                    |
+|                   |                    |
+|                   |                    |
+------------------------------------------</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>------------------------------------------
+|  TAB #1  |  TAB #2  | &lt;TAB #3&gt; |       |
+------------------------------------------
+|                   |                    |
+|                   |                    |
+|                   |                    |
+|     BASE          |    REMOTE          |
+|                   |                    |
+|                   |                    |
+|                   |                    |
+------------------------------------------</pre>
+</div>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>layout = &quot;LOCAL,BASE,REMOTE / MERGED +
+  BASE,LOCAL + BASE,REMOTE + (LOCAL/BASE/REMOTE),MERGED&quot;</b>
+<p class="Pp">Same as the previous example, but adds a fourth tab with the same
+    information as the first tab, with a different layout.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>---------------------------------------------
+|  TAB #1  |  TAB #2  |  TAB #3  | &lt;TAB #4&gt; |
+---------------------------------------------
+|       LOCAL         |                     |
+|---------------------|                     |
+|       BASE          |        MERGED       |
+|---------------------|                     |
+|       REMOTE        |                     |
+---------------------------------------------</pre>
+</div>
+<p class="Pp">Note how in the third tab definition we need to use parenthesis to
+    make <b>,</b> have precedence over <b>/</b>.</p>
+</div>
+</div>
+<p class="Pp"><b>Variants</b>
+  <br/>
+</p>
+<div class="Bd-indent">
+<p class="Pp">Instead of <b>--tool=vimdiff</b>, you can also use one of these
+    other variants:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>--tool=gvimdiff</b>, to open gVim instead of
+  Vim.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>--tool=nvimdiff</b>, to open Neovim instead of
+  Vim.</div>
+<p class="Pp">When using these variants, in order to specify a custom layout you
+    will have to set configuration variables <b>mergetool.gvimdiff.layout</b>
+    and <b>mergetool.nvimdiff.layout</b> instead of
+    <b>mergetool.vimdiff.layout</b></p>
+<p class="Pp">In addition, for backwards compatibility with previous Git
+    versions, you can also append <b>1</b>, <b>2</b> or <b>3</b> to either
+    <b>vimdiff</b> or any of the variants (ex: <b>vimdiff3</b>,
+    <b>nvimdiff1</b>, etc...) to use a predefined layout. In other words, using
+    <b>--tool=[g,n,]vimdiffx</b> is the same as using
+    <b>--tool=[g,n,]vimdiff</b> and setting configuration variable
+    <b>mergetool.[g,n,]vimdiff.layout</b> to...</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>x=1</b>: <b>&quot;@LOCAL,
+  REMOTE&quot;</b></div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>x=2</b>: <b>&quot;LOCAL, MERGED,
+  REMOTE&quot;</b></div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>x=3</b>: <b>&quot;MERGED&quot;</b></div>
+<p class="Pp">Example: using <b>--tool=gvimdiff2</b> will open <b>gvim</b> with
+    three columns (LOCAL, MERGED and REMOTE).</p>
+</div>
+</section>
+</section>
+<section class="Sh">
 <h1 class="Sh" id="GIT"><a class="permalink" href="#GIT">GIT</a></h1>
 <p class="Pp">Part of the <b>git</b>(1) suite</p>
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">06/06/2021</td>
-    <td class="foot-os">Git 2.32.0</td>
+    <td class="foot-date">06/27/2022</td>
+    <td class="foot-os">Git 2.37.0</td>
   </tr>
 </table>
 </body>

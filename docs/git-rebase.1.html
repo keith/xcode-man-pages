@@ -132,7 +132,8 @@ git rebase master topic</pre>
     <b>topic</b> will remain the checked-out branch.</p>
 <p class="Pp">If the upstream branch already contains a change you have made
     (e.g., because you mailed a patch which was applied upstream), then that
-    commit will be skipped. For example, running <b>git rebase master</b> on the
+    commit will be skipped and warnings will be issued (if the <b>merge</b>
+    backend is used). For example, running <b>git rebase master</b> on the
     following history (in which <b>A'</b> and <b>A</b> introduce the same set of
     changes, but have different committer information):</p>
 <p class="Pp"></p>
@@ -300,9 +301,10 @@ git rebase master topic</pre>
 </div>
 <p class="Pp">--keep-base</p>
 <div class="Bd-indent">Set the starting point at which to create the new commits
-  to the merge base of &lt;upstream&gt; &lt;branch&gt;. Running <i>git rebase
-  --keep-base &lt;upstream&gt; &lt;branch&gt;</i> is equivalent to running
-  <i>git rebase --onto &lt;upstream&gt;... &lt;upstream&gt;</i>.
+  to the merge base of &lt;upstream&gt; and &lt;branch&gt;. Running <i>git
+  rebase --keep-base &lt;upstream&gt; &lt;branch&gt;</i> is equivalent to
+  running <i>git rebase --onto &lt;upstream&gt;...&lt;branch&gt;
+  &lt;upstream&gt; &lt;branch&gt;</i>.
 <p class="Pp">This option is useful in the case where one is developing a
     feature on top of an upstream branch. While the feature is being worked on,
     the upstream branch may advance and it may not be the best idea to keep
@@ -377,7 +379,11 @@ git rebase master topic</pre>
 <p class="Pp">By default (or if <b>--no-reapply-cherry-picks</b> is given),
     these commits will be automatically dropped. Because this necessitates
     reading all upstream commits, this can be expensive in repos with a large
-    number of upstream commits that need to be read.</p>
+    number of upstream commits that need to be read. When using the <b>merge</b>
+    backend, warnings will be issued for each dropped commit (unless
+    <b>--quiet</b> is given). Advice will also be issued unless
+    <b>advice.skippedCherryPicks</b> is set to false (see
+  <b>git-config</b>(1)).</p>
 <p class="Pp"><b>--reapply-cherry-picks</b> allows rebase to forgo reading all
     upstream commits, potentially improving performance.</p>
 <p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
@@ -399,9 +405,7 @@ git rebase master topic</pre>
   rebase is stopped because of conflicts. This is the equivalent of <b>git show
   REBASE_HEAD</b>.</div>
 <p class="Pp">-m, --merge</p>
-<div class="Bd-indent">Use merging strategies to rebase. When the recursive
-  (default) merge strategy is used, this allows rebase to be aware of renames on
-  the upstream side. This is the default.
+<div class="Bd-indent">Using merging strategies to rebase (default).
 <p class="Pp">Note that a rebase merge works by replaying each commit from the
     working branch on top of the &lt;upstream&gt; branch. Because of this, when
     a merge conflict happens, the side reported as <i>ours</i> is the so-far
@@ -410,8 +414,8 @@ git rebase master topic</pre>
 <p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
 </div>
 <p class="Pp">-s &lt;strategy&gt;, --strategy=&lt;strategy&gt;</p>
-<div class="Bd-indent">Use the given merge strategy. If there is no <b>-s</b>
-  option <i>git merge-recursive</i> is used instead. This implies --merge.
+<div class="Bd-indent">Use the given merge strategy, instead of the default
+  <b>ort</b>. This implies <b>--merge</b>.
 <p class="Pp">Because <i>git rebase</i> replays each commit from the working
     branch on top of the &lt;upstream&gt; branch using the given strategy, using
     the <i>ours</i> strategy simply empties all patches from the &lt;branch&gt;,
@@ -422,8 +426,8 @@ git rebase master topic</pre>
     --strategy-option=&lt;strategy-option&gt;</p>
 <div class="Bd-indent">Pass the &lt;strategy-option&gt; through to the merge
   strategy. This implies <b>--merge</b> and, if no strategy has been specified,
-  <b>-s recursive</b>. Note the reversal of <i>ours</i> and <i>theirs</i> as
-  noted above for the <b>-m</b> option.
+  <b>-s ort</b>. Note the reversal of <i>ours</i> and <i>theirs</i> as noted
+  above for the <b>-m</b> option.
 <p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
 </div>
 <p class="Pp">--rerere-autoupdate, --no-rerere-autoupdate</p>
@@ -480,7 +484,8 @@ git rebase master topic</pre>
     If <i>fork_point</i> ends up being empty, the &lt;upstream&gt; will be used
     as a fallback.</p>
 <p class="Pp">If &lt;upstream&gt; is given on the command line, then the default
-    is <b>--no-fork-point</b>, otherwise the default is <b>--fork-point</b>.</p>
+    is <b>--no-fork-point</b>, otherwise the default is <b>--fork-point</b>. See
+    also <b>rebase.forkpoint</b> in <b>git-config</b>(1).</p>
 <p class="Pp">If your branch was based on &lt;upstream&gt; but &lt;upstream&gt;
     was rewound and your branch contains commits which were dropped, this option
     can be used with <b>--keep-base</b> in order to drop those commits from your
@@ -545,24 +550,10 @@ git rebase master topic</pre>
     ancestry by default. If the <b>rebase-cousins</b> mode is turned on, such
     commits are instead rebased onto <b>&lt;upstream&gt;</b> (or
     <b>&lt;onto&gt;</b>, if specified).</p>
-<p class="Pp">The <b>--rebase-merges</b> mode is similar in spirit to the
-    deprecated <b>--preserve-merges</b> but works with interactive rebases,
-    where commits can be reordered, inserted and dropped at will.</p>
 <p class="Pp">It is currently only possible to recreate the merge commits using
-    the <b>recursive</b> merge strategy; Different merge strategies can be used
-    only via explicit <b>exec git merge -s &lt;strategy&gt; [...]</b>
-  commands.</p>
+    the <b>ort</b> merge strategy; different merge strategies can be used only
+    via explicit <b>exec git merge -s &lt;strategy&gt; [...]</b> commands.</p>
 <p class="Pp">See also REBASING MERGES and INCOMPATIBLE OPTIONS below.</p>
-</div>
-<p class="Pp">-p, --preserve-merges</p>
-<div class="Bd-indent">[DEPRECATED: use <b>--rebase-merges</b> instead] Recreate
-  merge commits instead of flattening the history by replaying commits a merge
-  commit introduces. Merge conflict resolutions or manual amendments to merge
-  commits are not preserved.
-<p class="Pp">This uses the <b>--interactive</b> machinery internally, but
-    combining it with the <b>--interactive</b> option explicitly is generally
-    not a good idea unless you know what you are doing (see BUGS below).</p>
-<p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
 </div>
 <p class="Pp">-x &lt;cmd&gt;, --exec &lt;cmd&gt;</p>
 <div class="Bd-indent">Append &quot;exec &lt;cmd&gt;&quot; after each line
@@ -592,9 +583,7 @@ git rebase master topic</pre>
   of limiting them with an &lt;upstream&gt;. This allows you to rebase the root
   commit(s) on a branch. When used with --onto, it will skip changes already
   contained in &lt;newbase&gt; (instead of &lt;upstream&gt;) whereas without
-  --onto it will operate on every change. When used together with both --onto
-  and --preserve-merges, <i>all</i> root commits will be rewritten to have
-  &lt;newbase&gt; as parent instead.
+  --onto it will operate on every change.
 <p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
 </div>
 <p class="Pp">--autosquash, --no-autosquash</p>
@@ -658,8 +647,6 @@ git rebase master topic</pre>
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;--rebase-merges</div>
 <p class="Pp"></p>
-<div class="Bd-indent">&#x2022;--preserve-merges</div>
-<p class="Pp"></p>
 <div class="Bd-indent">&#x2022;--interactive</div>
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;--exec</div>
@@ -674,21 +661,6 @@ git rebase master topic</pre>
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;--root when used in combination with --onto</div>
 <p class="Pp">In addition, the following pairs of options are incompatible:</p>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;--preserve-merges and --interactive</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;--preserve-merges and --signoff</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;--preserve-merges and --rebase-merges</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;--preserve-merges and --empty=</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;--preserve-merges and --ignore-whitespace</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;--preserve-merges and
-  --committer-date-is-author-date</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;--preserve-merges and --ignore-date</div>
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;--keep-base and --onto</div>
 <p class="Pp"></p>
@@ -764,10 +736,10 @@ git rebase master topic</pre>
     about the rebased commits and their parents (and instead generates new fake
     commits based off limited information in the generated patches), those
     commits cannot be identified; instead it has to fall back to a commit
-    summary. Also, when merge.conflictStyle is set to diff3, the apply backend
-    will use &quot;constructed merge base&quot; to label the content from the
-    merge base, and thus provide no information about the merge base commit
-    whatsoever.</p>
+    summary. Also, when merge.conflictStyle is set to diff3 or zdiff3, the apply
+    backend will use &quot;constructed merge base&quot; to label the content
+    from the merge base, and thus provide no information about the merge base
+    commit whatsoever.</p>
 <p class="Pp">The merge backend works with the full commits on both sides of
     history and thus has no such limitations.</p>
 </section>
@@ -834,22 +806,20 @@ git rebase master topic</pre>
     <b>-s</b> option. Some strategies can also take their own options, which can
     be passed by giving <b>-X&lt;option&gt;</b> arguments to <b>git merge</b>
     and/or <b>git pull</b>.</p>
-<p class="Pp">resolve</p>
-<div class="Bd-indent">This can only resolve two heads (i.e. the current branch
-  and another branch you pulled from) using a 3-way merge algorithm. It tries to
-  carefully detect criss-cross merge ambiguities and is considered generally
-  safe and fast.</div>
-<p class="Pp">recursive</p>
-<div class="Bd-indent">This can only resolve two heads using a 3-way merge
-  algorithm. When there is more than one common ancestor that can be used for
-  3-way merge, it creates a merged tree of the common ancestors and uses that as
-  the reference tree for the 3-way merge. This has been reported to result in
-  fewer merge conflicts without causing mismerges by tests done on actual merge
-  commits taken from Linux 2.6 kernel development history. Additionally this can
-  detect and handle merges involving renames, but currently cannot make use of
-  detected copies. This is the default merge strategy when pulling or merging
-  one branch.
-<p class="Pp">The <i>recursive</i> strategy can take the following options:</p>
+<p class="Pp">ort</p>
+<div class="Bd-indent">This is the default merge strategy when pulling or
+  merging one branch. This strategy can only resolve two heads using a 3-way
+  merge algorithm. When there is more than one common ancestor that can be used
+  for 3-way merge, it creates a merged tree of the common ancestors and uses
+  that as the reference tree for the 3-way merge. This has been reported to
+  result in fewer merge conflicts without causing mismerges by tests done on
+  actual merge commits taken from Linux 2.6 kernel development history.
+  Additionally this strategy can detect and handle merges involving renames. It
+  does not make use of detected copies. The name for this algorithm is an
+  acronym (&quot;Ostensibly Recursive&#x2019;s Twin&quot;) and came from the
+  fact that it was written as a replacement for the previous default algorithm,
+  <b>recursive</b>.
+<p class="Pp">The <i>ort</i> strategy can take the following options:</p>
 <p class="Pp">ours</p>
 <div class="Bd-indent">This option forces conflicting hunks to be auto-resolved
   cleanly by favoring <i>our</i> version. Changes from the other tree that do
@@ -864,17 +834,6 @@ git rebase master topic</pre>
 <div class="Bd-indent">This is the opposite of <i>ours</i>; note that, unlike
   <i>ours</i>, there is no <i>theirs</i> merge strategy to confuse this merge
   option with.</div>
-<p class="Pp">patience</p>
-<div class="Bd-indent">With this option, <i>merge-recursive</i> spends a little
-  extra time to avoid mismerges that sometimes occur due to unimportant matching
-  lines (e.g., braces from distinct functions). Use this when the branches to be
-  merged have diverged wildly. See also <b>git-diff</b>(1)
-  <b>--patience</b>.</div>
-<p class="Pp">diff-algorithm=[patience|minimal|histogram|myers]</p>
-<div class="Bd-indent">Tells <i>merge-recursive</i> to use a different diff
-  algorithm, which can help avoid mismerges that occur due to unimportant
-  matching lines (such as braces from distinct functions). See also
-  <b>git-diff</b>(1) <b>--diff-algorithm</b>.</div>
 <p class="Pp">ignore-space-change, ignore-all-space, ignore-space-at-eol,
     ignore-cr-at-eol</p>
 <div class="Bd-indent">Treats lines with the indicated type of whitespace change
@@ -903,10 +862,6 @@ git rebase master topic</pre>
 <p class="Pp">no-renormalize</p>
 <div class="Bd-indent">Disables the <b>renormalize</b> option. This overrides
   the <b>merge.renormalize</b> configuration variable.</div>
-<p class="Pp">no-renames</p>
-<div class="Bd-indent">Turn off rename detection. This overrides the
-  <b>merge.renames</b> configuration variable. See also <b>git-diff</b>(1)
-  <b>--no-renames</b>.</div>
 <p class="Pp">find-renames[=&lt;n&gt;]</p>
 <div class="Bd-indent">Turn on rename detection, optionally setting the
   similarity threshold. This is the default. This overrides the
@@ -922,6 +877,40 @@ git rebase master topic</pre>
   (or stripped from the beginning) to make the shape of two trees to
   match.</div>
 </div>
+<p class="Pp">recursive</p>
+<div class="Bd-indent">This can only resolve two heads using a 3-way merge
+  algorithm. When there is more than one common ancestor that can be used for
+  3-way merge, it creates a merged tree of the common ancestors and uses that as
+  the reference tree for the 3-way merge. This has been reported to result in
+  fewer merge conflicts without causing mismerges by tests done on actual merge
+  commits taken from Linux 2.6 kernel development history. Additionally this can
+  detect and handle merges involving renames. It does not make use of detected
+  copies. This was the default strategy for resolving two heads from Git
+  v0.99.9k until v2.33.0.
+<p class="Pp">The <i>recursive</i> strategy takes the same options as
+    <i>ort</i>. However, there are three additional options that <i>ort</i>
+    ignores (not documented above) that are potentially useful with the
+    <i>recursive</i> strategy:</p>
+<p class="Pp">patience</p>
+<div class="Bd-indent">Deprecated synonym for
+  <b>diff-algorithm=patience</b>.</div>
+<p class="Pp">diff-algorithm=[patience|minimal|histogram|myers]</p>
+<div class="Bd-indent">Use a different diff algorithm while merging, which can
+  help avoid mismerges that occur due to unimportant matching lines (such as
+  braces from distinct functions). See also <b>git-diff</b>(1)
+  <b>--diff-algorithm</b>. Note that <b>ort</b> specifically uses
+  <b>diff-algorithm=histogram</b>, while <b>recursive</b> defaults to the
+  <b>diff.algorithm</b> config setting.</div>
+<p class="Pp">no-renames</p>
+<div class="Bd-indent">Turn off rename detection. This overrides the
+  <b>merge.renames</b> configuration variable. See also <b>git-diff</b>(1)
+  <b>--no-renames</b>.</div>
+</div>
+<p class="Pp">resolve</p>
+<div class="Bd-indent">This can only resolve two heads (i.e. the current branch
+  and another branch you pulled from) using a 3-way merge algorithm. It tries to
+  carefully detect criss-cross merge ambiguities. It does not handle
+  renames.</div>
 <p class="Pp">octopus</p>
 <div class="Bd-indent">This resolves cases with more than two heads, but refuses
   to do a complex merge that needs manual resolution. It is primarily meant to
@@ -934,17 +923,17 @@ git rebase master topic</pre>
   development history of side branches. Note that this is different from the
   -Xours option to the <i>recursive</i> merge strategy.</div>
 <p class="Pp">subtree</p>
-<div class="Bd-indent">This is a modified recursive strategy. When merging trees
-  A and B, if B corresponds to a subtree of A, B is first adjusted to match the
-  tree structure of A, instead of reading the trees at the same level. This
-  adjustment is also done to the common ancestor tree.</div>
+<div class="Bd-indent">This is a modified <b>ort</b> strategy. When merging
+  trees A and B, if B corresponds to a subtree of A, B is first adjusted to
+  match the tree structure of A, instead of reading the trees at the same level.
+  This adjustment is also done to the common ancestor tree.</div>
 <p class="Pp">With the strategies that use 3-way merge (including the default,
-    <i>recursive</i>), if a change is made on both branches, but later reverted
-    on one of the branches, that change will be present in the merged result;
-    some people find this behavior confusing. It occurs because only the heads
-    and the merge base are considered when performing a merge, not the
-    individual commits. The merge algorithm therefore considers the reverted
-    change as no change at all, and substitutes the changed version instead.</p>
+    <i>ort</i>), if a change is made on both branches, but later reverted on one
+    of the branches, that change will be present in the merged result; some
+    people find this behavior confusing. It occurs because only the heads and
+    the merge base are considered when performing a merge, not the individual
+    commits. The merge algorithm therefore considers the reverted change as no
+    change at all, and substitutes the changed version instead.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
@@ -1384,13 +1373,16 @@ merge -C 6f5e4d report-a-bug # Merge 'report-a-bug'</pre>
 <p class="Pp">If a <b>merge</b> command fails for any reason other than merge
     conflicts (i.e. when the merge operation did not even start), it is
     rescheduled immediately.</p>
-<p class="Pp">At this time, the <b>merge</b> command will <b>always</b> use the
-    <b>recursive</b> merge strategy for regular merges, and <b>octopus</b> for
-    octopus merges, with no way to choose a different one. To work around this,
-    an <b>exec</b> command can be used to call <b>git merge</b> explicitly,
-    using the fact that the labels are worktree-local refs (the ref
-    <b>refs/rewritten/onto</b> would correspond to the label <b>onto</b>, for
-    example).</p>
+<p class="Pp">By default, the <b>merge</b> command will use the <b>ort</b> merge
+    strategy for regular merges, and <b>octopus</b> for octopus merges. One can
+    specify a default strategy for all merges using the <b>--strategy</b>
+    argument when invoking rebase, or can override specific merges in the
+    interactive list of commands by using an <b>exec</b> command to call <b>git
+    merge</b> explicitly with a <b>--strategy</b> argument. Note that when
+    calling <b>git merge</b> explicitly like this, you can make use of the fact
+    that the labels are worktree-local refs (the ref <b>refs/rewritten/onto</b>
+    would correspond to the label <b>onto</b>, for example) in order to refer to
+    the branches you want to merge.</p>
 <p class="Pp">Note: the first command (<b>label onto</b>) labels the revision
     onto which the commits are rebased; The name <b>onto</b> is just a
     convention, as a nod to the <b>--onto</b> option.</p>
@@ -1502,39 +1494,6 @@ merge cmake</pre>
   when it is used. It can be overridden by the <b>GIT_SEQUENCE_EDITOR</b>
   environment variable. When not configured the default commit message editor is
   used instead.</div>
-</section>
-<section class="Sh">
-<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
-<p class="Pp">The todo list presented by the deprecated <b>--preserve-merges
-    --interactive</b> does not represent the topology of the revision graph (use
-    <b>--rebase-merges</b> instead). Editing commits and rewording their commit
-    messages should work fine, but attempts to reorder commits tend to produce
-    counterintuitive results. Use <b>--rebase-merges</b> in such scenarios
-    instead.</p>
-<p class="Pp">For example, an attempt to rearrange</p>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre>1 --- 2 --- 3 --- 4 --- 5</pre>
-</div>
-<p class="Pp"></p>
-<p class="Pp">to</p>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre>1 --- 2 --- 4 --- 3 --- 5</pre>
-</div>
-<p class="Pp"></p>
-<p class="Pp">by moving the &quot;pick 4&quot; line will result in the following
-    history:</p>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre>
-<br/>
-        3
-<br/>
-       /
-1 --- 2 --- 4 --- 5</pre>
-</div>
-<p class="Pp"></p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="GIT"><a class="permalink" href="#GIT">GIT</a></h1>
