@@ -35,7 +35,7 @@
    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
    THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   
-   $OpenBSD: sshd.8,v 1.318 2022/03/31 17:27:27 naddy Exp $
+   $OpenBSD: sshd.8,v 1.314 2021/04/03 05:46:41 djm Exp $
  -->
 <head>
 
@@ -102,8 +102,9 @@
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
 <p class="Pp"><code class="Nm">sshd</code> (OpenSSH Daemon) is the daemon
-    program for <a class="Xr">ssh(1)</a>. It provides secure encrypted
-    communications between two untrusted hosts over an insecure network.</p>
+    program for <a class="Xr">ssh(1)</a>. Together these programs replace rlogin
+    and rsh, and provide secure encrypted communications between two untrusted
+    hosts over an insecure network.</p>
 <p class="Pp"><code class="Nm">sshd</code> listens for connections from clients.
     It is normally started at boot from <span class="Pa">/etc/rc</span>. It
     forks a new daemon for each incoming connection. The forked daemons handle
@@ -132,7 +133,7 @@
       output. The connection parameters are supplied as keyword=value pairs and
       may be supplied in any order, either with multiple
       <code class="Fl">-C</code> options or as a comma-separated list. The
-      keywords are &#x201C;addr&#x201D;, &#x201C;user&#x201D;,
+      keywords are &#x201C;addr,&#x201D; &#x201C;user&#x201D;,
       &#x201C;host&#x201D;, &#x201C;laddr&#x201D;, &#x201C;lport&#x201D;, and
       &#x201C;rdomain&#x201D; and correspond to source address, user, resolved
       source host name, local address, local port number and routing domain
@@ -150,11 +151,10 @@
       <code class="Nm">sshd</code>.</dd>
   <dt id="d"><a class="permalink" href="#d"><code class="Fl">-d</code></a></dt>
   <dd>Debug mode. The server sends verbose debug output to standard error, and
-      does not put itself in the background. The server also will not
-      <a class="Xr">fork(2)</a> and will only process one connection. This
-      option is only intended for debugging for the server. Multiple
-      <code class="Fl">-d</code> options increase the debugging level. Maximum
-      is 3.</dd>
+      does not put itself in the background. The server also will not fork and
+      will only process one connection. This option is only intended for
+      debugging for the server. Multiple <code class="Fl">-d</code> options
+      increase the debugging level. Maximum is 3.</dd>
   <dt id="E"><a class="permalink" href="#E"><code class="Fl">-E</code></a>
     <var class="Ar">log_file</var></dt>
   <dd>Append debug logs to <var class="Ar">log_file</var> instead of the system
@@ -267,10 +267,8 @@
     like allocating a pseudo-tty, forwarding X11 connections, forwarding TCP
     connections, or forwarding the authentication agent connection over the
     secure channel.</p>
-<p class="Pp">After this, the client either requests an interactive shell or
-    execution or a non-interactive command, which <code class="Nm">sshd</code>
-    will execute via the user's shell using its <code class="Fl">-c</code>
-    option. The sides then enter session mode. In this mode, either side may
+<p class="Pp">After this, the client either requests a shell or execution of a
+    command. The sides then enter session mode. In this mode, either side may
     send data at any time, and such data is forwarded to/from the shell or
     command on the server side, and the user terminal in the client side.</p>
 <p class="Pp">When the user program terminates and all forwarded X11 and other
@@ -300,10 +298,9 @@
   <li>If <span class="Pa">~/.ssh/rc</span> exists and the
       <a class="Xr">sshd_config(5)</a> <code class="Cm">PermitUserRC</code>
       option is set, runs it; else if <span class="Pa">/etc/ssh/sshrc</span>
-      exists, runs it; otherwise runs <a class="Xr">xauth(1)</a>. The
-      &#x201C;rc&#x201D; files are given the X11 authentication protocol and
-      cookie in standard input. See <a class="Sx" href="#SSHRC">SSHRC</a>,
-      below.</li>
+      exists, runs it; otherwise runs xauth. The &#x201C;rc&#x201D; files are
+      given the X11 authentication protocol and cookie in standard input. See
+      <a class="Sx" href="#SSHRC">SSHRC</a>, below.</li>
   <li>Runs user's shell or command. All commands are run under the user's login
       shell as specified in the system password database.</li>
 </ol>
@@ -503,8 +500,7 @@ fi</pre>
   <dd>Enable all restrictions, i.e. disable port, agent and X11 forwarding, as
       well as disabling PTY allocation and execution of
       <span class="Pa">~/.ssh/rc</span>. If any future restriction capabilities
-      are added to authorized_keys files, they will be included in this
-    set.</dd>
+      are added to authorized_keys files they will be included in this set.</dd>
   <dt id="tunnel=_n_"><a class="permalink" href="#tunnel=_n_"><code class="Cm">tunnel=&quot;n&quot;</code></a></dt>
   <dd>Force a <a class="Xr">tun(4)</a> device on the server. Without this
       option, the next available device will be used if the client requests a
@@ -518,25 +514,24 @@ fi</pre>
 </dl>
 <p class="Pp">An example authorized_keys file:</p>
 <div class="Bd Pp Bd-indent Li">
-<pre># Comments are allowed at start of line. Blank lines are allowed.
-# Plain key, no restrictions
-ssh-rsa ...
-# Forced command, disable PTY and all forwarding
-restrict,command=&quot;dump /home&quot; ssh-rsa ...
-# Restriction of ssh -L forwarding destinations
-permitopen=&quot;192.0.2.1:80&quot;,permitopen=&quot;192.0.2.2:25&quot; ssh-rsa ...
-# Restriction of ssh -R forwarding listeners
-permitlisten=&quot;localhost:8080&quot;,permitlisten=&quot;[::1]:22000&quot; ssh-rsa ...
-# Configuration for tunnel forwarding
-tunnel=&quot;0&quot;,command=&quot;sh /etc/netstart tun0&quot; ssh-rsa ...
-# Override of restriction to allow PTY allocation
-restrict,pty,command=&quot;nethack&quot; ssh-rsa ...
-# Allow FIDO key without requiring touch
-no-touch-required sk-ecdsa-sha2-nistp256@openssh.com ...
-# Require user-verification (e.g. PIN or biometric) for FIDO key
-verify-required sk-ecdsa-sha2-nistp256@openssh.com ...
-# Trust CA key, allow touch-less FIDO if requested in certificate
-cert-authority,no-touch-required,principals=&quot;user_a&quot; ssh-rsa ...</pre>
+<pre># Comments allowed at start of line
+ssh-rsa AAAAB3Nza...LiPk== user@example.net
+from=&quot;*.sales.example.net,!pc.sales.example.net&quot; ssh-rsa
+AAAAB2...19Q== john@example.net
+command=&quot;dump /home&quot;,no-pty,no-port-forwarding ssh-rsa
+AAAAC3...51R== example.net
+permitopen=&quot;192.0.2.1:80&quot;,permitopen=&quot;192.0.2.2:25&quot; ssh-rsa
+AAAAB5...21S==
+permitlisten=&quot;localhost:8080&quot;,permitopen=&quot;localhost:22000&quot; ssh-rsa
+AAAAB5...21S==
+tunnel=&quot;0&quot;,command=&quot;sh /etc/netstart tun0&quot; ssh-rsa AAAA...==
+jane@example.net
+restrict,command=&quot;uptime&quot; ssh-rsa AAAA1C8...32Tv==
+user@example.net
+restrict,pty,command=&quot;nethack&quot; ssh-rsa AAAA1f8...IrrC5==
+user@example.net
+no-touch-required sk-ecdsa-sha2-nistp256@openssh.com AAAAInN...Ko==
+user@example.net</pre>
 </div>
 </section>
 <section class="Sh">

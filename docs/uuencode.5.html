@@ -1,36 +1,5 @@
 <!DOCTYPE html>
 <html>
-<!-- This is an automatically generated file.  Do not edit.
-   Copyright (c) 1989, 1991, 1993
-  	The Regents of the University of California.  All rights reserved.
-  
-   Redistribution and use in source and binary forms, with or without
-   modification, are permitted provided that the following conditions
-   are met:
-   1. Redistributions of source code must retain the above copyright
-      notice, this list of conditions and the following disclaimer.
-   2. Redistributions in binary form must reproduce the above copyright
-      notice, this list of conditions and the following disclaimer in the
-      documentation and/or other materials provided with the distribution.
-   3. Neither the name of the University nor the names of its contributors
-      may be used to endorse or promote products derived from this software
-      without specific prior written permission.
-  
-   THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
-   ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-   ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
-   FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-   OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-   OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-   SUCH DAMAGE.
-  
-  	@(#)uuencode.format.5	8.2 (Berkeley) 1/12/94
-   $FreeBSD$
-   -->
 <head>
 
 <style>
@@ -59,69 +28,107 @@
     code.Nm, .Fl, .Cm, .Ic, code.In, .Fd, .Fn, .Cd { font-weight: bold;
       font-family: inherit; }
   </style>
-  <title>UUENCODE(5)</title>
+  <title>uuencode(5)</title>
 </head>
 <body>
 <table class="head">
   <tr>
-    <td class="head-ltitle">UUENCODE(5)</td>
+    <td class="head-ltitle">uuencode(5)</td>
     <td class="head-vol">File Formats Manual</td>
-    <td class="head-rtitle">UUENCODE(5)</td>
+    <td class="head-rtitle">uuencode(5)</td>
   </tr>
 </table>
 <div class="manual-text">
 <section class="Sh">
 <h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
-<p class="Pp"><code class="Nm">uuencode</code> &#x2014; <span class="Nd">format
-    of an encoded uuencode file</span></p>
+<p class="Pp">uuencode file format</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
-<p class="Pp">Files output by <a class="Xr">uuencode(1)</a> consist of a header
-    line, followed by a number of body lines, and a trailer line. The
-    <a class="Xr">uudecode(1)</a> command will ignore any lines preceding the
-    header or following the trailer. Lines preceding a header must not, of
-    course, look like a header.</p>
-<p class="Pp" id="begin">The header line is distinguished by having the first 6
-    characters &#x201C;begin&#x00A0;&#x201D; (note the trailing space). The word
-    <a class="permalink" href="#begin"><i class="Em">begin</i></a> is followed
-    by a mode (in octal), and a string which names the remote file. A space
-    separates the three items in the header line.</p>
-<p class="Pp">The body consists of a number of lines, each at most 62 characters
-    long (including the trailing newline). These consist of a character count,
-    followed by encoded characters, followed by a newline. The character count
-    is a single printing character, and represents an integer, the number of
-    bytes the rest of the line represents. Such integers are always in the range
-    from 1 to 45 or 64 and can be determined by subtracting the character space
-    (octal 40) from the character. Character 64 represents a count of zero.</p>
-<p class="Pp">Groups of 3 bytes are stored in 4 characters, 6 bits per
-    character. All characters are always in range from 1 to 64 and are offset by
-    a space (octal 40) to make the characters printing. Character 64 represents
-    a count of zero. The last line may be shorter than the normal 45 bytes. If
-    the size is not a multiple of 3, this fact can be determined by the value of
-    the count on the last line. Extra null characters will be included to make
-    the character count a multiple of 4. The body is terminated by a line with a
-    count of zero. This line consists of one ASCII backquote (octal 140)
-    character.</p>
-<p class="Pp">The trailer line consists of &#x201C;end&#x201D; on a line by
-    itself.</p>
+<p class="Pp">The command generates files in a format that allows them to be
+    successfully transferred by systems which strip the high bit from an 8-bit
+    byte. decodes uuencoded files.</p>
+<p class="Pp"></p>
+<p class="Pp">The uuencode file format consists of three sections: header, body,
+    and trailer. The header is a line is of the form:</p>
+<p class="Pp"></p>
+<p class="Pp">begin 644 &quot;filename.ext&quot;</p>
+<p class="Pp"></p>
+<p class="Pp">where &quot;644&quot; is a -format permissions byte for the file
+    and &quot;filename.ext&quot; is the name of the encoded file.</p>
+<p class="Pp"></p>
+<p class="Pp">The body section is the encoded representation of the source file.
+    Three bytes of input file data are encoded into four bytes of output
+  data.</p>
+<p class="Pp">The 24 input bits are divided up into four pieces of six bits
+    each. The integer value 32 (the ASCII value for the space character) is
+    added to each of these pieces to move them outside of the range of control
+    characters. To avoid using the space character in the encoding, pieces with
+    value zero are encoded using backquote (ASCII value 96) instead of zero. The
+    resulting character is one of the this set (ASCII values 96,33-95):</p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp">A line itself contains three segments: a length character (encoded
+    using the &quot;add a space&quot; algorithm described above), the body of
+    the line, typically (although not required to be) 60 output characters long,
+    representing 45 input bytes, and (of course) a linefeed. The length
+    character specifies the number of valid input bytes on the line (so, for a
+    line which is 60 encoded bytes, the length value would be 45). Decoding
+    programs should decode no further than the specified length on a single
+    line.</p>
+<p class="Pp"></p>
+<p class="Pp">The trailer, which must exist, consists of a single backquote
+    (&quot;`&quot;, ASCII 96) character on a line by itself, directly followed
+    by on a line by itself.</p>
+<p class="Pp"></p>
+<p class="Pp">is the canonical filename extension for uuencoded files.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">uudecode does not read all permutations of the file format
+    described in this man page.</p>
+<p class="Pp"></p>
+<p class="Pp">Ancient versions of uuencode used a space character (ASCII 32) in
+    the encoding to represent zero. Many (arguably broken) mailers and transport
+    agents stripped, rewrapped, or otherwise mangled this format, so the space
+    was later changed to the backquote, ASCII 96. Decoders may attempt to read
+    the older format if they wish, though it's unlikely to be encountered in
+    practice at this point in time.</p>
+<p class="Pp"></p>
+<p class="Pp">The uuencode encoding method is highly ASCII-centric. In
+    particular, the character set used doesn't work well on EBCDIC-based
+    systems. (EBCDIC, generally used by IBM mainframes, is an old alternative
+    character encoding; most computers use ASCII instead).</p>
+<p class="Pp"></p>
+<p class="Pp">Many variants of uuencode on various platforms generate different
+    forms of line checksums, using to represent the checksum one or more encoded
+    characters after the last counted character in a line. Because these formats
+    are different and impossible to distinguish (with certainty), such
+    characters should be ignored by decoding implementations.</p>
+<p class="Pp"></p>
+<p class="Pp">The uuencode encoding format has no provisions for segmented
+    files. Writers of segmenting utilities should be careful to avoid using
+    character sequences that may naturally occur in the encoding (such as
+    sequences of dashes (&quot;---&quot;)) to divide sections.</p>
+<p class="Pp"></p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
-<p class="Pp"><a class="Xr">mail(1)</a>, <a class="Xr">uucp(1)</a>,
-    <a class="Xr">uudecode(1)</a>, <a class="Xr">uuencode(1)</a></p>
-</section>
-<section class="Sh">
-<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
-<p class="Pp">The <code class="Nm">uuencode</code> file format appeared in
-    <span class="Ux">4.0BSD</span>.</p>
+<p class="Pp">The MIME Base64 encoding (documented in RFC 2045) is a consistent,
+    cross-platform-savvy message encoding which should be used in place of
+    UUEncode wherever possible.</p>
+<p class="Pp"></p>
+<p class="Pp">The Unix-Hater's Handbook (IDG, 1994) identifies the folly of the
+    older zero-encoded-as-space versions of uuencode.</p>
+<p class="Pp"></p>
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">January 12, 1994</td>
-    <td class="foot-os">Mac OS X 12</td>
+    <td class="foot-date">May, 2001</td>
+    <td class="foot-os">Apple Computer, Inc.</td>
   </tr>
 </table>
 </body>

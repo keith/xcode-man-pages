@@ -35,14 +35,14 @@
     code.Nm, .Fl, .Cm, .Ic, code.In, .Fd, .Fn, .Cd { font-weight: bold;
       font-family: inherit; }
   </style>
-  <title>CGI::Push(3)</title>
+  <title>CGI::Push(3pm)</title>
 </head>
 <body>
 <table class="head">
   <tr>
-    <td class="head-ltitle">CGI::Push(3)</td>
-    <td class="head-vol">User Contributed Perl Documentation</td>
-    <td class="head-rtitle">CGI::Push(3)</td>
+    <td class="head-ltitle">CGI::Push(3pm)</td>
+    <td class="head-vol">Perl Programmers Reference Guide</td>
+    <td class="head-rtitle">CGI::Push(3pm)</td>
   </tr>
 </table>
 <div class="manual-text">
@@ -53,22 +53,24 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
-<pre>    use strict;
-    use warnings;
-    use CGI::Push qw(:standard);
-    do_push(
-        -next_page =&gt; \&amp;next_page,
-        -last_page =&gt; \&amp;last_page,
-        -delay     =&gt; 0.5
-    );
+<pre>    use CGI::Push qw(:standard);
+    do_push(-next_page=&gt;\&amp;next_page,
+            -last_page=&gt;\&amp;last_page,
+            -delay=&gt;0.5);
     sub next_page {
         my($q,$counter) = @_;
         return undef if $counter &gt;= 10;
-        ....
+        return start_html('Test'),
+               h1('Visible'),&quot;\n&quot;,
+               &quot;This page has been called &quot;, strong($counter),&quot; times&quot;,
+               end_html();
     }
     sub last_page {
         my($q,$counter) = @_;
-        return ...
+        return start_html('Done'),
+               h1('Finished'),
+               strong($counter - 1),' iterations.',
+               end_html;
     }
 </pre>
 </section>
@@ -90,16 +92,16 @@
 <h1 class="Sh" id="USING_CGI::Push"><a class="permalink" href="#USING_CGI::Push">USING
   CGI::Push</a></h1>
 <p class="Pp">CGI::Push adds one new method to the standard CGI suite,
-    <b>do_push()</b>. When you call this method, you pass it a reference to a
+    <i>do_push()</i>. When you call this method, you pass it a reference to a
     subroutine that is responsible for drawing each new page, an interval delay,
     and an optional subroutine for drawing the last page. Other optional
-    parameters include most of those recognized by the CGI <b>header()</b>
+    parameters include most of those recognized by the CGI <i>header()</i>
     method.</p>
-<p class="Pp">You may call <b>do_push()</b> in the object oriented manner or
+<p class="Pp">You may call <i>do_push()</i> in the object oriented manner or
     not, as you prefer:</p>
 <p class="Pp"></p>
 <pre>    use CGI::Push;
-    $q = CGI::Push-&gt;new;
+    $q = new CGI::Push;
     $q-&gt;do_push(-next_page=&gt;\&amp;draw_a_page);
         -or-
     use CGI::Push qw(:standard);
@@ -122,7 +124,9 @@
     <pre>    sub my_draw_routine {
         my($q,$counter) = @_;
         return undef if $counter &gt; 100;
-        ...
+        return start_html('testing'),
+               h1('testing'),
+               &quot;This page called $counter times&quot;;
     }
     </pre>
     <p class="Pp">You are of course free to refer to create and use global
@@ -150,7 +154,7 @@
   <dt id="cookie,"><a class="permalink" href="#cookie,">-cookie, -target,
     -expires, -nph</a></dt>
   <dd>These have the same meaning as the like-named parameters in
-      <b>CGI::header()</b>.
+      <i>CGI::header()</i>.
     <p class="Pp">If not specified, -nph will default to 1 (as needed for many
         servers, see below).</p>
   </dd>
@@ -160,7 +164,7 @@
   Pages</a></h2>
 <p class="Pp">Ordinarily all pages displayed by CGI::Push share a common MIME
     type. However by providing a value of &quot;heterogeneous&quot; or
-    &quot;dynamic&quot; in the <b>do_push()</b> -type parameter, you can specify
+    &quot;dynamic&quot; in the <i>do_push()</i> -type parameter, you can specify
     the MIME type of each page on a case-by-case basis.</p>
 <p class="Pp">If you use this option, you will be responsible for producing the
     HTTP header for each page. Simply modify your draw routine to look like
@@ -169,13 +173,15 @@
 <pre>    sub my_draw_routine {
         my($q,$counter) = @_;
         return header('text/html'),   # note we're producing the header here
-        ....
+               start_html('testing'),
+               h1('testing'),
+               &quot;This page called $counter times&quot;;
     }
 </pre>
 <p class="Pp">You can add any header fields that you like, but some (cookies and
     status fields included) may not be interpreted by the browser. One
     interesting effect is to display a series of pages, then, after the last
-    page, to redirect the browser to a new URL. Because <b>redirect()</b> does
+    page, to redirect the browser to a new URL. Because <i>redirect()</i> does
     b&lt;not&gt; work, the easiest way is with a -refresh header field, as shown
     below:</p>
 <p class="Pp"></p>
@@ -183,12 +189,18 @@
         my($q,$counter) = @_;
         return undef if $counter &gt; 10;
         return header('text/html'),   # note we're producing the header here
-        ...
+               start_html('testing'),
+               h1('testing'),
+               &quot;This page called $counter times&quot;;
     }
     sub my_last_page {
         return header(-refresh=&gt;'5; URL=http://somewhere.else/finished.html',
                       -type=&gt;'text/html'),
-        ...
+               start_html('Moved'),
+               h1('This is the last page'),
+               'Goodbye!'
+               hr,
+               end_html; 
     }
 </pre>
 </section>
@@ -196,11 +208,11 @@
 <h2 class="Ss" id="Changing_the_Page_Delay_on_the_Fly"><a class="permalink" href="#Changing_the_Page_Delay_on_the_Fly">Changing
   the Page Delay on the Fly</a></h2>
 <p class="Pp">If you would like to control the delay between pages on a
-    page-by-page basis, call <b>push_delay()</b> from within your draw routine.
-    <b>push_delay()</b> takes a single numeric argument representing the number
+    page-by-page basis, call <i>push_delay()</i> from within your draw routine.
+    <i>push_delay()</i> takes a single numeric argument representing the number
     of seconds you wish to delay after the current page is displayed and before
     displaying the next one. The delay may be fractional. Without parameters,
-    <b>push_delay()</b> just returns the current delay.</p>
+    <i>push_delay()</i> just returns the current delay.</p>
 </section>
 </section>
 <section class="Sh">
@@ -213,26 +225,17 @@
     WebSTAR and Microsoft IIS. Users of other servers should see their
     documentation for help.</p>
 <p class="Pp">Apache web server from version 1.3b2 on does not need server push
-    scripts installed as NPH scripts: the -nph parameter to <b>do_push()</b> may
+    scripts installed as NPH scripts: the -nph parameter to <i>do_push()</i> may
     be set to a false value to disable the extra headers needed by an NPH
     script.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="AUTHOR_INFORMATION"><a class="permalink" href="#AUTHOR_INFORMATION">AUTHOR
   INFORMATION</a></h1>
-<p class="Pp">The CGI.pm distribution is copyright 1995-2007, Lincoln D. Stein.
-    It is distributed under the Artistic License 2.0. It is currently maintained
-    by Lee Johnson with help from many contributors.</p>
-<p class="Pp">Address bug reports and comments to:
-    https://github.com/leejo/CGI.pm/issues</p>
-<p class="Pp">The original bug tracker can be found at:
-    https://rt.cpan.org/Public/Dist/Display.html?Queue=CGI.pm</p>
-<p class="Pp">When sending bug reports, please provide the version of CGI.pm,
-    the version of Perl, the name and version of your Web server, and the name
-    and version of the operating system you are using. If the problem is even
-    remotely browser dependent, please provide information about the affected
-    browsers as well. Copyright 1995-1998, Lincoln D. Stein. All rights
-    reserved.</p>
+<p class="Pp">Copyright 1995-1998, Lincoln D. Stein. All rights reserved.</p>
+<p class="Pp">This library is free software; you can redistribute it and/or
+    modify it under the same terms as Perl itself.</p>
+<p class="Pp">Address bug reports and comments to: lstein@cshl.org</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
