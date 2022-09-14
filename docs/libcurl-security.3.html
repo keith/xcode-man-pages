@@ -21,6 +21,8 @@
    * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
    * KIND, either express or implied.
    *
+   * SPDX-License-Identifier: curl
+   *
    **************************************************************************
    -->
 <head>
@@ -80,19 +82,19 @@
     servers can (possibly) be trusted, but many others are used on arbitrary
     servers and are fed input from potentially untrusted users. Following is a
     discussion about some risks in the ways in which applications commonly use
-    libcurl and potential mitigations of those risks. It is by no means
-    comprehensive, but shows classes of attacks that robust applications should
-    consider. The Common Weakness Enumeration project at https://cwe.mitre.org/
-    is a good reference for many of these and similar types of weaknesses of
-    which application writers should be aware.</p>
+    libcurl and potential mitigations of those risks. It is not comprehensive,
+    but shows classes of attacks that robust applications should consider. The
+    Common Weakness Enumeration project at https://cwe.mitre.org/ is a good
+    reference for many of these and similar types of weaknesses of which
+    application writers should be aware.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="Command_Lines"><a class="permalink" href="#Command_Lines">Command
   Lines</a></h1>
 <p class="Pp">If you use a command line tool (such as curl) that uses libcurl,
-    and you give options to the tool on the command line those options can very
-    likely get read by other users of your system when they use 'ps' or other
-    tools to list currently running processes.</p>
+    and you give options to the tool on the command line those options can get
+    read by other users of your system when they use 'ps' or other tools to list
+    currently running processes.</p>
 <p class="Pp">To avoid these problems, never feed sensitive things to programs
     using command line options. Write them to a protected file and use the -K
     option to avoid this.</p>
@@ -104,10 +106,10 @@
     passwords in clear text and is a real security risk. In some cases, your
     .netrc is also stored in a home directory that is NFS mounted or used on
     another network based file system, so the clear text password will fly
-    through your network every time anyone reads that file!</p>
+    through your network every time anyone reads that file.</p>
 <p class="Pp">For applications that enable .netrc use, a user who manage to set
     the right URL might then be possible to pass on passwords.</p>
-<p class="Pp">To avoid these problems, don't use .netrc files and never store
+<p class="Pp">To avoid these problems, do not use .netrc files and never store
     passwords in plain text anywhere.</p>
 </section>
 <section class="Sh">
@@ -115,13 +117,13 @@
   Text Passwords</a></h1>
 <p class="Pp">Many of the protocols libcurl supports send name and password
     unencrypted as clear text (HTTP Basic authentication, FTP, TELNET etc). It
-    is very easy for anyone on your network or a network nearby yours to just
-    fire up a network analyzer tool and eavesdrop on your passwords. Don't let
-    the fact that HTTP Basic uses base64 encoded passwords fool you. They may
-    not look readable at a first glance, but they very easily
-    &quot;deciphered&quot; by anyone within seconds.</p>
+    is easy for anyone on your network or a network nearby yours to just fire up
+    a network analyzer tool and eavesdrop on your passwords. do not let the fact
+    that HTTP Basic uses base64 encoded passwords fool you. They may not look
+    readable at a first glance, but they are easily &quot;deciphered&quot; by
+    anyone within seconds.</p>
 <p class="Pp">To avoid this problem, use an authentication mechanism or other
-    protocol that doesn't let snoopers see your password: Digest, CRAM-MD5,
+    protocol that does not let snoopers see your password: Digest, CRAM-MD5,
     Kerberos, SPNEGO or NTLM authentication. Or even better: use authenticated
     protocols that protect the entire connection and everything sent over
   it.</p>
@@ -129,9 +131,9 @@
 <section class="Sh">
 <h1 class="Sh" id="Un-authenticated_Connections"><a class="permalink" href="#Un-authenticated_Connections">Un-authenticated
   Connections</a></h1>
-<p class="Pp">Protocols that don't have any form of cryptographic authentication
-    cannot with any certainty know that they communicate with the right remote
-    server.</p>
+<p class="Pp">Protocols that do not have any form of cryptographic
+    authentication cannot with any certainty know that they communicate with the
+    right remote server.</p>
 <p class="Pp">If your application is using a fixed scheme or fixed host name, it
     is not safe as long as the connection is un-authenticated. There can be a
     man-in-the-middle or in fact the whole server might have been replaced by an
@@ -183,8 +185,21 @@
     URLs as necessary. Alternately, an app could leave
     <i>CURLOPT_FOLLOWLOCATION(3)</i> enabled but set
     <i>CURLOPT_REDIR_PROTOCOLS(3)</i> and install a
-    <i>CURLOPT_OPENSOCKETFUNCTION(3)</i> callback function in which addresses
-    are sanitized before use.</p>
+    <i>CURLOPT_OPENSOCKETFUNCTION(3)</i> or <i>CURLOPT_PREREQFUNCTION(3)</i>
+    callback function in which addresses are sanitized before use.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CRLF_in_Headers"><a class="permalink" href="#CRLF_in_Headers">CRLF
+  in Headers</a></h1>
+<p class="Pp">For all options in libcurl which specify headers, including but
+    not limited to <i>CURLOPT_HTTPHEADER(3)</i>, <i>CURLOPT_PROXYHEADER(3)</i>,
+    <i>CURLOPT_COOKIE(3)</i>, <i>CURLOPT_USERAGENT(3)</i>,
+    <i>CURLOPT_REFERER(3)</i> and <i>CURLOPT_RANGE(3)</i>, libcurl will send the
+    headers as-is and will not apply any special sanitization or normalization
+    to them.</p>
+<p class="Pp">If you allow untrusted user input into these options without
+    sanitizing CRLF sequences in them, someone malicious may be able to modify
+    the request in a way you didn't intend such as injecting new headers.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="Local_Resources"><a class="permalink" href="#Local_Resources">Local
@@ -195,8 +210,8 @@
     innocuous URL http://fuzzybunnies.example.com/ could actually resolve to the
     IP address of a server behind a firewall, such as 127.0.0.1 or 10.1.2.3.
     Applications can mitigate against this by setting a
-    <i>CURLOPT_OPENSOCKETFUNCTION(3)</i> and checking the address before a
-    connection.</p>
+    <i>CURLOPT_OPENSOCKETFUNCTION(3)</i> or <i>CURLOPT_PREREQFUNCTION(3)</i> and
+    checking the address before a connection.</p>
 <p class="Pp">All the malicious scenarios regarding redirected URLs apply just
     as well to non-redirected URLs, if the user is allowed to specify an
     arbitrary URL that could point to a private resource. For example, a web app
@@ -233,12 +248,12 @@
   Addresses</a></h1>
 <p class="Pp">libcurl will normally handle IPv6 addresses transparently and just
     as easily as IPv4 addresses. That means that a sanitizing function that
-    filters out addresses like 127.0.0.1 isn't sufficient--the equivalent IPv6
+    filters out addresses like 127.0.0.1 is not sufficient--the equivalent IPv6
     addresses ::1, ::, 0:00::0:1, ::127.0.0.1 and ::ffff:7f00:1 supplied somehow
     by an attacker would all bypass a naive filter and could allow access to
     undesired local resources. IPv6 also has special address blocks like
-    link-local and site-local that generally shouldn't be accessed by a
-    server-side libcurl-using application. A poorly-configured firewall
+    link-local and site-local that generally should not be accessed by a
+    server-side libcurl-using application. A poorly configured firewall
     installed in a data center, organization or server may also be configured to
     limit IPv4 connections but leave IPv6 connections wide open. In some cases,
     setting <i>CURLOPT_IPRESOLVE(3)</i> to CURL_IPRESOLVE_V4 can be used to
@@ -308,14 +323,14 @@
     attempts in order to protect applications for inadvertent probes of for
     example internal networks etc. This resulted in CVE-2019-15601 and the
     associated security fix.</p>
-<p class="Pp">However, we've since been made aware of the fact that the previous
-    fix was far from adequate as there are several other ways to accomplish more
-    or less the same thing: accessing a remote host over the network instead of
-    the local file system.</p>
+<p class="Pp">However, we have since been made aware of the fact that the
+    previous fix was far from adequate as there are several other ways to
+    accomplish more or less the same thing: accessing a remote host over the
+    network instead of the local file system.</p>
 <p class="Pp">The conclusion we have come to is that this is a weakness or
     feature in the Windows operating system itself, that we as an application
     cannot safely protect users against. It would just be a whack-a-mole race we
-    don't want to participate in. There are too many ways to do it and there's
+    do not want to participate in. There are too many ways to do it and there's
     no knob we can use to turn off the practice.</p>
 <p class="Pp">If you use curl or libcurl on Windows (any version), disable the
     use of the FILE protocol in curl or be prepared that accesses to a range of
@@ -326,15 +341,15 @@
 <h1 class="Sh" id="What_if_the_user_can_set_the_URL"><a class="permalink" href="#What_if_the_user_can_set_the_URL">What
   if the user can set the URL</a></h1>
 <p class="Pp">Applications may find it tempting to let users set the URL that it
-    can work on. That's probably fine, but opens up for mischief and trickery
+    can work on. That is probably fine, but opens up for mischief and trickery
     that you as an application author may want to address or take precautions
     against.</p>
 <p class="Pp">If your curl-using script allow a custom URL do you also, perhaps
     unintentionally, allow the user to pass other options to the curl command
     line if creative use of special characters are applied?</p>
 <p class="Pp">If the user can set the URL, the user can also specify the scheme
-    part to other protocols that you didn't intend for users to use and perhaps
-    didn't consider. curl supports over 20 different URL schemes.
+    part to other protocols that you did not intend for users to use and perhaps
+    did not consider. curl supports over 20 different URL schemes.
     &quot;http://&quot; might be what you thought, &quot;ftp://&quot; or
     &quot;imap://&quot; might be what the user gives your application. Also,
     cross-protocol operations might be done by using a particular scheme in the
@@ -362,9 +377,14 @@
     3986, and has done so since the beginning.</p>
 <p class="Pp">Web browsers mostly adhere to the WHATWG URL Specification.</p>
 <p class="Pp">This deviance makes some URLs copied between browsers (or returned
-    over HTTP for redirection) and curl not work the same way. This can mislead
-    users into getting the wrong thing, connecting to the wrong host or
-    otherwise not work identically.</p>
+    over HTTP for redirection) and curl not work the same way. It can also cause
+    problems if an application parses URLs differently from libcurl and makes
+    different assumptions about a link. This can mislead users into getting the
+    wrong thing, connecting to the wrong host or otherwise not working
+    identically.</p>
+<p class="Pp">Within an application, this can be mitigated by always using the
+    <i>curl_url(3)</i> API to parse URLs, ensuring that they are parsed the same
+    way as within libcurl itself.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="FTP_uses_two_connections"><a class="permalink" href="#FTP_uses_two_connections">FTP
@@ -383,7 +403,7 @@
 <p class="Pp">A malicious FTP server can respond to PASV commands with the
     IP+PORT of a totally different machine. Perhaps even a third party host, and
     when there are many clients trying to connect to that third party, it could
-    create a Distributed Denial-Of-Service attack out of it! If the client makes
+    create a Distributed Denial-Of-Service attack out of it. If the client makes
     an upload operation, it can make the client send the data to another site.
     If the attacker can affect what data the client uploads, it can be made to
     work as a HTTP request and then the client could be made to issue HTTP
@@ -398,7 +418,7 @@
 <h1 class="Sh" id="Denial_of_Service"><a class="permalink" href="#Denial_of_Service">Denial
   of Service</a></h1>
 <p class="Pp">A malicious server could cause libcurl to effectively hang by
-    sending data very slowly, or even no data at all but just keeping the TCP
+    sending data slowly, or even no data at all but just keeping the TCP
     connection open. This could effectively result in a denial-of-service
     attack. The <i>CURLOPT_TIMEOUT(3)</i> and/or
     <i>CURLOPT_LOW_SPEED_LIMIT(3)</i> options can be used to mitigate against
@@ -468,7 +488,7 @@
   applications using libcurl</a></h1>
 <p class="Pp">libcurl-using applications that set the 'setuid' bit to run with
     elevated or modified rights also implicitly give that extra power to libcurl
-    and this should only be done after very careful considerations.</p>
+    and this should only be done after careful considerations.</p>
 <p class="Pp">Giving setuid powers to the application means that libcurl can
     save files using those new rights (if for example the `SSLKEYLOGFILE`
     environment variable is set). Also: if the application wants these powers to
@@ -486,7 +506,16 @@
 <p class="Pp">libcurl itself uses `fork()` and `execl()` if told to use the
     `CURLAUTH_NTLM_WB` authentication method which then will invoke the helper
     command in a child process with file descriptors duplicated. Make sure that
-    only the trusted and reliable helper program is invoked!</p>
+    only the trusted and reliable helper program is invoked! When applications
+    pass user names, passwords or other sensitive data to libcurl to be used for
+    upcoming transfers, those secrets will be kept around as-is in memory. In
+    many cases they will be stored in heap for as long as the handle itself for
+    which the options are set.</p>
+<p class="Pp">If an attacker can access the heap, like maybe by reading swap
+    space or via a core dump file, such data might be accessible.</p>
+<p class="Pp">Further, when eventually closing a handle and the secrets are no
+    longer needed, libcurl does not explicitly clear memory before freeing it,
+    so crendentials may be left in freed data.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="Report_Security_Problems"><a class="permalink" href="#Report_Security_Problems">Report

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <!-- This is an automatically generated file.  Do not edit.
-  	$OpenBSD: ssh-add.1,v 1.81 2020/07/14 23:57:01 djm Exp $
+  	$OpenBSD: ssh-add.1,v 1.84 2022/02/04 02:49:17 dtucker Exp $
   
    Author: Tatu Ylonen <ylo@cs.hut.fi>
    Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -87,7 +87,9 @@
   <tr>
     <td><code class="Nm">ssh-add</code></td>
     <td>[<code class="Fl">-cDdKkLlqvXx</code>] [<code class="Fl">-E</code>
-      <var class="Ar">fingerprint_hash</var>] [<code class="Fl">-S</code>
+      <var class="Ar">fingerprint_hash</var>] [<code class="Fl">-H</code>
+      <var class="Ar">hostkey_file</var>] [<code class="Fl">-h</code>
+      <var class="Ar">destination_constraint</var>] [<code class="Fl">-S</code>
       <var class="Ar">provider</var>] [<code class="Fl">-t</code>
       <var class="Ar">life</var>] [<var class="Ar">file ...</var>]</td>
   </tr>
@@ -119,11 +121,11 @@
 <p class="Pp"><code class="Nm">ssh-add</code> adds private key identities to the
     authentication agent, <a class="Xr">ssh-agent(1)</a>. When run without
     arguments, it adds the files <span class="Pa">~/.ssh/id_rsa</span>,
-    <span class="Pa">~/.ssh/id_dsa</span>,
     <span class="Pa">~/.ssh/id_ecdsa</span>,
     <span class="Pa">~/.ssh/id_ecdsa_sk</span>,
-    <span class="Pa">~/.ssh/id_ed25519</span>, and
-    <span class="Pa">~/.ssh/id_ed25519_sk</span>. After loading a private key,
+    <span class="Pa">~/.ssh/id_ed25519</span>,
+    <span class="Pa">~/.ssh/id_ed25519_sk</span>, and
+    <span class="Pa">~/.ssh/id_dsa</span>. After loading a private key,
     <code class="Nm">ssh-add</code> will try to load corresponding certificate
     information from the filename obtained by appending
     <span class="Pa">-cert.pub</span> to the name of the private key file.
@@ -165,6 +167,60 @@
     <var class="Ar">pkcs11</var></dt>
   <dd>Remove keys provided by the PKCS#11 shared library
       <var class="Ar">pkcs11</var>.</dd>
+  <dt id="H"><a class="permalink" href="#H"><code class="Fl">-H</code></a>
+    <var class="Ar">hostkey_file</var></dt>
+  <dd>Specifies a known hosts file to look up hostkeys when using
+      destination-constrained keys via the <code class="Fl">-h</code> flag. This
+      option may be specified multiple times to allow multiple files to be
+      searched. If no files are specified, <code class="Nm">ssh-add</code> will
+      use the default <a class="Xr">ssh_config(5)</a> known hosts files:
+      <span class="Pa">~/.ssh/known_hosts</span>,
+      <span class="Pa">~/.ssh/known_hosts2</span>,
+      <span class="Pa">/etc/ssh/ssh_known_hosts</span>, and
+      <span class="Pa">/etc/ssh/ssh_known_hosts2</span>.</dd>
+  <dt id="h"><a class="permalink" href="#h"><code class="Fl">-h</code></a>
+    <var class="Ar">destination_constraint</var></dt>
+  <dd>When adding keys, constrain them to be usable only through specific hosts
+      or to specific destinations.
+    <p class="Pp">Destination constraints of the form
+        &#x2018;[user@]dest-hostname&#x2019; permit use of the key only from the
+        origin host (the one running <a class="Xr">ssh-agent(1)</a>) to the
+        listed destination host, with optional user name.</p>
+    <p class="Pp">Constraints of the form
+        &#x2018;src-hostname&gt;[user@]dst-hostname&#x2019; allow a key
+        available on a forwarded <a class="Xr">ssh-agent(1)</a> to be used
+        through a particular host (as specified by &#x2018;src-hostname&#x2019;)
+        to authenticate to a further host, specified by
+        &#x2018;dst-hostname&#x2019;.</p>
+    <p class="Pp">Multiple destination constraints may be added when loading
+        keys. When attempting authentication with a key that has destination
+        constraints, the whole connection path, including
+        <a class="Xr">ssh-agent(1)</a> forwarding, is tested against those
+        constraints and each hop must be permitted for the attempt to succeed.
+        For example, if key is forwarded to a remote host,
+        &#x2018;host-b&#x2019;, and is attempting authentication to another
+        host, &#x2018;host-c&#x2019;, then the operation will be successful only
+        if &#x2018;host-b&#x2019; was permitted from the origin host and the
+        subsequent &#x2018;host-b&gt;host-c&#x2019; hop is also permitted by
+        destination constraints.</p>
+    <p class="Pp">Hosts are identified by their host keys, and are looked up
+        from known hosts files by <code class="Nm">ssh-add</code>. Wildcards
+        patterns may be used for hostnames and certificate host keys are
+        supported. By default, keys added by <code class="Nm">ssh-add</code> are
+        not destination constrained.</p>
+    <p class="Pp">Destination constraints were added in OpenSSH release 8.9.
+        Support in both the remote SSH client and server is required when using
+        destination-constrained keys over a forwarded
+        <a class="Xr">ssh-agent(1)</a> channel.</p>
+    <p class="Pp" id="cooperating">It is also important to note that destination
+        constraints can only be enforced by <a class="Xr">ssh-agent(1)</a> when
+        a key is used, or when it is forwarded by a
+        <a class="permalink" href="#cooperating"><b class="Sy">cooperating</b></a>
+        <a class="Xr">ssh(1)</a>. Specifically, it does not prevent an attacker
+        with access to a remote <code class="Ev">SSH_AUTH_SOCK</code> from
+        forwarding it again and using it on a different host (but only to a
+        permitted destination).</p>
+  </dd>
   <dt id="K"><a class="permalink" href="#K"><code class="Fl">-K</code></a></dt>
   <dd>Load resident keys from a FIDO authenticator.</dd>
   <dt id="k"><a class="permalink" href="#k"><code class="Fl">-k</code></a></dt>
