@@ -1,7 +1,9 @@
 # xcode-man-pages
 
-A HTML export of Xcode's man pages. Useful for diffing tools between
-Xcode releases.
+A HTML export of all Apple's man pages that are bundled with Xcode. Useful for diffing tools between
+Xcode releases, and for having an updated version of them online.
+
+[View them here](https://keith.github.io/xcode-man-pages/)
 
 ## Usage
 
