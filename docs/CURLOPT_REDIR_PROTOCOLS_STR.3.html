@@ -8,7 +8,7 @@
    *                            | (__| |_| |  _ <| |___
    *                             \___|\___/|_| \_\_____|
    *
-   * Copyright (C) 1998 - 2019, Daniel Stenberg, <daniel@haxx.se>, et al.
+   * Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
    *
    * This software is licensed as described in the file COPYING, which
    * you should have received as part of this distribution. The terms
@@ -53,92 +53,102 @@
     code.Nm, .Fl, .Cm, .Ic, code.In, .Fd, .Fn, .Cd { font-weight: bold;
       font-family: inherit; }
   </style>
-  <title>CURLOPT_TLS13_CIPHERS(3)</title>
+  <title>CURLOPT_REDIR_PROTOCOLS_STR(3)</title>
 </head>
 <body>
 <table class="head">
   <tr>
-    <td class="head-ltitle">CURLOPT_TLS13_CIPHERS(3)</td>
+    <td class="head-ltitle">CURLOPT_REDIR_PROTOCOLS_STR(3)</td>
     <td class="head-vol">curl_easy_setopt options</td>
-    <td class="head-rtitle">CURLOPT_TLS13_CIPHERS(3)</td>
+    <td class="head-rtitle">CURLOPT_REDIR_PROTOCOLS_STR(3)</td>
   </tr>
 </table>
 <div class="manual-text">
 <p class="Pp"></p>
 <section class="Sh">
 <h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
-<p class="Pp">CURLOPT_TLS13_CIPHERS - ciphers suites to use for TLS 1.3</p>
+<p class="Pp">CURLOPT_REDIR_PROTOCOLS_STR - protocols allowed to redirect to</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
 <pre>#include &lt;curl/curl.h&gt;
-CURLcode curl_easy_setopt(CURL *handle, CURLOPT_TLS13_CIPHERS, char *list);</pre>
+CURLcode curl_easy_setopt(CURL *handle, CURLOPT_REDIR_PROTOCOLS_STR,
+<br/>
+                          char *spec);</pre>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
-<p class="Pp">Pass a char *, pointing to a null-terminated string holding the
-    list of cipher suites to use for the TLS 1.3 connection. The list must be
-    syntactically correct, it consists of one or more cipher suite strings
-    separated by colons.</p>
-<p class="Pp">you will find more details about cipher lists on this URL:</p>
-<p class="Pp">
-  <br/>
-   https://curl.se/docs/ssl-ciphers.html</p>
-<p class="Pp">This option is currently used only when curl is built to use
-    OpenSSL 1.1.1 or later or SChannel. If you are using a different SSL backend
-    you can try setting TLS 1.3 cipher suites by using the
-    CURLOPT_SSL_CIPHER_LIST option.</p>
-<p class="Pp">The application does not have to keep the string around after
-    setting this option.</p>
+<p class="Pp">Pass a pointer to a string that holds a comma-separated list of
+    case insensitive protocol names (URL schemes). That list limits what
+    protocols libcurl may use in a transfer that it follows to in a redirect
+    when <i>CURLOPT_FOLLOWLOCATION(3)</i> is enabled. This option allows
+    applications to limit specific transfers to only be allowed to use a subset
+    of protocols in redirections.</p>
+<p class="Pp">Protocols denied by <i>CURLOPT_PROTOCOLS_STR(3)</i> are not
+    overridden by this option.</p>
+<p class="Pp">By default libcurl will allow HTTP, HTTPS, FTP and FTPS on
+    redirects (since 7.65.2). Older versions of libcurl allowed all protocols on
+    redirect except several disabled for security reasons: Since 7.19.4 FILE and
+    SCP are disabled, and since 7.40.0 SMB and SMBS are also disabled.</p>
+<p class="Pp">These are the available protocols:</p>
+<p class="Pp">DICT, FILE, FTP, FTPS, GOPHER, GOPHERS, HTTP, HTTPS, IMAP, IMAPS,
+    LDAP, LDAPS, POP3, POP3S, RTMP, RTMPE, RTMPS, RTMPT, RTMPTE, RTMPTS, RTSP,
+    SCP, SFTP, SMB, SMBS, SMTP, SMTPS, TELNET, TFTP</p>
+<p class="Pp">You can set &quot;ALL&quot; as a short-cut to enable all
+    protocols. Note that by setting all, you may enable protocols that were not
+    supported the day you write this but are introduced in a future libcurl
+    version.</p>
+<p class="Pp">If trying to set a non-existing protocol or if no matching
+    protocol at all is set, it returns error.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DEFAULT"><a class="permalink" href="#DEFAULT">DEFAULT</a></h1>
-<p class="Pp">NULL, use internal default</p>
+<p class="Pp">HTTP, HTTPS, FTP and FTPS (Added in 7.65.2).</p>
+<p class="Pp">Older versions defaulted to all protocols except FILE, SCP and
+    since 7.40.0 SMB and SMBS.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="PROTOCOLS"><a class="permalink" href="#PROTOCOLS">PROTOCOLS</a></h1>
-<p class="Pp">All TLS based protocols: HTTPS, FTPS, IMAPS, POP3S, SMTPS etc.</p>
+<p class="Pp">All</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
-<pre>CURL *curl = curl_easy_init();
+<pre>curl = curl_easy_init();
 if(curl) {
 <br/>
-  curl_easy_setopt(curl, CURLOPT_URL, &quot;https://example.com/&quot;);
+  /* pass in the URL from an external source */
 <br/>
-  curl_easy_setopt(curl, CURLOPT_TLS13_CIPHERS,
+  curl_easy_setopt(curl, CURLOPT_URL, argv[1]);
 <br/>
-                   &quot;TLS_CHACHA20_POLY1305_SHA256&quot;);
+  /* only allow redirects to HTTP and HTTPS URLs */
 <br/>
-  ret = curl_easy_perform(curl);
+  curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS_STR, &quot;http,https&quot;);
 <br/>
-  curl_easy_cleanup(curl);
+  /* Perform the request */
+<br/>
+  curl_easy_perform(curl);
 }</pre>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
-<p class="Pp">Added in 7.61.0 for OpenSSL. Available when built with OpenSSL
-    &gt;= 1.1.1.</p>
-<p class="Pp">Added in 7.85.0 for SChannel.</p>
+<p class="Pp">Added in 7.85.0.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
   VALUE</a></h1>
-<p class="Pp">Returns CURLE_OK if supported, CURLE_NOT_BUILT_IN otherwise.</p>
+<p class="Pp">Returns CURLE_OK if the option is supported, and
+    CURLE_UNKNOWN_OPTION if not.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
-<p class="Pp"><b>CURLOPT_SSL_CIPHER_LIST</b>(3), <b>CURLOPT_SSLVERSION</b>(3),
-    <b>CURLOPT_PROXY_SSL_CIPHER_LIST</b>(3),
-    <b>CURLOPT_PROXY_TLS13_CIPHERS</b>(3), <b>CURLOPT_PROXY_SSLVERSION</b>(3),
-    <b>CURLOPT_USE_SSL</b>(3), </p>
+<p class="Pp"><b>CURLOPT_PROTOCOLS_STR</b>(3), </p>
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">November 4, 2020</td>
-    <td class="foot-os">libcurl 7.77.0</td>
+    <td class="foot-date">June 13, 2022</td>
+    <td class="foot-os">libcurl 7.85.0</td>
   </tr>
 </table>
 </body>

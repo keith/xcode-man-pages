@@ -8,7 +8,7 @@
    *                            | (__| |_| |  _ <| |___
    *                             \___|\___/|_| \_\_____|
    *
-   * Copyright (C) 1998 - 2019, Daniel Stenberg, <daniel@haxx.se>, et al.
+   * Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
    *
    * This software is licensed as described in the file COPYING, which
    * you should have received as part of this distribution. The terms
@@ -53,47 +53,44 @@
     code.Nm, .Fl, .Cm, .Ic, code.In, .Fd, .Fn, .Cd { font-weight: bold;
       font-family: inherit; }
   </style>
-  <title>CURLOPT_TLS13_CIPHERS(3)</title>
+  <title>CURLOPT_CAINFO_BLOB(3)</title>
 </head>
 <body>
 <table class="head">
   <tr>
-    <td class="head-ltitle">CURLOPT_TLS13_CIPHERS(3)</td>
+    <td class="head-ltitle">CURLOPT_CAINFO_BLOB(3)</td>
     <td class="head-vol">curl_easy_setopt options</td>
-    <td class="head-rtitle">CURLOPT_TLS13_CIPHERS(3)</td>
+    <td class="head-rtitle">CURLOPT_CAINFO_BLOB(3)</td>
   </tr>
 </table>
 <div class="manual-text">
 <p class="Pp"></p>
 <section class="Sh">
 <h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
-<p class="Pp">CURLOPT_TLS13_CIPHERS - ciphers suites to use for TLS 1.3</p>
+<p class="Pp">CURLOPT_CAINFO_BLOB - Certificate Authority (CA) bundle in PEM
+    format</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
 <pre>#include &lt;curl/curl.h&gt;
-CURLcode curl_easy_setopt(CURL *handle, CURLOPT_TLS13_CIPHERS, char *list);</pre>
+CURLcode curl_easy_setopt(CURL *handle, CURLOPT_CAINFO_BLOB,
+<br/>
+                          struct curl_blob *stblob);</pre>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
-<p class="Pp">Pass a char *, pointing to a null-terminated string holding the
-    list of cipher suites to use for the TLS 1.3 connection. The list must be
-    syntactically correct, it consists of one or more cipher suite strings
-    separated by colons.</p>
-<p class="Pp">you will find more details about cipher lists on this URL:</p>
-<p class="Pp">
-  <br/>
-   https://curl.se/docs/ssl-ciphers.html</p>
-<p class="Pp">This option is currently used only when curl is built to use
-    OpenSSL 1.1.1 or later or SChannel. If you are using a different SSL backend
-    you can try setting TLS 1.3 cipher suites by using the
-    CURLOPT_SSL_CIPHER_LIST option.</p>
-<p class="Pp">The application does not have to keep the string around after
-    setting this option.</p>
+<p class="Pp">Pass a pointer to a curl_blob structure, which contains
+    information (pointer and size) about a memory block with binary data of PEM
+    encoded content holding one or more certificates to verify the HTTPS server
+    with.</p>
+<p class="Pp">If <i>CURLOPT_SSL_VERIFYPEER(3)</i> is zero and you avoid
+    verifying the server's certificate, <i>CURLOPT_CAINFO_BLOB(3)</i> is not
+    needed.</p>
+<p class="Pp">This option overrides <i>CURLOPT_CAINFO(3)</i>.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DEFAULT"><a class="permalink" href="#DEFAULT">DEFAULT</a></h1>
-<p class="Pp">NULL, use internal default</p>
+<p class="Pp">NULL</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="PROTOCOLS"><a class="permalink" href="#PROTOCOLS">PROTOCOLS</a></h1>
@@ -101,14 +98,21 @@ CURLcode curl_easy_setopt(CURL *handle, CURLOPT_TLS13_CIPHERS, char *list);</pre
 </section>
 <section class="Sh">
 <h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
-<pre>CURL *curl = curl_easy_init();
+<pre>char *strpem; /* strpem must point to a PEM string */
+CURL *curl = curl_easy_init();
 if(curl) {
+<br/>
+  struct curl_blob blob;
 <br/>
   curl_easy_setopt(curl, CURLOPT_URL, &quot;https://example.com/&quot;);
 <br/>
-  curl_easy_setopt(curl, CURLOPT_TLS13_CIPHERS,
+  blob.data = strpem;
 <br/>
-                   &quot;TLS_CHACHA20_POLY1305_SHA256&quot;);
+  blob.len = strlen(strpem);
+<br/>
+  blob.flags = CURL_BLOB_COPY;
+<br/>
+  curl_easy_setopt(curl, CURLOPT_CAINFO_BLOB, &amp;blob);
 <br/>
   ret = curl_easy_perform(curl);
 <br/>
@@ -117,28 +121,28 @@ if(curl) {
 </section>
 <section class="Sh">
 <h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
-<p class="Pp">Added in 7.61.0 for OpenSSL. Available when built with OpenSSL
-    &gt;= 1.1.1.</p>
-<p class="Pp">Added in 7.85.0 for SChannel.</p>
+<p class="Pp">Added in 7.77.0.</p>
+<p class="Pp">This option is supported by the BearSSL (since 7.79.0), mbedTLS
+    (since 7.81.0), rustls (since 7.82.0), OpenSSL, Secure Transport and
+    Schannel backends.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
   VALUE</a></h1>
-<p class="Pp">Returns CURLE_OK if supported, CURLE_NOT_BUILT_IN otherwise.</p>
+<p class="Pp">Returns CURLE_OK if the option is supported, CURLE_UNKNOWN_OPTION
+    if not, or CURLE_OUT_OF_MEMORY if there was insufficient heap space.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
-<p class="Pp"><b>CURLOPT_SSL_CIPHER_LIST</b>(3), <b>CURLOPT_SSLVERSION</b>(3),
-    <b>CURLOPT_PROXY_SSL_CIPHER_LIST</b>(3),
-    <b>CURLOPT_PROXY_TLS13_CIPHERS</b>(3), <b>CURLOPT_PROXY_SSLVERSION</b>(3),
-    <b>CURLOPT_USE_SSL</b>(3), </p>
+<p class="Pp"><b>CURLOPT_CAINFO</b>(3), <b>CURLOPT_CAPATH</b>(3),
+    <b>CURLOPT_SSL_VERIFYPEER</b>(3), <b>CURLOPT_SSL_VERIFYHOST</b>(3), </p>
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">November 4, 2020</td>
-    <td class="foot-os">libcurl 7.77.0</td>
+    <td class="foot-date">May 17, 2022</td>
+    <td class="foot-os">libcurl 7.85.0</td>
   </tr>
 </table>
 </body>

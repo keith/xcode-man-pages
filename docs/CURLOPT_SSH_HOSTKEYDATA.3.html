@@ -8,7 +8,7 @@
    *                            | (__| |_| |  _ <| |___
    *                             \___|\___/|_| \_\_____|
    *
-   * Copyright (C) 1998 - 2019, Daniel Stenberg, <daniel@haxx.se>, et al.
+   * Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
    *
    * This software is licensed as described in the file COPYING, which
    * you should have received as part of this distribution. The terms
@@ -53,92 +53,90 @@
     code.Nm, .Fl, .Cm, .Ic, code.In, .Fd, .Fn, .Cd { font-weight: bold;
       font-family: inherit; }
   </style>
-  <title>CURLOPT_TLS13_CIPHERS(3)</title>
+  <title>CURLOPT_SSH_KEYDATA(3)</title>
 </head>
 <body>
 <table class="head">
   <tr>
-    <td class="head-ltitle">CURLOPT_TLS13_CIPHERS(3)</td>
+    <td class="head-ltitle">CURLOPT_SSH_KEYDATA(3)</td>
     <td class="head-vol">curl_easy_setopt options</td>
-    <td class="head-rtitle">CURLOPT_TLS13_CIPHERS(3)</td>
+    <td class="head-rtitle">CURLOPT_SSH_KEYDATA(3)</td>
   </tr>
 </table>
 <div class="manual-text">
 <p class="Pp"></p>
 <section class="Sh">
 <h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
-<p class="Pp">CURLOPT_TLS13_CIPHERS - ciphers suites to use for TLS 1.3</p>
+<p class="Pp">CURLOPT_SSH_HOSTKEYDATA - pointer to pass to the SSH hostkey
+    callback</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
 <pre>#include &lt;curl/curl.h&gt;
-CURLcode curl_easy_setopt(CURL *handle, CURLOPT_TLS13_CIPHERS, char *list);</pre>
+CURLcode curl_easy_setopt(CURL *handle, CURLOPT_SSH_HOSTKEYDATA, void *pointer);</pre>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
-<p class="Pp">Pass a char *, pointing to a null-terminated string holding the
-    list of cipher suites to use for the TLS 1.3 connection. The list must be
-    syntactically correct, it consists of one or more cipher suite strings
-    separated by colons.</p>
-<p class="Pp">you will find more details about cipher lists on this URL:</p>
-<p class="Pp">
-  <br/>
-   https://curl.se/docs/ssl-ciphers.html</p>
-<p class="Pp">This option is currently used only when curl is built to use
-    OpenSSL 1.1.1 or later or SChannel. If you are using a different SSL backend
-    you can try setting TLS 1.3 cipher suites by using the
-    CURLOPT_SSL_CIPHER_LIST option.</p>
-<p class="Pp">The application does not have to keep the string around after
-    setting this option.</p>
+<p class="Pp">Pass a void * as parameter. This <i>pointer</i> will be passed
+    along verbatim to the callback set with
+    <i>CURLOPT_SSH_HOSTKEYFUNCTION(3)</i>.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DEFAULT"><a class="permalink" href="#DEFAULT">DEFAULT</a></h1>
-<p class="Pp">NULL, use internal default</p>
+<p class="Pp">NULL</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="PROTOCOLS"><a class="permalink" href="#PROTOCOLS">PROTOCOLS</a></h1>
-<p class="Pp">All TLS based protocols: HTTPS, FTPS, IMAPS, POP3S, SMTPS etc.</p>
+<p class="Pp">SCP and SFTP</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
-<pre>CURL *curl = curl_easy_init();
-if(curl) {
+<pre>int hostkeycb(void *clientp,    /* passed with CURLOPT_SSH_HOSTKEYDATA */
 <br/>
-  curl_easy_setopt(curl, CURLOPT_URL, &quot;https://example.com/&quot;);
+              int keytype,      /* CURLKHTYPE */
 <br/>
-  curl_easy_setopt(curl, CURLOPT_TLS13_CIPHERS,
+              const char * key, /*hostkey to check*/
 <br/>
-                   &quot;TLS_CHACHA20_POLY1305_SHA256&quot;);
+              size_t keylen);   /*length of the key*/
+{
 <br/>
-  ret = curl_easy_perform(curl);
+  /* 'clientp' points to the callback_data struct */
 <br/>
-  curl_easy_cleanup(curl);
+  /* investigate the situation and return the correct value */
+<br/>
+  return CURLKHMATCH_OK;
+}
+{
+<br/>
+  curl_easy_setopt(curl, CURLOPT_URL, &quot;sftp://example.com/thisfile.txt&quot;);
+<br/>
+  curl_easy_setopt(curl, CURLOPT_SSH_HOSTKEYFUNCTION, hostkeycb);
+<br/>
+  curl_easy_setopt(curl, CURLOPT_SSH_HOSTKEYDATA, &amp;callback_data);
+<br/>
+  curl_easy_perform(curl);
 }</pre>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
-<p class="Pp">Added in 7.61.0 for OpenSSL. Available when built with OpenSSL
-    &gt;= 1.1.1.</p>
-<p class="Pp">Added in 7.85.0 for SChannel.</p>
+<p class="Pp">Added in 7.84.0, works only with libssh2 backend.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
   VALUE</a></h1>
-<p class="Pp">Returns CURLE_OK if supported, CURLE_NOT_BUILT_IN otherwise.</p>
+<p class="Pp">Returns CURLE_OK if the option is supported, and
+    CURLE_UNKNOWN_OPTION if not.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
-<p class="Pp"><b>CURLOPT_SSL_CIPHER_LIST</b>(3), <b>CURLOPT_SSLVERSION</b>(3),
-    <b>CURLOPT_PROXY_SSL_CIPHER_LIST</b>(3),
-    <b>CURLOPT_PROXY_TLS13_CIPHERS</b>(3), <b>CURLOPT_PROXY_SSLVERSION</b>(3),
-    <b>CURLOPT_USE_SSL</b>(3), </p>
+<p class="Pp"><b>CURLOPT_SSH_HOSTKEYFUNCTION</b>(3), </p>
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">November 4, 2020</td>
-    <td class="foot-os">libcurl 7.77.0</td>
+    <td class="foot-date">June 13, 2022</td>
+    <td class="foot-os">libcurl 7.85.0</td>
   </tr>
 </table>
 </body>
