@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   t
+       Title: gitprotocol-pack
+      Author: [FIXME: author] [see http://www.docbook.org/tdg5/en/html/author]
+   Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+        Date: 12/12/2022
+      Manual: Git Manual
+      Source: Git 2.39.0
+    Language: English
+   -->
+<head>
+
+<style>
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #000;
+    color: #d0d0d0;
+  }
+
+  a, a:visited {
+    color: #1899eb;
+  }
+}
+</style>
+
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    .Nd, .Bf, .Op { display: inline; }
+    .Pa, .Ad { font-style: italic; }
+    .Ms { font-weight: bold; }
+    .Bl-diag > dt { font-weight: bold; }
+    code.Nm, .Fl, .Cm, .Ic, code.In, .Fd, .Fn, .Cd { font-weight: bold;
+      font-family: inherit; }
+  </style>
+  <title>GITPROTOCOL-PACK(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">GITPROTOCOL-PACK(5)</td>
+    <td class="head-vol">Git Manual</td>
+    <td class="head-rtitle">GITPROTOCOL-PACK(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">gitprotocol-pack - How packs are transferred over-the-wire</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>&lt;over-the-wire-protocol&gt;</pre>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Git supports transferring data in packfiles over the ssh://,
+    git://, http:// and file:// transports. There exist two sets of protocols,
+    one for pushing data from a client to a server and another for fetching data
+    from a server to a client. The three transports (ssh, git, file) use the
+    same protocol to transfer data. http is documented in
+    <b>gitprotocol-http</b>(5).</p>
+<p class="Pp">The processes invoked in the canonical Git implementation are
+    <i>upload-pack</i> on the server side and <i>fetch-pack</i> on the client
+    side for fetching data; then <i>receive-pack</i> on the server and
+    <i>send-pack</i> on the client for pushing data. The protocol functions to
+    have a server tell a client what is currently on the server, then for the
+    two to negotiate the smallest amount of data to send in order to fully
+    update one or the other.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PKT"><a class="permalink" href="#PKT">PKT-LINE
+  FORMAT</a></h1>
+<p class="Pp">The descriptions below build on the pkt-line format described in
+    <b>gitprotocol-common</b>(5). When the grammar indicate
+    <b>PKT-LINE(...)</b>, unless otherwise noted the usual pkt-line LF rules
+    apply: the sender SHOULD include a LF, but the receiver MUST NOT complain if
+    it is not present.</p>
+<p class="Pp">An error packet is a special pkt-line that contains an error
+    string.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+  error-line     =  PKT-LINE(&quot;ERR&quot; SP explanation-text)</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Throughout the protocol, where <b>PKT-LINE(...)</b> is expected,
+    an error packet MAY be sent. Once this packet is sent by a client or a
+    server, the data transfer process defined in this protocol is
+  terminated.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TRANSPORTS"><a class="permalink" href="#TRANSPORTS">TRANSPORTS</a></h1>
+<p class="Pp">There are three transports over which the packfile protocol is
+    initiated. The Git transport is a simple, unauthenticated server that takes
+    the command (almost always <i>upload-pack</i>, though Git servers can be
+    configured to be globally writable, in which <i>receive- pack</i> initiation
+    is also allowed) with which the client wishes to communicate and executes it
+    and connects it to the requesting process.</p>
+<p class="Pp">In the SSH transport, the client just runs the <i>upload-pack</i>
+    or <i>receive-pack</i> process on the server over the SSH protocol and then
+    communicates with that invoked process over the SSH connection.</p>
+<p class="Pp">The file:// transport runs the <i>upload-pack</i> or
+    <i>receive-pack</i> process locally and communicates with it over a
+  pipe.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXTRA_PARAMETERS"><a class="permalink" href="#EXTRA_PARAMETERS">EXTRA
+  PARAMETERS</a></h1>
+<p class="Pp">The protocol provides a mechanism in which clients can send
+    additional information in its first message to the server. These are called
+    &quot;Extra Parameters&quot;, and are supported by the Git, SSH, and HTTP
+    protocols.</p>
+<p class="Pp">Each Extra Parameter takes the form of
+    <b>&lt;key&gt;=&lt;value&gt;</b> or <b>&lt;key&gt;</b>.</p>
+<p class="Pp">Servers that receive any such Extra Parameters MUST ignore all
+    unrecognized keys. Currently, the only Extra Parameter recognized is
+    &quot;version&quot; with a value of <i>1</i> or <i>2</i>. See
+    <b>gitprotocol-v2</b>(5) for more information on protocol version 2.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="GIT_TRANSPORT"><a class="permalink" href="#GIT_TRANSPORT">GIT
+  TRANSPORT</a></h1>
+<p class="Pp">The Git transport starts off by sending the command and repository
+    on the wire using the pkt-line format, followed by a NUL byte and a hostname
+    parameter, terminated by a NUL byte.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>0033git-upload-pack /project.git\0host=myserver.com\0</pre>
+</div>
+<p class="Pp">The transport may send Extra Parameters by adding an additional
+    NUL byte, and then adding one or more NUL-terminated strings:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>003egit-upload-pack /project.git\0host=myserver.com\0\0version=1\0</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>git-proto-request = request-command SP pathname NUL
+<br/>
+                    [ host-parameter NUL ] [ NUL extra-parameters ]
+request-command   = &quot;git-upload-pack&quot; / &quot;git-receive-pack&quot; /
+<br/>
+                    &quot;git-upload-archive&quot;   ; case sensitive
+pathname          = *( %x01-ff ) ; exclude NUL
+host-parameter    = &quot;host=&quot; hostname [ &quot;:&quot; port ]
+extra-parameters  = 1*extra-parameter
+extra-parameter   = 1*( %x01-ff ) NUL</pre>
+</div>
+<p class="Pp">host-parameter is used for the git-daemon name based virtual
+    hosting. See --interpolated-path option to git daemon, with the %H/%CH
+    format characters.</p>
+<p class="Pp">Basically what the Git client is doing to connect to an
+    <i>upload-pack</i> process on the server side over the Git protocol is
+  this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ echo -e -n \
+<br/>
+  &quot;003agit-upload-pack /schacon/gitbook.git\0host=example.com\0&quot; |
+<br/>
+  nc -v example.com 9418</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SSH_TRANSPORT"><a class="permalink" href="#SSH_TRANSPORT">SSH
+  TRANSPORT</a></h1>
+<p class="Pp">Initiating the upload-pack or receive-pack processes over SSH is
+    executing the binary on the server via SSH remote execution. It is basically
+    equivalent to running this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ ssh git.example.com &quot;git-upload-pack '/project.git'&quot;</pre>
+</div>
+<p class="Pp">For a server to support Git pushing and pulling for a given user
+    over SSH, that user needs to be able to execute one or both of those
+    commands via the SSH shell that they are provided on login. On some systems,
+    that shell access is limited to only being able to run those two commands,
+    or even just one of them.</p>
+<p class="Pp">In an ssh:// format URI, it&#x2019;s absolute in the URI, so the
+    <i>/</i> after the host name (or port number) is sent as an argument, which
+    is then read by the remote git-upload-pack exactly as is, so it&#x2019;s
+    effectively an absolute path in the remote filesystem.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+   git clone ssh://user@example.com/project.git
+<br/>
+                |
+<br/>
+                v
+ssh user@example.com &quot;git-upload-pack '/project.git'&quot;</pre>
+</div>
+<p class="Pp">In a &quot;user@host:path&quot; format URI, its relative to the
+    user&#x2019;s home directory, because the Git client will run:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+   git clone user@example.com:project.git
+<br/>
+                  |
+<br/>
+                  v
+ssh user@example.com &quot;git-upload-pack 'project.git'&quot;</pre>
+</div>
+<p class="Pp">The exception is if a <i>~</i> is used, in which case we execute
+    it without the leading <i>/</i>.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+   ssh://user@example.com/~alice/project.git,
+<br/>
+                  |
+<br/>
+                  v
+ssh user@example.com &quot;git-upload-pack '~alice/project.git'&quot;</pre>
+</div>
+<p class="Pp">Depending on the value of the <b>protocol.version</b>
+    configuration variable, Git may attempt to send Extra Parameters as a
+    colon-separated string in the GIT_PROTOCOL environment variable. This is
+    done only if the <b>ssh.variant</b> configuration variable indicates that
+    the ssh command supports passing environment variables as an argument.</p>
+<p class="Pp">A few things to remember here:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;The &quot;command name&quot; is spelled with dash
+  (e.g. git-upload-pack), but this can be overridden by the client;</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;The repository path is always quoted with single
+  quotes.</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FETCHING_DATA_FROM_A_SERVER"><a class="permalink" href="#FETCHING_DATA_FROM_A_SERVER">FETCHING
+  DATA FROM A SERVER</a></h1>
+<p class="Pp">When one Git repository wants to get data that a second repository
+    has, the first can <i>fetch</i> from the second. This operation determines
+    what data the server has that the client does not then streams that data
+    down to the client in packfile format.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh">REFERENCE DISCOVERY</h1>
+<p class="Pp">When the client initially connects the server will immediately
+    respond with a version number (if &quot;version=1&quot; is sent as an Extra
+    Parameter), and a listing of each reference it has (all branches and tags)
+    along with the object name that each reference currently points to.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ echo -e -n &quot;0045git-upload-pack /schacon/gitbook.git\0host=example.com\0\0version=1\0&quot; |
+<br/>
+   nc -v example.com 9418
+000eversion 1
+00887217a7c7e582c46cec22a130adf4b9d7d950fba0 HEAD\0multi_ack thin-pack
+<br/>
+             side-band side-band-64k ofs-delta shallow no-progress include-tag
+00441d3fcd5ced445d1abc402225c0b8a1299641f497 refs/heads/integration
+003f7217a7c7e582c46cec22a130adf4b9d7d950fba0 refs/heads/master
+003cb88d2441cac0977faf98efc80305012112238d9d refs/tags/v0.9
+003c525128480b96c89e6418b1e40909bf6c5b2d580f refs/tags/v1.0
+003fe92df48743b7bc7d26bcaabfddde0a1e20cae47c refs/tags/v1.0^{}
+0000</pre>
+</div>
+<p class="Pp">The returned response is a pkt-line stream describing each ref and
+    its current value. The stream MUST be sorted by name according to the C
+    locale ordering.</p>
+<p class="Pp">If HEAD is a valid ref, HEAD MUST appear as the first advertised
+    ref. If HEAD is not a valid ref, HEAD MUST NOT appear in the advertisement
+    list at all, but other refs may still appear.</p>
+<p class="Pp">The stream MUST include capability declarations behind a NUL on
+    the first ref. The peeled value of a ref (that is &quot;ref^{}&quot;) MUST
+    be immediately after the ref itself, if presented. A conforming server MUST
+    peel the ref if it&#x2019;s an annotated tag.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+  advertised-refs  =  *1(&quot;version 1&quot;)
+<br/>
+                      (no-refs / list-of-refs)
+<br/>
+                      *shallow
+<br/>
+                      flush-pkt
+<br/>
+  no-refs          =  PKT-LINE(zero-id SP &quot;capabilities^{}&quot;
+<br/>
+                      NUL capability-list)
+<br/>
+  list-of-refs     =  first-ref *other-ref
+<br/>
+  first-ref        =  PKT-LINE(obj-id SP refname
+<br/>
+                      NUL capability-list)
+<br/>
+  other-ref        =  PKT-LINE(other-tip / other-peeled)
+<br/>
+  other-tip        =  obj-id SP refname
+<br/>
+  other-peeled     =  obj-id SP refname &quot;^{}&quot;
+<br/>
+  shallow          =  PKT-LINE(&quot;shallow&quot; SP obj-id)
+<br/>
+  capability-list  =  capability *(SP capability)
+<br/>
+  capability       =  1*(LC_ALPHA / DIGIT / &quot;-&quot; / &quot;_&quot;)
+<br/>
+  LC_ALPHA         =  %x61-7A</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Server and client MUST use lowercase for obj-id, both MUST treat
+    obj-id as case-insensitive.</p>
+<p class="Pp">See protocol-capabilities.txt for a list of allowed server
+    capabilities and descriptions.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PACKFILE_NEGOTIATION"><a class="permalink" href="#PACKFILE_NEGOTIATION">PACKFILE
+  NEGOTIATION</a></h1>
+<p class="Pp">After reference and capabilities discovery, the client can decide
+    to terminate the connection by sending a flush-pkt, telling the server it
+    can now gracefully terminate, and disconnect, when it does not need any pack
+    data. This can happen with the ls-remote command, and also can happen when
+    the client already is up to date.</p>
+<p class="Pp">Otherwise, it enters the negotiation phase, where the client and
+    server determine what the minimal packfile necessary for transport is, by
+    telling the server what objects it wants, its shallow objects (if any), and
+    the maximum commit depth it wants (if any). The client will also send a list
+    of the capabilities it wants to be in effect, out of what the server said it
+    could do with the first <i>want</i> line.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+  upload-request    =  want-list
+<br/>
+                       *shallow-line
+<br/>
+                       *1depth-request
+<br/>
+                       [filter-request]
+<br/>
+                       flush-pkt
+<br/>
+  want-list         =  first-want
+<br/>
+                       *additional-want
+<br/>
+  shallow-line      =  PKT-LINE(&quot;shallow&quot; SP obj-id)
+<br/>
+  depth-request     =  PKT-LINE(&quot;deepen&quot; SP depth) /
+<br/>
+                       PKT-LINE(&quot;deepen-since&quot; SP timestamp) /
+<br/>
+                       PKT-LINE(&quot;deepen-not&quot; SP ref)
+<br/>
+  first-want        =  PKT-LINE(&quot;want&quot; SP obj-id SP capability-list)
+<br/>
+  additional-want   =  PKT-LINE(&quot;want&quot; SP obj-id)
+<br/>
+  depth             =  1*DIGIT
+<br/>
+  filter-request    =  PKT-LINE(&quot;filter&quot; SP filter-spec)</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Clients MUST send all the obj-ids it wants from the reference
+    discovery phase as <i>want</i> lines. Clients MUST send at least one
+    <i>want</i> command in the request body. Clients MUST NOT mention an obj-id
+    in a <i>want</i> command which did not appear in the response obtained
+    through ref discovery.</p>
+<p class="Pp">The client MUST write all obj-ids which it only has shallow copies
+    of (meaning that it does not have the parents of a commit) as <i>shallow</i>
+    lines so that the server is aware of the limitations of the client&#x2019;s
+    history.</p>
+<p class="Pp">The client now sends the maximum commit history depth it wants for
+    this transaction, which is the number of commits it wants from the tip of
+    the history, if any, as a <i>deepen</i> line. A depth of 0 is the same as
+    not making a depth request. The client does not want to receive any commits
+    beyond this depth, nor does it want objects needed only to complete those
+    commits. Commits whose parents are not received as a result are defined as
+    shallow and marked as such in the server. This information is sent back to
+    the client in the next step.</p>
+<p class="Pp">The client can optionally request that pack-objects omit various
+    objects from the packfile using one of several filtering techniques. These
+    are intended for use with partial clone and partial fetch operations. An
+    object that does not meet a filter-spec value is omitted unless explicitly
+    requested in a <i>want</i> line. See <b>rev-list</b> for possible
+    filter-spec values.</p>
+<p class="Pp">Once all the <i>want&#x2019;s and 'shallow&#x2019;s (and optional
+    'deepen</i>) are transferred, clients MUST send a flush-pkt, to tell the
+    server side that it is done sending the list.</p>
+<p class="Pp">Otherwise, if the client sent a positive depth request, the server
+    will determine which commits will and will not be shallow and send this
+    information to the client. If the client did not request a positive depth,
+    this step is skipped.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+  shallow-update   =  *shallow-line
+<br/>
+                      *unshallow-line
+<br/>
+                      flush-pkt
+<br/>
+  shallow-line     =  PKT-LINE(&quot;shallow&quot; SP obj-id)
+<br/>
+  unshallow-line   =  PKT-LINE(&quot;unshallow&quot; SP obj-id)</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">If the client has requested a positive depth, the server will
+    compute the set of commits which are no deeper than the desired depth. The
+    set of commits start at the client&#x2019;s wants.</p>
+<p class="Pp">The server writes <i>shallow</i> lines for each commit whose
+    parents will not be sent as a result. The server writes an <i>unshallow</i>
+    line for each commit which the client has indicated is shallow, but is no
+    longer shallow at the currently requested depth (that is, its parents will
+    now be sent). The server MUST NOT mark as unshallow anything which the
+    client has not indicated was shallow.</p>
+<p class="Pp">Now the client will send a list of the obj-ids it has using
+    <i>have</i> lines, so the server can make a packfile that only contains the
+    objects that the client needs. In multi_ack mode, the canonical
+    implementation will send up to 32 of these at a time, then will send a
+    flush-pkt. The canonical implementation will skip ahead and send the next 32
+    immediately, so that there is always a block of 32 &quot;in-flight on the
+    wire&quot; at a time.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+  upload-haves      =  have-list
+<br/>
+                       compute-end
+<br/>
+  have-list         =  *have-line
+<br/>
+  have-line         =  PKT-LINE(&quot;have&quot; SP obj-id)
+<br/>
+  compute-end       =  flush-pkt / PKT-LINE(&quot;done&quot;)</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">If the server reads <i>have</i> lines, it then will respond by
+    ACKing any of the obj-ids the client said it had that the server also has.
+    The server will ACK obj-ids differently depending on which ack mode is
+    chosen by the client.</p>
+<p class="Pp">In multi_ack mode:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;the server will respond with <i>ACK obj-id
+  continue</i> for any common commits.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;once the server has found an acceptable common
+  base commit and is ready to make a packfile, it will blindly ACK all
+  <i>have</i> obj-ids back to the client.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;the server will then send a <i>NAK</i> and then
+  wait for another response from the client - either a <i>done</i> or another
+  list of <i>have</i> lines.</div>
+<p class="Pp">In multi_ack_detailed mode:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;the server will differentiate the ACKs where it
+  is signaling that it is ready to send data with <i>ACK obj-id ready</i> lines,
+  and signals the identified common commits with <i>ACK obj-id common</i>
+  lines.</div>
+<p class="Pp">Without either multi_ack or multi_ack_detailed:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;upload-pack sends &quot;ACK obj-id&quot; on the
+  first common object it finds. After that it says nothing until the client
+  gives it a &quot;done&quot;.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;upload-pack sends &quot;NAK&quot; on a flush-pkt
+  if no common object has been found yet. If one has been found, and thus an ACK
+  was already sent, it&#x2019;s silent on the flush-pkt.</div>
+<p class="Pp">After the client has gotten enough ACK responses that it can
+    determine that the server has enough information to send an efficient
+    packfile (in the canonical implementation, this is determined when it has
+    received enough ACKs that it can color everything left in the --date-order
+    queue as common with the server, or the --date-order queue is empty), or the
+    client determines that it wants to give up (in the canonical implementation,
+    this is determined when the client sends 256 <i>have</i> lines without
+    getting any of them ACKed by the server - meaning there is nothing in common
+    and the server should just send all of its objects), then the client will
+    send a <i>done</i> command. The <i>done</i> command signals to the server
+    that the client is ready to receive its packfile data.</p>
+<p class="Pp">However, the 256 limit <b>only</b> turns on in the canonical
+    client implementation if we have received at least one &quot;ACK %s
+    continue&quot; during a prior round. This helps to ensure that at least one
+    common ancestor is found before we give up entirely.</p>
+<p class="Pp">Once the <i>done</i> line is read from the client, the server will
+    either send a final <i>ACK obj-id</i> or it will send a <i>NAK</i>.
+    <i>obj-id</i> is the object name of the last commit determined to be common.
+    The server only sends ACK after <i>done</i> if there is at least one common
+    base and multi_ack or multi_ack_detailed is enabled. The server always sends
+    NAK after <i>done</i> if there is no common base found.</p>
+<p class="Pp">Instead of <i>ACK</i> or <i>NAK</i>, the server may send an error
+    message (for example, if it does not recognize an object in a <i>want</i>
+    line received from the client).</p>
+<p class="Pp">Then the server will start sending its packfile data.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+  server-response = *ack_multi ack / nak
+<br/>
+  ack_multi       = PKT-LINE(&quot;ACK&quot; SP obj-id ack_status)
+<br/>
+  ack_status      = &quot;continue&quot; / &quot;common&quot; / &quot;ready&quot;
+<br/>
+  ack             = PKT-LINE(&quot;ACK&quot; SP obj-id)
+<br/>
+  nak             = PKT-LINE(&quot;NAK&quot;)</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">A simple clone may look like this (with no <i>have</i> lines):</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+   C: 0054want 74730d410fcb6603ace96f1dc55ea6196122532d multi_ack \
+<br/>
+     side-band-64k ofs-delta\n
+<br/>
+   C: 0032want 7d1665144a3a975c05f1f43902ddaf084e784dbe\n
+<br/>
+   C: 0032want 5a3f6be755bbb7deae50065988cbfa1ffa9ab68a\n
+<br/>
+   C: 0032want 7e47fe2bd8d01d481f44d7af0531bd93d3b21c01\n
+<br/>
+   C: 0032want 74730d410fcb6603ace96f1dc55ea6196122532d\n
+<br/>
+   C: 0000
+<br/>
+   C: 0009done\n
+<br/>
+   S: 0008NAK\n
+<br/>
+   S: [PACKFILE]</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">An incremental update (fetch) response might look like this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+   C: 0054want 74730d410fcb6603ace96f1dc55ea6196122532d multi_ack \
+<br/>
+     side-band-64k ofs-delta\n
+<br/>
+   C: 0032want 7d1665144a3a975c05f1f43902ddaf084e784dbe\n
+<br/>
+   C: 0032want 5a3f6be755bbb7deae50065988cbfa1ffa9ab68a\n
+<br/>
+   C: 0000
+<br/>
+   C: 0032have 7e47fe2bd8d01d481f44d7af0531bd93d3b21c01\n
+<br/>
+   C: [30 more have lines]
+<br/>
+   C: 0032have 74730d410fcb6603ace96f1dc55ea6196122532d\n
+<br/>
+   C: 0000
+<br/>
+   S: 003aACK 7e47fe2bd8d01d481f44d7af0531bd93d3b21c01 continue\n
+<br/>
+   S: 003aACK 74730d410fcb6603ace96f1dc55ea6196122532d continue\n
+<br/>
+   S: 0008NAK\n
+<br/>
+   C: 0009done\n
+<br/>
+   S: 0031ACK 74730d410fcb6603ace96f1dc55ea6196122532d\n
+<br/>
+   S: [PACKFILE]</pre>
+</div>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PACKFILE_DATA"><a class="permalink" href="#PACKFILE_DATA">PACKFILE
+  DATA</a></h1>
+<p class="Pp">Now that the client and server have finished negotiation about
+    what the minimal amount of data that needs to be sent to the client is, the
+    server will construct and send the required data in packfile format.</p>
+<p class="Pp">See <b>gitformat-pack</b>(5) for what the packfile itself actually
+    looks like.</p>
+<p class="Pp">If <i>side-band</i> or <i>side-band-64k</i> capabilities have been
+    specified by the client, the server will send the packfile data
+  multiplexed.</p>
+<p class="Pp">Each packet starting with the packet-line length of the amount of
+    data that follows, followed by a single byte specifying the sideband the
+    following data is coming in on.</p>
+<p class="Pp">In <i>side-band</i> mode, it will send up to 999 data bytes plus 1
+    control code, for a total of up to 1000 bytes in a pkt-line. In
+    <i>side-band-64k</i> mode it will send up to 65519 data bytes plus 1 control
+    code, for a total of up to 65520 bytes in a pkt-line.</p>
+<p class="Pp">The sideband byte will be a <i>1</i>, <i>2</i> or a <i>3</i>.
+    Sideband <i>1</i> will contain packfile data, sideband <i>2</i> will be used
+    for progress information that the client will generally print to stderr and
+    sideband <i>3</i> is used for error information.</p>
+<p class="Pp">If no <i>side-band</i> capability was specified, the server will
+    stream the entire packfile without multiplexing.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PUSHING_DATA_TO_A_SERVER"><a class="permalink" href="#PUSHING_DATA_TO_A_SERVER">PUSHING
+  DATA TO A SERVER</a></h1>
+<p class="Pp">Pushing data to a server will invoke the <i>receive-pack</i>
+    process on the server, which will allow the client to tell it which
+    references it should update and then send all the data the server will need
+    for those new references to be complete. Once all the data is received and
+    validated, the server will then update its references to what the client
+    specified.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHENTICATION"><a class="permalink" href="#AUTHENTICATION">AUTHENTICATION</a></h1>
+<p class="Pp">The protocol itself contains no authentication mechanisms. That is
+    to be handled by the transport, such as SSH, before the <i>receive-pack</i>
+    process is invoked. If <i>receive-pack</i> is configured over the Git
+    transport, those repositories will be writable by anyone who can access that
+    port (9418) as that transport is unauthenticated.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh">REFERENCE DISCOVERY</h1>
+<p class="Pp">The reference discovery phase is done nearly the same way as it is
+    in the fetching protocol. Each reference obj-id and name on the server is
+    sent in packet-line format to the client, followed by a flush-pkt. The only
+    real difference is that the capability listing is different - the only
+    possible values are <i>report-status</i>, <i>report-status-v2</i>,
+    <i>delete-refs</i>, <i>ofs-delta</i>, <i>atomic</i> and
+  <i>push-options</i>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REFERENCE_UPDATE_REQUEST_AND_PACKFILE_TRANSFER"><a class="permalink" href="#REFERENCE_UPDATE_REQUEST_AND_PACKFILE_TRANSFER">REFERENCE
+  UPDATE REQUEST AND PACKFILE TRANSFER</a></h1>
+<p class="Pp">Once the client knows what references the server is at, it can
+    send a list of reference update requests. For each reference on the server
+    that it wants to update, it sends a line listing the obj-id currently on the
+    server, the obj-id the client would like to update it to and the name of the
+    reference.</p>
+<p class="Pp">This list is followed by a flush-pkt.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+  update-requests   =  *shallow ( command-list | push-cert )
+<br/>
+  shallow           =  PKT-LINE(&quot;shallow&quot; SP obj-id)
+<br/>
+  command-list      =  PKT-LINE(command NUL capability-list)
+<br/>
+                       *PKT-LINE(command)
+<br/>
+                       flush-pkt
+<br/>
+  command           =  create / delete / update
+<br/>
+  create            =  zero-id SP new-id  SP name
+<br/>
+  delete            =  old-id  SP zero-id SP name
+<br/>
+  update            =  old-id  SP new-id  SP name
+<br/>
+  old-id            =  obj-id
+<br/>
+  new-id            =  obj-id
+<br/>
+  push-cert         = PKT-LINE(&quot;push-cert&quot; NUL capability-list LF)
+<br/>
+                      PKT-LINE(&quot;certificate version 0.1&quot; LF)
+<br/>
+                      PKT-LINE(&quot;pusher&quot; SP ident LF)
+<br/>
+                      PKT-LINE(&quot;pushee&quot; SP url LF)
+<br/>
+                      PKT-LINE(&quot;nonce&quot; SP nonce LF)
+<br/>
+                      *PKT-LINE(&quot;push-option&quot; SP push-option LF)
+<br/>
+                      PKT-LINE(LF)
+<br/>
+                      *PKT-LINE(command LF)
+<br/>
+                      *PKT-LINE(gpg-signature-lines LF)
+<br/>
+                      PKT-LINE(&quot;push-cert-end&quot; LF)
+<br/>
+  push-option       =  1*( VCHAR | SP )</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">If the server has advertised the <i>push-options</i> capability
+    and the client has specified <i>push-options</i> as part of the capability
+    list above, the client then sends its push options followed by a
+  flush-pkt.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+  push-options      =  *PKT-LINE(push-option) flush-pkt</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">For backwards compatibility with older Git servers, if the client
+    sends a push cert and push options, it MUST send its push options both
+    embedded within the push cert and after the push cert. (Note that the push
+    options within the cert are prefixed, but the push options after the cert
+    are not.) Both these lists MUST be the same, modulo the prefix.</p>
+<p class="Pp">After that the packfile that should contain all the objects that
+    the server will need to complete the new references will be sent.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+  packfile          =  &quot;PACK&quot; 28*(OCTET)</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">If the receiving end does not support delete-refs, the sending end
+    MUST NOT ask for delete command.</p>
+<p class="Pp">If the receiving end does not support push-cert, the sending end
+    MUST NOT send a push-cert command. When a push-cert command is sent,
+    command-list MUST NOT be sent; the commands recorded in the push certificate
+    is used instead.</p>
+<p class="Pp">The packfile MUST NOT be sent if the only command used is
+    <i>delete</i>.</p>
+<p class="Pp">A packfile MUST be sent if either create or update command is
+    used, even if the server already has all the necessary objects. In this case
+    the client MUST send an empty packfile. The only time this is likely to
+    happen is if the client is creating a new branch or a tag that points to an
+    existing obj-id.</p>
+<p class="Pp">The server will receive the packfile, unpack it, then validate
+    each reference that is being updated that it hasn&#x2019;t changed while the
+    request was being processed (the obj-id is still the same as the old-id),
+    and it will run any update hooks to make sure that the update is acceptable.
+    If all of that is fine, the server will then update the references.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PUSH_CERTIFICATE"><a class="permalink" href="#PUSH_CERTIFICATE">PUSH
+  CERTIFICATE</a></h1>
+<p class="Pp">A push certificate begins with a set of header lines. After the
+    header and an empty line, the protocol commands follow, one per line. Note
+    that the trailing LF in push-cert PKT-LINEs is <i>not</i> optional; it must
+    be present.</p>
+<p class="Pp">Currently, the following header fields are defined:</p>
+<p class="Pp"><b>pusher</b> ident</p>
+<div class="Bd-indent">Identify the GPG key in &quot;Human Readable Name
+  &lt;<b>email@address</b>[1]&gt;&quot; format.</div>
+<p class="Pp"><b>pushee</b> url</p>
+<div class="Bd-indent">The repository URL (anonymized, if the URL contains
+  authentication material) the user who ran <b>git push</b> intended to push
+  into.</div>
+<p class="Pp"><b>nonce</b> nonce</p>
+<div class="Bd-indent">The <i>nonce</i> string the receiving repository asked
+  the pushing user to include in the certificate, to prevent replay
+  attacks.</div>
+<p class="Pp">The GPG signature lines are a detached signature for the contents
+    recorded in the push certificate before the signature block begins. The
+    detached signature is used to certify that the commands were given by the
+    pusher, who must be the signer.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REPORT_STATUS"><a class="permalink" href="#REPORT_STATUS">REPORT
+  STATUS</a></h1>
+<p class="Pp">After receiving the pack data from the sender, the receiver sends
+    a report if <i>report-status</i> or <i>report-status-v2</i> capability is in
+    effect. It is a short listing of what happened in that update. It will first
+    list the status of the packfile unpacking as either <i>unpack ok</i> or
+    <i>unpack [error]</i>. Then it will list the status for each of the
+    references that it tried to update. Each line is either <i>ok [refname]</i>
+    if the update was successful, or <i>ng [refname] [error]</i> if the update
+    was not.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+  report-status     = unpack-status
+<br/>
+                      1*(command-status)
+<br/>
+                      flush-pkt
+<br/>
+  unpack-status     = PKT-LINE(&quot;unpack&quot; SP unpack-result)
+<br/>
+  unpack-result     = &quot;ok&quot; / error-msg
+<br/>
+  command-status    = command-ok / command-fail
+<br/>
+  command-ok        = PKT-LINE(&quot;ok&quot; SP refname)
+<br/>
+  command-fail      = PKT-LINE(&quot;ng&quot; SP refname SP error-msg)
+<br/>
+  error-msg         = 1*(OCTET) ; where not &quot;ok&quot;</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">The <i>report-status-v2</i> capability extends the protocol by
+    adding new option lines in order to support reporting of reference rewritten
+    by the <i>proc-receive</i> hook. The <i>proc-receive</i> hook may handle a
+    command for a pseudo-reference which may create or update one or more
+    references, and each reference may have different name, different new-oid,
+    and different old-oid.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+  report-status-v2  = unpack-status
+<br/>
+                      1*(command-status-v2)
+<br/>
+                      flush-pkt
+<br/>
+  unpack-status     = PKT-LINE(&quot;unpack&quot; SP unpack-result)
+<br/>
+  unpack-result     = &quot;ok&quot; / error-msg
+<br/>
+  command-status-v2 = command-ok-v2 / command-fail
+<br/>
+  command-ok-v2     = command-ok
+<br/>
+                      *option-line
+<br/>
+  command-ok        = PKT-LINE(&quot;ok&quot; SP refname)
+<br/>
+  command-fail      = PKT-LINE(&quot;ng&quot; SP refname SP error-msg)
+<br/>
+  error-msg         = 1*(OCTET) ; where not &quot;ok&quot;
+<br/>
+  option-line       = *1(option-refname)
+<br/>
+                      *1(option-old-oid)
+<br/>
+                      *1(option-new-oid)
+<br/>
+                      *1(option-forced-update)
+<br/>
+  option-refname    = PKT-LINE(&quot;option&quot; SP &quot;refname&quot; SP refname)
+<br/>
+  option-old-oid    = PKT-LINE(&quot;option&quot; SP &quot;old-oid&quot; SP obj-id)
+<br/>
+  option-new-oid    = PKT-LINE(&quot;option&quot; SP &quot;new-oid&quot; SP obj-id)
+<br/>
+  option-force      = PKT-LINE(&quot;option&quot; SP &quot;forced-update&quot;)</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Updates can be unsuccessful for a number of reasons. The reference
+    can have changed since the reference discovery phase was originally sent,
+    meaning someone pushed in the meantime. The reference being pushed could be
+    a non-fast-forward reference and the update hooks or configuration could be
+    set to not allow that, etc. Also, some references can be updated while
+    others can be rejected.</p>
+<p class="Pp">An example client/server communication might look like this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+   S: 006274730d410fcb6603ace96f1dc55ea6196122532d refs/heads/local\0report-status delete-refs ofs-delta\n
+<br/>
+   S: 003e7d1665144a3a975c05f1f43902ddaf084e784dbe refs/heads/debug\n
+<br/>
+   S: 003f74730d410fcb6603ace96f1dc55ea6196122532d refs/heads/master\n
+<br/>
+   S: 003d74730d410fcb6603ace96f1dc55ea6196122532d refs/heads/team\n
+<br/>
+   S: 0000
+<br/>
+   C: 00677d1665144a3a975c05f1f43902ddaf084e784dbe 74730d410fcb6603ace96f1dc55ea6196122532d refs/heads/debug\n
+<br/>
+   C: 006874730d410fcb6603ace96f1dc55ea6196122532d 5a3f6be755bbb7deae50065988cbfa1ffa9ab68a refs/heads/master\n
+<br/>
+   C: 0000
+<br/>
+   C: [PACKDATA]
+<br/>
+   S: 000eunpack ok\n
+<br/>
+   S: 0018ok refs/heads/debug\n
+<br/>
+   S: 002ang refs/heads/master non-fast-forward\n</pre>
+</div>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="GIT"><a class="permalink" href="#GIT">GIT</a></h1>
+<p class="Pp">Part of the <b>git</b>(1) suite</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<dl class="Bl-tag">
+  <dt> 1.</dt>
+  <dd>email@address</dd>
+</dl>
+<div class="Bd-indent">mailto:email@address</div>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">12/12/2022</td>
+    <td class="foot-os">Git 2.39.0</td>
+  </tr>
+</table>
+</body>
+</html>

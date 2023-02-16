@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   t
+       Title: gitprotocol-common
+      Author: [FIXME: author] [see http://www.docbook.org/tdg5/en/html/author]
+   Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+        Date: 12/12/2022
+      Manual: Git Manual
+      Source: Git 2.39.0
+    Language: English
+   -->
+<head>
+
+<style>
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #000;
+    color: #d0d0d0;
+  }
+
+  a, a:visited {
+    color: #1899eb;
+  }
+}
+</style>
+
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    .Nd, .Bf, .Op { display: inline; }
+    .Pa, .Ad { font-style: italic; }
+    .Ms { font-weight: bold; }
+    .Bl-diag > dt { font-weight: bold; }
+    code.Nm, .Fl, .Cm, .Ic, code.In, .Fd, .Fn, .Cd { font-weight: bold;
+      font-family: inherit; }
+  </style>
+  <title>GITPROTOCOL-COMMON(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">GITPROTOCOL-COMMON(5)</td>
+    <td class="head-vol">Git Manual</td>
+    <td class="head-rtitle">GITPROTOCOL-COMMON(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">gitprotocol-common - Things common to various protocols</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>&lt;over-the-wire-protocol&gt;</pre>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">This document sets defines things common to various over-the-wire
+    protocols and file formats used in Git.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ABNF_NOTATION"><a class="permalink" href="#ABNF_NOTATION">ABNF
+  NOTATION</a></h1>
+<p class="Pp">ABNF notation as described by RFC 5234 is used within the protocol
+    documents, except the following replacement core rules are used:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+  HEXDIG    =  DIGIT / &quot;a&quot; / &quot;b&quot; / &quot;c&quot; / &quot;d&quot; / &quot;e&quot; / &quot;f&quot;</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">We also define the following common rules:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+  NUL       =  %x00
+<br/>
+  zero-id   =  40*&quot;0&quot;
+<br/>
+  obj-id    =  40*(HEXDIGIT)
+<br/>
+  refname  =  &quot;HEAD&quot;
+<br/>
+  refname /=  &quot;refs/&quot; &lt;see discussion below&gt;</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">A refname is a hierarchical octet string beginning with
+    &quot;refs/&quot; and not violating the <i>git-check-ref-format</i>
+    command&#x2019;s validation rules. More specifically, they:</p>
+<p class="Pp"></p>
+<div class="Bd-indent"> 1.They can include slash <b>/</b> for hierarchical
+  (directory) grouping, but no slash-separated component can begin with a dot
+  <b>.</b>.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 2.They must contain at least one <b>/</b>. This enforces
+  the presence of a category like <b>heads/</b>, <b>tags/</b> etc. but the
+  actual names are not restricted.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 3.They cannot have two consecutive dots <b>..</b>
+  anywhere.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 4.They cannot have ASCII control characters (i.e. bytes
+  whose values are lower than \040, or \177 <b>DEL</b>), space, tilde <b>~</b>,
+  caret <b>^</b>, colon <b>:</b>, question-mark <b>?</b>, asterisk <b>*</b>, or
+  open bracket <b>[</b> anywhere.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 5.They cannot end with a slash <b>/</b> or a dot
+  <b>.</b>.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 6.They cannot end with the sequence <b>.lock</b>.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 7.They cannot contain a sequence <b>@{</b>.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 8.They cannot contain a <b>\\</b>.</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PKT"><a class="permalink" href="#PKT">PKT-LINE
+  FORMAT</a></h1>
+<p class="Pp">Much (but not all) of the payload is described around
+  pkt-lines.</p>
+<p class="Pp">A pkt-line is a variable length binary string. The first four
+    bytes of the line, the pkt-len, indicates the total length of the line, in
+    hexadecimal. The pkt-len includes the 4 bytes used to contain the
+    length&#x2019;s hexadecimal representation.</p>
+<p class="Pp">A pkt-line MAY contain binary data, so implementors MUST ensure
+    pkt-line parsing/formatting routines are 8-bit clean.</p>
+<p class="Pp">A non-binary line SHOULD BE terminated by an LF, which if present
+    MUST be included in the total length. Receivers MUST treat pkt-lines with
+    non-binary data the same whether or not they contain the trailing LF
+    (stripping the LF if present, and not complaining when it is missing).</p>
+<p class="Pp">The maximum length of a pkt-line&#x2019;s data component is 65516
+    bytes. Implementations MUST NOT send pkt-line whose length exceeds 65520
+    (65516 bytes of payload + 4 bytes of length data).</p>
+<p class="Pp">Implementations SHOULD NOT send an empty pkt-line
+    (&quot;0004&quot;).</p>
+<p class="Pp">A pkt-line with a length field of 0 (&quot;0000&quot;), called a
+    flush-pkt, is a special case and MUST be handled differently than an empty
+    pkt-line (&quot;0004&quot;).</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+  pkt-line     =  data-pkt / flush-pkt
+<br/>
+  data-pkt     =  pkt-len pkt-payload
+<br/>
+  pkt-len      =  4*(HEXDIG)
+<br/>
+  pkt-payload  =  (pkt-len - 4)*(OCTET)
+<br/>
+  flush-pkt    = &quot;0000&quot;</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Examples (as C-style strings):</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+  pkt-line          actual value
+<br/>
+  ---------------------------------
+<br/>
+  &quot;0006a\n&quot;         &quot;a\n&quot;
+<br/>
+  &quot;0005a&quot;           &quot;a&quot;
+<br/>
+  &quot;000bfoobar\n&quot;    &quot;foobar\n&quot;
+<br/>
+  &quot;0004&quot;            &quot;&quot;</pre>
+</div>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="GIT"><a class="permalink" href="#GIT">GIT</a></h1>
+<p class="Pp">Part of the <b>git</b>(1) suite</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">12/12/2022</td>
+    <td class="foot-os">Git 2.39.0</td>
+  </tr>
+</table>
+</body>
+</html>

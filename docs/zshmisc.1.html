@@ -282,7 +282,9 @@
       end-of-file is encountered.</dd>
   <dt><b>(</b> <i>list</i> <b>)</b></dt>
   <dd>Execute <i>list</i> in a subshell. Traps set by the <b>trap</b> builtin
-      are reset to their default values while executing <i>list</i>.</dd>
+      are reset to their default values while executing <i>list</i>; an
+      exception is that ignored signals will continue to be ignored if the
+      option <b>POSIXTRAPS</b> is set.</dd>
   <dt><b>{</b> <i>list</i> <b>}</b></dt>
   <dd>Execute <i>list</i>.</dd>
   <dt><b>{</b> <i>try-list</i> <b>} always {</b> <i>always-list</i>
@@ -346,8 +348,8 @@
   <b>continue</b>.</p>
 </div>
 <dl class="Bl-tag">
-  <dt><b>function</b> <i>word</i> ... [ <b>()</b> ] [ <i>term</i> ] <b>{</b>
-    <i>list</i> <b>}</b></dt>
+  <dt><b>function</b> [ <b>-T</b> ] <i>word</i> ... [ <b>()</b> ] [ <i>term</i>
+    ] <b>{</b> <i>list</i> <b>}</b></dt>
   <dd></dd>
   <dt><i>word</i> ... <b>()</b> [ <i>term</i> ] <b>{</b> <i>list</i>
     <b>}</b></dt>
@@ -360,6 +362,14 @@
       <b>{</b> and <b>}</b>. See the section `Functions'.</dd>
 </dl>
 <div class="Bd-indent">
+<p class="Pp">The options of <b>function</b> have the following meanings:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt>-T</dt>
+  <dd>Enable tracing for this function, as though with <b>functions -T</b>. See
+      the documentation of the <b>-f</b> option to the <b>typeset</b> builtin,
+      in <i>zshbuiltins</i>(1).</dd>
+</dl>
 <p class="Pp">If the option <b>SH_GLOB</b> is set for compatibility with other
     shells, then whitespace may appear between the left and right parentheses
     when there is a single <i>word</i>; otherwise, the parentheses will be
@@ -402,7 +412,9 @@
     else the end of the test will not be recognized. For the <b>for</b>,
     <b>repeat</b>, <b>case</b> and <b>select</b> commands no such special form
     for the arguments is necessary, but the other condition (the special form of
-    <i>sublist</i> or use of the <b>SHORT_LOOPS</b> option) still applies.</p>
+    <i>sublist</i> or use of the <b>SHORT_LOOPS</b> option) still applies. The
+    <b>SHORT_REPEAT</b> option is available to enable the short version only for
+    the <b>repeat</b> command.</p>
 <p class="Pp"></p>
 <dl class="Bl-tag">
   <dt><b>if</b> <i>list</i> <b>{</b> <i>list</i> <b>}</b> [ <b>elif</b>
@@ -574,9 +586,13 @@
     alias if it is in command position (if it could be the first word of a
     simple command), or if the alias is global. If the replacement text ends
     with a space, the next word in the shell input is always eligible for
-    purposes of alias expansion. An alias is defined using the <b>alias</b>
-    builtin; global aliases may be defined using the <b>-g</b> option to that
-    builtin.</p>
+    purposes of alias expansion.</p>
+<p class="Pp">It is an error for the function name, <i>word</i>, in the
+    sh-compatible function definition syntax `<i>word</i> <b>()</b> ...' to be a
+    word that resulted from alias expansion, unless the <b>ALIAS_FUNC_DEF</b>
+    option is set.</p>
+<p class="Pp">An alias is defined using the <b>alias</b> builtin; global aliases
+    may be defined using the <b>-g</b> option to that builtin.</p>
 <p class="Pp">A <i>word</i> is defined as:</p>
 <p class="Pp"></p>
 <dl class="Bl-tag">
@@ -602,6 +618,16 @@
     word, e.g. <b>\foo</b>. Any form of quoting works, although there is nothing
     to prevent an alias being defined for the quoted form such as <b>\foo</b> as
     well.</p>
+<p class="Pp">In particular, note that quoting must be used when using
+    <b>unalias</b> to remove global aliases:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre><b>% alias -g foo=bar</b>
+<b>% unalias foo</b>
+<b>unalias: no such hash table element: bar</b>
+<b>% unalias \foo</b>
+<b>% </b></pre>
+</div>
 <p class="Pp">When <b>POSIX_ALIASES</b> is set, only plain unquoted strings are
     eligible for aliasing. The <b>alias</b> builtin does not reject ineligible
     aliases, but they are not expanded.</p>
@@ -647,30 +673,6 @@
     shell scripts, functions, and code executed with `<b>source</b>' or
     `<b>.</b>'. Consequently, use of functions rather than aliases is
     recommended in non-interactive code.</p>
-<p class="Pp">Note also the unhelpful interaction of aliases and function
-    definitions:</p>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre><b>alias func='noglob func'</b>
-<b>func() {</b>
-<br/>
-<b>    echo Do something with $*</b>
-<b>}</b></pre>
-</div>
-<p class="Pp">Because aliases are expanded in function definitions, this causes
-    the following command to be executed:</p>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre><b>noglob func() {</b>
-<br/>
-<b>    echo Do something with $*</b>
-<b>}</b></pre>
-</div>
-<p class="Pp">which defines <b>noglob</b> as well as <b>func</b> as functions
-    with the body given. To avoid this, either quote the name <b>func</b> or use
-    the alternative function definition form `<b>function func</b>'. Ensuring
-    the alias is defined after the function works but is problematic if the code
-    fragment might be re-executed.</p>
 </section>
 </section>
 <section class="Sh">
@@ -766,7 +768,7 @@
   <dd>Perform shell expansion on <i>word</i> and pass the result to standard
       input. This is known as a <i>here-string</i>. Compare the use of
       <i>word</i> in here-documents above, where <i>word</i> does not undergo
-      shell expansion.</dd>
+      shell expansion. The result will have a trailing newline after it.</dd>
   <dt><b>&lt;&amp;</b> <i>number</i></dt>
   <dd></dd>
   <dt><b>&gt;&amp;</b> <i>number</i></dt>
@@ -1040,9 +1042,20 @@
     invoked as described in the section `Functions'. If there exists a shell
     builtin by that name, the builtin is invoked.</p>
 <p class="Pp">Otherwise, the shell searches each element of <b>$path</b> for a
-    directory containing an executable file by that name. If the search is
-    unsuccessful, the shell prints an error message and returns a nonzero exit
-    status.</p>
+    directory containing an executable file by that name.</p>
+<p class="Pp">If execution fails: an error message is printed, and one of the
+    following values is returned.</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt>127</dt>
+  <dd>The search was unsuccessful. The error message is `<b>command not
+      found:</b> <i>cmd</i>'.</dd>
+  <dt>126</dt>
+  <dd>The executable file has insufficient permissions, is a directory or
+      special file, or is not a script and is in a format unrecognized by the
+      operating system. The exact conditions and error message are operating
+      system-dependent; see <i>execve</i>(2).</dd>
+</dl>
 <p class="Pp">If execution fails because the file is not in executable format,
     and the file is not a directory, it is assumed to be a shell script.
     <b>/bin/sh</b> is spawned to execute it. If the program is a file beginning
@@ -1053,12 +1066,9 @@
 <p class="Pp">If no external command is found but a function
     <b>command_not_found_handler</b> exists the shell executes this function
     with all command line arguments. The return status of the function becomes
-    the status of the command. If the function wishes to mimic the behaviour of
-    the shell when the command is not found, it should print the message
-    `<b>command not found:</b> <i>cmd</i>' to standard error and return status
-    127. Note that the handler is executed in a subshell forked to execute an
-    external command, hence changes to directories, shell parameters, etc. have
-    no effect on the main shell.</p>
+    the status of the command. Note that the handler is executed in a subshell
+    forked to execute an external command, hence changes to directories, shell
+    parameters, etc. have no effect on the main shell.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="FUNCTIONS"><a class="permalink" href="#FUNCTIONS">FUNCTIONS</a></h1>
@@ -1255,16 +1265,17 @@
 <p class="Pp">For the functions below, it is possible to define an array that
     has the same name as the function with `<b>_functions</b>' appended. Any
     element in such an array is taken as the name of a function to execute; it
-    is executed in the same context and with the same arguments as the basic
-    function. For example, if <b>$chpwd_functions</b> is an array containing the
-    values `<b>mychpwd</b>', `<b>chpwd_save_dirstack</b>', then the shell
-    attempts to execute the functions `<b>chpwd</b>', `<b>mychpwd</b>' and
-    `<b>chpwd_save_dirstack</b>', in that order. Any function that does not
-    exist is silently ignored. A function found by this mechanism is referred to
-    elsewhere as a `hook function'. An error in any function causes subsequent
-    functions not to be run. Note further that an error in a <b>precmd</b> hook
-    causes an immediately following <b>periodic</b> function not to run (though
-    it may run at the next opportunity).</p>
+    is executed in the same context and with the same arguments and same initial
+    value of <b>$?</b> as the basic function. For example, if
+    <b>$chpwd_functions</b> is an array containing the values `<b>mychpwd</b>',
+    `<b>chpwd_save_dirstack</b>', then the shell attempts to execute the
+    functions `<b>chpwd</b>', `<b>mychpwd</b>' and `<b>chpwd_save_dirstack</b>',
+    in that order. Any function that does not exist is silently ignored. A
+    function found by this mechanism is referred to elsewhere as a <i>hook
+    function</i>. An error in any function causes subsequent functions not to be
+    run. Note further that an error in a <b>precmd</b> hook causes an
+    immediately following <b>periodic</b> function not to run (though it may run
+    at the next opportunity).</p>
 <p class="Pp"></p>
 <dl class="Bl-tag">
   <dt><b>chpwd</b></dt>
@@ -1304,8 +1315,8 @@
     will be saved on the internal history list, but not written to the history
     file. In case of a conflict, the first non-zero status value is taken.</p>
 <p class="Pp">A hook function may call `<b>fc -p</b> <i>...</i>' to switch the
-    history context so that the history is saved in a different file from the
-    that in the global <b>HISTFILE</b> parameter. This is handled specially: the
+    history context so that the history is saved in a different file from that
+    in the global <b>HISTFILE</b> parameter. This is handled specially: the
     history context is automatically restored after the processing of the
     history line is finished.</p>
 <p class="Pp">The following example function works with one of the options
@@ -1514,8 +1525,7 @@
     the suspended jobs will be terminated, and the running jobs will be sent a
     <b>SIGHUP</b> signal, if the <b>HUP</b> option is set.</p>
 <p class="Pp">To avoid having the shell terminate the running jobs, either use
-    the <b>nohup</b> command (see <i>nohup</i>(1)) or the <b>disown</b>
-  builtin.</p>
+    the <i>nohup</i>(1) command or the <b>disown</b> builtin.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SIGNALS"><a class="permalink" href="#SIGNALS">SIGNALS</a></h1>
@@ -1550,12 +1560,12 @@
     arguments; each is evaluated separately. Since many of the arithmetic
     operators, as well as spaces, require quoting, an alternative form is
     provided: for any command which begins with a `<b>((</b>', all the
-    characters until a matching `<b>))</b>' are treated as a quoted expression
-    and arithmetic expansion performed as for an argument of <b>let</b>. More
-    precisely, `<b>((</b><i>...</i><b>))</b>' is equivalent to `<b>let
-    &quot;</b><i>...</i><b>&quot;</b>'. The return status is 0 if the arithmetic
-    value of the expression is non-zero, 1 if it is zero, and 2 if an error
-    occurred.</p>
+    characters until a matching `<b>))</b>' are treated as a double-quoted
+    expression and arithmetic expansion performed as for an argument of
+    <b>let</b>. More precisely, `<b>((</b><i>...</i><b>))</b>' is equivalent to
+    `<b>let &quot;</b><i>...</i><b>&quot;</b>'. The return status is 0 if the
+    arithmetic value of the expression is non-zero, 1 if it is zero, and 2 if an
+    error occurred.</p>
 <p class="Pp">For example, the following statement</p>
 <p class="Pp"></p>
 <div class="Bd-indent">

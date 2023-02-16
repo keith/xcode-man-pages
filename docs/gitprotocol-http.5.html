@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   t
+       Title: gitprotocol-http
+      Author: [FIXME: author] [see http://www.docbook.org/tdg5/en/html/author]
+   Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+        Date: 12/12/2022
+      Manual: Git Manual
+      Source: Git 2.39.0
+    Language: English
+   -->
+<head>
+
+<style>
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #000;
+    color: #d0d0d0;
+  }
+
+  a, a:visited {
+    color: #1899eb;
+  }
+}
+</style>
+
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    .Nd, .Bf, .Op { display: inline; }
+    .Pa, .Ad { font-style: italic; }
+    .Ms { font-weight: bold; }
+    .Bl-diag > dt { font-weight: bold; }
+    code.Nm, .Fl, .Cm, .Ic, code.In, .Fd, .Fn, .Cd { font-weight: bold;
+      font-family: inherit; }
+  </style>
+  <title>GITPROTOCOL-HTTP(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">GITPROTOCOL-HTTP(5)</td>
+    <td class="head-vol">Git Manual</td>
+    <td class="head-rtitle">GITPROTOCOL-HTTP(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">gitprotocol-http - Git HTTP-based protocols</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>&lt;over-the-wire-protocol&gt;</pre>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Git supports two HTTP based transfer protocols. A &quot;dumb&quot;
+    protocol which requires only a standard HTTP server on the server end of the
+    connection, and a &quot;smart&quot; protocol which requires a Git aware CGI
+    (or server module). This document describes both protocols.</p>
+<p class="Pp">As a design feature smart clients can automatically upgrade
+    &quot;dumb&quot; protocol URLs to smart URLs. This permits all users to have
+    the same published URL, and the peers automatically select the most
+    efficient transport available to them.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="URL_FORMAT"><a class="permalink" href="#URL_FORMAT">URL
+  FORMAT</a></h1>
+<p class="Pp">URLs for Git repositories accessed by HTTP use the standard HTTP
+    URL syntax documented by RFC 1738, so they are of the form:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>http://&lt;host&gt;:&lt;port&gt;/&lt;path&gt;?&lt;searchpart&gt;</pre>
+</div>
+<p class="Pp">Within this documentation the placeholder <b>$GIT_URL</b> will
+    stand for the http:// repository URL entered by the end-user.</p>
+<p class="Pp">Servers SHOULD handle all requests to locations matching
+    <b>$GIT_URL</b>, as both the &quot;smart&quot; and &quot;dumb&quot; HTTP
+    protocols used by Git operate by appending additional path components onto
+    the end of the user supplied <b>$GIT_URL</b> string.</p>
+<p class="Pp">An example of a dumb client requesting for a loose object:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$GIT_URL:     http://example.com:8080/git/repo.git
+URL request:  http://example.com:8080/git/repo.git/objects/d0/49f6c27a2244e12041955e262a404c7faba355</pre>
+</div>
+<p class="Pp">An example of a smart request to a catch-all gateway:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$GIT_URL:     http://example.com/daemon.cgi?svc=git&amp;q=
+URL request:  http://example.com/daemon.cgi?svc=git&amp;q=/info/refs&amp;service=git-receive-pack</pre>
+</div>
+<p class="Pp">An example of a request to a submodule:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$GIT_URL:     http://example.com/git/repo.git/path/submodule.git
+URL request:  http://example.com/git/repo.git/path/submodule.git/info/refs</pre>
+</div>
+<p class="Pp">Clients MUST strip a trailing <b>/</b>, if present, from the user
+    supplied <b>$GIT_URL</b> string to prevent empty path tokens (<b>//</b>)
+    from appearing in any URL sent to a server. Compatible clients MUST expand
+    <b>$GIT_URL/info/refs</b> as <b>foo/info/refs</b> and not
+    <b>foo//info/refs</b>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHENTICATION"><a class="permalink" href="#AUTHENTICATION">AUTHENTICATION</a></h1>
+<p class="Pp">Standard HTTP authentication is used if authentication is required
+    to access a repository, and MAY be configured and enforced by the HTTP
+    server software.</p>
+<p class="Pp">Because Git repositories are accessed by standard path components
+    server administrators MAY use directory based permissions within their HTTP
+    server to control repository access.</p>
+<p class="Pp">Clients SHOULD support Basic authentication as described by RFC
+    2617. Servers SHOULD support Basic authentication by relying upon the HTTP
+    server placed in front of the Git server software.</p>
+<p class="Pp">Servers SHOULD NOT require HTTP cookies for the purposes of
+    authentication or access control.</p>
+<p class="Pp">Clients and servers MAY support other common forms of HTTP based
+    authentication, such as Digest authentication.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SSL"><a class="permalink" href="#SSL">SSL</a></h1>
+<p class="Pp">Clients and servers SHOULD support SSL, particularly to protect
+    passwords when relying on Basic HTTP authentication.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SESSION_STATE"><a class="permalink" href="#SESSION_STATE">SESSION
+  STATE</a></h1>
+<p class="Pp">The Git over HTTP protocol (much like HTTP itself) is stateless
+    from the perspective of the HTTP server side. All state MUST be retained and
+    managed by the client process. This permits simple round-robin
+    load-balancing on the server side, without needing to worry about state
+    management.</p>
+<p class="Pp">Clients MUST NOT require state management on the server side in
+    order to function correctly.</p>
+<p class="Pp">Servers MUST NOT require HTTP cookies in order to function
+    correctly. Clients MAY store and forward HTTP cookies during request
+    processing as described by RFC 2616 (HTTP/1.1). Servers SHOULD ignore any
+    cookies sent by a client.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="GENERAL_REQUEST_PROCESSING"><a class="permalink" href="#GENERAL_REQUEST_PROCESSING">GENERAL
+  REQUEST PROCESSING</a></h1>
+<p class="Pp">Except where noted, all standard HTTP behavior SHOULD be assumed
+    by both client and server. This includes (but is not necessarily limited
+    to):</p>
+<p class="Pp">If there is no repository at <b>$GIT_URL</b>, or the resource
+    pointed to by a location matching <b>$GIT_URL</b> does not exist, the server
+    MUST NOT respond with <b>200 OK</b> response. A server SHOULD respond with
+    <b>404 Not Found</b>, <b>410 Gone</b>, or any other suitable HTTP status
+    code which does not imply the resource exists as requested.</p>
+<p class="Pp">If there is a repository at <b>$GIT_URL</b>, but access is not
+    currently permitted, the server MUST respond with the <b>403 Forbidden</b>
+    HTTP status code.</p>
+<p class="Pp">Servers SHOULD support both HTTP 1.0 and HTTP 1.1. Servers SHOULD
+    support chunked encoding for both request and response bodies.</p>
+<p class="Pp">Clients SHOULD support both HTTP 1.0 and HTTP 1.1. Clients SHOULD
+    support chunked encoding for both request and response bodies.</p>
+<p class="Pp">Servers MAY return ETag and/or Last-Modified headers.</p>
+<p class="Pp">Clients MAY revalidate cached entities by including
+    If-Modified-Since and/or If-None-Match request headers.</p>
+<p class="Pp">Servers MAY return <b>304 Not Modified</b> if the relevant headers
+    appear in the request and the entity has not changed. Clients MUST treat
+    <b>304 Not Modified</b> identical to <b>200 OK</b> by reusing the cached
+    entity.</p>
+<p class="Pp">Clients MAY reuse a cached entity without revalidation if the
+    Cache-Control and/or Expires header permits caching. Clients and servers
+    MUST follow RFC 2616 for cache controls.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DISCOVERING_REFERENCES"><a class="permalink" href="#DISCOVERING_REFERENCES">DISCOVERING
+  REFERENCES</a></h1>
+<p class="Pp">All HTTP clients MUST begin either a fetch or a push exchange by
+    discovering the references available on the remote repository.</p>
+<section class="Ss">
+<h2 class="Ss" id="Dumb_Clients"><a class="permalink" href="#Dumb_Clients">Dumb
+  Clients</a></h2>
+<p class="Pp">HTTP clients that only support the &quot;dumb&quot; protocol MUST
+    discover references by making a request for the special info/refs file of
+    the repository.</p>
+<p class="Pp">Dumb HTTP clients MUST make a <b>GET</b> request to
+    <b>$GIT_URL/info/refs</b>, without any search/query parameters.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>C: GET $GIT_URL/info/refs HTTP/1.0</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>S: 200 OK
+S:
+S: 95dcfa3633004da0049d3d0fa03f80589cbcaf31  refs/heads/maint
+S: d049f6c27a2244e12041955e262a404c7faba355  refs/heads/master
+S: 2cb58b79488a98d2721cea644875a8dd0026b115  refs/tags/v1.0
+S: a3c2e2402b99163d1d59756e5f207ae21cccba4c  refs/tags/v1.0^{}</pre>
+</div>
+<p class="Pp">The Content-Type of the returned info/refs entity SHOULD be
+    <b>text/plain; charset=utf-8</b>, but MAY be any content type. Clients MUST
+    NOT attempt to validate the returned Content-Type. Dumb servers MUST NOT
+    return a return type starting with <b>application/x-git-</b>.</p>
+<p class="Pp">Cache-Control headers MAY be returned to disable caching of the
+    returned entity.</p>
+<p class="Pp">When examining the response clients SHOULD only examine the HTTP
+    status code. Valid responses are <b>200 OK</b>, or <b>304 Not
+  Modified</b>.</p>
+<p class="Pp">The returned content is a UNIX formatted text file describing each
+    ref and its known value. The file SHOULD be sorted by name according to the
+    C locale ordering. The file SHOULD NOT include the default ref named
+    <b>HEAD</b>.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>info_refs   =  *( ref_record )
+ref_record  =  any_ref / peeled_ref</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>any_ref     =  obj-id HTAB refname LF
+peeled_ref  =  obj-id HTAB refname LF
+<br/>
+               obj-id HTAB refname &quot;^{}&quot; LF</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Smart_Clients"><a class="permalink" href="#Smart_Clients">Smart
+  Clients</a></h2>
+<p class="Pp">HTTP clients that support the &quot;smart&quot; protocol (or both
+    the &quot;smart&quot; and &quot;dumb&quot; protocols) MUST discover
+    references by making a parameterized request for the info/refs file of the
+    repository.</p>
+<p class="Pp">The request MUST contain exactly one query parameter,
+    <b>service=$servicename</b>, where <b>$servicename</b> MUST be the service
+    name the client wishes to contact to complete the operation. The request
+    MUST NOT contain additional query parameters.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>C: GET $GIT_URL/info/refs?service=git-upload-pack HTTP/1.0</pre>
+</div>
+<p class="Pp">dumb server reply:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>S: 200 OK
+S:
+S: 95dcfa3633004da0049d3d0fa03f80589cbcaf31  refs/heads/maint
+S: d049f6c27a2244e12041955e262a404c7faba355  refs/heads/master
+S: 2cb58b79488a98d2721cea644875a8dd0026b115  refs/tags/v1.0
+S: a3c2e2402b99163d1d59756e5f207ae21cccba4c  refs/tags/v1.0^{}</pre>
+</div>
+<p class="Pp">smart server reply:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>S: 200 OK
+S: Content-Type: application/x-git-upload-pack-advertisement
+S: Cache-Control: no-cache
+S:
+S: 001e# service=git-upload-pack\n
+S: 0000
+S: 004895dcfa3633004da0049d3d0fa03f80589cbcaf31 refs/heads/maint\0multi_ack\n
+S: 003fd049f6c27a2244e12041955e262a404c7faba355 refs/heads/master\n
+S: 003c2cb58b79488a98d2721cea644875a8dd0026b115 refs/tags/v1.0\n
+S: 003fa3c2e2402b99163d1d59756e5f207ae21cccba4c refs/tags/v1.0^{}\n
+S: 0000</pre>
+</div>
+<p class="Pp">The client may send Extra Parameters (see
+    <b>gitprotocol-pack</b>(5)) as a colon-separated string in the Git-Protocol
+    HTTP header.</p>
+<p class="Pp">Uses the <b>--http-backend-info-refs</b> option to
+    <b>git-upload-pack</b>(1).</p>
+<p class="Pp"><b>Dumb Server Response</b>
+  <br/>
+</p>
+<div class="Bd-indent">
+<p class="Pp">Dumb servers MUST respond with the dumb server reply format.</p>
+<p class="Pp">See the prior section under dumb clients for a more detailed
+    description of the dumb server response.</p>
+</div>
+<p class="Pp"><b>Smart Server Response</b>
+  <br/>
+</p>
+<div class="Bd-indent">
+<p class="Pp">If the server does not recognize the requested service name, or
+    the requested service name has been disabled by the server administrator,
+    the server MUST respond with the <b>403 Forbidden</b> HTTP status code.</p>
+<p class="Pp">Otherwise, smart servers MUST respond with the smart server reply
+    format for the requested service name.</p>
+<p class="Pp">Cache-Control headers SHOULD be used to disable caching of the
+    returned entity.</p>
+<p class="Pp">The Content-Type MUST be
+    <b>application/x-$servicename-advertisement</b>. Clients SHOULD fall back to
+    the dumb protocol if another content type is returned. When falling back to
+    the dumb protocol clients SHOULD NOT make an additional request to
+    <b>$GIT_URL/info/refs</b>, but instead SHOULD use the response already in
+    hand. Clients MUST NOT continue if they do not support the dumb
+  protocol.</p>
+<p class="Pp">Clients MUST validate the status code is either <b>200 OK</b> or
+    <b>304 Not Modified</b>.</p>
+<p class="Pp">Clients MUST validate the first five bytes of the response entity
+    matches the regex <b>^[0-9a-f]{4}#</b>. If this test fails, clients MUST NOT
+    continue.</p>
+<p class="Pp">Clients MUST parse the entire response as a sequence of pkt-line
+    records.</p>
+<p class="Pp">Clients MUST verify the first pkt-line is <b>#
+    service=$servicename</b>. Servers MUST set $servicename to be the request
+    parameter value. Servers SHOULD include an LF at the end of this line.
+    Clients MUST ignore an LF at the end of the line.</p>
+<p class="Pp">Servers MUST terminate the response with the magic <b>0000</b> end
+    pkt-line marker.</p>
+<p class="Pp">The returned response is a pkt-line stream describing each ref and
+    its known value. The stream SHOULD be sorted by name according to the C
+    locale ordering. The stream SHOULD include the default ref named <b>HEAD</b>
+    as the first ref. The stream MUST include capability declarations behind a
+    NUL on the first ref.</p>
+<p class="Pp">The returned response contains &quot;version 1&quot; if
+    &quot;version=1&quot; was sent as an Extra Parameter.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>smart_reply     =  PKT-LINE(&quot;# service=$servicename&quot; LF)
+<br/>
+                   &quot;0000&quot;
+<br/>
+                   *1(&quot;version 1&quot;)
+<br/>
+                   ref_list
+<br/>
+                   &quot;0000&quot;
+ref_list        =  empty_list / non_empty_list</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>empty_list      =  PKT-LINE(zero-id SP &quot;capabilities^{}&quot; NUL cap-list LF)</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>non_empty_list  =  PKT-LINE(obj-id SP name NUL cap_list LF)
+<br/>
+                   *ref_record</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>cap-list        =  capability *(SP capability)
+capability      =  1*(LC_ALPHA / DIGIT / &quot;-&quot; / &quot;_&quot;)
+LC_ALPHA        =  %x61-7A</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>ref_record      =  any_ref / peeled_ref
+any_ref         =  PKT-LINE(obj-id SP name LF)
+peeled_ref      =  PKT-LINE(obj-id SP name LF)
+<br/>
+                   PKT-LINE(obj-id SP name &quot;^{}&quot; LF</pre>
+</div>
+</div>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh">SMART SERVICE GIT-UPLOAD-PACK</h1>
+<p class="Pp">This service reads from the repository pointed to by
+    <b>$GIT_URL</b>.</p>
+<p class="Pp">Clients MUST first perform ref discovery with
+    <b>$GIT_URL/info/refs?service=git-upload-pack</b>.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>C: POST $GIT_URL/git-upload-pack HTTP/1.0
+C: Content-Type: application/x-git-upload-pack-request
+C:
+C: 0032want 0a53e9ddeaddad63ad106860237bbf53411d11a7\n
+C: 0032have 441b40d833fdfa93eb2908e52742248faf0ee993\n
+C: 0000</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>S: 200 OK
+S: Content-Type: application/x-git-upload-pack-result
+S: Cache-Control: no-cache
+S:
+S: ....ACK %s, continue
+S: ....NAK</pre>
+</div>
+<p class="Pp">Clients MUST NOT reuse or revalidate a cached response. Servers
+    MUST include sufficient Cache-Control headers to prevent caching of the
+    response.</p>
+<p class="Pp">Servers SHOULD support all capabilities defined here.</p>
+<p class="Pp">Clients MUST send at least one &quot;want&quot; command in the
+    request body. Clients MUST NOT reference an id in a &quot;want&quot; command
+    which did not appear in the response obtained through ref discovery unless
+    the server advertises capability <b>allow-tip-sha1-in-want</b> or
+    <b>allow-reachable-sha1-in-want</b>.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>compute_request   =  want_list
+<br/>
+                     have_list
+<br/>
+                     request_end
+request_end       =  &quot;0000&quot; / &quot;done&quot;</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>want_list         =  PKT-LINE(want SP cap_list LF)
+<br/>
+                     *(want_pkt)
+want_pkt          =  PKT-LINE(want LF)
+want              =  &quot;want&quot; SP id
+cap_list          =  capability *(SP capability)</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>have_list         =  *PKT-LINE(&quot;have&quot; SP id LF)</pre>
+</div>
+<p class="Pp">TODO: Document this further.</p>
+<section class="Ss">
+<h2 class="Ss" id="The_Negotiation_Algorithm"><a class="permalink" href="#The_Negotiation_Algorithm">The
+  Negotiation Algorithm</a></h2>
+<p class="Pp">The computation to select the minimal pack proceeds as follows (C
+    = client, S = server):</p>
+<p class="Pp"><i>init step:</i></p>
+<p class="Pp">C: Use ref discovery to obtain the advertised refs.</p>
+<p class="Pp">C: Place any object seen into set <b>advertised</b>.</p>
+<p class="Pp">C: Build an empty set, <b>common</b>, to hold the objects that are
+    later determined to be on both ends.</p>
+<p class="Pp">C: Build a set, <b>want</b>, of the objects from <b>advertised</b>
+    the client wants to fetch, based on what it saw during ref discovery.</p>
+<p class="Pp">C: Start a queue, <b>c_pending</b>, ordered by commit time
+    (popping newest first). Add all client refs. When a commit is popped from
+    the queue its parents SHOULD be automatically inserted back. Commits MUST
+    only enter the queue once.</p>
+<p class="Pp"><i>one compute step:</i></p>
+<p class="Pp">C: Send one <b>$GIT_URL/git-upload-pack</b> request:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>C: 0032want &lt;want #1&gt;...............................
+C: 0032want &lt;want #2&gt;...............................
+....
+C: 0032have &lt;common #1&gt;.............................
+C: 0032have &lt;common #2&gt;.............................
+....
+C: 0032have &lt;have #1&gt;...............................
+C: 0032have &lt;have #2&gt;...............................
+....
+C: 0000</pre>
+</div>
+<p class="Pp">The stream is organized into &quot;commands&quot;, with each
+    command appearing by itself in a pkt-line. Within a command line, the text
+    leading up to the first space is the command name, and the remainder of the
+    line to the first LF is the value. Command lines are terminated with an LF
+    as the last byte of the pkt-line value.</p>
+<p class="Pp">Commands MUST appear in the following order, if they appear at all
+    in the request stream:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;&quot;want&quot;</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;&quot;have&quot;</div>
+<p class="Pp">The stream is terminated by a pkt-line flush (<b>0000</b>).</p>
+<p class="Pp">A single &quot;want&quot; or &quot;have&quot; command MUST have
+    one hex formatted object name as its value. Multiple object names MUST be
+    sent by sending multiple commands. Object names MUST be given using the
+    object format negotiated through the <b>object-format</b> capability
+    (default SHA-1).</p>
+<p class="Pp">The <b>have</b> list is created by popping the first 32 commits
+    from <b>c_pending</b>. Less can be supplied if <b>c_pending</b> empties.</p>
+<p class="Pp">If the client has sent 256 &quot;have&quot; commits and has not
+    yet received one of those back from <b>s_common</b>, or the client has
+    emptied <b>c_pending</b> it SHOULD include a &quot;done&quot; command to let
+    the server know it won&#x2019;t proceed:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>C: 0009done</pre>
+</div>
+<p class="Pp">S: Parse the git-upload-pack request:</p>
+<p class="Pp">Verify all objects in <b>want</b> are directly reachable from
+    refs.</p>
+<p class="Pp">The server MAY walk backwards through history or through the
+    reflog to permit slightly stale requests.</p>
+<p class="Pp">If no &quot;want&quot; objects are received, send an error: TODO:
+    Define error if no &quot;want&quot; lines are requested.</p>
+<p class="Pp">If any &quot;want&quot; object is not reachable, send an error:
+    TODO: Define error if an invalid &quot;want&quot; is requested.</p>
+<p class="Pp">Create an empty list, <b>s_common</b>.</p>
+<p class="Pp">If &quot;have&quot; was sent:</p>
+<p class="Pp">Loop through the objects in the order supplied by the client.</p>
+<p class="Pp">For each object, if the server has the object reachable from a
+    ref, add it to <b>s_common</b>. If a commit is added to <b>s_common</b>, do
+    not add any ancestors, even if they also appear in <b>have</b>.</p>
+<p class="Pp">S: Send the git-upload-pack response:</p>
+<p class="Pp">If the server has found a closed set of objects to pack or the
+    request ends with &quot;done&quot;, it replies with the pack. TODO: Document
+    the pack based response</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>S: PACK...</pre>
+</div>
+<p class="Pp">The returned stream is the side-band-64k protocol supported by the
+    git-upload-pack service, and the pack is embedded into stream 1. Progress
+    messages from the server side MAY appear in stream 2.</p>
+<p class="Pp">Here a &quot;closed set of objects&quot; is defined to have at
+    least one path from every &quot;want&quot; to at least one
+    &quot;common&quot; object.</p>
+<p class="Pp">If the server needs more information, it replies with a status
+    continue response: TODO: Document the non-pack response</p>
+<p class="Pp">C: Parse the upload-pack response: TODO: Document parsing
+  response</p>
+<p class="Pp"><i>Do another compute step.</i></p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh">SMART SERVICE GIT-RECEIVE-PACK</h1>
+<p class="Pp">This service reads from the repository pointed to by
+    <b>$GIT_URL</b>.</p>
+<p class="Pp">Clients MUST first perform ref discovery with
+    <b>$GIT_URL/info/refs?service=git-receive-pack</b>.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>C: POST $GIT_URL/git-receive-pack HTTP/1.0
+C: Content-Type: application/x-git-receive-pack-request
+C:
+C: ....0a53e9ddeaddad63ad106860237bbf53411d11a7 441b40d833fdfa93eb2908e52742248faf0ee993 refs/heads/maint\0 report-status
+C: 0000
+C: PACK....</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>S: 200 OK
+S: Content-Type: application/x-git-receive-pack-result
+S: Cache-Control: no-cache
+S:
+S: ....</pre>
+</div>
+<p class="Pp">Clients MUST NOT reuse or revalidate a cached response. Servers
+    MUST include sufficient Cache-Control headers to prevent caching of the
+    response.</p>
+<p class="Pp">Servers SHOULD support all capabilities defined here.</p>
+<p class="Pp">Clients MUST send at least one command in the request body. Within
+    the command portion of the request body clients SHOULD send the id obtained
+    through ref discovery as old_id.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>update_request  =  command_list
+<br/>
+                   &quot;PACK&quot; &lt;binary data&gt;</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>command_list    =  PKT-LINE(command NUL cap_list LF)
+<br/>
+                   *(command_pkt)
+command_pkt     =  PKT-LINE(command LF)
+cap_list        =  *(SP capability) SP</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>command         =  create / delete / update
+create          =  zero-id SP new_id SP name
+delete          =  old_id SP zero-id SP name
+update          =  old_id SP new_id SP name</pre>
+</div>
+<p class="Pp">TODO: Document this further.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REFERENCES"><a class="permalink" href="#REFERENCES">REFERENCES</a></h1>
+<p class="Pp"><b>RFC 1738: Uniform Resource Locators (URL)</b>[1] <b>RFC 2616:
+    Hypertext Transfer Protocol &#x2014; HTTP/1.1</b>[2]</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><b>gitprotocol-pack</b>(5) <b>gitprotocol-capabilities</b>(5)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="GIT"><a class="permalink" href="#GIT">GIT</a></h1>
+<p class="Pp">Part of the <b>git</b>(1) suite</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<dl class="Bl-tag">
+  <dt> 1.</dt>
+  <dd>RFC 1738: Uniform Resource Locators (URL)</dd>
+</dl>
+<div class="Bd-indent">http://www.ietf.org/rfc/rfc1738.txt</div>
+<dl class="Bl-tag">
+  <dt> 2.</dt>
+  <dd>RFC 2616: Hypertext Transfer Protocol &#x2014; HTTP/1.1</dd>
+</dl>
+<div class="Bd-indent">http://www.ietf.org/rfc/rfc2616.txt</div>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">12/12/2022</td>
+    <td class="foot-os">Git 2.39.0</td>
+  </tr>
+</table>
+</body>
+</html>

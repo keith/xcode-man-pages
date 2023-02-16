@@ -57,7 +57,7 @@
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
 <pre><i>git maintenance</i> run [&lt;options&gt;]
 <i>git maintenance</i> start [--scheduler=&lt;scheduler&gt;]
-<i>git maintenance</i> (stop|register|unregister)</pre>
+<i>git maintenance</i> (stop|register|unregister) [&lt;options&gt;]</pre>
 <p class="Pp"></p>
 </section>
 <section class="Sh">
@@ -93,9 +93,10 @@
 <div class="Bd-indent">Initialize Git config values so any scheduled maintenance
   will start running on this repository. This adds the repository to the
   <b>maintenance.repo</b> config variable in the current user&#x2019;s global
-  config and enables some recommended configuration values for
-  <b>maintenance.&lt;task&gt;.schedule</b>. The tasks that are enabled are safe
-  for running in the background without disrupting foreground processes.
+  config, or the config specified by --config-file option, and enables some
+  recommended configuration values for <b>maintenance.&lt;task&gt;.schedule</b>.
+  The tasks that are enabled are safe for running in the background without
+  disrupting foreground processes.
 <p class="Pp">The <b>register</b> subcommand will also set the
     <b>maintenance.strategy</b> config value to <b>incremental</b>, if this
     value is not previously set. The <b>incremental</b> strategy uses the
@@ -118,7 +119,11 @@
 <p class="Pp">unregister</p>
 <div class="Bd-indent">Remove the current repository from background
   maintenance. This only removes the repository from the configured list. It
-  does not stop the background maintenance processes from running.</div>
+  does not stop the background maintenance processes from running.
+<p class="Pp">The <b>unregister</b> subcommand will report an error if the
+    current repository is not already registered. Use the <b>--force</b> option
+    to return success even when the current repository is not registered.</p>
+</div>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="TASKS"><a class="permalink" href="#TASKS">TASKS</a></h1>
@@ -412,14 +417,78 @@ org.git-scm.git.weekly.plist</pre>
     overwrite your custom tasks.</p>
 </section>
 <section class="Sh">
+<h1 class="Sh" id="CONFIGURATION"><a class="permalink" href="#CONFIGURATION">CONFIGURATION</a></h1>
+<p class="Pp">Everything below this line in this section is selectively included
+    from the <b>git-config</b>(1) documentation. The content is the same as
+    what&#x2019;s found there:</p>
+<p class="Pp">maintenance.auto</p>
+<div class="Bd-indent">This boolean config option controls whether some commands
+  run <b>git maintenance run --auto</b> after doing their normal work. Defaults
+  to true.</div>
+<p class="Pp">maintenance.strategy</p>
+<div class="Bd-indent">This string config option provides a way to specify one
+  of a few recommended schedules for background maintenance. This only affects
+  which tasks are run during <b>git maintenance run --schedule=X</b> commands,
+  provided no <b>--task=&lt;task&gt;</b> arguments are provided. Further, if a
+  <b>maintenance.&lt;task&gt;.schedule</b> config value is set, then that value
+  is used instead of the one provided by <b>maintenance.strategy</b>. The
+  possible strategy strings are:
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>none</b>: This default setting implies no task
+  are run at any schedule.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>incremental</b>: This setting optimizes for
+  performing small maintenance activities that do not delete any data. This does
+  not schedule the <b>gc</b> task, but runs the <b>prefetch</b> and
+  <b>commit-graph</b> tasks hourly, the <b>loose-objects</b> and
+  <b>incremental-repack</b> tasks daily, and the <b>pack-refs</b> task
+  weekly.</div>
+</div>
+<p class="Pp">maintenance.&lt;task&gt;.enabled</p>
+<div class="Bd-indent">This boolean config option controls whether the
+  maintenance task with name <b>&lt;task&gt;</b> is run when no <b>--task</b>
+  option is specified to <b>git maintenance run</b>. These config values are
+  ignored if a <b>--task</b> option exists. By default, only
+  <b>maintenance.gc.enabled</b> is true.</div>
+<p class="Pp">maintenance.&lt;task&gt;.schedule</p>
+<div class="Bd-indent">This config option controls whether or not the given
+  <b>&lt;task&gt;</b> runs during a <b>git maintenance run
+  --schedule=&lt;frequency&gt;</b> command. The value must be one of
+  &quot;hourly&quot;, &quot;daily&quot;, or &quot;weekly&quot;.</div>
+<p class="Pp">maintenance.commit-graph.auto</p>
+<div class="Bd-indent">This integer config option controls how often the
+  <b>commit-graph</b> task should be run as part of <b>git maintenance run
+  --auto</b>. If zero, then the <b>commit-graph</b> task will not run with the
+  <b>--auto</b> option. A negative value will force the task to run every time.
+  Otherwise, a positive value implies the command should run when the number of
+  reachable commits that are not in the commit-graph file is at least the value
+  of <b>maintenance.commit-graph.auto</b>. The default value is 100.</div>
+<p class="Pp">maintenance.loose-objects.auto</p>
+<div class="Bd-indent">This integer config option controls how often the
+  <b>loose-objects</b> task should be run as part of <b>git maintenance run
+  --auto</b>. If zero, then the <b>loose-objects</b> task will not run with the
+  <b>--auto</b> option. A negative value will force the task to run every time.
+  Otherwise, a positive value implies the command should run when the number of
+  loose objects is at least the value of <b>maintenance.loose-objects.auto</b>.
+  The default value is 100.</div>
+<p class="Pp">maintenance.incremental-repack.auto</p>
+<div class="Bd-indent">This integer config option controls how often the
+  <b>incremental-repack</b> task should be run as part of <b>git maintenance run
+  --auto</b>. If zero, then the <b>incremental-repack</b> task will not run with
+  the <b>--auto</b> option. A negative value will force the task to run every
+  time. Otherwise, a positive value implies the command should run when the
+  number of pack-files not in the multi-pack-index is at least the value of
+  <b>maintenance.incremental-repack.auto</b>. The default value is 10.</div>
+</section>
+<section class="Sh">
 <h1 class="Sh" id="GIT"><a class="permalink" href="#GIT">GIT</a></h1>
 <p class="Pp">Part of the <b>git</b>(1) suite</p>
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">06/06/2021</td>
-    <td class="foot-os">Git 2.32.0</td>
+    <td class="foot-date">12/12/2022</td>
+    <td class="foot-os">Git 2.39.0</td>
   </tr>
 </table>
 </body>

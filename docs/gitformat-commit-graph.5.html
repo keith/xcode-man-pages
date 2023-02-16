@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   t
+       Title: gitformat-commit-graph
+      Author: [FIXME: author] [see http://www.docbook.org/tdg5/en/html/author]
+   Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+        Date: 12/12/2022
+      Manual: Git Manual
+      Source: Git 2.39.0
+    Language: English
+   -->
+<head>
+
+<style>
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #000;
+    color: #d0d0d0;
+  }
+
+  a, a:visited {
+    color: #1899eb;
+  }
+}
+</style>
+
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    .Nd, .Bf, .Op { display: inline; }
+    .Pa, .Ad { font-style: italic; }
+    .Ms { font-weight: bold; }
+    .Bl-diag > dt { font-weight: bold; }
+    code.Nm, .Fl, .Cm, .Ic, code.In, .Fd, .Fn, .Cd { font-weight: bold;
+      font-family: inherit; }
+  </style>
+  <title>GITFORMAT-COMMIT-G(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">GITFORMAT-COMMIT-G(5)</td>
+    <td class="head-vol">Git Manual</td>
+    <td class="head-rtitle">GITFORMAT-COMMIT-G(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">gitformat-commit-graph - Git commit-graph format</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>$GIT_DIR/objects/info/commit-graph
+$GIT_DIR/objects/info/commit-graphs/*</pre>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The Git commit-graph stores a list of commit OIDs and some
+    associated metadata, including:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;The generation number of the commit.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;The root tree OID.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;The commit date.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;The parents of the commit, stored using
+  positional references within the graph file.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;The Bloom filter of the commit carrying the paths
+  that were changed between the commit and its first parent, if requested.</div>
+<p class="Pp">These positional references are stored as unsigned 32-bit integers
+    corresponding to the array position within the list of commit OIDs. Due to
+    some special constants we use to track parents, we can store at most (1
+    &lt;&lt; 30) + (1 &lt;&lt; 29) + (1 &lt;&lt; 28) - 1 (around 1.8 billion)
+    commits.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMMIT"><a class="permalink" href="#COMMIT">COMMIT-GRAPH
+  FILES HAVE THE FOLLOWING FORMAT:</a></h1>
+<p class="Pp">In order to allow extensions that add extra data to the graph, we
+    organize the body into &quot;chunks&quot; and provide a binary lookup table
+    at the beginning of the body. The header includes certain values, such as
+    number of chunks and hash type.</p>
+<p class="Pp">All multi-byte numbers are in network byte order.</p>
+<section class="Ss">
+<h2 class="Ss" id="HEADER:"><a class="permalink" href="#HEADER:">HEADER:</a></h2>
+<div class="Bd-indent">
+<pre>4-byte signature:
+<br/>
+    The signature is: {'C', 'G', 'P', 'H'}</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>1-byte version number:
+<br/>
+    Currently, the only valid version is 1.</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>1-byte Hash Version
+<br/>
+    We infer the hash length (H) from this value:
+<br/>
+      1 =&gt; SHA-1
+<br/>
+      2 =&gt; SHA-256
+<br/>
+    If the hash type does not match the repository's hash algorithm, the
+<br/>
+    commit-graph file should be ignored with a warning presented to the
+<br/>
+    user.</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>1-byte number (C) of &quot;chunks&quot;</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>1-byte number (B) of base commit-graphs
+<br/>
+    We infer the length (H*B) of the Base Graphs chunk
+<br/>
+    from this value.</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="CHUNK_LOOKUP:"><a class="permalink" href="#CHUNK_LOOKUP:">CHUNK
+  LOOKUP:</a></h2>
+<div class="Bd-indent">
+<pre>(C + 1) * 12 bytes listing the table of contents for the chunks:
+<br/>
+    First 4 bytes describe the chunk id. Value 0 is a terminating label.
+<br/>
+    Other 8 bytes provide the byte-offset in current file for chunk to
+<br/>
+    start. (Chunks are ordered contiguously in the file, so you can infer
+<br/>
+    the length using the next chunk position if necessary.) Each chunk
+<br/>
+    ID appears at most once.</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>The CHUNK LOOKUP matches the table of contents from
+the chunk-based file format, see linkgit:gitformat-chunk[5]</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>The remaining data in the body is described one chunk at a time, and
+these chunks may be given in any order. Chunks are required unless
+otherwise specified.</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="CHUNK_DATA:"><a class="permalink" href="#CHUNK_DATA:">CHUNK
+  DATA:</a></h2>
+<p class="Pp"><b>OID Fanout (ID: {O, I, D, F}) (256 * 4 bytes)</b>
+  <br/>
+</p>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>The ith entry, F[i], stores the number of OIDs with first
+byte at most i. Thus F[255] stores the total
+number of commits (N).</pre>
+</div>
+</div>
+<p class="Pp"><b>OID Lookup (ID: {O, I, D, L}) (N * H bytes)</b>
+  <br/>
+</p>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>The OIDs for all commits in the graph, sorted in ascending order.</pre>
+</div>
+</div>
+<p class="Pp"><b>Commit Data (ID: {C, D, A, T }) (N * (H + 16) bytes)</b>
+  <br/>
+</p>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;The first H bytes are for the OID of the root
+  tree.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;The next 8 bytes are for the positions of the
+  first two parents of the ith commit. Stores value 0x70000000 if no parent in
+  that position. If there are more than two parents, the second value has its
+  most-significant bit on and the other bits store an array position into the
+  Extra Edge List chunk.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;The next 8 bytes store the topological level
+  (generation number v1) of the commit and the commit time in seconds since
+  EPOCH. The generation number uses the higher 30 bits of the first 4 bytes,
+  while the commit time uses the 32 bits of the second 4 bytes, along with the
+  lowest 2 bits of the lowest byte, storing the 33rd and 34th bit of the commit
+  time.</div>
+</div>
+<p class="Pp"><b>Generation Data (ID: {G, D, A, 2 }) (N * 4 bytes)
+    [Optional]</b>
+  <br/>
+</p>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;This list of 4-byte values store corrected commit
+  date offsets for the commits, arranged in the same order as commit data
+  chunk.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;If the corrected commit date offset cannot be
+  stored within 31 bits, the value has its most-significant bit on and the other
+  bits store the position of corrected commit date into the Generation Data
+  Overflow chunk.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Generation Data chunk is present only when
+  commit-graph file is written by compatible versions of Git and in case of
+  split commit-graph chains, the topmost layer also has Generation Data
+  chunk.</div>
+</div>
+<p class="Pp"><b>Generation Data Overflow (ID: {G, D, O, 2 }) [Optional]</b>
+  <br/>
+</p>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;This list of 8-byte values stores the corrected
+  commit date offsets for commits with corrected commit date offsets that cannot
+  be stored within 31 bits.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Generation Data Overflow chunk is present only
+  when Generation Data chunk is present and atleast one corrected commit date
+  offset cannot be stored within 31 bits.</div>
+</div>
+<p class="Pp"><b>Extra Edge List (ID: {E, D, G, E}) [Optional]</b>
+  <br/>
+</p>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>This list of 4-byte values store the second through nth parents for
+all octopus merges. The second parent value in the commit data stores
+an array position within this list along with the most-significant bit
+on. Starting at that array position, iterate through this list of commit
+positions for the parents until reaching a value with the most-significant
+bit on. The other bits correspond to the position of the last parent.</pre>
+</div>
+</div>
+<p class="Pp"><b>Bloom Filter Index (ID: {B, I, D, X}) (N * 4 bytes)
+    [Optional]</b>
+  <br/>
+</p>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;The ith entry, BIDX[i], stores the number of
+  bytes in all Bloom filters from commit 0 to commit i (inclusive) in
+  lexicographic order. The Bloom filter for the i-th commit spans from BIDX[i-1]
+  to BIDX[i] (plus header length), where BIDX[-1] is 0.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;The BIDX chunk is ignored if the BDAT chunk is
+  not present.</div>
+</div>
+<p class="Pp"><b>Bloom Filter Data (ID: {B, D, A, T}) [Optional]</b>
+  <br/>
+</p>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;It starts with header consisting of three
+  unsigned 32-bit integers:
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Version of the hash algorithm being used. We
+  currently only support value 1 which corresponds to the 32-bit version of the
+  murmur3 hash implemented exactly as described in
+  <b>https://en.wikipedia.org/wiki/MurmurHash#Algorithm</b> and the double
+  hashing technique using seed values 0x293ae76f and 0x7e646e2 as described in
+  <b>https://doi.org/10.1007/978-3-540-30494-4_26</b> &quot;Bloom Filters in
+  Probabilistic Verification&quot;</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;The number of times a path is hashed and hence
+  the number of bit positions that cumulatively determine whether a file is
+  present in the commit.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;The minimum number of bits <i>b</i> per entry in
+  the Bloom filter. If the filter contains <i>n</i> entries, then the filter
+  size is the minimum number of 64-bit words that contain n*b bits.</div>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;The rest of the chunk is the concatenation of all
+  the computed Bloom filters for the commits in lexicographic order.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Note: Commits with no changes or more than 512
+  changes have Bloom filters of length one, with either all bits set to zero or
+  one respectively.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;The BDAT chunk is present if and only if BIDX is
+  present.</div>
+</div>
+<p class="Pp"><b>Base Graphs List (ID: {B, A, S, E}) [Optional]</b>
+  <br/>
+</p>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>This list of H-byte hashes describe a set of B commit-graph files that
+form a commit-graph chain. The graph position for the ith commit in this
+file's OID Lookup chunk is equal to i plus the number of commits in all
+base graphs.  If B is non-zero, this chunk must exist.</pre>
+</div>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="TRAILER:"><a class="permalink" href="#TRAILER:">TRAILER:</a></h2>
+<div class="Bd-indent">
+<pre>H-byte HASH-checksum of all of the above.</pre>
+</div>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORICAL_NOTES:"><a class="permalink" href="#HISTORICAL_NOTES:">HISTORICAL
+  NOTES:</a></h1>
+<p class="Pp">The Generation Data (GDA2) and Generation Data Overflow (GDO2)
+    chunks have the number <i>2</i> in their chunk IDs because a previous
+    version of Git wrote possibly erroneous data in these chunks with the IDs
+    &quot;GDAT&quot; and &quot;GDOV&quot;. By changing the IDs, newer versions
+    of Git will silently ignore those older chunks and write the new information
+    without trusting the incorrect data.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="GIT"><a class="permalink" href="#GIT">GIT</a></h1>
+<p class="Pp">Part of the <b>git</b>(1) suite</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">12/12/2022</td>
+    <td class="foot-os">Git 2.39.0</td>
+  </tr>
+</table>
+</body>
+</html>

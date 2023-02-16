@@ -121,13 +121,23 @@ $ git log A...B</pre>
   otherwise, <b>auto</b>.</div>
 <p class="Pp">--decorate-refs=&lt;pattern&gt;,
     --decorate-refs-exclude=&lt;pattern&gt;</p>
-<div class="Bd-indent">If no <b>--decorate-refs</b> is given, pretend as if all
-  refs were included. For each candidate, do not use it for decoration if it
-  matches any patterns given to <b>--decorate-refs-exclude</b> or if it
-  doesn&#x2019;t match any of the patterns given to <b>--decorate-refs</b>. The
-  <b>log.excludeDecoration</b> config option allows excluding refs from the
-  decorations, but an explicit <b>--decorate-refs</b> pattern will override a
-  match in <b>log.excludeDecoration</b>.</div>
+<div class="Bd-indent">For each candidate reference, do not use it for
+  decoration if it matches any patterns given to <b>--decorate-refs-exclude</b>
+  or if it doesn&#x2019;t match any of the patterns given to
+  <b>--decorate-refs</b>. The <b>log.excludeDecoration</b> config option allows
+  excluding refs from the decorations, but an explicit <b>--decorate-refs</b>
+  pattern will override a match in <b>log.excludeDecoration</b>.
+<p class="Pp">If none of these options or config settings are given, then
+    references are used as decoration if they match <b>HEAD</b>,
+    <b>refs/heads/</b>, <b>refs/remotes/</b>, <b>refs/stash/</b>, or
+    <b>refs/tags/</b>.</p>
+</div>
+<p class="Pp">--clear-decorations</p>
+<div class="Bd-indent">When specified, this option clears all previous
+  <b>--decorate-refs</b> or <b>--decorate-refs-exclude</b> options and relaxes
+  the default decoration filter to include all references. This option is
+  assumed if the config value <b>log.initialDecorationSet</b> is set to
+  <b>all</b>.</div>
 <p class="Pp">--source</p>
 <div class="Bd-indent">Print out the ref name given on the command line by which
   each commit was reached.</div>
@@ -359,6 +369,13 @@ $ git log A...B</pre>
     <b>refs/</b> when applied to <b>--glob</b> or <b>--all</b>. If a trailing
     <i>/*</i> is intended, it must be given explicitly.</p>
 </div>
+<p class="Pp">--exclude-hidden=[receive|uploadpack]</p>
+<div class="Bd-indent">Do not include refs that would be hidden by
+  <b>git-receive-pack</b> or <b>git-upload-pack</b> by consulting the
+  appropriate <b>receive.hideRefs</b> or <b>uploadpack.hideRefs</b>
+  configuration along with <b>transfer.hideRefs</b> (see <b>git-config</b>(1)).
+  This option affects the next pseudo-ref option <b>--all</b> or <b>--glob</b>
+  and is cleared after processing them.</div>
 <p class="Pp">--reflog</p>
 <div class="Bd-indent">Pretend as if all objects mentioned by reflogs are listed
   on the command line as <b>&lt;commit&gt;</b>.</div>
@@ -494,12 +511,14 @@ $ git log A...B</pre>
 <div class="Bd-indent">Additional option to <b>--full-history</b> to remove some
   needless merges from the resulting history, as there are no selected commits
   contributing to this merge.</div>
-<p class="Pp">--ancestry-path</p>
+<p class="Pp">--ancestry-path[=&lt;commit&gt;]</p>
 <div class="Bd-indent">When given a range of commits to display (e.g.
-  <i>commit1..commit2</i> or <i>commit2 ^commit1</i>), only display commits that
-  exist directly on the ancestry chain between the <i>commit1</i> and
-  <i>commit2</i>, i.e. commits that are both descendants of <i>commit1</i>, and
-  ancestors of <i>commit2</i>.</div>
+  <i>commit1..commit2</i> or <i>commit2 ^commit1</i>), only display commits in
+  that range that are ancestors of &lt;commit&gt;, descendants of
+  &lt;commit&gt;, or &lt;commit&gt; itself. If no commit is specified, use
+  <i>commit1</i> (the excluded part of the range) as &lt;commit&gt;. Can be
+  passed multiple times; if so, a commit is included if it is any of the commits
+  given or if it is an ancestor or descendant of one of them.</div>
 <p class="Pp">A more detailed explanation follows.</p>
 <p class="Pp">Suppose you specified <b>foo</b> as the &lt;paths&gt;. We shall
     call commits that modify <b>foo</b> !TREESAME, and the rest TREESAME. (In a
@@ -686,11 +705,10 @@ $ git log A...B</pre>
   was then removed completely, because it had one parent and is TREESAME.</div>
 </div>
 <p class="Pp">There is another simplification mode available:</p>
-<p class="Pp">--ancestry-path</p>
-<div class="Bd-indent">Limit the displayed commits to those directly on the
-  ancestry chain between the &#x201C;from&#x201D; and &#x201C;to&#x201D; commits
-  in the given commit range. I.e. only display commits that are ancestor of the
-  &#x201C;to&#x201D; commit and descendants of the &#x201C;from&#x201D; commit.
+<p class="Pp">--ancestry-path[=&lt;commit&gt;]</p>
+<div class="Bd-indent">Limit the displayed commits to those which are an
+  ancestor of &lt;commit&gt;, or which are a descendant of &lt;commit&gt;, or
+  are &lt;commit&gt; itself.
 <p class="Pp">As an example use case, consider the following commit history:</p>
 <p class="Pp"></p>
 <div class="Bd-indent">
@@ -731,6 +749,34 @@ $ git log A...B</pre>
                                \
 <br/>
                                 L--M</pre>
+</div>
+<p class="Pp">We can also use <b>--ancestry-path=D</b> instead of
+    <b>--ancestry-path</b> which means the same thing when applied to the
+    <i>D..M</i> range but is just more explicit.</p>
+<p class="Pp">If we instead are interested in a given topic within this range,
+    and all commits affected by that topic, we may only want to view the subset
+    of <b>D..M</b> which contain that topic in their ancestry path. So, using
+    <b>--ancestry-path=H D..M</b> for example would result in:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+                E
+<br/>
+                 \
+<br/>
+                  G---H---I---J
+<br/>
+                               \
+<br/>
+                                L--M</pre>
+</div>
+<p class="Pp">Whereas <b>--ancestry-path=K D..M</b> would result in</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+                K---------------L--M</pre>
 </div>
 <p class="Pp"></p>
 </div>
@@ -807,7 +853,7 @@ $ git log A...B</pre>
     only merged a topic that was based on an older version of <b>file.txt</b>.
     This is a common issue in repositories using a workflow where many
     contributors work in parallel and merge their topic branches along a single
-    trunk: manu unrelated merges appear in the <b>--full-history</b>
+    trunk: many unrelated merges appear in the <b>--full-history</b>
   results.</p>
 <p class="Pp">When using the <b>--simplify-merges</b> option, the commits
     <b>O</b> and <b>P</b> disappear from the results. This is because the
@@ -2624,40 +2670,124 @@ deleted file mode &lt;mode&gt;,&lt;mode&gt;</pre>
 <div class="Bd-indent">Encoding to use when displaying logs. (See
   <i>Discussion</i> above.) Defaults to the value of <b>i18n.commitEncoding</b>
   if set, and UTF-8 otherwise.</div>
+<p class="Pp">Everything above this line in this section isn&#x2019;t included
+    from the <b>git-config</b>(1) documentation. The content that follows is the
+    same as what&#x2019;s found there:</p>
+<p class="Pp">log.abbrevCommit</p>
+<div class="Bd-indent">If true, makes <b>git-log</b>(1), <b>git-show</b>(1), and
+  <b>git-whatchanged</b>(1) assume <b>--abbrev-commit</b>. You may override this
+  option with <b>--no-abbrev-commit</b>.</div>
 <p class="Pp">log.date</p>
-<div class="Bd-indent">Default format for human-readable dates. (Compare the
-  <b>--date</b> option.) Defaults to &quot;default&quot;, which means to write
-  dates like <b>Sat May 8 19:35:34 2010 -0500</b>.
+<div class="Bd-indent">Set the default date-time mode for the <i>log</i>
+  command. Setting a value for log.date is similar to using <i>git log</i>'s
+  <b>--date</b> option. See <b>git-log</b>(1) for details.
 <p class="Pp">If the format is set to &quot;auto:foo&quot; and the pager is in
     use, format &quot;foo&quot; will be the used for the date format. Otherwise
     &quot;default&quot; will be used.</p>
 </div>
+<p class="Pp">log.decorate</p>
+<div class="Bd-indent">Print out the ref names of any commits that are shown by
+  the log command. If <i>short</i> is specified, the ref name prefixes
+  <i>refs/heads/</i>, <i>refs/tags/</i> and <i>refs/remotes/</i> will not be
+  printed. If <i>full</i> is specified, the full ref name (including prefix)
+  will be printed. If <i>auto</i> is specified, then if the output is going to a
+  terminal, the ref names are shown as if <i>short</i> were given, otherwise no
+  ref names are shown. This is the same as the <b>--decorate</b> option of the
+  <b>git log</b>.</div>
+<p class="Pp">log.initialDecorationSet</p>
+<div class="Bd-indent">By default, <b>git log</b> only shows decorations for
+  certain known ref namespaces. If <i>all</i> is specified, then show all refs
+  as decorations.</div>
+<p class="Pp">log.excludeDecoration</p>
+<div class="Bd-indent">Exclude the specified patterns from the log decorations.
+  This is similar to the <b>--decorate-refs-exclude</b> command-line option, but
+  the config option can be overridden by the <b>--decorate-refs</b>
+  option.</div>
+<p class="Pp">log.diffMerges</p>
+<div class="Bd-indent">Set diff format to be used when <b>--diff-merges=on</b>
+  is specified, see <b>--diff-merges</b> in <b>git-log</b>(1) for details.
+  Defaults to <b>separate</b>.</div>
 <p class="Pp">log.follow</p>
 <div class="Bd-indent">If <b>true</b>, <b>git log</b> will act as if the
   <b>--follow</b> option was used when a single &lt;path&gt; is given. This has
   the same limitations as <b>--follow</b>, i.e. it cannot be used to follow
   multiple files and does not work well on non-linear history.</div>
+<p class="Pp">log.graphColors</p>
+<div class="Bd-indent">A list of colors, separated by commas, that can be used
+  to draw history lines in <b>git log --graph</b>.</div>
 <p class="Pp">log.showRoot</p>
-<div class="Bd-indent">If <b>false</b>, <b>git log</b> and related commands will
-  not treat the initial commit as a big creation event. Any root commits in
-  <b>git log -p</b> output would be shown without a diff attached. The default
-  is <b>true</b>.</div>
+<div class="Bd-indent">If true, the initial commit will be shown as a big
+  creation event. This is equivalent to a diff against an empty tree. Tools like
+  <b>git-log</b>(1) or <b>git-whatchanged</b>(1), which normally hide the root
+  commit will now show it. True by default.</div>
 <p class="Pp">log.showSignature</p>
-<div class="Bd-indent">If <b>true</b>, <b>git log</b> and related commands will
-  act as if the <b>--show-signature</b> option was passed to them.</div>
-<p class="Pp">mailmap.*</p>
-<div class="Bd-indent">See <b>git-shortlog</b>(1).</div>
+<div class="Bd-indent">If true, makes <b>git-log</b>(1), <b>git-show</b>(1), and
+  <b>git-whatchanged</b>(1) assume <b>--show-signature</b>.</div>
+<p class="Pp">log.mailmap</p>
+<div class="Bd-indent">If true, makes <b>git-log</b>(1), <b>git-show</b>(1), and
+  <b>git-whatchanged</b>(1) assume <b>--use-mailmap</b>, otherwise assume
+  <b>--no-use-mailmap</b>. True by default.</div>
+<p class="Pp">notes.mergeStrategy</p>
+<div class="Bd-indent">Which merge strategy to choose by default when resolving
+  notes conflicts. Must be one of <b>manual</b>, <b>ours</b>, <b>theirs</b>,
+  <b>union</b>, or <b>cat_sort_uniq</b>. Defaults to <b>manual</b>. See
+  &quot;NOTES MERGE STRATEGIES&quot; section of <b>git-notes</b>(1) for more
+  information on each strategy.
+<p class="Pp">This setting can be overridden by passing the <b>--strategy</b>
+    option to <b>git-notes</b>(1).</p>
+</div>
+<p class="Pp">notes.&lt;name&gt;.mergeStrategy</p>
+<div class="Bd-indent">Which merge strategy to choose when doing a notes merge
+  into refs/notes/&lt;name&gt;. This overrides the more general
+  &quot;notes.mergeStrategy&quot;. See the &quot;NOTES MERGE STRATEGIES&quot;
+  section in <b>git-notes</b>(1) for more information on the available
+  strategies.</div>
 <p class="Pp">notes.displayRef</p>
-<div class="Bd-indent">Which refs, in addition to the default set by
-  <b>core.notesRef</b> or <b>GIT_NOTES_REF</b>, to read notes from when showing
-  commit messages with the <b>log</b> family of commands. See
-  <b>git-notes</b>(1).
-<p class="Pp">May be an unabbreviated ref name or a glob and may be specified
-    multiple times. A warning will be issued for refs that do not exist, but a
-    glob that does not match any refs is silently ignored.</p>
-<p class="Pp">This setting can be disabled by the <b>--no-notes</b> option,
-    overridden by the <b>GIT_NOTES_DISPLAY_REF</b> environment variable, and
-    overridden by the <b>--notes=&lt;ref&gt;</b> option.</p>
+<div class="Bd-indent">Which ref (or refs, if a glob or specified more than
+  once), in addition to the default set by <b>core.notesRef</b> or
+  <b>GIT_NOTES_REF</b>, to read notes from when showing commit messages with the
+  <i>git log</i> family of commands.
+<p class="Pp">This setting can be overridden with the
+    <b>GIT_NOTES_DISPLAY_REF</b> environment variable, which must be a colon
+    separated list of refs or globs.</p>
+<p class="Pp">A warning will be issued for refs that do not exist, but a glob
+    that does not match any refs is silently ignored.</p>
+<p class="Pp">This setting can be disabled by the <b>--no-notes</b> option to
+    the <i>git log</i> family of commands, or by the <b>--notes=&lt;ref&gt;</b>
+    option accepted by those commands.</p>
+<p class="Pp">The effective value of &quot;core.notesRef&quot; (possibly
+    overridden by GIT_NOTES_REF) is also implicitly added to the list of refs to
+    be displayed.</p>
+</div>
+<p class="Pp">notes.rewrite.&lt;command&gt;</p>
+<div class="Bd-indent">When rewriting commits with &lt;command&gt; (currently
+  <b>amend</b> or <b>rebase</b>), if this variable is <b>false</b>, git will not
+  copy notes from the original to the rewritten commit. Defaults to <b>true</b>.
+  See also &quot;<b>notes.rewriteRef</b>&quot; below.
+<p class="Pp">This setting can be overridden with the
+    <b>GIT_NOTES_REWRITE_REF</b> environment variable, which must be a colon
+    separated list of refs or globs.</p>
+</div>
+<p class="Pp">notes.rewriteMode</p>
+<div class="Bd-indent">When copying notes during a rewrite (see the
+  &quot;notes.rewrite.&lt;command&gt;&quot; option), determines what to do if
+  the target commit already has a note. Must be one of <b>overwrite</b>,
+  <b>concatenate</b>, <b>cat_sort_uniq</b>, or <b>ignore</b>. Defaults to
+  <b>concatenate</b>.
+<p class="Pp">This setting can be overridden with the
+    <b>GIT_NOTES_REWRITE_MODE</b> environment variable.</p>
+</div>
+<p class="Pp">notes.rewriteRef</p>
+<div class="Bd-indent">When copying notes during a rewrite, specifies the (fully
+  qualified) ref whose notes should be copied. May be a glob, in which case
+  notes in all matching refs will be copied. You may also specify this
+  configuration several times.
+<p class="Pp">Does not have a default value; you must configure this variable to
+    enable note rewriting. Set it to <b>refs/notes/commits</b> to enable
+    rewriting for the default commit notes.</p>
+<p class="Pp">Can be overridden with the <b>GIT_NOTES_REWRITE_REF</b>
+    environment variable. See <b>notes.rewrite.&lt;command&gt;</b> above for a
+    further description of its format.</p>
 </div>
 </section>
 <section class="Sh">

@@ -399,11 +399,15 @@ git push --force-with-lease=master:base master:master</pre>
   non-zero status. If <i>on-demand</i> is used all submodules that changed in
   the revisions to be pushed will be pushed. If on-demand was not able to push
   all necessary revisions it will also be aborted and exit with non-zero status.
-  If <i>only</i> is used all submodules will be recursively pushed while the
-  superproject is left unpushed. A value of <i>no</i> or using
-  <b>--no-recurse-submodules</b> can be used to override the
-  push.recurseSubmodules configuration variable when no submodule recursion is
-  required.</div>
+  If <i>only</i> is used all submodules will be pushed while the superproject is
+  left unpushed. A value of <i>no</i> or using <b>--no-recurse-submodules</b>
+  can be used to override the push.recurseSubmodules configuration variable when
+  no submodule recursion is required.
+<p class="Pp">When using <i>on-demand</i> or <i>only</i>, if a submodule has a
+    &quot;push.recurseSubmodules={on-demand,only}&quot; or
+    &quot;submodule.recurse&quot; configuration, further recursion will occur.
+    In this case, &quot;only&quot; is treated as &quot;on-demand&quot;.</p>
+</div>
 <p class="Pp">--[no-]verify</p>
 <div class="Bd-indent">Toggle the pre-push hook (see <b>githooks</b>(5)). The
   default is --verify, giving the hook a chance to prevent the push. With
@@ -909,14 +913,142 @@ git push --force-with-lease=master:base master:master</pre>
   attacker.</div>
 </section>
 <section class="Sh">
+<h1 class="Sh" id="CONFIGURATION"><a class="permalink" href="#CONFIGURATION">CONFIGURATION</a></h1>
+<p class="Pp">Everything below this line in this section is selectively included
+    from the <b>git-config</b>(1) documentation. The content is the same as
+    what&#x2019;s found there:</p>
+<p class="Pp">push.autoSetupRemote</p>
+<div class="Bd-indent">If set to &quot;true&quot; assume <b>--set-upstream</b>
+  on default push when no upstream tracking exists for the current branch; this
+  option takes effect with push.default options <i>simple</i>, <i>upstream</i>,
+  and <i>current</i>. It is useful if by default you want new branches to be
+  pushed to the default remote (like the behavior of
+  <i>push.default=current</i>) and you also want the upstream tracking to be
+  set. Workflows most likely to benefit from this option are <i>simple</i>
+  central workflows where all branches are expected to have the same name on the
+  remote.</div>
+<p class="Pp">push.default</p>
+<div class="Bd-indent">Defines the action <b>git push</b> should take if no
+  refspec is given (whether from the command-line, config, or elsewhere).
+  Different values are well-suited for specific workflows; for instance, in a
+  purely central workflow (i.e. the fetch source is equal to the push
+  destination), <b>upstream</b> is probably what you want. Possible values are:
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>nothing</b> - do not push anything (error out)
+  unless a refspec is given. This is primarily meant for people who want to
+  avoid mistakes by always being explicit.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>current</b> - push the current branch to
+  update a branch with the same name on the receiving end. Works in both central
+  and non-central workflows.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>upstream</b> - push the current branch back to
+  the branch whose changes are usually integrated into the current branch (which
+  is called <b>@{upstream}</b>). This mode only makes sense if you are pushing
+  to the same repository you would normally pull from (i.e. central
+  workflow).</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>tracking</b> - This is a deprecated synonym
+  for <b>upstream</b>.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>simple</b> - pushes the current branch with
+  the same name on the remote.
+<p class="Pp">If you are working on a centralized workflow (pushing to the same
+    repository you pull from, which is typically <b>origin</b>), then you need
+    to configure an upstream branch with the same name.</p>
+<p class="Pp">This mode is the default since Git 2.0, and is the safest option
+    suited for beginners.</p>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>matching</b> - push all branches having the
+  same name on both ends. This makes the repository you are pushing to remember
+  the set of branches that will be pushed out (e.g. if you always push
+  <i>maint</i> and <i>master</i> there and no other branches, the repository you
+  push to will have these two branches, and your local <i>maint</i> and
+  <i>master</i> will be pushed there).
+<p class="Pp">To use this mode effectively, you have to make sure <i>all</i> the
+    branches you would push out are ready to be pushed out before running <i>git
+    push</i>, as the whole point of this mode is to allow you to push all of the
+    branches in one go. If you usually finish work on only one branch and push
+    out the result, while other branches are unfinished, this mode is not for
+    you. Also this mode is not suitable for pushing into a shared central
+    repository, as other people may add new branches there, or update the tip of
+    existing branches outside your control.</p>
+<p class="Pp">This used to be the default, but not since Git 2.0 (<b>simple</b>
+    is the new default).</p>
+</div>
+</div>
+<p class="Pp">push.followTags</p>
+<div class="Bd-indent">If set to true enable <b>--follow-tags</b> option by
+  default. You may override this configuration at time of push by specifying
+  <b>--no-follow-tags</b>.</div>
+<p class="Pp">push.gpgSign</p>
+<div class="Bd-indent">May be set to a boolean value, or the string
+  <i>if-asked</i>. A true value causes all pushes to be GPG signed, as if
+  <b>--signed</b> is passed to <b>git-push</b>(1). The string <i>if-asked</i>
+  causes pushes to be signed if the server supports it, as if
+  <b>--signed=if-asked</b> is passed to <i>git push</i>. A false value may
+  override a value from a lower-priority config file. An explicit command-line
+  flag always overrides this config option.</div>
+<p class="Pp">push.pushOption</p>
+<div class="Bd-indent">When no <b>--push-option=&lt;option&gt;</b> argument is
+  given from the command line, <b>git push</b> behaves as if each &lt;value&gt;
+  of this variable is given as <b>--push-option=&lt;value&gt;</b>.
+<p class="Pp">This is a multi-valued variable, and an empty value can be used in
+    a higher priority configuration file (e.g. <b>.git/config</b> in a
+    repository) to clear the values inherited from a lower priority
+    configuration files (e.g. <b>$HOME/.gitconfig</b>).</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>Example:
+/etc/gitconfig
+<br/>
+  push.pushoption = a
+<br/>
+  push.pushoption = b
+~/.gitconfig
+<br/>
+  push.pushoption = c
+repo/.git/config
+<br/>
+  push.pushoption =
+<br/>
+  push.pushoption = b
+This will result in only b (a and c are cleared).</pre>
+</div>
+<p class="Pp"></p>
+</div>
+<p class="Pp">push.recurseSubmodules</p>
+<div class="Bd-indent">May be &quot;check&quot;, &quot;on-demand&quot;,
+  &quot;only&quot;, or &quot;no&quot;, with the same behavior as that of
+  &quot;push --recurse-submodules&quot;. If not set, <i>no</i> is used by
+  default, unless <i>submodule.recurse</i> is set (in which case a <i>true</i>
+  value means <i>on-demand</i>).</div>
+<p class="Pp">push.useForceIfIncludes</p>
+<div class="Bd-indent">If set to &quot;true&quot;, it is equivalent to
+  specifying <b>--force-if-includes</b> as an option to <b>git-push</b>(1) in
+  the command line. Adding <b>--no-force-if-includes</b> at the time of push
+  overrides this configuration setting.</div>
+<p class="Pp">push.negotiate</p>
+<div class="Bd-indent">If set to &quot;true&quot;, attempt to reduce the size of
+  the packfile sent by rounds of negotiation in which the client and the server
+  attempt to find commits in common. If &quot;false&quot;, Git will rely solely
+  on the server&#x2019;s ref advertisement to find commits in common.</div>
+<p class="Pp">push.useBitmaps</p>
+<div class="Bd-indent">If set to &quot;false&quot;, disable use of bitmaps for
+  &quot;git push&quot; even if <b>pack.useBitmaps</b> is &quot;true&quot;,
+  without preventing other git operations from using bitmaps. Default is
+  true.</div>
+</section>
+<section class="Sh">
 <h1 class="Sh" id="GIT"><a class="permalink" href="#GIT">GIT</a></h1>
 <p class="Pp">Part of the <b>git</b>(1) suite</p>
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">06/06/2021</td>
-    <td class="foot-os">Git 2.32.0</td>
+    <td class="foot-date">12/12/2022</td>
+    <td class="foot-os">Git 2.39.0</td>
   </tr>
 </table>
 </body>

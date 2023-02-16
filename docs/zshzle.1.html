@@ -464,8 +464,8 @@
   <dt><b>zle</b> <b>-T</b> [ <b>tc</b> <i>function</i> | <b>-r</b> <b>tc</b> |
     <b>-L</b> ]</dt>
   <dd></dd>
-  <dt><b>zle</b> <i>widget</i> [ <b>-n</b> <i>num</i> ] [ <b>-Nw</b> ] [
-    <b>-K</b> <i>keymap</i> ] <i>args</i> ...</dt>
+  <dt><b>zle</b> <i>widget</i> [ <b>-n</b> <i>num</i> ] [ <b>-f</b> <i>flag</i>
+    ] [ <b>-Nw</b> ] [ <b>-K</b> <i>keymap</i> ] <i>args</i> ...</dt>
   <dd>The <b>zle</b> builtin performs a number of different actions concerning
       ZLE.</dd>
 </dl>
@@ -546,18 +546,18 @@
       information, see <i>zshcompwid</i>(1).</dd>
   <dt id="R"><a class="permalink" href="#R"><b>-R</b> [ <b>-c</b> ] [
     <i>display-string</i> ] [ <i>string</i> ... ]</a></dt>
-  <dd>Redisplay the command line; this is to be called from within a
-      user-defined widget to allow changes to become visible. If a
-      <i>display-string</i> is given and not empty, this is shown in the status
-      line (immediately below the line being edited).</dd>
+  <dd>Redisplay the command line. If a <i>display-string</i> is given and not
+      empty, this is shown in the status line (immediately below the line being
+      edited).</dd>
 </dl>
 <div class="Bd-indent">
 <p class="Pp">If the optional <i>string</i>s are given they are listed below the
     prompt in the same way as completion lists are printed. If no <i>string</i>s
     are given but the <b>-c</b> option is used such a list is cleared.</p>
-<p class="Pp">Note that this option is only useful for widgets that do not exit
-    immediately after using it because the strings displayed will be erased
-    immediately after return from the widget.</p>
+<p class="Pp">Note that immediately after returning from running widgets, the
+    command line will be redisplayed and the strings displayed will be erased.
+    Therefore, this option is only useful for widgets that do not exit
+    immediately after using it.</p>
 <p class="Pp">This command can safely be called outside user defined widgets; if
     zle is active, the display will be refreshed, while if zle is not active,
     the command has no effect. In this case there will usually be no other
@@ -749,8 +749,8 @@
 </div>
 <dl class="Bl-tag">
   <dt id="widget"><a class="permalink" href="#widget"><i>widget</i> [ <b>-n</b>
-    <i>num</i> ] [ <b>-Nw</b> ] [ <b>-K</b> <i>keymap</i> ] <i>args</i>
-    ...</a></dt>
+    <i>num</i> ] [ <b>-f</b> <i>flag</i> ] [ <b>-Nw</b> ] [ <b>-K</b>
+    <i>keymap</i> ] <i>args</i> ...</a></dt>
   <dd>Invoke the specified <i>widget</i>. This can only be done when ZLE is
       active; normally this will be within a user-defined widget.</dd>
 </dl>
@@ -767,6 +767,9 @@
     appears as if the top-level widget called by the user were still active.
     With the option <b>-w</b>, <b>WIDGET</b> and related parameters are set to
     reflect the widget being executed by the <b>zle</b> call.</p>
+<p class="Pp">Normally, when <i>widget</i> returns the special parameter
+    <b>LASTWIDGET</b> will point to it. This can be inhibited by passing the
+    option <b>-f nolast</b>.</p>
 <p class="Pp">Any further arguments will be passed to the widget; note that as
     standard argument handling is performed, any general argument list should be
     preceded by <b>-</b><b>-</b>. If it is a shell function, these are passed
@@ -787,17 +790,18 @@
 </div>
 </section>
 <section class="Sh">
-<h1 class="Sh" id="WIDGETS"><a class="permalink" href="#WIDGETS">WIDGETS</a></h1>
+<h1 class="Sh" id="ZLE_WIDGETS"><a class="permalink" href="#ZLE_WIDGETS">ZLE
+  WIDGETS</a></h1>
 <p class="Pp">All actions in the editor are performed by `widgets'. A widget's
     job is simply to perform some small action. The ZLE commands that key
     sequences in keymaps are bound to are in fact widgets. Widgets can be
     user-defined or built in.</p>
-<p class="Pp">The standard widgets built into ZLE are listed in Standard Widgets
-    below. Other built-in widgets can be defined by other modules (see
-    <i>zshmodules</i>(1)). Each built-in widget has two names: its normal
-    canonical name, and the same name preceded by a `<b>.</b>'. The `<b>.</b>'
-    name is special: it can't be rebound to a different widget. This makes the
-    widget available even when its usual name has been redefined.</p>
+<p class="Pp">The standard widgets built into ZLE are listed in the section
+    `Standard Widgets' below. Other built-in widgets can be defined by other
+    modules (see <i>zshmodules</i>(1)). Each built-in widget has two names: its
+    normal canonical name, and the same name preceded by a `<b>.</b>'. The
+    `<b>.</b>' name is special: it can't be rebound to a different widget. This
+    makes the widget available even when its usual name has been redefined.</p>
 <p class="Pp">User-defined widgets are defined using `<b>zle -N</b>', and
     implemented as shell functions. When the widget is executed, the
     corresponding shell function is executed, and can perform editing (or other)
@@ -1015,34 +1019,52 @@
       for character indexing to include <b>PREDISPLAY</b>.</dd>
 </dl>
 <div class="Bd-indent">
-<p class="Pp">Each string consists of the following parts:</p>
+<p class="Pp">Each string consists of the following whitespace-separated
+  parts:</p>
 <p class="Pp"></p>
 <dl class="Bl-tag">
   <dt>&#x2022;</dt>
   <dd>Optionally, a `<b>P</b>' to signify that the start and end offset that
       follow include any string set by the <b>PREDISPLAY</b> special parameter;
       this is needed if the predisplay string itself is to be highlighted.
-      Whitespace may follow the `<b>P</b>'.</dd>
+      Whitespace between the `<b>P</b>' and the start offset is optional.</dd>
   <dt>&#x2022;</dt>
-  <dd>A start offset in the same units as <b>CURSOR</b>, terminated by
-      whitespace.</dd>
+  <dd>A start offset in the same units as <b>CURSOR</b>.</dd>
   <dt>&#x2022;</dt>
-  <dd>An end offset in the same units as <b>CURSOR</b>, terminated by
-      whitespace.</dd>
+  <dd>An end offset in the same units as <b>CURSOR</b>.</dd>
   <dt>&#x2022;</dt>
   <dd>A highlight specification in the same format as used for contexts in the
       parameter <b>zle_highlight</b>, see the section `Character Highlighting'
-      below; for example, <b>standout</b> or <b>fg=red,bold</b></dd>
+      below; for example, <b>standout</b> or <b>fg=red,bold</b>.</dd>
+  <dt>&#x2022;</dt>
+  <dd>Optionally, a string of the form `<b>memo=</b><i>token</i>'. The
+      <i>token</i> consists of everything between the `<b>=</b>' and the next
+      whitespace, comma, NUL, or the end of the string. The <i>token</i> is
+      preserved verbatim but not parsed in any way.</dd>
 </dl>
+<div class="Bd-indent">
+<p class="Pp">Plugins may use this to identify array elements they have added:
+    for example, a plugin might set <i>token</i> to its (the plugin's) name and
+    then use `<b>region_highlight=(
+    ${region_highlight:#*memo=</b><i>token</i><b>} )</b>' in order to remove
+    array elements it have added.</p>
+<p class="Pp">(This example uses the
+    `<b>${</b><i>name</i><b>:#</b><i>pattern</i><b>}</b>' array-grepping syntax
+    described in the section `Parameter Expansion' in <i>zshexpn</i>(1).)</p>
+</div>
 <p class="Pp">For example,</p>
 <p class="Pp"></p>
 <div class="Bd-indent">
-<pre><b>region_highlight=(&quot;P0 20 bold&quot;)</b></pre>
+<pre><b>region_highlight=(&quot;P0 20 bold memo=foobar&quot;)</b></pre>
 </div>
 <p class="Pp">specifies that the first twenty characters of the text including
     any predisplay string should be highlighted in bold.</p>
 <p class="Pp">Note that the effect of <b>region_highlight</b> is not saved and
     disappears as soon as the line is accepted.</p>
+<p class="Pp">Note that zsh 5.8 and older do not support the
+    `<b>memo=</b><i>token</i>' field and may misparse the third (highlight
+    specification) field when a memo is given.</p>
+<p class="Pp"></p>
 <p class="Pp">The final highlighting on the command line depends on both
     <b>region_highlight</b> and <b>zle_highlight</b>; see the section CHARACTER
     HIGHLIGHTING below for details.</p>
@@ -2084,7 +2106,8 @@
 <dl class="Bl-tag">
   <dt id="beep"><a class="permalink" href="#beep"><b>beep</b></a></dt>
   <dd>Beep, unless the <b>BEEP</b> option is unset.</dd>
-  <dt id="bracketed"><a class="permalink" href="#bracketed"><b>bracketed-paste</b></a></dt>
+  <dt id="bracketed"><a class="permalink" href="#bracketed"><b>bracketed-paste</b>
+    (<b>^[[200~</b>) (<b>^[[200~</b>) (<b>^[[200~</b>)</a></dt>
   <dd>This widget is invoked when text is pasted to the terminal emulator. It is
       not intended to be bound to actual keys but instead to the special
       sequence generated by the terminal emulator when text is pasted.</dd>

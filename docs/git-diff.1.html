@@ -117,10 +117,10 @@
     &lt;commit&gt; [--] [&lt;path&gt;...]</p>
 <div class="Bd-indent">This form is to view the results of a merge commit. The
   first listed &lt;commit&gt; must be the merge itself; the remaining two or
-  more commits should be its parents. A convenient way to produce the desired
-  set of revisions is to use the <b>^@</b> suffix. For instance, if
-  <b>master</b> names a merge commit, <b>git diff master master^@</b> gives the
-  same combined diff as <b>git show master</b>.</div>
+  more commits should be its parents. Convenient ways to produce the desired set
+  of revisions are to use the suffixes <b>^@</b> and <b>^!</b>. If A is a merge
+  commit, then <b>git diff A A^@</b>, <b>git diff A^!</b> and <b>git show A</b>
+  all give the same combined diff.</div>
 <p class="Pp"><i>git diff</i> [&lt;options&gt;] &lt;commit&gt;..&lt;commit&gt;
     [--] [&lt;path&gt;...]</p>
 <div class="Bd-indent">This is synonymous to the earlier form (without the
@@ -797,8 +797,8 @@ unmerged       :000000 000000 0000000 0000000 U file6</pre>
 <p class="Pp"></p>
 <div class="Bd-indent"> 7.a space.</div>
 <p class="Pp"></p>
-<div class="Bd-indent"> 8.sha1 for &quot;dst&quot;; 0{40} if creation, unmerged
-  or &quot;look at work tree&quot;.</div>
+<div class="Bd-indent"> 8.sha1 for &quot;dst&quot;; 0{40} if deletion, unmerged
+  or &quot;work tree out of sync with the index&quot;.</div>
 <p class="Pp"></p>
 <div class="Bd-indent"> 9.a space.</div>
 <p class="Pp"></p>
@@ -842,8 +842,8 @@ unmerged       :000000 000000 0000000 0000000 U file6</pre>
     the percentage of similarity between the source and target of the move or
     copy). Status letter M may be followed by a score (denoting the percentage
     of dissimilarity) for file rewrites.</p>
-<p class="Pp">&lt;sha1&gt; is shown as all 0&#x2019;s if a file is new on the
-    filesystem and it is out of sync with the index.</p>
+<p class="Pp">The sha1 for &quot;dst&quot; is shown as all 0&#x2019;s if a file
+    on the filesystem is out of sync with the index.</p>
 <p class="Pp">Example:</p>
 <p class="Pp"></p>
 <div class="Bd-indent">
@@ -1288,6 +1288,255 @@ $ git diff -R                          <b>(2)</b></pre>
   <br/>
 </p>
 </div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION"><a class="permalink" href="#CONFIGURATION">CONFIGURATION</a></h1>
+<p class="Pp">Everything below this line in this section is selectively included
+    from the <b>git-config</b>(1) documentation. The content is the same as
+    what&#x2019;s found there:</p>
+<p class="Pp">diff.autoRefreshIndex</p>
+<div class="Bd-indent">When using <i>git diff</i> to compare with work tree
+  files, do not consider stat-only change as changed. Instead, silently run
+  <b>git update-index --refresh</b> to update the cached stat information for
+  paths whose contents in the work tree match the contents in the index. This
+  option defaults to true. Note that this affects only <i>git diff</i>
+  Porcelain, and not lower level <i>diff</i> commands such as <i>git
+  diff-files</i>.</div>
+<p class="Pp">diff.dirstat</p>
+<div class="Bd-indent">A comma separated list of <b>--dirstat</b> parameters
+  specifying the default behavior of the <b>--dirstat</b> option to
+  <b>git-diff</b>(1) and friends. The defaults can be overridden on the command
+  line (using <b>--dirstat=&lt;param1,param2,...&gt;</b>). The fallback defaults
+  (when not changed by <b>diff.dirstat</b>) are <b>changes,noncumulative,3</b>.
+  The following parameters are available:
+<p class="Pp"><b>changes</b></p>
+<div class="Bd-indent">Compute the dirstat numbers by counting the lines that
+  have been removed from the source, or added to the destination. This ignores
+  the amount of pure code movements within a file. In other words, rearranging
+  lines in a file is not counted as much as other changes. This is the default
+  behavior when no parameter is given.</div>
+<p class="Pp"><b>lines</b></p>
+<div class="Bd-indent">Compute the dirstat numbers by doing the regular
+  line-based diff analysis, and summing the removed/added line counts. (For
+  binary files, count 64-byte chunks instead, since binary files have no natural
+  concept of lines). This is a more expensive <b>--dirstat</b> behavior than the
+  <b>changes</b> behavior, but it does count rearranged lines within a file as
+  much as other changes. The resulting output is consistent with what you get
+  from the other <b>--*stat</b> options.</div>
+<p class="Pp"><b>files</b></p>
+<div class="Bd-indent">Compute the dirstat numbers by counting the number of
+  files changed. Each changed file counts equally in the dirstat analysis. This
+  is the computationally cheapest <b>--dirstat</b> behavior, since it does not
+  have to look at the file contents at all.</div>
+<p class="Pp"><b>cumulative</b></p>
+<div class="Bd-indent">Count changes in a child directory for the parent
+  directory as well. Note that when using <b>cumulative</b>, the sum of the
+  percentages reported may exceed 100%. The default (non-cumulative) behavior
+  can be specified with the <b>noncumulative</b> parameter.</div>
+<p class="Pp">&lt;limit&gt;</p>
+<div class="Bd-indent">An integer parameter specifies a cut-off percent (3% by
+  default). Directories contributing less than this percentage of the changes
+  are not shown in the output.</div>
+<p class="Pp">Example: The following will count changed files, while ignoring
+    directories with less than 10% of the total amount of changed files, and
+    accumulating child directory counts in the parent directories:
+    <b>files,10,cumulative</b>.</p>
+</div>
+<p class="Pp">diff.statGraphWidth</p>
+<div class="Bd-indent">Limit the width of the graph part in --stat output. If
+  set, applies to all commands generating --stat output except
+  format-patch.</div>
+<p class="Pp">diff.context</p>
+<div class="Bd-indent">Generate diffs with &lt;n&gt; lines of context instead of
+  the default of 3. This value is overridden by the -U option.</div>
+<p class="Pp">diff.interHunkContext</p>
+<div class="Bd-indent">Show the context between diff hunks, up to the specified
+  number of lines, thereby fusing the hunks that are close to each other. This
+  value serves as the default for the <b>--inter-hunk-context</b> command line
+  option.</div>
+<p class="Pp">diff.external</p>
+<div class="Bd-indent">If this config variable is set, diff generation is not
+  performed using the internal diff machinery, but using the given command. Can
+  be overridden with the &#x2018;GIT_EXTERNAL_DIFF&#x2019; environment variable.
+  The command is called with parameters as described under &quot;git Diffs&quot;
+  in <b>git</b>(1). Note: if you want to use an external diff program only on a
+  subset of your files, you might want to use <b>gitattributes</b>(5)
+  instead.</div>
+<p class="Pp">diff.ignoreSubmodules</p>
+<div class="Bd-indent">Sets the default value of --ignore-submodules. Note that
+  this affects only <i>git diff</i> Porcelain, and not lower level <i>diff</i>
+  commands such as <i>git diff-files</i>. <i>git checkout</i> and <i>git
+  switch</i> also honor this setting when reporting uncommitted changes. Setting
+  it to <i>all</i> disables the submodule summary normally shown by <i>git
+  commit</i> and <i>git status</i> when <b>status.submoduleSummary</b> is set
+  unless it is overridden by using the --ignore-submodules command-line option.
+  The <i>git submodule</i> commands are not affected by this setting. By default
+  this is set to untracked so that any untracked submodules are ignored.</div>
+<p class="Pp">diff.mnemonicPrefix</p>
+<div class="Bd-indent">If set, <i>git diff</i> uses a prefix pair that is
+  different from the standard &quot;a/&quot; and &quot;b/&quot; depending on
+  what is being compared. When this configuration is in effect, reverse diff
+  output also swaps the order of the prefixes:
+<p class="Pp"><b>git diff</b></p>
+<div class="Bd-indent">compares the (i)ndex and the (w)ork tree;</div>
+<p class="Pp"><b>git diff HEAD</b></p>
+<div class="Bd-indent">compares a (c)ommit and the (w)ork tree;</div>
+<p class="Pp"><b>git diff --cached</b></p>
+<div class="Bd-indent">compares a (c)ommit and the (i)ndex;</div>
+<p class="Pp"><b>git diff HEAD:file1 file2</b></p>
+<div class="Bd-indent">compares an (o)bject and a (w)ork tree entity;</div>
+<p class="Pp"><b>git diff --no-index a b</b></p>
+<div class="Bd-indent">compares two non-git things (1) and (2).</div>
+</div>
+<p class="Pp">diff.noprefix</p>
+<div class="Bd-indent">If set, <i>git diff</i> does not show any source or
+  destination prefix.</div>
+<p class="Pp">diff.relative</p>
+<div class="Bd-indent">If set to <i>true</i>, <i>git diff</i> does not show
+  changes outside of the directory and show pathnames relative to the current
+  directory.</div>
+<p class="Pp">diff.orderFile</p>
+<div class="Bd-indent">File indicating how to order files within a diff. See the
+  <i>-O</i> option to <b>git-diff</b>(1) for details. If <b>diff.orderFile</b>
+  is a relative pathname, it is treated as relative to the top of the working
+  tree.</div>
+<p class="Pp">diff.renameLimit</p>
+<div class="Bd-indent">The number of files to consider in the exhaustive portion
+  of copy/rename detection; equivalent to the <i>git diff</i> option <b>-l</b>.
+  If not set, the default value is currently 1000. This setting has no effect if
+  rename detection is turned off.</div>
+<p class="Pp">diff.renames</p>
+<div class="Bd-indent">Whether and how Git detects renames. If set to
+  &quot;false&quot;, rename detection is disabled. If set to &quot;true&quot;,
+  basic rename detection is enabled. If set to &quot;copies&quot; or
+  &quot;copy&quot;, Git will detect copies, as well. Defaults to true. Note that
+  this affects only <i>git diff</i> Porcelain like <b>git-diff</b>(1) and
+  <b>git-log</b>(1), and not lower level commands such as
+  <b>git-diff-files</b>(1).</div>
+<p class="Pp">diff.suppressBlankEmpty</p>
+<div class="Bd-indent">A boolean to inhibit the standard behavior of printing a
+  space before each empty output line. Defaults to false.</div>
+<p class="Pp">diff.submodule</p>
+<div class="Bd-indent">Specify the format in which differences in submodules are
+  shown. The &quot;short&quot; format just shows the names of the commits at the
+  beginning and end of the range. The &quot;log&quot; format lists the commits
+  in the range like <b>git-submodule</b>(1) <b>summary</b> does. The
+  &quot;diff&quot; format shows an inline diff of the changed contents of the
+  submodule. Defaults to &quot;short&quot;.</div>
+<p class="Pp">diff.wordRegex</p>
+<div class="Bd-indent">A POSIX Extended Regular Expression used to determine
+  what is a &quot;word&quot; when performing word-by-word difference
+  calculations. Character sequences that match the regular expression are
+  &quot;words&quot;, all other characters are <b>ignorable</b> whitespace.</div>
+<p class="Pp">diff.&lt;driver&gt;.command</p>
+<div class="Bd-indent">The custom diff driver command. See
+  <b>gitattributes</b>(5) for details.</div>
+<p class="Pp">diff.&lt;driver&gt;.xfuncname</p>
+<div class="Bd-indent">The regular expression that the diff driver should use to
+  recognize the hunk header. A built-in pattern may also be used. See
+  <b>gitattributes</b>(5) for details.</div>
+<p class="Pp">diff.&lt;driver&gt;.binary</p>
+<div class="Bd-indent">Set this option to true to make the diff driver treat
+  files as binary. See <b>gitattributes</b>(5) for details.</div>
+<p class="Pp">diff.&lt;driver&gt;.textconv</p>
+<div class="Bd-indent">The command that the diff driver should call to generate
+  the text-converted version of a file. The result of the conversion is used to
+  generate a human-readable diff. See <b>gitattributes</b>(5) for details.</div>
+<p class="Pp">diff.&lt;driver&gt;.wordRegex</p>
+<div class="Bd-indent">The regular expression that the diff driver should use to
+  split words in a line. See <b>gitattributes</b>(5) for details.</div>
+<p class="Pp">diff.&lt;driver&gt;.cachetextconv</p>
+<div class="Bd-indent">Set this option to true to make the diff driver cache the
+  text conversion outputs. See <b>gitattributes</b>(5) for details.
+<p class="Pp"><b>araxis</b></p>
+<div class="Bd-indent">Use Araxis Merge (requires a graphical session)</div>
+<p class="Pp"><b>bc</b></p>
+<div class="Bd-indent">Use Beyond Compare (requires a graphical session)</div>
+<p class="Pp"><b>bc3</b></p>
+<div class="Bd-indent">Use Beyond Compare (requires a graphical session)</div>
+<p class="Pp"><b>bc4</b></p>
+<div class="Bd-indent">Use Beyond Compare (requires a graphical session)</div>
+<p class="Pp"><b>codecompare</b></p>
+<div class="Bd-indent">Use Code Compare (requires a graphical session)</div>
+<p class="Pp"><b>deltawalker</b></p>
+<div class="Bd-indent">Use DeltaWalker (requires a graphical session)</div>
+<p class="Pp"><b>diffmerge</b></p>
+<div class="Bd-indent">Use DiffMerge (requires a graphical session)</div>
+<p class="Pp"><b>diffuse</b></p>
+<div class="Bd-indent">Use Diffuse (requires a graphical session)</div>
+<p class="Pp"><b>ecmerge</b></p>
+<div class="Bd-indent">Use ECMerge (requires a graphical session)</div>
+<p class="Pp"><b>emerge</b></p>
+<div class="Bd-indent">Use Emacs' Emerge</div>
+<p class="Pp"><b>examdiff</b></p>
+<div class="Bd-indent">Use ExamDiff Pro (requires a graphical session)</div>
+<p class="Pp"><b>guiffy</b></p>
+<div class="Bd-indent">Use Guiffy&#x2019;s Diff Tool (requires a graphical
+  session)</div>
+<p class="Pp"><b>gvimdiff</b></p>
+<div class="Bd-indent">Use gVim (requires a graphical session)</div>
+<p class="Pp"><b>kdiff3</b></p>
+<div class="Bd-indent">Use KDiff3 (requires a graphical session)</div>
+<p class="Pp"><b>kompare</b></p>
+<div class="Bd-indent">Use Kompare (requires a graphical session)</div>
+<p class="Pp"><b>meld</b></p>
+<div class="Bd-indent">Use Meld (requires a graphical session)</div>
+<p class="Pp"><b>nvimdiff</b></p>
+<div class="Bd-indent">Use Neovim</div>
+<p class="Pp"><b>opendiff</b></p>
+<div class="Bd-indent">Use FileMerge (requires a graphical session)</div>
+<p class="Pp"><b>p4merge</b></p>
+<div class="Bd-indent">Use HelixCore P4Merge (requires a graphical
+  session)</div>
+<p class="Pp"><b>smerge</b></p>
+<div class="Bd-indent">Use Sublime Merge (requires a graphical session)</div>
+<p class="Pp"><b>tkdiff</b></p>
+<div class="Bd-indent">Use TkDiff (requires a graphical session)</div>
+<p class="Pp"><b>vimdiff</b></p>
+<div class="Bd-indent">Use Vim</div>
+<p class="Pp"><b>winmerge</b></p>
+<div class="Bd-indent">Use WinMerge (requires a graphical session)</div>
+<p class="Pp"><b>xxdiff</b></p>
+<div class="Bd-indent">Use xxdiff (requires a graphical session)</div>
+</div>
+<p class="Pp">diff.indentHeuristic</p>
+<div class="Bd-indent">Set this option to <b>false</b> to disable the default
+  heuristics that shift diff hunk boundaries to make patches easier to
+  read.</div>
+<p class="Pp">diff.algorithm</p>
+<div class="Bd-indent">Choose a diff algorithm. The variants are as follows:
+<p class="Pp"><b>default</b>, <b>myers</b></p>
+<div class="Bd-indent">The basic greedy diff algorithm. Currently, this is the
+  default.</div>
+<p class="Pp"><b>minimal</b></p>
+<div class="Bd-indent">Spend extra time to make sure the smallest possible diff
+  is produced.</div>
+<p class="Pp"><b>patience</b></p>
+<div class="Bd-indent">Use &quot;patience diff&quot; algorithm when generating
+  patches.</div>
+<p class="Pp"><b>histogram</b></p>
+<div class="Bd-indent">This algorithm extends the patience algorithm to
+  &quot;support low-occurrence common elements&quot;.</div>
+</div>
+<p class="Pp">diff.wsErrorHighlight</p>
+<div class="Bd-indent">Highlight whitespace errors in the <b>context</b>,
+  <b>old</b> or <b>new</b> lines of the diff. Multiple values are separated by
+  comma, <b>none</b> resets previous values, <b>default</b> reset the list to
+  <b>new</b> and <b>all</b> is a shorthand for <b>old,new,context</b>. The
+  whitespace errors are colored with <b>color.diff.whitespace</b>. The command
+  line option <b>--ws-error-highlight=&lt;kind&gt;</b> overrides this
+  setting.</div>
+<p class="Pp">diff.colorMoved</p>
+<div class="Bd-indent">If set to either a valid <b>&lt;mode&gt;</b> or a true
+  value, moved lines in a diff are colored differently, for details of valid
+  modes see <i>--color-moved</i> in <b>git-diff</b>(1). If simply set to true
+  the default color mode will be used. When set to false, moved lines are not
+  colored.</div>
+<p class="Pp">diff.colorMovedWS</p>
+<div class="Bd-indent">When moved lines are colored using e.g. the
+  <b>diff.colorMoved</b> setting, this option controls the <b>&lt;mode&gt;</b>
+  how spaces are treated for details of valid modes see <i>--color-moved-ws</i>
+  in <b>git-diff</b>(1).</div>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE

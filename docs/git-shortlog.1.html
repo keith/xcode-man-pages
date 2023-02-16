@@ -91,6 +91,10 @@ git log --pretty=short | <i>git shortlog</i> [&lt;options&gt;]</pre>
 <pre>Each pretty-printed commit will be rewrapped before it is shown.</pre>
 </div>
 </div>
+<p class="Pp">--date=&lt;format&gt;</p>
+<div class="Bd-indent">Show dates formatted according to the given date string.
+  (See the <b>--date</b> option in the &quot;Commit Formatting&quot; section of
+  <b>git-log</b>(1)). Useful with <b>--group=format:&lt;format&gt;</b>.</div>
 <p class="Pp">--group=&lt;type&gt;</p>
 <div class="Bd-indent">Group commits based on <b>&lt;type&gt;</b>. If no
   <b>--group</b> option is specified, the default is <b>author</b>.
@@ -106,7 +110,11 @@ git log --pretty=short | <i>git shortlog</i> [&lt;options&gt;]</pre>
   <b>&lt;field&gt;</b> is interpreted as a case-insensitive commit message
   trailer (see <b>git-interpret-trailers</b>(1)). For example, if your project
   uses <b>Reviewed-by</b> trailers, you might want to see who has been reviewing
-  with <b>git shortlog -ns --group=trailer:reviewed-by</b>.
+  with <b>git shortlog -ns --group=trailer:reviewed-by</b>.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>format:&lt;format&gt;</b>, any string accepted
+  by the <b>--format</b> option of <i>git log</i>. (See the &quot;PRETTY
+  FORMATS&quot; section of <b>git-log</b>(1).)
 <p class="Pp">Note that commits that do not include the trailer will not be
     counted. Likewise, commits with multiple trailers (e.g., multiple signoffs)
     may be counted more than once (but only once per unique trailer value in
@@ -293,6 +301,13 @@ git log --pretty=short | <i>git shortlog</i> [&lt;options&gt;]</pre>
     <b>refs/</b> when applied to <b>--glob</b> or <b>--all</b>. If a trailing
     <i>/*</i> is intended, it must be given explicitly.</p>
 </div>
+<p class="Pp">--exclude-hidden=[receive|uploadpack]</p>
+<div class="Bd-indent">Do not include refs that would be hidden by
+  <b>git-receive-pack</b> or <b>git-upload-pack</b> by consulting the
+  appropriate <b>receive.hideRefs</b> or <b>uploadpack.hideRefs</b>
+  configuration along with <b>transfer.hideRefs</b> (see <b>git-config</b>(1)).
+  This option affects the next pseudo-ref option <b>--all</b> or <b>--glob</b>
+  and is cleared after processing them.</div>
 <p class="Pp">--reflog</p>
 <div class="Bd-indent">Pretend as if all objects mentioned by reflogs are listed
   on the command line as <b>&lt;commit&gt;</b>.</div>
@@ -428,12 +443,14 @@ git log --pretty=short | <i>git shortlog</i> [&lt;options&gt;]</pre>
 <div class="Bd-indent">Additional option to <b>--full-history</b> to remove some
   needless merges from the resulting history, as there are no selected commits
   contributing to this merge.</div>
-<p class="Pp">--ancestry-path</p>
+<p class="Pp">--ancestry-path[=&lt;commit&gt;]</p>
 <div class="Bd-indent">When given a range of commits to display (e.g.
-  <i>commit1..commit2</i> or <i>commit2 ^commit1</i>), only display commits that
-  exist directly on the ancestry chain between the <i>commit1</i> and
-  <i>commit2</i>, i.e. commits that are both descendants of <i>commit1</i>, and
-  ancestors of <i>commit2</i>.</div>
+  <i>commit1..commit2</i> or <i>commit2 ^commit1</i>), only display commits in
+  that range that are ancestors of &lt;commit&gt;, descendants of
+  &lt;commit&gt;, or &lt;commit&gt; itself. If no commit is specified, use
+  <i>commit1</i> (the excluded part of the range) as &lt;commit&gt;. Can be
+  passed multiple times; if so, a commit is included if it is any of the commits
+  given or if it is an ancestor or descendant of one of them.</div>
 <p class="Pp">A more detailed explanation follows.</p>
 <p class="Pp">Suppose you specified <b>foo</b> as the &lt;paths&gt;. We shall
     call commits that modify <b>foo</b> !TREESAME, and the rest TREESAME. (In a
@@ -620,11 +637,10 @@ git log --pretty=short | <i>git shortlog</i> [&lt;options&gt;]</pre>
   was then removed completely, because it had one parent and is TREESAME.</div>
 </div>
 <p class="Pp">There is another simplification mode available:</p>
-<p class="Pp">--ancestry-path</p>
-<div class="Bd-indent">Limit the displayed commits to those directly on the
-  ancestry chain between the &#x201C;from&#x201D; and &#x201C;to&#x201D; commits
-  in the given commit range. I.e. only display commits that are ancestor of the
-  &#x201C;to&#x201D; commit and descendants of the &#x201C;from&#x201D; commit.
+<p class="Pp">--ancestry-path[=&lt;commit&gt;]</p>
+<div class="Bd-indent">Limit the displayed commits to those which are an
+  ancestor of &lt;commit&gt;, or which are a descendant of &lt;commit&gt;, or
+  are &lt;commit&gt; itself.
 <p class="Pp">As an example use case, consider the following commit history:</p>
 <p class="Pp"></p>
 <div class="Bd-indent">
@@ -665,6 +681,34 @@ git log --pretty=short | <i>git shortlog</i> [&lt;options&gt;]</pre>
                                \
 <br/>
                                 L--M</pre>
+</div>
+<p class="Pp">We can also use <b>--ancestry-path=D</b> instead of
+    <b>--ancestry-path</b> which means the same thing when applied to the
+    <i>D..M</i> range but is just more explicit.</p>
+<p class="Pp">If we instead are interested in a given topic within this range,
+    and all commits affected by that topic, we may only want to view the subset
+    of <b>D..M</b> which contain that topic in their ancestry path. So, using
+    <b>--ancestry-path=H D..M</b> for example would result in:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+                E
+<br/>
+                 \
+<br/>
+                  G---H---I---J
+<br/>
+                               \
+<br/>
+                                L--M</pre>
+</div>
+<p class="Pp">Whereas <b>--ancestry-path=K D..M</b> would result in</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+                K---------------L--M</pre>
 </div>
 <p class="Pp"></p>
 </div>
@@ -741,7 +785,7 @@ git log --pretty=short | <i>git shortlog</i> [&lt;options&gt;]</pre>
     only merged a topic that was based on an older version of <b>file.txt</b>.
     This is a common issue in repositories using a workflow where many
     contributors work in parallel and merge their topic branches along a single
-    trunk: manu unrelated merges appear in the <b>--full-history</b>
+    trunk: many unrelated merges appear in the <b>--full-history</b>
   results.</p>
 <p class="Pp">When using the <b>--simplify-merges</b> option, the commits
     <b>O</b> and <b>P</b> disappear from the results. This is because the
