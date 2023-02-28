@@ -8,7 +8,7 @@
    *                            | (__| |_| |  _ <| |___
    *                             \___|\___/|_| \_\_____|
    *
-   * Copyright (C) 1998 - 2018, Daniel Stenberg, <daniel@haxx.se>, et al.
+   * Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
    *
    * This software is licensed as described in the file COPYING, which
    * you should have received as part of this distribution. The terms
@@ -53,92 +53,76 @@
     code.Nm, .Fl, .Cm, .Ic, code.In, .Fd, .Fn, .Cd { font-weight: bold;
       font-family: inherit; }
   </style>
-  <title>CURLOPT_INTERFACE(3)</title>
+  <title>curl_ws_recv(3)</title>
 </head>
 <body>
 <table class="head">
   <tr>
-    <td class="head-ltitle">CURLOPT_INTERFACE(3)</td>
-    <td class="head-vol">curl_easy_setopt options</td>
-    <td class="head-rtitle">CURLOPT_INTERFACE(3)</td>
+    <td class="head-ltitle">curl_ws_recv(3)</td>
+    <td class="head-vol">libcurl Manual</td>
+    <td class="head-rtitle">curl_ws_recv(3)</td>
   </tr>
 </table>
 <div class="manual-text">
 <p class="Pp"></p>
 <section class="Sh">
 <h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
-<p class="Pp">CURLOPT_INTERFACE - source interface for outgoing traffic</p>
+<p class="Pp">curl_ws_recv - receive WebSocket data</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
-<pre>#include &lt;curl/curl.h&gt;
-CURLcode curl_easy_setopt(CURL *handle, CURLOPT_INTERFACE, char *interface);</pre>
+<pre>#include &lt;curl/easy.h&gt;
+CURLcode curl_ws_recv(CURL *curl, void *buffer, size_t buflen,
+<br/>
+                      size_t *recv, struct curl_ws_frame **meta);</pre>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
-<p class="Pp">Pass a char * as parameter. This sets the <i>interface</i> name to
-    use as outgoing network interface. The name can be an interface name, an IP
-    address, or a host name.</p>
-<p class="Pp">If the parameter starts with &quot;if!&quot; then it is treated as
-    only as interface name and no attempt will ever be named to do treat it as
-    an IP address or to do name resolution on it. If the parameter starts with
-    &quot;host!&quot; it is treated as either an IP address or a hostname.</p>
-<p class="Pp">If &quot;if!&quot; is specified but the parameter does not match
-    an existing interface, <i>CURLE_INTERFACE_FAILED</i> is returned from the
-    libcurl function used to perform the transfer.</p>
-<p class="Pp">libcurl does not support using network interface names for this
-    option on Windows.</p>
-<p class="Pp">We strongly advise against specifying the interface with a
-    hostname, as it causes libcurl to do a blocking name resolve call to
-    retrieve the IP address. That name resolve operation will <b>not</b> use
-    DNS-over-HTTPS even if <i>CURLOPT_DOH_URL(3)</i> is set.</p>
-<p class="Pp">The application does not have to keep the string around after
-    setting this option.</p>
-</section>
-<section class="Sh">
-<h1 class="Sh" id="DEFAULT"><a class="permalink" href="#DEFAULT">DEFAULT</a></h1>
-<p class="Pp">NULL, use whatever the TCP stack finds suitable</p>
-</section>
-<section class="Sh">
-<h1 class="Sh" id="PROTOCOLS"><a class="permalink" href="#PROTOCOLS">PROTOCOLS</a></h1>
-<p class="Pp">All</p>
+<p class="Pp">This function call is EXPERIMENTAL.</p>
+<p class="Pp">Retrieves as much as possible of a received WebSocket data
+    fragment into the <b>buffer</b>, but not more than <b>buflen</b> bytes.
+    <i>recv</i> is set to the number of bytes actually stored.</p>
+<p class="Pp">If there is more fragment data to deliver than what fits in the
+    provided <i>buffer</i>, libcurl returns a full buffer and the application
+    needs to call this function again to continue draining the buffer.</p>
+<p class="Pp">The <i>meta</i> pointer gets set to point to a <i>struct
+    curl_ws_frame</i> that contains information about the received data. See the
+    <i>curl_ws_meta(3)</i> for details on that struct.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
-<pre>CURL *curl = curl_easy_init();
-if(curl) {
+<pre>
 <br/>
-  curl_easy_setopt(curl, CURLOPT_URL, &quot;https://example.com/foo.bin&quot;);
+  size_t rlen;
 <br/>
-  curl_easy_setopt(curl, CURLOPT_INTERFACE, &quot;eth0&quot;);
+  struct curl_ws_frame *meta;
 <br/>
-  ret = curl_easy_perform(curl);
+  char buffer[256];
 <br/>
-  curl_easy_cleanup(curl);
-}</pre>
+  CURLcode result = curl_ws_recv(curl, buffer, sizeof(buffer), &amp;rlen, &amp;meta);</pre>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
-<p class="Pp">The &quot;if!&quot; and &quot;host!&quot; syntax was added in
-    7.24.0.</p>
+<p class="Pp">Added in 7.86.0.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
   VALUE</a></h1>
-<p class="Pp">Returns CURLE_OK on success or CURLE_OUT_OF_MEMORY if there was
-    insufficient heap space.</p>
+<p class="Pp">Returns <b>CURLE_OK</b> if everything is okay, and a non-zero
+    number for errors. Returns <b>CURLE_GOT_NOTHING</b> if the associated
+    connection is closed.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
-<p class="Pp"><b>CURLOPT_SOCKOPTFUNCTION</b>(3), <b>CURLOPT_TCP_NODELAY</b>(3),
-  </p>
+<p class="Pp"><b>curl_easy_setopt</b>(3), <b>curl_easy_perform</b>(3),
+    <b>curl_easy_getinfo</b>(3), <b>curl_ws_send</b>(3) </p>
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">November 4, 2020</td>
-    <td class="foot-os">libcurl 7.77.0</td>
+    <td class="foot-date">December 12, 2022</td>
+    <td class="foot-os">libcurl 7.87.0</td>
   </tr>
 </table>
 </body>
