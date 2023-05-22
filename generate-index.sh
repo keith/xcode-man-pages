@@ -10,8 +10,8 @@ header="<!DOCTYPE html>
   <style>
     body { font-family: sans-serif; }
     h1, h2, h3, h4, h5, h6 { font-family: serif; }
-    .col ul { margin-top: 0; } 
-    .col { column-width: 20em; overflow-wrap: anywhere; hyphens: auto; } 
+    .col ul { margin-top: 0; }
+    .col { column-width: 20em; overflow-wrap: anywhere; hyphens: auto; }
   </style>
 </head>
 <body>
