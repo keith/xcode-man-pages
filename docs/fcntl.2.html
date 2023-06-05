@@ -159,12 +159,13 @@
       by supplying <var class="Fa">arg</var> as negative, otherwise
       <var class="Fa">arg</var> is interpreted as a process ID.</dd>
   <dt id="F_GETPATH"><a class="permalink" href="#F_GETPATH"><code class="Dv">F_GETPATH</code></a></dt>
-  <dd>Get the path of the file descriptor</dd>
+  <dd>Get the path of the file descriptor <var class="Fa">fildes</var>. The
+      argument must be a buffer of size <b class="Sy">MAXPATHLEN</b> or
+    greater.</dd>
   <dt id="F_GETPATH_NOFIRMLINK"><a class="permalink" href="#F_GETPATH_NOFIRMLINK"><code class="Dv">F_GETPATH_NOFIRMLINK</code></a></dt>
   <dd>Get the non firmlinked path of the file descriptor
-      <var class="Fa">Fildes</var>. The argument must be a buffer of size
-      <a class="permalink" href="#MAXPATHLEN"><b class="Sy" id="MAXPATHLEN">MAXPATHLEN</b></a>
-      or greater.</dd>
+      <var class="Fa">fildes</var>. The argument must be a buffer of size
+      <b class="Sy">MAXPATHLEN</b> or greater.</dd>
   <dt id="F_PREALLOCATE"><a class="permalink" href="#F_PREALLOCATE"><code class="Dv">F_PREALLOCATE</code></a></dt>
   <dd>Preallocate file storage space. Note: upon success, the space that is
       allocated can be the size requested, larger than the size requested, or
@@ -295,11 +296,11 @@
       prevent this lock from being created, the structure is left unchanged by
       this function call except for the lock type which is set to
       <code class="Dv">F_UNLCK</code>. If a lock that does not support the
-      discovery of lock ownership by process (one created by the
-      <a class="Xr">flock(2)</a> system call or the <a class="Xr">open(2)</a>
-      system call with the <code class="Dv">O_SHLOCK</code> or
-      <code class="Dv">O_EXLOCK</code> flag) is found,
-      <var class="Fa">l_pid</var> is set to -1.</dd>
+      discovery of lock ownership by process (such as an OFD lock (see below),
+      one created by the <a class="Xr">flock(2)</a> system call or the
+      <a class="Xr">open(2)</a> system call with the
+      <code class="Dv">O_SHLOCK</code> or <code class="Dv">O_EXLOCK</code> flag)
+      is found, <var class="Fa">l_pid</var> is set to -1.</dd>
   <dt id="F_SETLK"><a class="permalink" href="#F_SETLK"><code class="Dv">F_SETLK</code></a></dt>
   <dd>Set or clear a file segment lock according to the lock description pointed
       to by the third argument, <var class="Fa">arg</var>, taken as a pointer to
@@ -312,7 +313,7 @@
       <code class="Er">EAGAIN</code>.</dd>
   <dt id="F_SETLKW"><a class="permalink" href="#F_SETLKW"><code class="Dv">F_SETLKW</code></a></dt>
   <dd>This command is the same as <code class="Dv">F_SETLK</code> except that if
-      a shared or exclusive lock is blocked by other locks, the process waits
+      a shared or exclusive lock is blocked by other locks, the thread waits
       until the request can be satisfied. If a signal that is to be caught is
       received while <code class="Nm">fcntl</code> is waiting for a region, the
       <code class="Nm">fcntl</code> will be interrupted if the signal handler
@@ -347,8 +348,7 @@
     <var class="Fa">l_whence</var> and <var class="Fa">l_start</var> point to
     the beginning of the file, and <var class="Fa">l_len</var> is zero, the
     entire file is locked. If an application wishes only to do entire file
-    locking, the <a class="Xr">flock(2)</a> system call is much more
-  efficient.</p>
+    locking, the <a class="Xr">flock(2)</a> system call is more efficient.</p>
 <p class="Pp">There is at most one type of lock set for each byte in the file.
     Before a successful return from an <code class="Dv">F_SETLK</code> or an
     <code class="Dv">F_SETLKW</code> request when the calling process has
@@ -367,8 +367,8 @@
     process. This semantic means that applications must be aware of any files
     that a subroutine library may access. For example if an application for
     updating the password file locks the password file database while making the
-    update, and then calls <a class="Xr">getpwname(3)</a> to retrieve a record,
-    the lock will be lost because <a class="Xr">getpwname(3)</a> opens, reads,
+    update, and then calls <a class="Xr">getpwnam(3)</a> to retrieve a record,
+    the lock will be lost because <a class="Xr">getpwnam(3)</a> opens, reads,
     and closes the password database. The database close will release all locks
     that the process has associated with the database, even if the library
     routine never requested a lock on the database. Another minor semantic
@@ -387,6 +387,68 @@
     process. This implementation detects that sleeping until a locked region is
     unlocked would cause a deadlock and fails with an
     <code class="Er">EDEADLK</code> error.</p>
+<p class="Pp" id="open">An alternative set of commands is available for advisory
+    record locking; they operate on the same <var class="Fa">flock</var>
+    structure described above, the fields of the structure have the same
+    semantics, and the commands behave similarly to the traditional record locks
+    described above. The primary difference is that
+    <a class="permalink" href="#open"><i class="Em">open file
+    description</i></a> (OFD) locks are locks on the file associated with the
+    open file description used to acquire them, and not with the process that
+    created them. OFD locks are conceptually similar to locks managed by
+    <a class="Xr">flock(2)</a>, with the addition of record locking
+    capabilities.</p>
+<p class="Pp" id="not">A new open file description can be obtained from e.g.,
+    <a class="Xr">open(2)</a>. However, file descriptors that have been
+    duplicated using e.g., <a class="Xr">dup(2)</a> or <a class="Xr">fork(2)</a>
+    do <a class="permalink" href="#not"><b class="Sy">not</b></a> result in
+    multiple instances of a lock, but create additional references to the same
+    open file description, and thus reference the same lock. For example, if a
+    process holding an OFD lock on a file forks, and the child explicitly
+    unlocks a record, the parent will also lose that lock on the same
+  record.</p>
+<p class="Pp">Only the last close of the last file descriptor in any process
+    still referencing the open file description causes an automatic unlock to
+    occur, so this type of record lock avoids the more unfortunate
+    <a class="Xr">close(2)</a> semantics of traditional advisory record
+  locks.</p>
+<p class="Pp">The commands used for OFD locks are direct analogs of traditional
+    record locking commands:</p>
+<dl class="Bl-tag">
+  <dt id="F_OFD_GETLK"><a class="permalink" href="#F_OFD_GETLK"><code class="Dv">F_OFD_GETLK</code></a></dt>
+  <dd>Get the first lock that blocks the lock description pointed to by the
+      third argument, <var class="Fa">arg</var>, taken as a pointer to a
+      <var class="Fa">struct flock</var> (see above). The information retrieved
+      overwrites the information passed to <code class="Nm">fcntl</code> in the
+      <var class="Fa">flock</var> structure. If no lock is found that would
+      prevent this lock from being created, the structure is left unchanged by
+      this function call except for the lock type which is set to
+      <code class="Dv">F_UNLCK</code>. If a lock that does not support the
+      discovery of lock ownership by process (such as an OFD lock, one created
+      by the <a class="Xr">flock(2)</a> system call or the
+      <a class="Xr">open(2)</a> system call with the
+      <code class="Dv">O_SHLOCK</code> or <code class="Dv">O_EXLOCK</code> flag)
+      is found, <var class="Fa">l_pid</var> is set to -1.</dd>
+  <dt id="F_OFD_SETLK"><a class="permalink" href="#F_OFD_SETLK"><code class="Dv">F_OFD_SETLK</code></a></dt>
+  <dd>Set or clear a file segment lock according to the lock description pointed
+      to by the third argument, <var class="Fa">arg</var>, taken as a pointer to
+      a <var class="Fa">struct flock</var> (see above).
+      <code class="Dv">F_SETLK</code> is used to establish shared (or read)
+      locks <code class="Dv">(F_RDLCK)</code> or exclusive (or write) locks,
+      <code class="Dv">(F_WRLCK)</code>, as well as remove either type of lock
+      <code class="Dv">(F_UNLCK)</code>. If a shared or exclusive lock cannot be
+      set, <code class="Nm">fcntl</code> returns immediately with a return value
+      of -1.</dd>
+  <dt id="F_OFD_SETLKW"><a class="permalink" href="#F_OFD_SETLKW"><code class="Dv">F_OFD_SETLKW</code></a></dt>
+  <dd>This command is the same as <code class="Dv">F_OFD_SETLK</code> except
+      that if a shared or exclusive lock is blocked by other locks, the thread
+      waits until the request can be satisfied. If a signal that is to be caught
+      is received while <code class="Nm">fcntl</code> is waiting for a region,
+      the <code class="Nm">fcntl</code> will be interrupted if the signal
+      handler has not specified the <code class="Dv">SA_RESTART</code> (see
+      <a class="Xr">sigaction(2)</a>).</dd>
+</dl>
+<p class="Pp">No deadlock detection is performed for OFD file locks.</p>
 <p class="Pp">The <code class="Dv">F_PREALLOCATE</code> command operates on the
     following structure:</p>
 <div class="Bd Pp Li">
@@ -498,8 +560,9 @@
 <p class="Pp">The <code class="Fn">fcntl</code>() system call will fail if:</p>
 <dl class="Bl-tag">
   <dt id="EAGAIN">[<a class="permalink" href="#EAGAIN"><code class="Er">EAGAIN</code></a>]</dt>
-  <dd>The argument <var class="Fa">cmd</var> is <code class="Dv">F_SETLK</code>,
-      the type of lock <var class="Fa">(l_type)</var> is a shared lock
+  <dd>The argument <var class="Fa">cmd</var> is <code class="Dv">F_SETLK</code>
+      or <code class="Dv">F_OFD_SETLK</code>, the type of lock
+      <var class="Fa">(l_type)</var> is a shared lock
       <code class="Dv">(F_RDLCK)</code> or exclusive lock
       <code class="Dv">(F_WRLCK)</code>, and the segment of a file to be locked
       is already exclusive-locked by another process; or the type is an
@@ -512,13 +575,17 @@
   <dt id="EBADF">[<a class="permalink" href="#EBADF"><code class="Er">EBADF</code></a>]</dt>
   <dd><var class="Fa">Fildes</var> is not a valid open file descriptor.
     <p class="Pp">The argument <var class="Fa">cmd</var> is
-        <code class="Dv">F_SETLK</code> or <code class="Dv">F_SETLKW</code>, the
-        type of lock <var class="Fa">(l_type)</var> is a shared lock
+        <code class="Dv">F_SETLK</code>, <code class="Dv">F_SETLKW</code>,
+        <code class="Dv">F_OFD_SETLK</code> or
+        <code class="Dv">F_OFD_SETLKW</code>, the type of lock
+        <var class="Fa">(l_type)</var> is a shared lock
         <code class="Dv">(F_RDLCK)</code>, and <var class="Fa">fildes</var> is
         not a valid file descriptor open for reading.</p>
     <p class="Pp">The argument <var class="Fa">cmd</var> is
-        <code class="Dv">F_SETLK</code> or <code class="Dv">F_SETLKW</code>, the
-        type of lock <var class="Fa">(l_type)</var> is an exclusive lock
+        <code class="Dv">F_SETLK</code>, <code class="Dv">F_SETLKW</code>,
+        <code class="Dv">F_OFD_SETLK</code> or
+        <code class="Dv">F_OFD_SETLKW</code>, the type of lock
+        <var class="Fa">(l_type)</var> is an exclusive lock
         <code class="Dv">(F_WRLCK)</code>, and <var class="Fa">fildes</var> is
         not a valid file descriptor open for writing.</p>
     <p class="Pp">The argument <var class="Fa">cmd</var> is
@@ -544,16 +611,18 @@
       <var class="Fa">fst_length</var> bytes on <var class="Fa">fildes</var>
       would exceed the maximum file size.</dd>
   <dt id="EINTR">[<a class="permalink" href="#EINTR"><code class="Er">EINTR</code></a>]</dt>
-  <dd>The argument <var class="Fa">cmd</var> is
-      <code class="Dv">F_SETLKW</code>, and the function was interrupted by a
-      signal.</dd>
+  <dd>The argument <var class="Fa">cmd</var> is <code class="Dv">F_SETLKW</code>
+      or <code class="Dv">F_OFD_SETLKW</code>, and the function was interrupted
+      by a signal.</dd>
   <dt id="EINVAL">[<a class="permalink" href="#EINVAL"><code class="Er">EINVAL</code></a>]</dt>
   <dd><var class="Fa">Cmd</var> is <code class="Dv">F_DUPFD</code> and
       <var class="Fa">arg</var> is negative or greater than the maximum
       allowable number (see <a class="Xr">getdtablesize(2)</a>).
     <p class="Pp">The argument <var class="Fa">cmd</var> is
-        <code class="Dv">F_GETLK</code>, <code class="Dv">F_SETLK</code>, or
-        <code class="Dv">F_SETLKW</code> and the data to which
+        <code class="Dv">F_GETLK</code>, <code class="Dv">F_SETLK</code>,
+        <code class="Dv">F_SETLKW</code>, <code class="Dv">F_OFD_GETLK</code>,
+        <code class="Dv">F_OFD_SETLK</code> or
+        <code class="Dv">F_OFD_SETLKW</code>, and the data to which
         <var class="Fa">arg</var> points is not valid, or
         <var class="Fa">fildes</var> refers to a file that does not support
         locking.</p>
@@ -580,13 +649,14 @@
   <dd><var class="Fa">Cmd</var> is <code class="Dv">F_DUPFD</code> and the
       maximum allowed number of file descriptors are currently open.</dd>
   <dt id="EMFILE~2">[<a class="permalink" href="#EMFILE~2"><code class="Er">EMFILE</code></a>]</dt>
-  <dd>The argument <var class="Fa">cmd</var> is <code class="Dv">F_DUPED</code>
+  <dd>The argument <var class="Fa">cmd</var> is <code class="Dv">F_DUPFD</code>
       and the maximum number of file descriptors permitted for the process are
       already in use, or no file descriptors greater than or equal to
       <var class="Fa">arg</var> are available.</dd>
   <dt id="ENOLCK">[<a class="permalink" href="#ENOLCK"><code class="Er">ENOLCK</code></a>]</dt>
-  <dd>The argument <var class="Fa">cmd</var> is <code class="Dv">F_SETLK</code>
-      or <code class="Dv">F_SETLKW</code>, and satisfying the lock or unlock
+  <dd>The argument <var class="Fa">cmd</var> is <code class="Dv">F_SETLK</code>,
+      <code class="Dv">F_SETLKW</code>, <code class="Dv">F_OFD_SETLK</code> or
+      <code class="Dv">F_OFD_SETLKW</code>, and satisfying the lock or unlock
       request would result in the number of locked regions in the system
       exceeding a system-imposed limit.</dd>
   <dt id="ENOSPC">[<a class="permalink" href="#ENOSPC"><code class="Er">ENOSPC</code></a>]</dt>
@@ -627,20 +697,21 @@
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
 <p class="Pp"><a class="Xr">close(2)</a>, <a class="Xr">execve(2)</a>,
-    <a class="Xr">flock(2)</a>, <a class="Xr">getdtablesize(2)</a>,
-    <a class="Xr">open(2)</a>, <a class="Xr">pipe(2)</a>,
-    <a class="Xr">setsockopt(2)</a>, <a class="Xr">socket(2)</a>,
-    <a class="Xr">sigaction(3)</a></p>
+    <a class="Xr">flock(2)</a>, <a class="Xr">fork(2)</a>,
+    <a class="Xr">getdtablesize(2)</a>, <a class="Xr">open(2)</a>,
+    <a class="Xr">pipe(2)</a>, <a class="Xr">setsockopt(2)</a>,
+    <a class="Xr">socket(2)</a>, <a class="Xr">sigaction(3)</a></p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
 <p class="Pp">The <code class="Fn">fcntl</code>() function call appeared in
     <span class="Ux">4.2BSD</span>.</p>
+<p class="Pp">Open file description locks first appeared in Linux 3.15</p>
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">June 17, 2021</td>
+    <td class="foot-date">August 12, 2021</td>
     <td class="foot-os">BSD 4.2</td>
   </tr>
 </table>

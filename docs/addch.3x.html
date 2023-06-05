@@ -30,7 +30,7 @@
    authorization.                                                           *
   ***************************************************************************
   
-   $Id: curs_addch.3x,v 1.27 2007/06/02 20:40:07 tom Exp $
+   $Id: curs_addch.3x,v 1.36 2015/07/16 09:14:44 tom Exp $
  -->
 <head>
 
@@ -96,36 +96,55 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Adding_characters"><a class="permalink" href="#Adding_characters">Adding
+  characters</a></h2>
 <p class="Pp">The <b>addch</b>, <b>waddch</b>, <b>mvaddch</b> and
     <b>mvwaddch</b> routines put the character <i>ch</i> into the given window
     at its current window position, which is then advanced. They are analogous
-    to <b>putchar</b> in <b>stdio</b>(3). If the advance is at the right margin,
-    the cursor automatically wraps to the beginning of the next line. At the
-    bottom of the current scrolling region, if <b>scrollok</b> is enabled, the
-    scrolling region is scrolled up one line.</p>
-<p class="Pp">If <i>ch</i> is a tab, newline, or backspace, the cursor is moved
-    appropriately within the window. Backspace moves the cursor one character
-    left; at the left edge of a window it does nothing. Newline does a
-    <b>clrtoeol</b>, then moves the cursor to the window left margin on the next
-    line, scrolling the window if on the last line. Tabs are considered to be at
-    every eighth column. The tab interval may be altered by setting the
-    <b>TABSIZE</b> variable.</p>
-<p class="Pp">If <i>ch</i> is any control character other than tab, newline, or
-    backspace, it is drawn in <b>^</b><i>X</i> notation. Calling <b>winch</b>
-    after adding a control character does not return the character itself, but
-    instead returns the ^-representation of the control character.</p>
+    to <b>putchar</b> in <b>stdio</b>(3). If the advance is at the right
+  margin:</p>
+<ul class="Bl-bullet">
+  <li>The cursor automatically wraps to the beginning of the next line.</li>
+  <li>At the bottom of the current scrolling region, and if <b>scrollok</b> is
+      enabled, the scrolling region is scrolled up one line.</li>
+  <li>If <b>scrollok</b> is not enabled, writing a character at the lower right
+      margin succeeds. However, an error is returned because it is not possible
+      to wrap to a new line</li>
+</ul>
+<p class="Pp">If <i>ch</i> is a tab, newline, carriage return or backspace, the
+    cursor is moved appropriately within the window:</p>
+<ul class="Bl-bullet">
+  <li>Backspace moves the cursor one character left; at the left edge of a
+      window it does nothing.</li>
+  <li>Carriage return moves the cursor to the window left margin on the current
+      line.</li>
+  <li>Newline does a <b>clrtoeol</b>, then moves the cursor to the window left
+      margin on the next line, scrolling the window if on the last line.</li>
+  <li>Tabs are considered to be at every eighth column. The tab interval may be
+      altered by setting the <b>TABSIZE</b> variable.</li>
+</ul>
+<p class="Pp">If <i>ch</i> is any other control character, it is drawn in
+    <b>^</b><i>X</i> notation. Calling <b>winch</b> after adding a control
+    character does not return the character itself, but instead returns the
+    ^-representation of the control character.</p>
 <p class="Pp">Video attributes can be combined with a character argument passed
     to <b>addch</b> or related functions by logical-ORing them into the
     character. (Thus, text, including attributes, can be copied from one place
     to another using <b>inch</b> and <b>addch</b>.) See the <b>curs_attr</b>(3X)
     page for values of predefined video attribute constants that can be usefully
     OR'ed into characters.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Echoing_characters"><a class="permalink" href="#Echoing_characters">Echoing
+  characters</a></h2>
 <p class="Pp">The <b>echochar</b> and <b>wechochar</b> routines are equivalent
     to a call to <b>addch</b> followed by a call to <b>refresh</b>, or a call to
     <b>waddch</b> followed by a call to <b>wrefresh</b>. The knowledge that only
     a single character is being output is used and, for non-control characters,
     a considerable performance gain may be seen by using these routines instead
     of their equivalents.</p>
+</section>
 <section class="Ss">
 <h2 class="Ss" id="Line_Graphics"><a class="permalink" href="#Line_Graphics">Line
   Graphics</a></h2>
@@ -313,6 +332,9 @@
     <b>OK</b> on success (the SVr4 manuals specify only &quot;an integer value
     other than <b>ERR</b>&quot;) upon successful completion, unless otherwise
     noted in the preceding routine descriptions.</p>
+<p class="Pp">Functions with a &quot;mv&quot; prefix first perform a cursor
+    movement using <b>wmove</b>, and return an error if the position is outside
+    the window, or if the window pointer is null.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
@@ -324,6 +346,10 @@
 <p class="Pp">All these functions are described in the XSI Curses standard,
     Issue 4. The defaults specified for forms-drawing characters apply in the
     POSIX locale.</p>
+<p class="Pp">X/Open Curses states that the <i>ACS_</i> definitions are
+    <b>char</b> constants. For the wide-character implementation (see
+    <b>curs_add_wch</b>), there are analogous <i>WACS_</i> definitions which are
+    <b>cchar_t</b> constants.</p>
 <p class="Pp">Some ACS symbols (ACS_S3, ACS_S7, ACS_LEQUAL, ACS_GEQUAL, ACS_PI,
     ACS_NEQUAL, ACS_STERLING) were not documented in any publicly released
     System V. However, many publicly available terminfos include <b>acsc</b>
@@ -341,7 +367,7 @@
   ALSO</a></h1>
 <p class="Pp"><b>curses</b>(3X), <b>curs_attr</b>(3X), <b>curs_clear</b>(3X),
     <b>curs_inch</b>(3X), <b>curs_outopts</b>(3X), <b>curs_refresh</b>(3X),
-    <b>putc</b>(3).</p>
+    <b>curs_variables</b>(3X), <b>putc</b>(3).</p>
 <p class="Pp">Comparable functions in the wide-character (ncursesw) library are
     described in <b>curs_add_wch</b>(3X).</p>
 </section>

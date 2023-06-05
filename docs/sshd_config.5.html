@@ -35,7 +35,7 @@
    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
    THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   
-   $OpenBSD: sshd_config.5,v 1.340 2022/03/31 17:58:44 naddy Exp $
+   $OpenBSD: sshd_config.5,v 1.348 2023/03/03 04:36:20 djm Exp $
  -->
 <head>
 
@@ -86,8 +86,8 @@
 <p class="Pp"><a class="Xr">sshd(8)</a> reads configuration data from
     <span class="Pa">/etc/ssh/sshd_config</span> (or the file specified with
     <code class="Fl">-f</code> on the command line). The file contains
-    keyword-argument pairs, one per line. For each keyword, the first obtained
-    value will be used. Lines starting with
+    keyword-argument pairs, one per line. Unless noted otherwise, for each
+    keyword, the first obtained value will be used. Lines starting with
     &#x2018;<code class="Li">#</code>&#x2019; and empty lines are interpreted as
     comments. Arguments may optionally be enclosed in double quotes (&quot;) in
     order to represent arguments containing spaces.</p>
@@ -128,7 +128,9 @@
       in the following order: <code class="Cm">DenyGroups</code>,
       <code class="Cm">AllowGroups</code>.
     <p class="Pp">See PATTERNS in <a class="Xr">ssh_config(5)</a> for more
-        information on patterns.</p>
+        information on patterns. This keyword may appear multiple times in
+        <code class="Nm">sshd_config</code> with each instance appending to the
+        list.</p>
   </dd>
   <dt id="AllowStreamLocalForwarding"><a class="permalink" href="#AllowStreamLocalForwarding"><code class="Cm">AllowStreamLocalForwarding</code></a></dt>
   <dd>Specifies whether StreamLocal (Unix-domain socket) forwarding is
@@ -162,7 +164,9 @@
       the following order: <code class="Cm">DenyUsers</code>,
       <code class="Cm">AllowUsers</code>.
     <p class="Pp">See PATTERNS in <a class="Xr">ssh_config(5)</a> for more
-        information on patterns.</p>
+        information on patterns. This keyword may appear multiple times in
+        <code class="Nm">sshd_config</code> with each instance appending to the
+        list.</p>
   </dd>
   <dt id="AuthenticationMethods"><a class="permalink" href="#AuthenticationMethods"><code class="Cm">AuthenticationMethods</code></a></dt>
   <dd>Specifies the authentication methods that must be successfully completed
@@ -306,6 +310,58 @@ rsa-sha2-512,rsa-sha2-256</pre>
     <p class="Pp">Certificates signed using other algorithms will not be
         accepted for public key or host-based authentication.</p>
   </dd>
+  <dt id="ChannelTimeout"><a class="permalink" href="#ChannelTimeout"><code class="Cm">ChannelTimeout</code></a></dt>
+  <dd>Specifies whether and how quickly <a class="Xr">sshd(8)</a> should close
+      inactive channels. Timeouts are specified as one or more
+      &#x201C;type=interval&#x201D; pairs separated by whitespace, where the
+      &#x201C;type&#x201D; must be a channel type name (as described in the
+      table below), optionally containing wildcard characters.
+    <p class="Pp">The timeout value &#x201C;interval&#x201D; is specified in
+        seconds or may use any of the units documented in the
+        <a class="Sx" href="#TIME_FORMATS">TIME FORMATS</a> section. For
+        example, &#x201C;session:*=5m&#x201D; would cause all sessions to
+        terminate after five minutes of inactivity. Specifying a zero value
+        disables the inactivity timeout.</p>
+    <p class="Pp">The available channel types include:</p>
+    <dl class="Bl-tag">
+      <dt id="agent-connection"><a class="permalink" href="#agent-connection"><code class="Cm">agent-connection</code></a></dt>
+      <dd>Open connections to <a class="Xr">ssh-agent(1)</a>.</dd>
+      <dt id="direct-tcpip"><a class="permalink" href="#direct-tcpip"><code class="Cm">direct-tcpip</code></a>,
+        <code class="Cm">direct-streamlocal@openssh.com</code></dt>
+      <dd>Open TCP or Unix socket (respectively) connections that have been
+          established from a <a class="Xr">ssh(1)</a> local forwarding, i.e.
+          <code class="Cm">LocalForward</code> or
+          <code class="Cm">DynamicForward</code>.</dd>
+      <dt id="forwarded-tcpip"><a class="permalink" href="#forwarded-tcpip"><code class="Cm">forwarded-tcpip</code></a>,
+        <code class="Cm">forwarded-streamlocal@openssh.com</code></dt>
+      <dd>Open TCP or Unix socket (respectively) connections that have been
+          established to a <a class="Xr">sshd(8)</a> listening on behalf of a
+          <a class="Xr">ssh(1)</a> remote forwarding, i.e.
+          <code class="Cm">RemoteForward</code>.</dd>
+      <dt id="session:command"><a class="permalink" href="#session:command"><code class="Cm">session:command</code></a></dt>
+      <dd>Command execution sessions.</dd>
+      <dt id="session:shell"><a class="permalink" href="#session:shell"><code class="Cm">session:shell</code></a></dt>
+      <dd>Interactive shell sessions.</dd>
+      <dt id="session:subsystem:..."><a class="permalink" href="#session:subsystem:..."><code class="Cm">session:subsystem:...</code></a></dt>
+      <dd>Subsystem sessions, e.g. for <a class="Xr">sftp(1)</a>, which could be
+          identified as <code class="Cm">session:subsystem:sftp</code>.</dd>
+      <dt id="x11-connection"><a class="permalink" href="#x11-connection"><code class="Cm">x11-connection</code></a></dt>
+      <dd>Open X11 forwarding sessions.</dd>
+    </dl>
+    <p class="Pp">Note that in all the above cases, terminating an inactive
+        session does not guarantee to remove all resources associated with the
+        session, e.g. shell processes or X11 clients relating to the session may
+        continue to execute.</p>
+    <p class="Pp">Moreover, terminating an inactive channel or session does not
+        necessarily close the SSH connection, nor does it prevent a client from
+        requesting another channel of the same type. In particular, expiring an
+        inactive forwarding session does not prevent another identical
+        forwarding from being subsequently created. See also
+        <code class="Cm">UnusedConnectionTimeout</code>, which may be used in
+        conjunction with this option.</p>
+    <p class="Pp">The default is not to expire channels of any type for
+        inactivity.</p>
+  </dd>
   <dt id="ChrootDirectory"><a class="permalink" href="#ChrootDirectory"><code class="Cm">ChrootDirectory</code></a></dt>
   <dd>Specifies the pathname of a directory to <a class="Xr">chroot(2)</a> to
       after authentication. At session startup <a class="Xr">sshd(8)</a> checks
@@ -404,7 +460,9 @@ aes128-gcm@openssh.com,aes256-gcm@openssh.com</pre>
       the following order: <code class="Cm">DenyGroups</code>,
       <code class="Cm">AllowGroups</code>.
     <p class="Pp">See PATTERNS in <a class="Xr">ssh_config(5)</a> for more
-        information on patterns.</p>
+        information on patterns. This keyword may appear multiple times in
+        <code class="Nm">sshd_config</code> with each instance appending to the
+        list.</p>
   </dd>
   <dt id="DenyUsers"><a class="permalink" href="#DenyUsers"><code class="Cm">DenyUsers</code></a></dt>
   <dd>This keyword can be followed by a list of user name patterns, separated by
@@ -417,7 +475,9 @@ aes128-gcm@openssh.com,aes256-gcm@openssh.com</pre>
       users directives are processed in the following order:
       <code class="Cm">DenyUsers</code>, <code class="Cm">AllowUsers</code>.
     <p class="Pp">See PATTERNS in <a class="Xr">ssh_config(5)</a> for more
-        information on patterns.</p>
+        information on patterns. This keyword may appear multiple times in
+        <code class="Nm">sshd_config</code> with each instance appending to the
+        list.</p>
   </dd>
   <dt id="DisableForwarding"><a class="permalink" href="#DisableForwarding"><code class="Cm">DisableForwarding</code></a></dt>
   <dd>Disables all forwarding features, including X11,
@@ -583,8 +643,9 @@ rsa-sha2-512,rsa-sha2-256</pre>
   <dd>Specifies whether <a class="Xr">sshd(8)</a> should ignore the user's
       <span class="Pa">~/.ssh/known_hosts</span> during
       <code class="Cm">HostbasedAuthentication</code> and use only the
-      system-wide known hosts file <span class="Pa">/etc/ssh/known_hosts</span>.
-      The default is &#x201C;no&#x201D;.</dd>
+      system-wide known hosts file
+      <span class="Pa">/etc/ssh/ssh_known_hosts</span>. The default is
+      &#x201C;no&#x201D;.</dd>
   <dt id="Include"><a class="permalink" href="#Include"><code class="Cm">Include</code></a></dt>
   <dd>Include the specified configuration file(s). Multiple pathnames may be
       specified and each pathname may contain <a class="Xr">glob(7)</a>
@@ -820,6 +881,7 @@ hmac-sha2-256,hmac-sha2-512,hmac-sha1</pre>
         <code class="Cm">AuthorizedPrincipalsFile</code>,
         <code class="Cm">Banner</code>,
         <code class="Cm">CASignatureAlgorithms</code>,
+        <code class="Cm">ChannelTimeout</code>,
         <code class="Cm">ChrootDirectory</code>,
         <code class="Cm">ClientAliveCountMax</code>,
         <code class="Cm">ClientAliveInterval</code>,
@@ -853,6 +915,7 @@ hmac-sha2-256,hmac-sha2-512,hmac-sha1</pre>
         <code class="Cm">StreamLocalBindMask</code>,
         <code class="Cm">StreamLocalBindUnlink</code>,
         <code class="Cm">TrustedUserCAKeys</code>,
+        <code class="Cm">UnusedConnectionTimeout</code>,
         <code class="Cm">X11DisplayOffset</code>,
         <code class="Cm">X11Forwarding</code> and
         <code class="Cm">X11UseLocalhost</code>.</p>
@@ -1071,19 +1134,25 @@ rsa-sha2-512,rsa-sha2-256</pre>
   <dd>Specifies whether public key authentication is allowed. The default is
       <code class="Cm">yes</code>.</dd>
   <dt id="RekeyLimit"><a class="permalink" href="#RekeyLimit"><code class="Cm">RekeyLimit</code></a></dt>
-  <dd>Specifies the maximum amount of data that may be transmitted before the
-      session key is renegotiated, optionally followed by a maximum amount of
-      time that may pass before the session key is renegotiated. The first
-      argument is specified in bytes and may have a suffix of &#x2018;K&#x2019;,
-      &#x2018;M&#x2019;, or &#x2018;G&#x2019; to indicate Kilobytes, Megabytes,
-      or Gigabytes, respectively. The default is between &#x2018;1G&#x2019; and
-      &#x2018;4G&#x2019;, depending on the cipher. The optional second value is
-      specified in seconds and may use any of the units documented in the
-      <a class="Sx" href="#TIME_FORMATS">TIME FORMATS</a> section. The default
-      value for <code class="Cm">RekeyLimit</code> is <code class="Cm">default
-      none</code>, which means that rekeying is performed after the cipher's
-      default amount of data has been sent or received and no time based
-      rekeying is done.</dd>
+  <dd>Specifies the maximum amount of data that may be transmitted or received
+      before the session key is renegotiated, optionally followed by a maximum
+      amount of time that may pass before the session key is renegotiated. The
+      first argument is specified in bytes and may have a suffix of
+      &#x2018;K&#x2019;, &#x2018;M&#x2019;, or &#x2018;G&#x2019; to indicate
+      Kilobytes, Megabytes, or Gigabytes, respectively. The default is between
+      &#x2018;1G&#x2019; and &#x2018;4G&#x2019;, depending on the cipher. The
+      optional second value is specified in seconds and may use any of the units
+      documented in the <a class="Sx" href="#TIME_FORMATS">TIME FORMATS</a>
+      section. The default value for <code class="Cm">RekeyLimit</code> is
+      <code class="Cm">default none</code>, which means that rekeying is
+      performed after the cipher's default amount of data has been sent or
+      received and no time based rekeying is done.</dd>
+  <dt id="RequiredRSASize"><a class="permalink" href="#RequiredRSASize"><code class="Cm">RequiredRSASize</code></a></dt>
+  <dd>Specifies the minimum RSA key size (in bits) that
+      <a class="Xr">sshd(8)</a> will accept. User and host-based authentication
+      keys smaller than this limit will be refused. The default is
+      <code class="Cm">1024</code> bits. Note that this limit may only be raised
+      from the default.</dd>
   <dt id="RevokedKeys"><a class="permalink" href="#RevokedKeys"><code class="Cm">RevokedKeys</code></a></dt>
   <dd>Specifies revoked public keys file, or <code class="Cm">none</code> to not
       use one. Keys listed in this file will be refused for public key
@@ -1182,6 +1251,24 @@ rsa-sha2-512,rsa-sha2-256</pre>
       <code class="Cm">TrustedUserCAKeys</code>. For more details on
       certificates, see the CERTIFICATES section in
       <a class="Xr">ssh-keygen(1)</a>.</dd>
+  <dt id="UnusedConnectionTimeout"><a class="permalink" href="#UnusedConnectionTimeout"><code class="Cm">UnusedConnectionTimeout</code></a></dt>
+  <dd>Specifies whether and how quickly <a class="Xr">sshd(8)</a> should close
+      client connections with no open channels. Open channels include active
+      shell, command execution or subsystem sessions, connected network, socket,
+      agent or X11 forwardings. Forwarding listeners, such as those from the
+      <a class="Xr">ssh(1)</a> <code class="Fl">-R</code> flag, are not
+      considered as open channels and do not prevent the timeout. The timeout
+      value is specified in seconds or may use any of the units documented in
+      the <a class="Sx" href="#TIME_FORMATS">TIME FORMATS</a> section.
+    <p class="Pp">Note that this timeout starts when the client connection
+        completes user authentication but before the client has an opportunity
+        to open any channels. Caution should be used when using short timeout
+        values, as they may not provide sufficient time for the client to
+        request and open its channels before terminating the connection.</p>
+    <p class="Pp">The default <code class="Cm">none</code> is to never expire
+        connections for having no open channels. This option may be useful in
+        conjunction with <code class="Cm">ChannelTimeout</code>.</p>
+  </dd>
   <dt id="UseDNS"><a class="permalink" href="#UseDNS"><code class="Cm">UseDNS</code></a></dt>
   <dd>Specifies whether <a class="Xr">sshd(8)</a> should look up the remote host
       name, and to check that the resolved host name for the remote IP address

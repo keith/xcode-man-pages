@@ -123,51 +123,59 @@ CURLcode curl_easy_setopt(CURL *handle, CURLOPT_WRITEFUNCTION, write_callback);<
 </section>
 <section class="Sh">
 <h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
-<pre>
+<pre>struct memory {
 <br/>
- struct memory {
+  char *response;
 <br/>
-   char *response;
+  size_t size;
+};
+static size_t cb(void *data, size_t size, size_t nmemb, void *clientp)
+{
 <br/>
-   size_t size;
+  size_t realsize = size * nmemb;
 <br/>
- };
+  struct memory *mem = (struct memory *)clientp;
 <br/>
- static size_t cb(void *data, size_t size, size_t nmemb, void *userp)
+  char *ptr = realloc(mem-&gt;response, mem-&gt;size + realsize + 1);
 <br/>
- {
+  if(ptr == NULL)
 <br/>
-   size_t realsize = size * nmemb;
+    return 0;  /* out of memory! */
 <br/>
-   struct memory *mem = (struct memory *)userp;
+  mem-&gt;response = ptr;
 <br/>
-   char *ptr = realloc(mem-&gt;response, mem-&gt;size + realsize + 1);
+  memcpy(&amp;(mem-&gt;response[mem-&gt;size]), data, realsize);
 <br/>
-   if(ptr == NULL)
+  mem-&gt;size += realsize;
 <br/>
-     return 0;  /* out of memory! */
+  mem-&gt;response[mem-&gt;size] = 0;
 <br/>
-   mem-&gt;response = ptr;
+  return realsize;
+}
+struct memory chunk = {0};
+CURLcode res;
+CURL *curl_handle = curl_easy_init();
+if (curl_handle)
+{
 <br/>
-   memcpy(&amp;(mem-&gt;response[mem-&gt;size]), data, realsize);
+  /* send all data to this function  */
 <br/>
-   mem-&gt;size += realsize;
+  curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, cb);
 <br/>
-   mem-&gt;response[mem-&gt;size] = 0;
+  /* we pass our 'chunk' struct to the callback function */
 <br/>
-   return realsize;
+  curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *)&amp;chunk);
 <br/>
- }
+  /* send a request */
 <br/>
- struct memory chunk = {0};
+  res = curl_easy_perform(curl_handle);
 <br/>
- /* send all data to this function  */
+  /* remember to free the buffer */
 <br/>
- curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, cb);
+  free(chunk.response)
 <br/>
- /* we pass our 'chunk' struct to the callback function */
-<br/>
- curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *)&amp;chunk);</pre>
+  curl_easy_cleanup(curl_handle);
+}</pre>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>

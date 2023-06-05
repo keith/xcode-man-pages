@@ -30,7 +30,7 @@
    authorization.                                                           *
   ***************************************************************************
   
-   $Id: curs_mouse.3x,v 1.30 2006/12/30 23:43:34 tom Exp $
+   $Id: curs_mouse.3x,v 1.42 2015/07/21 09:27:39 tom Exp $
  -->
 <head>
 
@@ -73,40 +73,41 @@
 <div class="manual-text">
 <section class="Sh">
 <h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
-<p class="Pp"><b>getmouse</b>, <b>ungetmouse</b>, <b>mousemask</b>,
-    <b>wenclose</b>, <b>mouse_trafo</b>, <b>wmouse_trafo</b>,
+<p class="Pp"><b>has_mouse</b>, <b>getmouse</b>, <b>ungetmouse</b>,
+    <b>mousemask</b>, <b>wenclose</b>, <b>mouse_trafo</b>, <b>wmouse_trafo</b>,
     <b>mouseinterval</b> - mouse interface through curses</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
-<pre><b>#include &lt;curses.h&gt;</b></pre>
-<pre><b>typedef unsigned long mmask_t;</b></pre>
-<pre>typedef struct
-{
-<br/>
-    short id;         <i>/* ID to distinguish multiple devices */</i><b></b>
-<br/>
-<b>    int x, y, z;      </b><i>/* event coordinates */</i><b></b>
-<br/>
-<b>    mmask_t bstate;   </b><i>/* button state bits */</i><b></b>
-<b>}</b>
-<b>MEVENT;</b></pre>
-<br/>
-<p class="Pp"><b>int getmouse(MEVENT *event);</b>
+<p class="Pp"><b>#include &lt;curses.h&gt;</b></p>
+<p class="Pp"><b>typedef unsigned long mmask_t;</b></p>
+<p class="Pp"></p>
+<pre><b>typedef struct {</b>
+<b>    short id;         </b><i>/* ID to distinguish multiple devices */</i>
+<b>    int x, y, z;      </b><i>/* event coordinates */</i>
+<b>    mmask_t bstate;   </b><i>/* button state bits */</i>
+<b>} MEVENT;</b></pre>
+<p class="Pp"><b>bool has_mouse(void);</b>
   <br/>
-  <b>int ungetmouse(MEVENT *event);</b>
+  <b>int getmouse(MEVENT *</b><i>event</i><b>);</b>
   <br/>
-  <b>mmask_t mousemask(mmask_t newmask, mmask_t *oldmask);</b>
+  <b>int ungetmouse(MEVENT *</b><i>event</i><b>);</b>
   <br/>
-  <b>bool wenclose(const WINDOW *win, int y, int x);</b>
+  <b>mmask_t mousemask(mmask_t </b><i>newmask</i><b>, mmask_t
+    *</b><i>oldmask</i><b>);</b>
   <br/>
-  <b>bool mouse_trafo(int* pY, int* pX, bool to_screen);</b>
+  <b>bool wenclose(const WINDOW *</b><i>win</i><b>, int </b><i>y</i><b>, int
+    </b><i>x</i><b>);</b>
   <br/>
-  <b>bool wmouse_trafo(const WINDOW* win, int* pY, int* pX,</b>
+  <b>bool mouse_trafo(int* </b><i>pY</i><b>, int* </b><i>pX</i><b>, bool
+    </b><i>to_screen</i><b>);</b>
   <br/>
-  	<b>bool to_screen);</b>
+  <b>bool wmouse_trafo(const WINDOW* </b><i>win</i><b>, int* </b><i>pY</i><b>,
+    int* </b><i>pX</i><b>,</b>
   <br/>
-  <b>int mouseinterval(int erval);</b>
+  	<b>bool </b><i>to_screen</i><b>);</b>
+  <br/>
+  <b>int mouseinterval(int </b><i>erval</i><b>);</b>
   <br/>
 </p>
 </section>
@@ -115,6 +116,8 @@
 <p class="Pp">These functions provide an interface to mouse events from
     <b>ncurses</b>(3X). Mouse events are represented by <b>KEY_MOUSE</b>
     pseudo-key values in the <b>wgetch</b> input stream.</p>
+<section class="Ss">
+<h2 class="Ss" id="mousemask"><a class="permalink" href="#mousemask">mousemask</a></h2>
 <p class="Pp">To make mouse events visible, use the <b>mousemask</b> function.
     This will set the mouse events to be reported. By default, no mouse events
     are reported. The function will return a mask to indicate which of the
@@ -124,6 +127,10 @@
 <p class="Pp">As a side effect, setting a zero mousemask may turn off the mouse
     pointer; setting a nonzero mask may turn it on. Whether this happens is
     device-dependent.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Mouse_events"><a class="permalink" href="#Mouse_events">Mouse
+  events</a></h2>
 <p class="Pp">Here are the mouse event type masks which may be defined:</p>
 <p class="Pp"></p>
 <table class="tbl">
@@ -254,7 +261,10 @@
     <td>report mouse movement</td>
   </tr>
 </table>
-<p class="Pp">Once a class of mouse events have been made visible in a window,
+</section>
+<section class="Ss">
+<h2 class="Ss" id="getmouse"><a class="permalink" href="#getmouse">getmouse</a></h2>
+<p class="Pp">Once a class of mouse events has been made visible in a window,
     calling the <b>wgetch</b> function on that window may return
     <b>KEY_MOUSE</b> as an indicator that a mouse event has been queued. To read
     the event data and pop the event off the queue, call <b>getmouse</b>. This
@@ -262,58 +272,90 @@
     given window, <b>ERR</b> otherwise. When <b>getmouse</b> returns <b>OK</b>,
     the data deposited as y and x in the event structure coordinates will be
     screen-relative character-cell coordinates. The returned state mask will
-    have exactly one bit set to indicate the event type.</p>
+    have exactly one bit set to indicate the event type. The corresponding data
+    in the queue is marked invalid. A subsequent call to <b>getmouse</b> will
+    retrieve the next older item from the queue.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="ungetmouse"><a class="permalink" href="#ungetmouse">ungetmouse</a></h2>
 <p class="Pp">The <b>ungetmouse</b> function behaves analogously to
     <b>ungetch</b>. It pushes a <b>KEY_MOUSE</b> event onto the input queue, and
     associates with that event the given state data and screen-relative
     character-cell coordinates.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="wenclose"><a class="permalink" href="#wenclose">wenclose</a></h2>
 <p class="Pp">The <b>wenclose</b> function tests whether a given pair of
     screen-relative character-cell coordinates is enclosed by a given window,
-    returning TRUE if it is and FALSE otherwise. It is useful for determining
-    what subset of the screen windows enclose the location of a mouse event.</p>
+    returning <b>TRUE</b> if it is and <b>FALSE</b> otherwise. It is useful for
+    determining what subset of the screen windows enclose the location of a
+    mouse event.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="wmouse_trafo"><a class="permalink" href="#wmouse_trafo">wmouse_trafo</a></h2>
 <p class="Pp">The <b>wmouse_trafo</b> function transforms a given pair of
     coordinates from stdscr-relative coordinates to coordinates relative to the
-    given window or vice versa. Please remember, that stdscr-relative
-    coordinates are not always identical to window-relative coordinates due to
-    the mechanism to reserve lines on top or bottom of the screen for other
-    purposes (see the <b>ripoffline()</b> and <b>slk_init</b> calls, for
-    example). If the parameter <b>to_screen</b> is <b>TRUE</b>, the pointers
-    <b>pY, pX</b> must reference the coordinates of a location inside the window
-    <b>win</b>. They are converted to window-relative coordinates and returned
-    through the pointers. If the conversion was successful, the function returns
-    <b>TRUE</b>. If one of the parameters was NULL or the location is not inside
-    the window, <b>FALSE</b> is returned. If <b>to_screen</b> is <b>FALSE</b>,
-    the pointers <b>pY, pX</b> must reference window-relative coordinates. They
-    are converted to stdscr-relative coordinates if the window <b>win</b>
-    encloses this point. In this case the function returns <b>TRUE</b>. If one
-    of the parameters is NULL or the point is not inside the window,
-    <b>FALSE</b> is returned. Please notice, that the referenced coordinates are
-    only replaced by the converted coordinates if the transformation was
-    successful.</p>
+    given window or vice versa. The resulting stdscr-relative coordinates are
+    not always identical to window-relative coordinates due to the mechanism to
+    reserve lines on top or bottom of the screen for other purposes (see the
+    <b>ripoffline</b> and <b>slk_init</b> calls, for example).</p>
+<ul class="Bl-bullet">
+  <li>If the parameter <b>to_screen</b> is <b>TRUE</b>, the pointers <b>pY,
+      pX</b> must reference the coordinates of a location inside the window
+      <b>win</b>. They are converted to window-relative coordinates and returned
+      through the pointers. If the conversion was successful, the function
+      returns <b>TRUE</b>.</li>
+  <li>If one of the parameters was NULL or the location is not inside the
+      window, <b>FALSE</b> is returned.</li>
+  <li>If <b>to_screen</b> is <b>FALSE</b>, the pointers <b>pY, pX</b> must
+      reference window-relative coordinates. They are converted to
+      stdscr-relative coordinates if the window <b>win</b> encloses this point.
+      In this case the function returns <b>TRUE</b>.</li>
+  <li>If one of the parameters is NULL or the point is not inside the window,
+      <b>FALSE</b> is returned. The referenced coordinates are only replaced by
+      the converted coordinates if the transformation was successful.</li>
+</ul>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="mouse_trafo"><a class="permalink" href="#mouse_trafo">mouse_trafo</a></h2>
 <p class="Pp">The <b>mouse_trafo</b> function performs the same translation as
     <b>wmouse_trafo</b>, using stdscr for <b>win</b>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="mouseinterval"><a class="permalink" href="#mouseinterval">mouseinterval</a></h2>
 <p class="Pp">The <b>mouseinterval</b> function sets the maximum time (in
     thousands of a second) that can elapse between press and release events for
     them to be recognized as a click. Use <b>mouseinterval(0)</b> to disable
     click resolution. This function returns the previous interval value. Use
     <b>mouseinterval(-1)</b> to obtain the interval without altering it. The
     default is one sixth of a second.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="has_mouse"><a class="permalink" href="#has_mouse">has_mouse</a></h2>
+<p class="Pp">The <b>has_mouse</b> function returns <b>TRUE</b> if the mouse
+    driver has been successfully initialized.</p>
 <p class="Pp">Note that mouse events will be ignored when input is in cooked
     mode, and will cause an error beep when cooked mode is being simulated in a
     window by a function such as <b>getstr</b> that expects a linefeed for
     input-loop termination.</p>
 </section>
+</section>
 <section class="Sh">
 <h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
   VALUE</a></h1>
 <p class="Pp"><b>getmouse</b> and <b>ungetmouse</b> return the integer
-    <b>ERR</b> upon failure or <b>OK</b> upon successful completion.</p>
+    <b>ERR</b> upon failure or <b>OK</b> upon successful completion:</p>
 <div class="Bd-indent">
 <dl class="Bl-tag">
-  <dt id="getmouse"><a class="permalink" href="#getmouse"><b>getmouse</b></a></dt>
-  <dd>returns an error. If no mouse driver was initialized, or if the mask
-      parameter is zero,</dd>
-  <dt id="ungetmouse"><a class="permalink" href="#ungetmouse"><b>ungetmouse</b></a></dt>
+  <dt><b>getmouse</b></dt>
+  <dd>returns an error.</dd>
+</dl>
+<ul class="Bl-bullet">
+  <li>If no mouse driver was initialized, or if the mask parameter is zero,</li>
+  <li>It also returns an error if no more events remain in the queue.</li>
+</ul>
+<dl class="Bl-tag">
+  <dt><b>ungetmouse</b></dt>
   <dd>returns an error if the FIFO is full.</dd>
 </dl>
 </div>
@@ -349,22 +391,29 @@
 <p class="Pp">Under <b>ncurses</b>(3X), these calls are implemented using either
     xterm's built-in mouse-tracking API or platform-specific drivers
   including</p>
-<div class="Bd-indent">Alessandro Rubini's gpm server.
-<br/>
-FreeBSD sysmouse
-<br/>
-OS/2 EMX</div>
-If you are using an unsupported configuration, mouse events will not be visible
-  to <b>ncurses</b>(3X) (and the <b>mousemask</b> function will always return
-  <b>0</b>).
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>Alessandro Rubini's gpm server</li>
+  <li>FreeBSD sysmouse</li>
+  <li>OS/2 EMX</li>
+</ul>
+</div>
+<p class="Pp">If you are using an unsupported configuration, mouse events will
+    not be visible to <b>ncurses</b>(3X) (and the <b>mousemask</b> function will
+    always return <b>0</b>).</p>
 <p class="Pp">If the terminfo entry contains a <b>XM</b> string, this is used in
     the xterm mouse driver to control the way the terminal is initialized for
     mouse operation. The default, if <b>XM</b> is not found, corresponds to
     private mode 1000 of xterm:</p>
+<p class="Pp"></p>
 <div class="Bd-indent">\E[?1000%?%p1%{1}%=%th%el%;</div>
-The z member in the event structure is not presently used. It is intended for
-  use with touch screens (which may be pressure-sensitive) or with
-  3D-mice/trackballs/power gloves.
+<p class="Pp">The <i>z</i> member in the event structure is not presently used.
+    It is intended for use with touch screens (which may be pressure-sensitive)
+    or with 3D-mice/trackballs/power gloves.</p>
+<p class="Pp">The <b>ALL_MOUSE_EVENTS</b> class does not include
+    <b>REPORT_MOUSE_POSITION</b>. They are distinct. For example, in xterm,
+    wheel/scrolling mice send position reports as a sequence of presses of
+    buttons 4 or 5 without matching button-releases.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
@@ -386,8 +435,8 @@ The z member in the event structure is not presently used. It is intended for
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
-<p class="Pp"><b>curses</b>(3X), <b>curs_kernel</b>(3X),
-  <b>curs_slk</b>(3X).</p>
+<p class="Pp"><b>curses</b>(3X), <b>curs_kernel</b>(3X), <b>curs_slk</b>(3X),
+    <b>curs_variables</b>(3X).</p>
 </section>
 </div>
 <table class="foot">

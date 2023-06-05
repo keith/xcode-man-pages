@@ -29,7 +29,7 @@
    authorization.                                                           *
   ***************************************************************************
   
-   $Id: curs_color.3x,v 1.28 2005/12/18 00:00:37 tom Exp $
+   $Id: curs_color.3x,v 1.39 2015/06/06 23:29:02 tom Exp $
  -->
 <head>
 
@@ -79,9 +79,8 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
-<p class="Pp"><b># include &lt;curses.h&gt;</b>
-  <br/>
-  <b>int start_color(void);</b>
+<p class="Pp"><b># include &lt;curses.h&gt;</b></p>
+<p class="Pp"><b>int start_color(void);</b>
   <br/>
   <b>int init_pair(short pair, short f, short b);</b>
   <br/>
@@ -99,7 +98,7 @@
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
 <section class="Ss">
 <h2 class="Ss" id="Overview"><a class="permalink" href="#Overview">Overview</a></h2>
-<p class="Pp"><b>curses</b> support color attributes on terminals with that
+<p class="Pp"><b>curses</b> supports color attributes on terminals with that
     capability. To use these routines <b>start_color</b> must be called, usually
     right after <b>initscr</b>. Colors are always used in pairs (referred to as
     color-pairs). A color-pair consists of a foreground color (for characters)
@@ -119,46 +118,129 @@
     is currently defined.</p>
 </section>
 <section class="Ss">
+<h2 class="Ss" id="Color_Rendering"><a class="permalink" href="#Color_Rendering">Color
+  Rendering</a></h2>
+<p class="Pp">The <b>curses</b> library combines these inputs to produce the
+    actual foreground and background colors shown on the screen:</p>
+<ul class="Bl-bullet">
+  <li>per-character video attributes (e.g., via <b>waddch</b>),</li>
+  <li>the window attribute (e.g., by <b>wattrset</b>), and</li>
+  <li>the background character (e.g., <b>wbkgdset</b>).</li>
+</ul>
+<p class="Pp">Per-character and window attributes are usually set by a parameter
+    containing video attributes including a <b>COLOR_PAIR</b> value. Some
+    functions such as <b>wattr_set</b> use a separate parameter which is the
+    color pair number.</p>
+<p class="Pp">The background character is a special case: it includes a
+    character value, just as if it were passed to <b>waddch</b>.</p>
+<p class="Pp">The <b>curses</b> library does the actual work of combining these
+    color pairs in an internal function called from <b>waddch</b>:</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>If the parameter passed to <b>waddch</b> is <i>blank</i>, and it uses the
+      special color pair 0,</dd>
+</dl>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li><b>curses</b> next checks the window attribute.</li>
+  <li>If the window attribute does not use color pair 0, <b>curses</b> uses the
+      color pair from the window attribute.</li>
+  <li>Otherwise, <b>curses</b> uses the background character.</li>
+</ul>
+</div>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>If the parameter passed to <b>waddch</b> is <i>not blank</i>, or it does
+      not use the special color pair 0, <b>curses</b> prefers the color pair
+      from the parameter, if it is nonzero. Otherwise, it tries the window
+      attribute next, and finally the background character.</dd>
+</dl>
+<p class="Pp">Some <b>curses</b> functions such as <b>wprintw</b> call
+    <b>waddch</b>. Those do not combine its parameter with a color pair.
+    Consequently those calls use only the window attribute or the background
+    character.</p>
+</section>
+<section class="Ss">
 <h2 class="Ss" id="Routine_Descriptions"><a class="permalink" href="#Routine_Descriptions">Routine
   Descriptions</a></h2>
 <p class="Pp">The <b>start_color</b> routine requires no arguments. It must be
     called if the programmer wants to use colors, and before any other color
     manipulation routine is called. It is good practice to call this routine
-    right after <b>initscr</b>. <b>start_color</b> initializes eight basic
-    colors (black, red, green, yellow, blue, magenta, cyan, and white), and two
-    global variables, <b>COLORS</b> and <b>COLOR_PAIRS</b> (respectively
-    defining the maximum number of colors and color-pairs the terminal can
-    support). It also restores the colors on the terminal to the values they had
-    when the terminal was just turned on.</p>
+    right after <b>initscr</b>. <b>start_color</b> does this:</p>
+<ul class="Bl-bullet">
+  <li>It initializes two global variables, <b>COLORS</b> and <b>COLOR_PAIRS</b>
+      (respectively defining the maximum number of colors and color-pairs the
+      terminal can support).</li>
+  <li>It initializes the special color pair <b>0</b> to the default foreground
+      and background colors. No other color pairs are initialized.</li>
+  <li>It restores the colors on the terminal to the values they had when the
+      terminal was just turned on.</li>
+  <li>If the terminal supports the <b>initc</b> (<b>initialize_color</b>)
+      capability, <b>start_color</b> initializes its internal table representing
+      the red, green and blue components of the color palette.</li>
+</ul>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The components depend on whether the terminal uses CGA (aka
+      &quot;ANSI&quot;) or HLS (i.e., the <b>hls</b>
+      (<b>hue_lightness_saturation</b>) capability is set). The table is
+      initialized first for eight basic colors (black, red, green, yellow, blue,
+      magenta, cyan, and white), and after that (if the terminal supports more
+      than eight colors) the components are initialized to <b>1000</b>.</dd>
+  <dt></dt>
+  <dd><b>start_color</b> does not attempt to set the terminal's color palette to
+      match its built-in table. An application may use <b>init_color</b> to
+      alter the internal table along with the terminal's color.</dd>
+</dl>
+<p class="Pp">These limits apply to color values and color pairs. Values outside
+    these limits are not legal, and may result in a runtime error:</p>
+<ul class="Bl-bullet">
+  <li><b>COLORS</b> corresponds to the terminal database's <b>max_colors</b>
+      capability, which is typically a signed 16-bit integer (see
+      <b>terminfo</b>(5)).</li>
+  <li>color values are expected to be in the range <b>0</b> to <b>COLORS-1</b>,
+      inclusive (including <b>0</b> and <b>COLORS-1</b>).</li>
+  <li>a special color value <b>-1</b> is used in certain extended functions to
+      denote the <i>default color</i> (see <b>use_default_colors</b>).</li>
+  <li><b>COLOR_PAIRS</b> corresponds to the terminal database's <b>max_pairs</b>
+      capability, which is typically a signed 16-bit integer (see
+      <b>terminfo</b>(5)).</li>
+  <li>legal color pair values are in the range <b>1</b> to <b>COLOR_PAIRS-1</b>,
+      inclusive.</li>
+  <li>color pair <b>0</b> is special; it denotes &#x201C;no color&#x201D;.</li>
+</ul>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Color pair <b>0</b> is assumed to be white on black, but is actually
+      whatever the terminal implements before color is initialized. It cannot be
+      modified by the application.</dd>
+</dl>
 <p class="Pp">The <b>init_pair</b> routine changes the definition of a
     color-pair. It takes three arguments: the number of the color-pair to be
     changed, the foreground color number, and the background color number. For
     portable applications:</p>
-<dl class="Bl-tag">
-  <dt>-</dt>
-  <dd>The value of the first argument must be between <b>1</b> and
-      <b>COLOR_PAIRS-1</b>.</dd>
-  <dt>-</dt>
-  <dd>The value of the second and third arguments must be between 0 and
-      <b>COLORS</b>. Color pair 0 is assumed to be white on black, but is
-      actually whatever the terminal implements before color is initialized. It
-      cannot be modified by the application.</dd>
-</dl>
+<ul class="Bl-bullet">
+  <li>The first argument must be a legal color pair value. If default colors are
+      used (see <b>use_default_colors</b>) the upper limit is adjusted to allow
+      for extra pairs which use a default color in foreground and/or
+    background.</li>
+  <li>The second and third arguments must be legal color values.</li>
+</ul>
 <p class="Pp">If the color-pair was previously initialized, the screen is
     refreshed and all occurrences of that color-pair are changed to the new
     definition.</p>
-<p class="Pp">As an extension, ncurses allows you to set color pair 0 via the
-    <b>assume_default_colors</b> routine, or to specify the use of default
+<p class="Pp">As an extension, ncurses allows you to set color pair <b>0</b> via
+    the <b>assume_default_colors</b> routine, or to specify the use of default
     colors (color number <b>-1</b>) if you first invoke the
     <b>use_default_colors</b> routine.</p>
 <p class="Pp">The <b>init_color</b> routine changes the definition of a color.
     It takes four arguments: the number of the color to be changed followed by
     three RGB values (for the amounts of red, green, and blue components). The
-    value of the first argument must be between <b>0</b> and <b>COLORS</b>. (See
-    the section <b>Colors</b> for the default color index.) Each of the last
-    three arguments must be a value between 0 and 1000. When <b>init_color</b>
-    is used, all occurrences of that color on the screen immediately change to
-    the new definition.</p>
+    first argument must be a legal color value; default colors are not allowed
+    here. (See the section <b>Colors</b> for the default color index.) Each of
+    the last three arguments must be a value in the range <b>0</b> through
+    <b>1000</b>. When <b>init_color</b> is used, all occurrences of that color
+    on the screen immediately change to the new definition.</p>
 <p class="Pp">The <b>has_colors</b> routine requires no arguments. It returns
     <b>TRUE</b> if the terminal can manipulate colors; otherwise, it returns
     <b>FALSE</b>. This routine facilitates writing terminal-independent
@@ -172,23 +254,25 @@
     the intensity of the red, green, and blue (RGB) components in a color. It
     requires four arguments: the color number, and three addresses of
     <b>short</b>s for storing the information about the amounts of red, green,
-    and blue components in the given color. The value of the first argument must
-    be between 0 and <b>COLORS</b>. The values that are stored at the addresses
-    pointed to by the last three arguments are between 0 (no component) and 1000
-    (maximum amount of component).</p>
+    and blue components in the given color. The first argument must be a legal
+    color value, i.e., <b>0</b> through <b>COLORS-1</b>, inclusive. The values
+    that are stored at the addresses pointed to by the last three arguments are
+    in the range <b>0</b> (no component) through <b>1000</b> (maximum amount of
+    component), inclusive.</p>
 <p class="Pp">The <b>pair_content</b> routine allows programmers to find out
     what colors a given color-pair consists of. It requires three arguments: the
     color-pair number, and two addresses of <b>short</b>s for storing the
-    foreground and the background color numbers. The value of the first argument
-    must be between 1 and <b>COLOR_PAIRS-1</b>. The values that are stored at
-    the addresses pointed to by the second and third arguments are between 0 and
-    <b>COLORS</b>.</p>
+    foreground and the background color numbers. The first argument must be a
+    legal color value, i.e., in the range <b>1</b> through <b>COLOR_PAIRS-1</b>,
+    inclusive. The values that are stored at the addresses pointed to by the
+    second and third arguments are in the range <b>0</b> through <b>COLORS</b>,
+    inclusive.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="Colors"><a class="permalink" href="#Colors">Colors</a></h2>
 <p class="Pp">In <b>&lt;curses.h&gt;</b> the following macros are defined. These
-    are the default colors. <b>curses</b> also assumes that <b>COLOR_BLACK</b>
-    is the default background color for all terminals.</p>
+    are the standard colors (ISO-6429). <b>curses</b> also assumes that
+    <b>COLOR_BLACK</b> is the default background color for all terminals.</p>
 <p class="Pp"></p>
 <pre>
 <br/>
@@ -218,12 +302,13 @@
     an <b>OK</b> (SVr4 specifies only &quot;an integer value other than
     <b>ERR</b>&quot;) upon successful completion.</p>
 <p class="Pp">X/Open defines no error conditions. This implementation will
-    return <b>ERR</b> on attempts to use color values outside the range 0 to
-    COLORS-1 (except for the default colors extension), or use color pairs
-    outside the range 0 to COLOR_PAIR-1. Color values used in <b>init_color</b>
-    must be in the range 0 to 1000. An error is returned from all functions if
-    the terminal has not been initialized. An error is returned from secondary
-    functions such as <b>init_pair</b> if <b>start_color</b> was not called.</p>
+    return <b>ERR</b> on attempts to use color values outside the range <b>0</b>
+    to COLORS-1 (except for the default colors extension), or use color pairs
+    outside the range <b>0</b> to <b>COLOR_PAIRS-1</b>. Color values used in
+    <b>init_color</b> must be in the range <b>0</b> to <b>1000</b>. An error is
+    returned from all functions if the terminal has not been initialized. An
+    error is returned from secondary functions such as <b>init_pair</b> if
+    <b>start_color</b> was not called.</p>
 <div class="Bd-indent">
 <dl class="Bl-tag">
   <dt id="init_color"><a class="permalink" href="#init_color"><b>init_color</b></a></dt>
@@ -231,7 +316,7 @@
       the <i>initialize_color</i> capability is absent from the terminal
       description.</dd>
   <dt id="start_color"><a class="permalink" href="#start_color"><b>start_color</b></a></dt>
-  <dd>returns an error If the color table cannot be allocated.</dd>
+  <dd>returns an error if the color table cannot be allocated.</dd>
 </dl>
 </div>
 </section>
@@ -249,19 +334,16 @@
     blanked by erasing or scrolling operations, see <b>curs_bkgd</b>(3X).</p>
 <p class="Pp">Several caveats apply on 386 and 486 machines with VGA-compatible
     graphics:</p>
-<dl class="Bl-tag">
-  <dt>-</dt>
-  <dd>COLOR_YELLOW is actually brown. To get yellow, use COLOR_YELLOW combined
-      with the <b>A_BOLD</b> attribute.</dd>
-  <dt>-</dt>
-  <dd>The A_BLINK attribute should in theory cause the background to go bright.
+<ul class="Bl-bullet">
+  <li>COLOR_YELLOW is actually brown. To get yellow, use COLOR_YELLOW combined
+      with the <b>A_BOLD</b> attribute.</li>
+  <li>The A_BLINK attribute should in theory cause the background to go bright.
       This often fails to work, and even some cards for which it mostly works
       (such as the Paradise and compatibles) do the wrong thing when you try to
       set a bright &quot;yellow&quot; background (you get a blinking yellow
-      foreground instead).</dd>
-  <dt>-</dt>
-  <dd>Color RGB values are not settable.</dd>
-</dl>
+      foreground instead).</li>
+  <li>Color RGB values are not settable.</li>
+</ul>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="PORTABILITY"><a class="permalink" href="#PORTABILITY">PORTABILITY</a></h1>
@@ -281,7 +363,7 @@
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
 <p class="Pp"><b>curses</b>(3X), <b>curs_initscr</b>(3X), <b>curs_attr</b>(3X),
-    <b>default_colors</b>(3X)</p>
+    <b>curs_variables</b>(3X), <b>default_colors</b>(3X)</p>
 </section>
 </div>
 <table class="foot">

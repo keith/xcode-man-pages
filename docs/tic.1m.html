@@ -29,7 +29,7 @@
    authorization.                                                           *
   ***************************************************************************
   
-   $Id: tic.1m,v 1.44 2006/12/24 17:59:11 tom Exp $
+   $Id: tic.1m,v 1.60 2014/05/24 22:00:11 tom Exp $
  -->
 <head>
 
@@ -76,28 +76,61 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
-<p class="Pp"><b>tic</b> [<b>-1CGILNTUVacfgrstx</b>] [<b>-e</b> <i>names</i>]
+<p class="Pp"><b>tic</b> [<b>-01CDGIKLNTUVacfgrstx</b>] [<b>-e</b> <i>names</i>]
     [<b>-o</b> <i>dir</i>] [<b>-R</b> <i>subset</i>] [<b>-v</b>[<i>n</i>]]
     [<b>-w</b>[<i>n</i>]] <i>file</i></p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
-<p class="Pp">The command <b>tic</b> translates a <b>terminfo</b> file from
+<p class="Pp">The <b>tic</b> command translates a <b>terminfo</b> file from
     source format into compiled format. The compiled format is necessary for use
     with the library routines in <b>ncurses</b>(3X).</p>
-<p class="Pp">The results are normally placed in the system terminfo directory
-    <b>/usr/share/terminfo</b>. There are two ways to change this behavior.</p>
-<p class="Pp">First, you may override the system default by setting the variable
-    <b>TERMINFO</b> in your shell environment to a valid (existing) directory
-    name.</p>
-<p class="Pp">Secondly, if <b>tic</b> cannot get access to
-    <i>/usr/share/terminfo</i> or your TERMINFO directory, it looks for the
-    directory <i>$HOME/.terminfo</i>; if that directory exists, the entry is
-    placed there.</p>
-<p class="Pp">Libraries that read terminfo entries are expected to check for a
-    TERMINFO directory first, look at <i>$HOME/.terminfo</i> if TERMINFO is not
-    set, and finally look in <i>/usr/share/terminfo</i>.</p>
+<p class="Pp">As described in <b>term</b>(5), the database may be either a
+    directory tree (one file per terminal entry) or a hashed database (one
+    record per entry). The <b>tic</b> command writes only one type of entry,
+    depending on how it was built:</p>
+<ul class="Bl-bullet">
+  <li>For directory trees, the top-level directory, e.g., /usr/share/terminfo,
+      specifies the location of the database.</li>
+  <li>For hashed databases, a filename is needed. If the given file is not found
+      by that name, but can be found by adding the suffix &quot;.db&quot;, then
+      that is used.</li>
+</ul>
 <dl class="Bl-tag">
+  <dt></dt>
+  <dd>The default name for the hashed database is the same as the default
+      directory name (only adding a &quot;.db&quot; suffix).</dd>
+</dl>
+<p class="Pp">In either case (directory or hashed database), <b>tic</b> will
+    create the container if it does not exist. For a directory, this would be
+    the &quot;terminfo&quot; leaf, versus a &quot;terminfo.db&quot; file.</p>
+<p class="Pp">The results are normally placed in the system terminfo database
+    <b>/usr/share/terminfo</b>. The compiled terminal description can be placed
+    in a different terminfo database. There are two ways to achieve this:</p>
+<ul class="Bl-bullet">
+  <li>First, you may override the system default either by using the <b>-o</b>
+      option, or by setting the variable <b>TERMINFO</b> in your shell
+      environment to a valid database location.</li>
+  <li>Secondly, if <b>tic</b> cannot write in <i>/usr/share/terminfo</i> or the
+      location specified using your TERMINFO variable, it looks for the
+      directory <i>$HOME/.terminfo</i> (or hashed database
+      <i>$HOME/.terminfo.db)</i>; if that location exists, the entry is placed
+      there.</li>
+</ul>
+<p class="Pp">Libraries that read terminfo entries are expected to check in
+    succession</p>
+<ul class="Bl-bullet">
+  <li>a location specified with the TERMINFO environment variable,</li>
+  <li><i>$HOME/.terminfo</i>,</li>
+  <li>directories listed in the TERMINFO_DIRS environment variable,</li>
+  <li>a compiled-in list of directories (@TERMINFO_DIRS@), and</li>
+  <li>the system terminfo database (<i>/usr/share/terminfo</i>).</li>
+</ul>
+<section class="Ss">
+<h2 class="Ss" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h2>
+<dl class="Bl-tag">
+  <dt><b>-0</b></dt>
+  <dd>restricts the output to a single line</dd>
   <dt><b>-1</b></dt>
   <dd>restricts the output to a single column</dd>
   <dt id="a"><a class="permalink" href="#a"><b>-a</b></a></dt>
@@ -113,14 +146,50 @@
       translate capability names, but also translates terminfo strings to
       termcap format. Capabilities that are not translatable are left in the
       entry under their terminfo names but commented out with two preceding
-      dots.</dd>
+      dots. The actual format used incorporates some improvements for escaped
+      characters from terminfo format. For a stricter BSD-compatible
+      translation, add the <b>-K</b> option.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>If this is combined with <b>-c</b>, <b>tic</b> makes additional checks to
+      report cases where the terminfo values do not have an exact equivalent in
+      termcap form. For example:</dd>
+</dl>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li><b>sgr</b> usually will not convert, because termcap lacks the ability to
+      work with more than two parameters, and because termcap lacks many of the
+      arithmetic/logical operators used in terminfo.</li>
+  <li>capabilities with more than one delay or with delays before the end of the
+      string will not convert completely.</li>
+</ul>
+</div>
+<dl class="Bl-tag">
   <dt id="c"><a class="permalink" href="#c"><b>-c</b></a></dt>
   <dd>tells <b>tic</b> to only check <i>file</i> for errors, including syntax
       problems and bad use links. If you specify <b>-C</b> (<b>-I</b>) with this
       option, the code will print warnings about entries which, after use
       resolution, are more than 1023 (4096) bytes long. Due to a fixed buffer
-      length in older termcap libraries (and a documented limit in terminfo),
-      these entries may cause core dumps.</dd>
+      length in older termcap libraries, as well as buggy checking for the
+      buffer length (and a documented limit in terminfo), these entries may
+      cause core dumps with other implementations.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd><b>tic</b> checks string capabilities to ensure that those with parameters
+      will be valid expressions. It does this check only for the predefined
+      string capabilities; those which are defined with the <b>-x</b> option are
+      ignored.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt id="D"><a class="permalink" href="#D"><b>-D</b></a></dt>
+  <dd>tells <b>tic</b> to print the database locations that it knows about, and
+      exit. The first location shown is the one to which it would write compiled
+      terminal descriptions. If <b>tic</b> is not able to find a writable
+      database location according to the rules summarized above, it will print a
+      diagnostic and exit with an error rather than printing a list of database
+      locations.</dd>
   <dt id="e"><a class="permalink" href="#e"><b>-e </b><i>names</i></a></dt>
   <dd>Limit writes and translations to the following comma-separated list of
       terminals. If any name or alias of a terminal matches one of the names in
@@ -139,6 +208,9 @@
       decimal equivalents.</dd>
   <dt id="I"><a class="permalink" href="#I"><b>-I</b></a></dt>
   <dd>Force source translation to terminfo format.</dd>
+  <dt id="K"><a class="permalink" href="#K"><b>-K</b></a></dt>
+  <dd>Suppress some longstanding ncurses extensions to termcap format, e.g.,
+      &quot;\s&quot; for space.</dd>
   <dt id="L"><a class="permalink" href="#L"><b>-L</b></a></dt>
   <dd>Force source translation to terminfo format using the long C variable
       names listed in &lt;<b>term.h</b>&gt;</dd>
@@ -153,7 +225,7 @@
       termcap capabilities such as <b>bs</b>. This option forces a more literal
       translation that also preserves the obsolete capabilities.</dd>
   <dt id="o"><a class="permalink" href="#o"><b>-o</b><i>dir</i></a></dt>
-  <dd>Write compiled entries to given directory. Overrides the TERMINFO
+  <dd>Write compiled entries to given database location. Overrides the TERMINFO
       environment variable.</dd>
   <dt id="R"><a class="permalink" href="#R"><b>-R</b><i>subset</i></a></dt>
   <dd>Restrict output to a given subset. This option is for use with archaic
@@ -170,8 +242,8 @@
       through version 1.3 or BSD termcap through 4.3BSD) that does not handle
       multiple tc capabilities per entry.</dd>
   <dt id="s"><a class="permalink" href="#s"><b>-s</b></a></dt>
-  <dd>Summarize the compile by showing the directory into which entries are
-      written, and the number of entries which are compiled.</dd>
+  <dd>Summarize the compile by showing the database location into which entries
+      are written, and the number of entries which are compiled.</dd>
   <dt id="T"><a class="permalink" href="#T"><b>-T</b></a></dt>
   <dd>eliminates size-restrictions on the generated text. This is mainly useful
       for testing and analysis, since the compiled descriptions are limited
@@ -194,26 +266,14 @@
       detail of information. If <i>n</i> is omitted, the default level is 1. If
       <i>n</i> is specified and greater than 1, the level of detail is
       increased.</dd>
-  <dt id="w"><a class="permalink" href="#w"><b>-w</b><i>n</i></a></dt>
-  <dd>specifies the width of the output. The parameter is optional. If it is
-      omitted, it defaults to 60.</dd>
-  <dt id="x"><a class="permalink" href="#x"><b>-x</b></a></dt>
-  <dd>Treat unknown capabilities as user-defined. That is, if you supply a
-      capability name which <b>tic</b> does not recognize, it will infer its
-      type (boolean, number or string) from the syntax and make an extended
-      table entry for that. User-defined capability strings whose name begins
-      with ``k'' are treated as function keys.</dd>
-  <dt id="file"><a class="permalink" href="#file"><i>file</i></a></dt>
-  <dd>contains one or more <b>terminfo</b> terminal descriptions in source
-      format [see <b>terminfo</b>(5)]. Each description in the file describes
-      the capabilities of a particular terminal.</dd>
 </dl>
+<div class="Bd-indent">
 <p class="Pp">The debug flag levels are as follows:</p>
 <dl class="Bl-tag">
   <dt>1</dt>
   <dd>Names of files created and linked</dd>
   <dt>2</dt>
-  <dd>Information related to the ``use'' facility</dd>
+  <dd>Information related to the &#x201C;use&#x201D; facility</dd>
   <dt>3</dt>
   <dd>Statistics from the hashing algorithm</dd>
   <dt>5</dt>
@@ -227,29 +287,56 @@
 </dl>
 <p class="Pp">If the debug level <i>n</i> is not given, it is taken to be
   one.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="w"><a class="permalink" href="#w"><b>-w</b><i>n</i></a></dt>
+  <dd>specifies the width of the output. The parameter is optional. If it is
+      omitted, it defaults to 60.</dd>
+  <dt id="x"><a class="permalink" href="#x"><b>-x</b></a></dt>
+  <dd>Treat unknown capabilities as user-defined. That is, if you supply a
+      capability name which <b>tic</b> does not recognize, it will infer its
+      type (boolean, number or string) from the syntax and make an extended
+      table entry for that. User-defined capability strings whose name begins
+      with &#x201C;k&#x201D; are treated as function keys.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="PARAMETERS"><a class="permalink" href="#PARAMETERS">PARAMETERS</a></h2>
+<dl class="Bl-tag">
+  <dt id="file"><a class="permalink" href="#file"><i>file</i></a></dt>
+  <dd>contains one or more <b>terminfo</b> terminal descriptions in source
+      format [see <b>terminfo</b>(5)]. Each description in the file describes
+      the capabilities of a particular terminal.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>If <i>file</i> is &#x201C;-&#x201D;, then the data is read from the
+      standard input. The <i>file</i> parameter may also be the path of a
+      character-device.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="PROCESSING"><a class="permalink" href="#PROCESSING">PROCESSING</a></h2>
 <p class="Pp">All but one of the capabilities recognized by <b>tic</b> are
     documented in <b>terminfo</b>(5). The exception is the <b>use</b>
     capability.</p>
 <p class="Pp">When a <b>use</b>=<i>entry</i>-<i>name</i> field is discovered in
     a terminal entry currently being compiled, <b>tic</b> reads in the binary
     from <b>/usr/share/terminfo</b> to complete the entry. (Entries created from
-    <i>file</i> will be used first. If the environment variable <b>TERMINFO</b>
-    is set, that directory is searched instead of <b>/usr/share/terminfo</b>.)
-    <b>tic</b> duplicates the capabilities in <i>entry</i>-<i>name</i> for the
-    current entry, with the exception of those capabilities that explicitly are
-    defined in the current entry.</p>
+    <i>file</i> will be used first. <b>tic</b> duplicates the capabilities in
+    <i>entry</i>-<i>name</i> for the current entry, with the exception of those
+    capabilities that explicitly are defined in the current entry.</p>
 <p class="Pp">When an entry, e.g., <b>entry_name_1</b>, contains a
     <b>use=</b><i>entry</i>_<i>name</i>_<i>2</i> field, any canceled
     capabilities in <i>entry</i>_<i>name</i>_<i>2</i> must also appear in
     <b>entry_name_1</b> before <b>use=</b> for these capabilities to be canceled
     in <b>entry_name_1</b>.</p>
-<p class="Pp">If the environment variable <b>TERMINFO</b> is set, the compiled
-    results are placed there instead of <b>/usr/share/terminfo</b>.</p>
 <p class="Pp">Total compiled entries cannot exceed 4096 bytes. The name field
     cannot exceed 512 bytes. Terminal names exceeding the maximum alias length
     (32 characters on systems with long filenames, 14 characters otherwise) will
     be truncated to the maximum alias length and a warning message will be
     printed.</p>
+</section>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="COMPATIBILITY"><a class="permalink" href="#COMPATIBILITY">COMPATIBILITY</a></h1>
@@ -261,7 +348,7 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="EXTENSIONS"><a class="permalink" href="#EXTENSIONS">EXTENSIONS</a></h1>
-<p class="Pp">Unlike the stock SVr4 <b>tic</b> command, this implementation can
+<p class="Pp">Unlike the SVr4 <b>tic</b> command, this implementation can
     actually compile termcap sources. In fact, entries in terminfo and termcap
     syntax can be mixed in a single source file. See <b>terminfo</b>(5) for the
     list of termcap names taken to be equivalent to terminfo names.</p>
@@ -269,17 +356,17 @@
     <b>use</b> capabilities. This implementation of <b>tic</b> will find
     <b>use</b> targets anywhere in the source file, or anywhere in the file tree
     rooted at <b>TERMINFO</b> (if <b>TERMINFO</b> is defined), or in the user's
-    <i>$HOME/.terminfo</i> directory (if it exists), or (finally) anywhere in
-    the system's file tree of compiled entries.</p>
+    <i>$HOME/.terminfo</i> database (if it exists), or (finally) anywhere in the
+    system's file tree of compiled entries.</p>
 <p class="Pp">The error messages from this <b>tic</b> have the same format as
     GNU C error messages, and can be parsed by GNU Emacs's compile facility.</p>
-<p class="Pp">The <b>-C</b>, <b>-G</b>, <b>-I</b>, <b>-N</b>, <b>-R</b>,
-    <b>-T</b>, <b>-V</b>, <b>-a</b>, <b>-e</b>, <b>-f</b>, <b>-g</b>, <b>-o</b>,
-    <b>-r</b>, <b>-s</b>, <b>-t</b> and <b>-x</b> options are not supported
-    under SVr4. The SVr4 <b>-c</b> mode does not report bad use links.</p>
+<p class="Pp">The <b>-0</b>, <b>-1</b>, <b>-C</b>, <b>-G</b>, <b>-I</b>,
+    <b>-N</b>, <b>-R</b>, <b>-T</b>, <b>-V</b>, <b>-a</b>, <b>-e</b>, <b>-f</b>,
+    <b>-g</b>, <b>-o</b>, <b>-r</b>, <b>-s</b>, <b>-t</b> and <b>-x</b> options
+    are not supported under SVr4. The SVr4 <b>-c</b> mode does not report bad
+    use links.</p>
 <p class="Pp">System V does not compile entries to or read entries from your
-    <i>$HOME/.terminfo</i> directory unless TERMINFO is explicitly set to
-  it.</p>
+    <i>$HOME/.terminfo</i> database unless TERMINFO is explicitly set to it.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
@@ -292,8 +379,14 @@
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
 <p class="Pp"><b>infocmp</b>(1M), <b>captoinfo</b>(1M), <b>infotocap</b>(1M),
-    <b>toe</b>(1M), <b>curses</b>(3X), <b>terminfo</b>(5).</p>
+    <b>toe</b>(1M), <b>curses</b>(3X), <b>term</b>(5). <b>terminfo</b>(5).</p>
 <p class="Pp">This describes <b>ncurses</b> version 5.7 (patch 20081102).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Eric S. Raymond &lt;esr@snark.thyrsus.com&gt; and
+  <br/>
+  Thomas E. Dickey &lt;dickey@invisible-island.net&gt;</p>
 </section>
 </div>
 <table class="foot">

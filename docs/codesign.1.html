@@ -50,7 +50,7 @@
   <tr>
     <td><code class="Nm">codesign</code></td>
     <td><var class="Ar">-s identity</var> [-i identifier] [-r requirements]
-      [<code class="Fl">-fv</code>] [<var class="Ar">path ...</var>]</td>
+      [<code class="Fl">-fv</code>] <var class="Ar">path ...</var></td>
   </tr>
 </table>
 <br/>
@@ -75,6 +75,14 @@
     <td><code class="Nm">codesign</code></td>
     <td><var class="Ar">-h</var> [<code class="Fl">-v</code>]
       [<var class="Ar">pid ...</var>]</td>
+  </tr>
+</table>
+<br/>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">codesign</code></td>
+    <td><var class="Ar">--validate-constraint</var> <var class="Ar">path
+      ...</var></td>
   </tr>
 </table>
 </section>
@@ -301,6 +309,15 @@
       in a desired format, if you pass in both then DER will be printed. Use
       &quot;-&quot; as the path to write to standard output. If the signature
       has no entitlement data, nothing is written (this is not an error).</dd>
+  <dt id="enforce-constraint-validity"><a class="permalink" href="#enforce-constraint-validity"><code class="Fl">--enforce-constraint-validity</code></a></dt>
+  <dd>When signing, require that any supplied constraints (e.g.
+      <code class="Fl">--launch-constraint-*</code> or
+      <code class="Fl">--library-constraint</code> ) are structurally valid and
+      contain only keys that are known on this version of macOS or properly use
+      the <i>$optional</i> operator. By default, constraints are checked and
+      errors are reported but their validity is not required. This default
+      behavior allows developers to set contraints for newer OS versions on the
+      current OS version.</dd>
   <dt id="extract-certificates"><a class="permalink" href="#extract-certificates"><code class="Fl">--extract-certificates</code></a>
     <var class="Ar">prefix</var></dt>
   <dd>When displaying a signature, extract the certificates in the embedded
@@ -387,11 +404,15 @@
       <dd>Preserve any existing launch constraints set on the binary rather than
           removing them. This option is ignored if any of the
           --launch-constraint-* options are set.</dd>
+      <dt>library-constraints</dt>
+      <dd>Preserve any existing library load constraints set on the binary
+          rather than removing them. This option is ignored if the
+          --library-constraint option is set.</dd>
     </dl>
-    For historical reasons, this option can be given without a value, which
-      preserves all of these values as presently known. This use is deprecated
-      and will eventually be removed; always specify an explicit list of
-      preserved items.</dd>
+    For historical reasons, the --preserve-metadata option can be given without
+      a value, which preserves all of these values as presently known. This use
+      is deprecated and will eventually be removed; always specify an explicit
+      list of preserved items.</dd>
   <dt id="strict"><a class="permalink" href="#strict"><code class="Fl">--strict</code></a>
     <var class="Ar">options</var></dt>
   <dd>When validating code, apply additional restrictions beyond the defaults.
@@ -457,6 +478,28 @@
       process. The file at path should contain a plist expressing the desired
       launch constraint conditions. This executable will not launch if its
       responsible process does not satisfy this launch constraint.</dd>
+  <dt id="library-constraint"><a class="permalink" href="#library-constraint"><code class="Fl">--library-constraint</code></a>
+    <var class="Ar">path</var></dt>
+  <dd>When signing, take the file at the given path and embed its contents in
+      the signature as a constraint on the libraries this process can load.
+      Operating system libraries can not be restricted via this mechanism. The
+      file at path should contain a plist expressing the desired constraint
+      conditions. This executable will not load libraries that do not satisfy
+      the specified conditions.</dd>
+  <dt id="strip-disallowed-xattrs"><a class="permalink" href="#strip-disallowed-xattrs"><code class="Fl">--strip-disallowed-xattrs</code></a></dt>
+  <dd>When signing, strip xattrs (such as com.apple.FinderInfo and
+      com.apple.ResourceFork) that could interfere with code signing. If a
+      disallowed xattr is encountered, codesign will complain about the presence
+      of detritus, and the path and xattr of the offending file will be logged
+      verbosely.</dd>
+  <dt id="single-threaded-signing"><a class="permalink" href="#single-threaded-signing"><code class="Fl">--single-threaded-signing</code></a></dt>
+  <dd>When signing, use one thread for building the resource seal.</dd>
+  <dt id="validate-constraint"><a class="permalink" href="#validate-constraint"><code class="Fl">--validate-constraint</code></a></dt>
+  <dd>Validate that the constraint plist(s) indicated by
+      <var class="Ar">path(s)</var> are structurally valid and contain only keys
+      known on this OS version or keys that are properly wrapped with the
+      <i>$optional</i> operator. An error message is printed if an error
+    occurs.</dd>
 </dl>
 </section>
 <section class="Sh">
@@ -526,6 +569,11 @@
     <var class="Ar">--verify</var> can do that; and in fact, formal verification
     constructs the hosting chain as part of its operation (but does not display
     it).</p>
+<p class="Pp">In the fifth synopsis form, <code class="Nm">codesign</code>
+    validates the <var class="Ar">path(s)</var> supplied. Validation means
+    ensuring that keys and operators are properly structured with appropriate
+    types and that all keys and operators are known or nested in the
+    <i>$optional</i> operator.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SIGNING_IDENTITIES"><a class="permalink" href="#SIGNING_IDENTITIES">SIGNING
@@ -704,6 +752,14 @@
 <p class="Pp">To display the XML entitlements of process 1337:</p>
 <div class="Bd Bd-indent"><code class="Li">codesign --display --entitlements -
   --xml +1337</code></div>
+<p class="Pp">To sign Terminal.app with an embedded launch constraint and an
+    embedded library constraint:</p>
+<div class="Bd Bd-indent"><code class="Li">codesign --sign authority
+  --launch-constraint-self self-constraint.plist --library-constraint
+  library-constraint.plist Terminal.app</code></div>
+<p class="Pp">To validate a set of constraint files before signing:</p>
+<div class="Bd Bd-indent"><code class="Li">codesign --validate-constraint
+  self-constraint.plist library-constraint.plist</code></div>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="TROUBLESHOOTING"><a class="permalink" href="#TROUBLESHOOTING">TROUBLESHOOTING</a></h1>

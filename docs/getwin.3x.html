@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html>
 <!-- This is an automatically generated file.  Do not edit.
+   t
   ***************************************************************************
-   Copyright (c) 1998-2007,2008 Free Software Foundation, Inc.              *
+   Copyright (c) 1998-2013,2015 Free Software Foundation, Inc.              *
                                                                             *
    Permission is hereby granted, free of charge, to any person obtaining a  *
    copy of this software and associated documentation files (the            *
@@ -29,7 +30,7 @@
    authorization.                                                           *
   ***************************************************************************
   
-   $Id: curs_util.3x,v 1.27 2008/10/25 23:45:41 tom Exp $
+   $Id: curs_util.3x,v 1.43 2015/06/06 23:36:27 tom Exp $
  -->
 <head>
 
@@ -74,8 +75,8 @@
 <h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
 <p class="Pp"><b>delay_output</b>, <b>filter</b>, <b>flushinp</b>,
     <b>getwin</b>, <b>key_name</b>, <b>keyname</b>, <b>nofilter</b>,
-    <b>putwin</b>, <b>unctrl</b>, <b>use_env</b>, <b>wunctrl</b> - miscellaneous
-    <b>curses</b> utility routines</p>
+    <b>putwin</b>, <b>unctrl</b>, <b>use_env</b>, <b>use_tioctl</b>,
+    <b>wunctrl</b> - miscellaneous <b>curses</b> utility routines</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
@@ -94,6 +95,8 @@
   <br/>
   <b>void use_env(bool f);</b>
   <br/>
+  <b>void use_tioctl(bool f);</b>
+  <br/>
   <b>int putwin(WINDOW *win, FILE *filep);</b>
   <br/>
   <b>WINDOW *getwin(FILE *filep);</b>
@@ -104,40 +107,40 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="unctrl"><a class="permalink" href="#unctrl">unctrl</a></h2>
 <p class="Pp">The <b>unctrl</b> routine returns a character string which is a
     printable representation of the character <i>c</i>, ignoring attributes.
     Control characters are displayed in the <b>^</b><i>X</i> notation. Printing
     characters are displayed as is. The corresponding <b>wunctrl</b> returns a
-    printable representation of a wide-character.</p>
+    printable representation of a wide character.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="keyname/key_name"><a class="permalink" href="#keyname/key_name">keyname/key_name</a></h2>
 <p class="Pp">The <b>keyname</b> routine returns a character string
     corresponding to the key <i>c</i>:</p>
-<div class="Bd-indent">
-<dl class="Bl-tag">
-  <dt>-</dt>
-  <dd>Printable characters are displayed as themselves, e.g., a one-character
-      string containing the key.</dd>
-  <dt>-</dt>
-  <dd>Control characters are displayed in the <b>^</b><i>X</i> notation.</dd>
-  <dt>-</dt>
-  <dd>DEL (character 127) is displayed as <b>^?</b>.</dd>
-  <dt>-</dt>
-  <dd>Values above 128 are either meta characters (if the screen has not been
-      initialized, or if <b>meta</b> has been called with a TRUE parameter),
-      shown in the <b>M-</b><i>X</i> notation, or are displayed as themselves.
-      In the latter case, the values may not be printable; this follows the
-      X/Open specification.</dd>
-  <dt>-</dt>
-  <dd>Values above 256 may be the names of the names of function keys.</dd>
-  <dt>-</dt>
-  <dd>Otherwise (if there is no corresponding name) the function returns null,
+<ul class="Bl-bullet">
+  <li>Printable characters are displayed as themselves, e.g., a one-character
+      string containing the key.</li>
+  <li>Control characters are displayed in the <b>^</b><i>X</i> notation.</li>
+  <li>DEL (character 127) is displayed as <b>^?</b>.</li>
+  <li>Values above 128 are either meta characters (if the screen has not been
+      initialized, or if <b>meta</b> has been called with a <b>TRUE</b>
+      parameter), shown in the <b>M-</b><i>X</i> notation, or are displayed as
+      themselves. In the latter case, the values may not be printable; this
+      follows the X/Open specification.</li>
+  <li>Values above 256 may be the names of the names of function keys.</li>
+  <li>Otherwise (if there is no corresponding name) the function returns null,
       to denote an error. X/Open also lists an &quot;UNKNOWN KEY&quot; return
-      value, which some implementations return rather than null.</dd>
-</dl>
-</div>
+      value, which some implementations return rather than null.</li>
+</ul>
 <p class="Pp">The corresponding <b>key_name</b> returns a character string
     corresponding to the wide-character value <i>w</i>. The two functions do not
     return the same set of strings; the latter returns null where the former
     would display a meta character.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="filter/nofilter"><a class="permalink" href="#filter/nofilter">filter/nofilter</a></h2>
 <p class="Pp">The <b>filter</b> routine, if used, must be called before
     <b>initscr</b> or <b>newterm</b> are called. The effect is that, during
     those calls, <b>LINES</b> is set to 1; the capabilities <b>clear</b>,
@@ -148,27 +151,125 @@
     different device, using a different value of <b>$TERM</b>. The limitation
     arises because the <b>filter</b> routine modifies the in-memory copy of the
     terminal information.</p>
-<p class="Pp">The <b>use_env</b> routine, if used, is called before
-    <b>initscr</b> or <b>newterm</b> are called. When called with <b>FALSE</b>
-    as an argument, the values of <b>lines</b> and <b>columns</b> specified in
-    the <i>terminfo</i> database will be used, even if environment variables
-    <b>LINES</b> and <b>COLUMNS</b> (used by default) are set, or if
-    <b>curses</b> is running in a window (in which case default behavior would
-    be to use the window size if <b>LINES</b> and <b>COLUMNS</b> are not set).
-    Note that setting <b>LINES</b> or <b>COLUMNS</b> overrides the corresponding
-    size which may be obtained from the operating system.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="use_env"><a class="permalink" href="#use_env">use_env</a></h2>
+<p class="Pp">The <b>use_env</b> routine, if used, should be called before
+    <b>initscr</b> or <b>newterm</b> are called (because those compute the
+    screen size). It modifies the way <b>ncurses</b> treats environment
+    variables when determining the screen size.</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>Normally ncurses looks first at the terminal database for the screen
+    size.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>If <b>use_env</b> was called with <b>FALSE</b> for parameter, it stops
+      here unless If <b>use_tioctl</b> was also called with <b>TRUE</b> for
+      parameter.</dd>
+</dl>
+<ul class="Bl-bullet">
+  <li>Then it asks for the screen size via operating system calls. If
+      successful, it overrides the values from the terminal database.</li>
+  <li>Finally (unless <b>use_env</b> was called with <b>FALSE</b> parameter),
+      ncurses examines the <b>LINES</b> or <b>COLUMNS</b> environment variables,
+      using a value in those to override the results from the operating system
+      or terminal database.</li>
+</ul>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Ncurses also updates the screen size in response to SIGWINCH, unless
+      overridden by the <b>LINES</b> or <b>COLUMNS</b> environment
+    variables,</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="use_tioctl"><a class="permalink" href="#use_tioctl">use_tioctl</a></h2>
+<p class="Pp">The <b>use_tioctl</b> routine, if used, should be called before
+    <b>initscr</b> or <b>newterm</b> are called (because those compute the
+    screen size). After <b>use_tioctl</b> is called with <b>TRUE</b> as an
+    argument, ncurses modifies the last step in its computation of screen size
+    as follows:</p>
+<ul class="Bl-bullet">
+  <li>checks if the <b>LINES</b> and <b>COLUMNS</b> environment variables are
+      set to a number greater than zero.</li>
+  <li>for each, ncurses updates the corresponding environment variable with the
+      value that it has obtained via operating system call or from the terminal
+      database.</li>
+  <li>ncurses re-fetches the value of the environment variables so that it is
+      still the environment variables which set the screen size.</li>
+</ul>
+<p class="Pp">The <b>use_env</b> and <b>use_tioctl</b> routines combine as
+    summarized here:</p>
+<table class="tbl">
+  <tr>
+    <td><i>use_env</i></td>
+    <td><i>use_tioctl</i></td>
+    <td><i>Summary</i></td>
+  </tr>
+  <tr>
+  </tr>
+  <tr>
+    <td>TRUE</td>
+    <td>FALSE</td>
+    <td>This is the default behavior. ncurses uses operating system calls unless
+      overridden by $LINES or $COLUMNS environment variables.</td>
+  </tr>
+  <tr>
+    <td>TRUE</td>
+    <td>TRUE</td>
+    <td>ncurses updates $LINES and $COLUMNS based on operating system
+      calls.</td>
+  </tr>
+  <tr>
+    <td>FALSE</td>
+    <td>TRUE</td>
+    <td>ncurses ignores $LINES and $COLUMNS, uses operating system calls to
+      obtain size.</td>
+  </tr>
+  <tr>
+    <td>FALSE</td>
+    <td>FALSE</td>
+    <td>ncurses relies on the terminal database to determine size.</td>
+  </tr>
+</table>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="putwin/getwin"><a class="permalink" href="#putwin/getwin">putwin/getwin</a></h2>
 <p class="Pp">The <b>putwin</b> routine writes all data associated with window
-    <i>win</i> into the file to which <i>filep</i> points. This information can
-    be later retrieved using the <b>getwin</b> function.</p>
+    (or pad) <i>win</i> into the file to which <i>filep</i> points. This
+    information can be later retrieved using the <b>getwin</b> function.</p>
 <p class="Pp">The <b>getwin</b> routine reads window related data stored in the
     file by <b>putwin</b>. The routine then creates and initializes a new window
-    using that data. It returns a pointer to the new window.</p>
+    using that data. It returns a pointer to the new window. There are a few
+    caveats:</p>
+<ul class="Bl-bullet">
+  <li>the data written is a copy of the <b>WINDOW</b> structure, and its
+      associated character cells. The format differs between the wide-character
+      (ncursesw) and non-wide (ncurses) libraries. You can transfer data between
+      the two, however.</li>
+  <li>the retrieved window is always created as a top-level window (or pad),
+      rather than a subwindow.</li>
+  <li>the window's character cells contain the color pair <i>value</i>, but not
+      the actual color <i>numbers</i>. If cells in the retrieved window use
+      color pairs which have not been created in the application using
+      <b>init_pair</b>, they will not be colored when the window is
+    refreshed.</li>
+</ul>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="delay_output"><a class="permalink" href="#delay_output">delay_output</a></h2>
 <p class="Pp">The <b>delay_output</b> routine inserts an <i>ms</i> millisecond
     pause in output. This routine should not be used extensively because padding
     characters are used rather than a CPU pause. If no padding character is
     specified, this uses <b>napms</b> to perform the delay.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="flushinp"><a class="permalink" href="#flushinp">flushinp</a></h2>
 <p class="Pp">The <b>flushinp</b> routine throws away any typeahead that has
     been typed by the user and has not yet been read by the program.</p>
+</section>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
@@ -181,7 +282,7 @@
     implementation</p>
 <div class="Bd-indent">
 <dl class="Bl-tag">
-  <dt id="flushinp"><a class="permalink" href="#flushinp"><b>flushinp</b></a></dt>
+  <dt><b>flushinp</b></dt>
   <dd>returns an error if the terminal was not initialized.</dd>
   <dt id="meta"><a class="permalink" href="#meta"><b>meta</b></a></dt>
   <dd>returns an error if the terminal was not initialized.</dd>
@@ -193,38 +294,95 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="PORTABILITY"><a class="permalink" href="#PORTABILITY">PORTABILITY</a></h1>
-<p class="Pp">The XSI Curses standard, Issue 4 describes these functions. It
-    states that <b>unctrl</b> and <b>wunctrl</b> will return a null pointer if
-    unsuccessful, but does not define any error conditions. This implementation
-    checks for three cases:</p>
-<div class="Bd-indent">
-<dl class="Bl-tag">
-  <dt>-</dt>
-  <dd>the parameter is a 7-bit US-ASCII code. This is the case that X/Open
-      Curses documented.</dd>
-  <dt>-</dt>
-  <dd>the parameter is in the range 128-159, i.e., a C1 control code. If
-      <b>use_legacy_coding</b> has been called with a <b>2</b> parameter,
-      <b>unctrl</b> returns the parameter, i.e., a one-character string with the
-      parameter as the first character. Otherwise, it returns ``~@'', ``~A'',
-      etc., analogous to ``^@'', ``^A'', C0 controls.</dd>
-</dl>
-<dl class="Bl-tag">
-  <dt></dt>
-  <dd>X/Open Curses does not document whether <b>unctrl</b> can be called before
-      initializing curses. This implementation permits that, and returns the
-      ``~@'', etc., values in that case.</dd>
-</dl>
-<dl class="Bl-tag">
-  <dt>-</dt>
-  <dd>parameter values outside the 0 to 255 range. <b>unctrl</b> returns a null
-      pointer.</dd>
-</dl>
-</div>
+<section class="Ss">
+<h2 class="Ss" id="filter"><a class="permalink" href="#filter">filter</a></h2>
 <p class="Pp">The SVr4 documentation describes the action of <b>filter</b> only
     in the vaguest terms. The description here is adapted from the XSI Curses
     standard (which erroneously fails to describe the disabling of
   <b>cuu</b>).</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="keyname"><a class="permalink" href="#keyname">keyname</a></h2>
+<p class="Pp">The <b>keyname</b> function may return the names of user-defined
+    string capabilities which are defined in the terminfo entry via the
+    <b>-x</b> option of <b>tic</b>. This implementation automatically assigns at
+    run-time keycodes to user-defined strings which begin with &quot;k&quot;.
+    The keycodes start at KEY_MAX, but are not guaranteed to be the same value
+    for different runs because user-defined codes are merged from all terminal
+    descriptions which have been loaded. The <b>use_extended_names</b> function
+    controls whether this data is loaded when the terminal description is read
+    by the library.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="nofilter/use_tioctl"><a class="permalink" href="#nofilter/use_tioctl">nofilter/use_tioctl</a></h2>
+<p class="Pp">The <b>nofilter</b> and <b>use_tioctl</b> routines are specific to
+    ncurses. They were not supported on Version 7, BSD or System V
+    implementations. It is recommended that any code depending on ncurses
+    extensions be conditioned using NCURSES_VERSION.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="putwin/getwin~2"><a class="permalink" href="#putwin/getwin~2">putwin/getwin</a></h2>
+<p class="Pp">The <b>putwin</b> and <b>getwin</b> functions have several issues
+    with portability:</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>The files written and read by these functions use an
+      implementation-specific format. Although the format is an obvious target
+      for standardization, it has been overlooked.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Interestingly enough, according to the copyright dates in Solaris source,
+      the functions (along with <b>scr_init</b>, etc.) originated with the
+      University of California, Berkeley (in 1982) and were later (in 1988)
+      incorporated into SVr4. Oddly, there are no such functions in the 4.3BSD
+      curses sources.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>Most implementations simply dump the binary <b>WINDOW</b> structure to the
+      file. These include SVr4 curses, NetBSD and PDCurses, as well as older
+      ncurses versions. This implementation (as well as the X/Open variant of
+      Solaris curses, dated 1995) uses textual dumps.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The implementations which use binary dumps use block-I/O (the
+      <b>fwrite</b> and <b>fread</b> functions). Those that use textual dumps
+      use buffered-I/O. A few applications may happen to write extra data in the
+      file using these functions. Doing that can run into problems mixing block-
+      and buffered-I/O. This implementation reduces the problem on writes by
+      flushing the output. However, reading from a file written using mixed
+      schemes may not be successful.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="unctrl/wunctrl"><a class="permalink" href="#unctrl/wunctrl">unctrl/wunctrl</a></h2>
+<p class="Pp">The XSI Curses standard, Issue 4 describes these functions. It
+    states that <b>unctrl</b> and <b>wunctrl</b> will return a null pointer if
+    unsuccessful, but does not define any error conditions. This implementation
+    checks for three cases:</p>
+<ul class="Bl-bullet">
+  <li>the parameter is a 7-bit US-ASCII code. This is the case that X/Open
+      Curses documented.</li>
+  <li>the parameter is in the range 128-159, i.e., a C1 control code. If
+      <b>use_legacy_coding</b> has been called with a <b>2</b> parameter,
+      <b>unctrl</b> returns the parameter, i.e., a one-character string with the
+      parameter as the first character. Otherwise, it returns
+      &#x201C;~@&#x201D;, &#x201C;~A&#x201D;, etc., analogous to
+      &#x201C;^@&#x201D;, &#x201C;^A&#x201D;, C0 controls.</li>
+</ul>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>X/Open Curses does not document whether <b>unctrl</b> can be called before
+      initializing curses. This implementation permits that, and returns the
+      &#x201C;~@&#x201D;, etc., values in that case.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>parameter values outside the 0 to 255 range. <b>unctrl</b> returns a null
+      pointer.</dd>
+</dl>
 <p class="Pp">The strings returned by <b>unctrl</b> in this implementation are
     determined at compile time, showing C1 controls from the upper-128 codes
     with a `~' prefix rather than `^'. Other implementations have different
@@ -236,32 +394,20 @@
     <b>unctrl</b>.</p>
 <p class="Pp">Likewise, the <b>meta</b> function allows the caller to change the
     output of <b>keyname</b>, i.e., it determines whether to use the `M-' prefix
-    for ``meta'' keys (codes in the range 128 to 255). Both
+    for &#x201C;meta&#x201D; keys (codes in the range 128 to 255). Both
     <b>use_legacy_coding</b> and <b>meta</b> succeed only after curses is
     initialized. X/Open Curses does not document the treatment of codes 128 to
-    159. When treating them as ``meta'' keys (or if <b>keyname</b> is called
-    before initializing curses), this implementation returns strings ``M-^@'',
-    ``M-^A'', etc.</p>
-<p class="Pp">The <b>keyname</b> function may return the names of user-defined
-    string capabilities which are defined in the terminfo entry via the
-    <b>-x</b> option of <b>tic</b>. This implementation automatically assigns at
-    run-time keycodes to user-defined strings which begin with &quot;k&quot;.
-    The keycodes start at KEY_MAX, but are not guaranteed to be the same value
-    for different runs because user-defined codes are merged from all terminal
-    descriptions which have been loaded. The <b>use_extended_names</b> function
-    controls whether this data is loaded when the terminal description is read
-    by the library.</p>
-<p class="Pp">The <b>nofilter</b> routine is specific to ncurses. It was not
-    supported on Version 7, BSD or System V implementations. It is recommended
-    that any code depending on ncurses extensions be conditioned using
-    NCURSES_VERSION.</p>
+    159. When treating them as &#x201C;meta&#x201D; keys (or if <b>keyname</b>
+    is called before initializing curses), this implementation returns strings
+    &#x201C;M-^@&#x201D;, &#x201C;M-^A&#x201D;, etc.</p>
+</section>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
 <p class="Pp"><b>legacy_coding</b>(3X), <b>curses</b>(3X),
     <b>curs_initscr</b>(3X), <b>curs_kernel</b>(3X), <b>curs_scr_dump</b>(3X),
-    <b>legacy_coding</b>(3X).</p>
+    <b>curs_variables</b>(3X), <b>legacy_coding</b>(3X).</p>
 </section>
 </div>
 <table class="foot">

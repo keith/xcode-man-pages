@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <!-- This is an automatically generated file.  Do not edit.
-  	$OpenBSD: ssh-keyscan.1,v 1.45 2019/11/30 07:07:59 jmc Exp $
+  	$OpenBSD: ssh-keyscan.1,v 1.49 2023/02/10 06:41:53 jmc Exp $
   
    Copyright 1995, 1996 by David Mazieres <dm@lcs.mit.edu>.
   
@@ -59,7 +59,8 @@
   <tr>
     <td><code class="Nm">ssh-keyscan</code></td>
     <td>[<code class="Fl">-46cDHv</code>] [<code class="Fl">-f</code>
-      <var class="Ar">file</var>] [<code class="Fl">-p</code>
+      <var class="Ar">file</var>] [<code class="Fl">-O</code>
+      <var class="Ar">option</var>] [<code class="Fl">-p</code>
       <var class="Ar">port</var>] [<code class="Fl">-T</code>
       <var class="Ar">timeout</var>] [<code class="Fl">-t</code>
       <var class="Ar">type</var>] [<var class="Ar">host</var> |
@@ -82,6 +83,9 @@
     <a class="Xr">sshd(8)</a>. For scanning, one does not need login access to
     the machines that are being scanned, nor does the scanning process involve
     any encryption.</p>
+<p class="Pp">Hosts to be scanned may be specified by hostname, address or by
+    CIDR network range (e.g. 192.168.16/28). If a network range is specified,
+    then all addresses in that range will be scanned.</p>
 <p class="Pp">The options are as follows:</p>
 <dl class="Bl-tag">
   <dt id="4"><a class="permalink" href="#4"><code class="Fl">-4</code></a></dt>
@@ -99,9 +103,15 @@
   <dd>Read hosts or &#x201C;addrlist namelist&#x201D; pairs from
       <var class="Ar">file</var>, one per line. If &#x2018;-&#x2019; is supplied
       instead of a filename, <code class="Nm">ssh-keyscan</code> will read from
-      the standard input. Input is expected in the format:
+      the standard input. Names read from a file must start with an address,
+      hostname or CIDR network range to be scanned. Addresses and hostnames may
+      optionally be followed by comma-separated name or address aliases that
+      will be copied to the output. For example:
     <div class="Bd Pp Li">
-    <pre>1.2.3.4,1.2.4.4 name.my.domain,name,n.my.domain,n,1.2.3.4,1.2.4.4</pre>
+    <pre>192.168.11.0/24
+10.20.1.1
+happy.example.org
+10.0.0.1,sad.example.org</pre>
     </div>
   </dd>
   <dt id="H"><a class="permalink" href="#H"><code class="Fl">-H</code></a></dt>
@@ -109,6 +119,17 @@
       normally by <a class="Xr">ssh(1)</a> and <a class="Xr">sshd(8)</a>, but
       they do not reveal identifying information should the file's contents be
       disclosed.</dd>
+  <dt id="O"><a class="permalink" href="#O"><code class="Fl">-O</code></a>
+    <var class="Ar">option</var></dt>
+  <dd>Specify a key/value option. At present, only a single option is supported:
+    <dl class="Bl-tag">
+      <dt id="hashalg"><a class="permalink" href="#hashalg"><code class="Cm">hashalg</code></a>=<var class="Ar">algorithm</var></dt>
+      <dd>Selects a hash algorithm to use when printing SSHFP records using the
+          <code class="Fl">-D</code> flag. Valid algorithms are
+          &#x201C;sha1&#x201D; and &#x201C;sha256&#x201D;. The default is to
+          print both.</dd>
+    </dl>
+  </dd>
   <dt id="p"><a class="permalink" href="#p"><code class="Fl">-p</code></a>
     <var class="Ar">port</var></dt>
   <dd>Connect to <var class="Ar">port</var> on the remote host.</dd>
@@ -123,10 +144,11 @@
     <var class="Ar">type</var></dt>
   <dd>Specify the type of the key to fetch from the scanned hosts. The possible
       values are &#x201C;dsa&#x201D;, &#x201C;ecdsa&#x201D;,
-      &#x201C;ed25519&#x201D;, or &#x201C;rsa&#x201D;. Multiple values may be
+      &#x201C;ed25519&#x201D;, &#x201C;ecdsa-sk&#x201D;,
+      &#x201C;ed25519-sk&#x201D;, or &#x201C;rsa&#x201D;. Multiple values may be
       specified by separating them with commas. The default is to fetch
-      &#x201C;rsa&#x201D;, &#x201C;ecdsa&#x201D;, and &#x201C;ed25519&#x201D;
-      keys.</dd>
+      &#x201C;rsa&#x201D;, &#x201C;ecdsa&#x201D;, &#x201C;ed25519&#x201D;,
+      &#x201C;ecdsa-sk&#x201D;, and &#x201C;ed25519-sk&#x201D; keys.</dd>
   <dt id="v"><a class="permalink" href="#v"><code class="Fl">-v</code></a></dt>
   <dd>Verbose mode: print debugging messages about progress.</dd>
 </dl>
@@ -149,6 +171,10 @@
 <p class="Pp"></p>
 <div class="Bd Bd-indent"><code class="Li">$ ssh-keyscan -t rsa
   hostname</code></div>
+<p class="Pp">Search a network range, printing all supported key types:</p>
+<p class="Pp"></p>
+<div class="Bd Bd-indent"><code class="Li">$ ssh-keyscan
+  192.168.0.64/25</code></div>
 <p class="Pp">Find all hosts from the file <span class="Pa">ssh_hosts</span>
     which have new or different keys from those in the sorted file
     <span class="Pa">ssh_known_hosts</span>:</p>

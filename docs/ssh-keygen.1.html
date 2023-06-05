@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <!-- This is an automatically generated file.  Do not edit.
-  	$OpenBSD: ssh-keygen.1,v 1.220 2022/02/06 00:29:03 jsg Exp $
+  	$OpenBSD: ssh-keygen.1,v 1.228 2023/02/10 06:40:48 jmc Exp $
   
    Author: Tatu Ylonen <ylo@cs.hut.fi>
    Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -404,13 +404,13 @@
 <p class="Pp">The options are as follows:</p>
 <dl class="Bl-tag">
   <dt id="A"><a class="permalink" href="#A"><code class="Fl">-A</code></a></dt>
-  <dd>For each of the key types (rsa, dsa, ecdsa and ed25519) for which host
-      keys do not exist, generate the host keys with the default key file path,
-      an empty passphrase, default bits for the key type, and default comment.
-      If <code class="Fl">-f</code> has also been specified, its argument is
-      used as a prefix to the default path for the resulting host key files.
-      This is used by <span class="Pa">/etc/rc</span> to generate new host
-    keys.</dd>
+  <dd>Generate host keys of all default key types (rsa, ecdsa, and ed25519) if
+      they do not already exist. The host keys are generated with the default
+      key file path, an empty passphrase, default bits for the key type, and
+      default comment. If <code class="Fl">-f</code> has also been specified,
+      its argument is used as a prefix to the default path for the resulting
+      host key files. This is used by <span class="Pa">/etc/rc</span> to
+      generate new host keys.</dd>
   <dt id="a"><a class="permalink" href="#a"><code class="Fl">-a</code></a>
     <var class="Ar">rounds</var></dt>
   <dd>When saving a private key, this option specifies the number of KDF (key
@@ -500,7 +500,9 @@
   <dd>Download resident keys from a FIDO authenticator. Public and private key
       files will be written to the current directory for each downloaded key. If
       multiple FIDO authenticators are attached, keys will be downloaded from
-      the first touched authenticator.</dd>
+      the first touched authenticator. See the
+      <a class="Sx" href="#FIDO_AUTHENTICATOR">FIDO AUTHENTICATOR</a> section
+      for more information.</dd>
   <dt id="k"><a class="permalink" href="#k"><code class="Fl">-k</code></a></dt>
   <dd>Generate a KRL file. In this mode, <code class="Nm">ssh-keygen</code> will
       generate a KRL file at the location specified via the
@@ -567,48 +569,9 @@
     <p class="Pp">When performing moduli generation or screening, one of the
         options listed in the <a class="Sx" href="#MODULI_GENERATION">MODULI
         GENERATION</a> section may be specified.</p>
-    <p class="Pp">When generating a key that will be hosted on a FIDO
-        authenticator, this flag may be used to specify key-specific options.
-        Those supported at present are:</p>
-    <dl class="Bl-tag">
-      <dt id="application"><a class="permalink" href="#application"><code class="Cm">application</code></a></dt>
-      <dd>Override the default FIDO application/origin string of
-          &#x201C;ssh:&#x201D;. This may be useful when generating host or
-          domain-specific resident keys. The specified application string must
-          begin with &#x201C;ssh:&#x201D;.</dd>
-      <dt id="challenge"><a class="permalink" href="#challenge"><code class="Cm">challenge</code></a>=<var class="Ar">path</var></dt>
-      <dd>Specifies a path to a challenge string that will be passed to the FIDO
-          token during key generation. The challenge string may be used as part
-          of an out-of-band protocol for key enrollment (a random challenge is
-          used by default).</dd>
-      <dt id="device"><a class="permalink" href="#device"><code class="Cm">device</code></a></dt>
-      <dd>Explicitly specify a <a class="Xr">fido(4)</a> device to use, rather
-          than letting the token middleware select one.</dd>
-      <dt id="no-touch-required"><a class="permalink" href="#no-touch-required"><code class="Cm">no-touch-required</code></a></dt>
-      <dd>Indicate that the generated private key should not require touch
-          events (user presence) when making signatures. Note that
-          <a class="Xr">sshd(8)</a> will refuse such signatures by default,
-          unless overridden via an authorized_keys option.</dd>
-      <dt id="resident"><a class="permalink" href="#resident"><code class="Cm">resident</code></a></dt>
-      <dd>Indicate that the key should be stored on the FIDO authenticator
-          itself. Resident keys may be supported on FIDO2 tokens and typically
-          require that a PIN be set on the token prior to generation. Resident
-          keys may be loaded off the token using
-        <a class="Xr">ssh-add(1)</a>.</dd>
-      <dt id="user"><a class="permalink" href="#user"><code class="Cm">user</code></a></dt>
-      <dd>A username to be associated with a resident key, overriding the empty
-          default username. Specifying a username may be useful when generating
-          multiple resident keys for the same application name.</dd>
-      <dt id="verify-required"><a class="permalink" href="#verify-required"><code class="Cm">verify-required</code></a></dt>
-      <dd>Indicate that this private key should require user verification for
-          each signature. Not all FIDO tokens support this option. Currently PIN
-          authentication is the only supported verification method, but other
-          methods may be supported in the future.</dd>
-      <dt id="write-attestation"><a class="permalink" href="#write-attestation"><code class="Cm">write-attestation</code></a>=<var class="Ar">path</var></dt>
-      <dd>May be used at key generation time to record the attestation data
-          returned from FIDO tokens during key generation. This information is
-          potentially sensitive. By default, this information is discarded.</dd>
-    </dl>
+    <p class="Pp">When generating FIDO authenticator-backed keys, the options
+        listed in the <a class="Sx" href="#FIDO_AUTHENTICATOR">FIDO
+        AUTHENTICATOR</a> section may be specified.</p>
     <p class="Pp">When performing signature-related options using the
         <code class="Fl">-Y</code> flag, the following options are accepted:</p>
     <dl class="Bl-tag">
@@ -621,8 +584,20 @@
           verification.</dd>
       <dt id="verify-time"><a class="permalink" href="#verify-time"><code class="Cm">verify-time</code></a>=<var class="Ar">timestamp</var></dt>
       <dd>Specifies a time to use when validating signatures instead of the
-          current time. The time may be specified as a date in YYYYMMDD format
-          or a time in YYYYMMDDHHMM[SS] format.</dd>
+          current time. The time may be specified as a date or time in the
+          YYYYMMDD[Z] or in YYYYMMDDHHMM[SS][Z] formats. Dates and times will be
+          interpreted in the current system time zone unless suffixed with a Z
+          character, which causes them to be interpreted in the UTC time
+        zone.</dd>
+    </dl>
+    <p class="Pp">When generating SSHFP DNS records from public keys using the
+        <code class="Fl">-r</code> flag, the following options are accepted:</p>
+    <dl class="Bl-tag">
+      <dt id="hashalg~2"><a class="permalink" href="#hashalg~2"><code class="Cm">hashalg</code></a>=<var class="Ar">algorithm</var></dt>
+      <dd>Selects a hash algorithm to use when printing SSHFP records using the
+          <code class="Fl">-D</code> flag. Valid algorithms are
+          &#x201C;sha1&#x201D; and &#x201C;sha256&#x201D;. The default is to
+          print both.</dd>
     </dl>
     <p class="Pp">The <code class="Fl">-O</code> option may be specified
         multiple times.</p>
@@ -683,7 +658,8 @@
         &#x201C;rsa-sha2-512&#x201D; (the default).</p>
   </dd>
   <dt id="U"><a class="permalink" href="#U"><code class="Fl">-U</code></a></dt>
-  <dd>When used in combination with <code class="Fl">-s</code>, this option
+  <dd>When used in combination with <code class="Fl">-s</code> or
+      <code class="Fl">-Y</code> <code class="Cm">sign</code>, this option
       indicates that a CA key resides in a <a class="Xr">ssh-agent(1)</a>. See
       the <a class="Sx" href="#CERTIFICATES">CERTIFICATES</a> section for more
       information.</dd>
@@ -697,24 +673,53 @@
       interval may consist of a single time, indicating that the certificate is
       valid beginning now and expiring at that time, or may consist of two times
       separated by a colon to indicate an explicit time interval.
-    <p class="Pp">The start time may be specified as the string
-        &#x201C;always&#x201D; to indicate the certificate has no specified
-        start time, a date in YYYYMMDD format, a time in YYYYMMDDHHMM[SS]
-        format, a relative time (to the current time) consisting of a minus sign
-        followed by an interval in the format described in the TIME FORMATS
-        section of <a class="Xr">sshd_config(5)</a>.</p>
-    <p class="Pp">The end time may be specified as a YYYYMMDD date, a
-        YYYYMMDDHHMM[SS] time, a relative time starting with a plus character or
-        the string &#x201C;forever&#x201D; to indicate that the certificate has
-        no expiry date.</p>
-    <p class="Pp">For example: &#x201C;+52w1d&#x201D; (valid from now to 52
-        weeks and one day from now), &#x201C;-4w:+4w&#x201D; (valid from four
-        weeks ago to four weeks from now),
-        &#x201C;20100101123000:20110101123000&#x201D; (valid from 12:30 PM,
-        January 1st, 2010 to 12:30 PM, January 1st, 2011),
-        &#x201C;-1d:20110101&#x201D; (valid from yesterday to midnight, January
-        1st, 2011), &#x201C;-1m:forever&#x201D; (valid from one minute ago and
-        never expiring).</p>
+    <p class="Pp">The start time may be specified as:</p>
+    <ul class="Bl-bullet Bl-compact">
+      <li>The string &#x201C;always&#x201D; to indicate the certificate has no
+          specified start time.</li>
+      <li>A date or time in the system time zone formatted as YYYYMMDD or
+          YYYYMMDDHHMM[SS].</li>
+      <li>A date or time in the UTC time zone as YYYYMMDDZ or
+        YYYYMMDDHHMM[SS]Z.</li>
+      <li>A relative time before the current system time consisting of a minus
+          sign followed by an interval in the format described in the TIME
+          FORMATS section of <a class="Xr">sshd_config(5)</a>.</li>
+      <li>A raw seconds since epoch (Jan 1 1970 00:00:00 UTC) as a hexadecimal
+          number beginning with &#x201C;0x&#x201D;.</li>
+    </ul>
+    <p class="Pp">The end time may be specified similarly to the start time:</p>
+    <ul class="Bl-bullet Bl-compact">
+      <li>The string &#x201C;forever&#x201D; to indicate the certificate has no
+          specified end time.</li>
+      <li>A date or time in the system time zone formatted as YYYYMMDD or
+          YYYYMMDDHHMM[SS].</li>
+      <li>A date or time in the UTC time zone as YYYYMMDDZ or
+        YYYYMMDDHHMM[SS]Z.</li>
+      <li>A relative time after the current system time consisting of a plus
+          sign followed by an interval in the format described in the TIME
+          FORMATS section of <a class="Xr">sshd_config(5)</a>.</li>
+      <li>A raw seconds since epoch (Jan 1 1970 00:00:00 UTC) as a hexadecimal
+          number beginning with &#x201C;0x&#x201D;.</li>
+    </ul>
+    <p class="Pp">For example:</p>
+    <dl class="Bl-tag">
+      <dt>+52w1d</dt>
+      <dd>Valid from now to 52 weeks and one day from now.</dd>
+      <dt>-4w:+4w</dt>
+      <dd>Valid from four weeks ago to four weeks from now.</dd>
+      <dt>20100101123000:20110101123000</dt>
+      <dd>Valid from 12:30 PM, January 1st, 2010 to 12:30 PM, January 1st,
+        2011.</dd>
+      <dt>20100101123000Z:20110101123000Z</dt>
+      <dd>Similar, but interpreted in the UTC time zone rather than the system
+          time zone.</dd>
+      <dt>-1d:20110101</dt>
+      <dd>Valid from yesterday to midnight, January 1st, 2011.</dd>
+      <dt>0x1:0x2000000000</dt>
+      <dd>Valid from roughly early 1970 to May 2033.</dd>
+      <dt>-1m:forever</dt>
+      <dd>Valid from one minute ago and never expiring.</dd>
+    </dl>
   </dd>
   <dt id="v"><a class="permalink" href="#v"><code class="Fl">-v</code></a></dt>
   <dd>Verbose mode. Causes <code class="Nm">ssh-keygen</code> to print debugging
@@ -999,7 +1004,7 @@
   <dd>Allows X11 forwarding.
     <p class="Pp"></p>
   </dd>
-  <dt id="no-touch-required~2"><a class="permalink" href="#no-touch-required~2"><code class="Ic">no-touch-required</code></a></dt>
+  <dt id="no-touch-required"><a class="permalink" href="#no-touch-required"><code class="Ic">no-touch-required</code></a></dt>
   <dd>Do not require signatures made using this key include demonstration of
       user presence (e.g. by having the user touch the authenticator). This
       option only makes sense for the FIDO authenticator algorithms
@@ -1012,7 +1017,7 @@
       one or more address/netmask pairs in CIDR format.
     <p class="Pp"></p>
   </dd>
-  <dt id="verify-required~2"><a class="permalink" href="#verify-required~2"><code class="Ic">verify-required</code></a></dt>
+  <dt id="verify-required"><a class="permalink" href="#verify-required"><code class="Ic">verify-required</code></a></dt>
   <dd>Require signatures made using this key indicate that the user was first
       verified. This option only makes sense for the FIDO authenticator
       algorithms <code class="Cm">ecdsa-sk</code> and
@@ -1029,6 +1034,64 @@
 <p class="Pp">For certificates to be used for user or host authentication, the
     CA public key must be trusted by <a class="Xr">sshd(8)</a> or
     <a class="Xr">ssh(1)</a>. Refer to those manual pages for details.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FIDO_AUTHENTICATOR"><a class="permalink" href="#FIDO_AUTHENTICATOR">FIDO
+  AUTHENTICATOR</a></h1>
+<p class="Pp"><code class="Nm">ssh-keygen</code> is able to generate FIDO
+    authenticator-backed keys, after which they may be used much like any other
+    key type supported by OpenSSH, so long as the hardware authenticator is
+    attached when the keys are used. FIDO authenticators generally require the
+    user to explicitly authorise operations by touching or tapping them. FIDO
+    keys consist of two parts: a key handle part stored in the private key file
+    on disk, and a per-device private key that is unique to each FIDO
+    authenticator and that cannot be exported from the authenticator hardware.
+    These are combined by the hardware at authentication time to derive the real
+    key that is used to sign authentication challenges. Supported key types are
+    <code class="Cm">ecdsa-sk</code> and <code class="Cm">ed25519-sk</code>.</p>
+<p class="Pp">The options that are valid for FIDO keys are:</p>
+<dl class="Bl-tag">
+  <dt id="application"><a class="permalink" href="#application"><code class="Cm">application</code></a></dt>
+  <dd>Override the default FIDO application/origin string of
+      &#x201C;ssh:&#x201D;. This may be useful when generating host or
+      domain-specific resident keys. The specified application string must begin
+      with &#x201C;ssh:&#x201D;.</dd>
+  <dt id="challenge"><a class="permalink" href="#challenge"><code class="Cm">challenge</code></a>=<var class="Ar">path</var></dt>
+  <dd>Specifies a path to a challenge string that will be passed to the FIDO
+      authenticator during key generation. The challenge string may be used as
+      part of an out-of-band protocol for key enrollment (a random challenge is
+      used by default).</dd>
+  <dt id="device"><a class="permalink" href="#device"><code class="Cm">device</code></a></dt>
+  <dd>Explicitly specify a <a class="Xr">fido(4)</a> device to use, rather than
+      letting the authenticator middleware select one.</dd>
+  <dt id="no-touch-required~2"><a class="permalink" href="#no-touch-required~2"><code class="Cm">no-touch-required</code></a></dt>
+  <dd>Indicate that the generated private key should not require touch events
+      (user presence) when making signatures. Note that
+      <a class="Xr">sshd(8)</a> will refuse such signatures by default, unless
+      overridden via an authorized_keys option.</dd>
+  <dt id="resident"><a class="permalink" href="#resident"><code class="Cm">resident</code></a></dt>
+  <dd>Indicate that the key handle should be stored on the FIDO authenticator
+      itself. This makes it easier to use the authenticator on multiple
+      computers. Resident keys may be supported on FIDO2 authenticators and
+      typically require that a PIN be set on the authenticator prior to
+      generation. Resident keys may be loaded off the authenticator using
+      <a class="Xr">ssh-add(1)</a>. Storing both parts of a key on a FIDO
+      authenticator increases the likelihood of an attacker being able to use a
+      stolen authenticator device.</dd>
+  <dt id="user"><a class="permalink" href="#user"><code class="Cm">user</code></a></dt>
+  <dd>A username to be associated with a resident key, overriding the empty
+      default username. Specifying a username may be useful when generating
+      multiple resident keys for the same application name.</dd>
+  <dt id="verify-required~2"><a class="permalink" href="#verify-required~2"><code class="Cm">verify-required</code></a></dt>
+  <dd>Indicate that this private key should require user verification for each
+      signature. Not all FIDO authenticators support this option. Currently PIN
+      authentication is the only supported verification method, but other
+      methods may be supported in the future.</dd>
+  <dt id="write-attestation"><a class="permalink" href="#write-attestation"><code class="Cm">write-attestation</code></a>=<var class="Ar">path</var></dt>
+  <dd>May be used at key generation time to record the attestation data returned
+      from FIDO authenticators during key generation. This information is
+      potentially sensitive. By default, this information is discarded.</dd>
+</dl>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="KEY_REVOCATION_LISTS"><a class="permalink" href="#KEY_REVOCATION_LISTS">KEY
@@ -1126,8 +1189,10 @@
       specified list before the key will be considered acceptable.</dd>
   <dt id="valid-after"><a class="permalink" href="#valid-after"><code class="Cm">valid-after</code></a>=timestamp</dt>
   <dd>Indicates that the key is valid for use at or after the specified
-      timestamp, which may be a date in YYYYMMDD format or a time in
-      YYYYMMDDHHMM[SS] format.</dd>
+      timestamp, which may be a date or time in the YYYYMMDD[Z] or
+      YYYYMMDDHHMM[SS][Z] formats. Dates and times will be interpreted in the
+      current system time zone unless suffixed with a Z character, which causes
+      them to be interpreted in the UTC time zone.</dd>
   <dt id="valid-before"><a class="permalink" href="#valid-before"><code class="Cm">valid-before</code></a>=timestamp</dt>
   <dd>Indicates that the key is valid for use at or before the specified
       timestamp.</dd>

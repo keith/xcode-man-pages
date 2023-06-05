@@ -257,6 +257,16 @@
     and yet again disabled with --<b>no-</b>option. That is, you use the same
     option name but prefix it with &quot;no-&quot;. However, in this list we
     mostly only list and show the --option version of them.</p>
+<p class="Pp">When <i>-:, --next</i> is used, it resets the parser state and you
+    start again with a clean option state, except for the options that are
+    &quot;global&quot;. Global options will retain their values and meaning even
+    after <i>-:, --next</i>.</p>
+<p class="Pp">The following options are global: <i>--fail-early</i>,
+    <i>--libcurl</i>, <i>--parallel-immediate</i>, <i>-Z, --parallel</i>, <i>-#,
+    --progress-bar</i>, <i>--rate</i>, <i>-S, --show-error</i>, <i>--stderr</i>,
+    <i>--styled-output</i>, <i>--trace-ascii</i>, <i>--trace-time</i>,
+    <i>--trace</i> and <i>-v, --verbose</i>.</p>
+<p class="Pp"></p>
 <dl class="Bl-tag">
   <dt id="abstract-unix-socket"><a class="permalink" href="#abstract-unix-socket">--abstract-unix-socket
     &lt;path&gt;</a></dt>
@@ -1174,7 +1184,7 @@
         being &quot;headers&quot; and thus are saved there.</p>
     <p class="Pp">Having multiple transfers in one set of operations (i.e. the
         URLs in one <i>-:, --next</i> clause), will append them to the same
-        file, seperated by a blank line.</p>
+        file, separated by a blank line.</p>
     <p class="Pp">If <i>-D, --dump-header</i> is provided several times, the
         last set value will be used.</p>
     <p class="Pp">Example:</p>
@@ -1276,12 +1286,12 @@
         first transfer that fails, independent of the amount of URLs that are
         given on the command line. This way, no transfer failures go undetected
         by scripts and similar.</p>
-    <p class="Pp">This option is global and does not need to be specified for
-        each use of <i>-:, --next</i>.</p>
     <p class="Pp">This option does not imply <i>-f, --fail</i>, which causes
         transfers to fail due to the server's HTTP status code. You can combine
         the two options, however note <i>-f, --fail</i> is not global and is
         therefore contained by <i>-:, --next</i>.</p>
+    <p class="Pp">This option is global and does not need to be specified for
+        each use of --next.</p>
     <p class="Pp">Providing <i>--fail-early</i> multiple times has no extra
         effect. Disable it again with --no-fail-early.</p>
     <p class="Pp">Example:</p>
@@ -1859,7 +1869,9 @@
 <br/>
  curl -H &quot;User-Agent: yes-please/2000&quot; https://example.com
 <br/>
- curl -H &quot;Host:&quot; https://example.com</pre>
+ curl -H &quot;Host:&quot; https://example.com
+<br/>
+ curl -H @headers.txt https://example.com</pre>
     <p class="Pp">See also <i>-A, --user-agent</i> and <i>-e, --referer</i>.</p>
   </dd>
   <dt id="h,"><a class="permalink" href="#h,">-h, --help
@@ -1869,8 +1881,6 @@
       the argument &quot;all&quot; was provided, curl will display all options
       available. If the argument &quot;category&quot; was provided, curl will
       display all categories and their meanings.
-    <p class="Pp">Providing <i>-h, --help</i> multiple times has no extra
-        effect. Disable it again with --no-help.</p>
     <p class="Pp">Example:</p>
     <pre>
 <br/>
@@ -1895,6 +1905,8 @@
   <dd>(SFTP SCP) Pass a string containing a Base64-encoded SHA256 hash of the
       remote host's public key. Curl will refuse the connection with the host
       unless the hashes match.
+    <p class="Pp">This feature requires libcurl to be built with libssh2 and
+        does not work with other SSH backends.</p>
     <p class="Pp">If <i>--hostpubsha256</i> is provided several times, the last
         set value will be used.</p>
     <p class="Pp">Example:</p>
@@ -1909,6 +1921,10 @@
       to an existing HSTS cache file, that will be used. After a completed
       transfer, the cache will be saved to the file name again if it has been
       modified.
+    <p class="Pp">If curl is told to use HTTP:// for a transfer involving a host
+        name that exists in the HSTS cache, it upgrades the transfer to use
+        HTTPS. Each HSTS cache entry has an individual life time after which the
+        upgrade is no longer performed.</p>
     <p class="Pp">Specify a &quot;&quot; file name (zero length) to avoid
         loading/saving and make curl just handle HSTS in memory.</p>
     <p class="Pp">If this option is used several times, curl will load contents
@@ -1999,15 +2015,43 @@
         --http1.0</i> and <i>--http2-prior-knowledge</i> and <i>--http3</i>.
         Added in 7.33.0.</p>
   </dd>
-  <dt id="http3"><a class="permalink" href="#http3">--http3</a></dt>
+  <dt id="http3-only"><a class="permalink" href="#http3-only">--http3-only</a></dt>
   <dd>(HTTP) **WARNING**: this option is experimental. Do not use in production.
-    <p class="Pp">Tells curl to use HTTP version 3 directly to the host and port
-        number used in the URL. A normal HTTP/3 transaction will be done to a
-        host and then get redirected via Alt-Svc, but this option allows a user
-        to circumvent that when you know that the target speaks HTTP/3 on the
+    <p class="Pp">Instructs curl to use HTTP/3 to the host in the URL, with no
+        fallback to earlier HTTP versions. HTTP/3 can only be used for HTTPS and
+        not for HTTP URLs. For HTTP, this option will trigger an error.</p>
+    <p class="Pp">This option allows a user to avoid using the Alt-Svc method of
+        upgrading to HTTP/3 when you know that the target speaks HTTP/3 on the
         given host and port.</p>
     <p class="Pp">This option will make curl fail if a QUIC connection cannot be
-        established, it cannot fall back to a lower HTTP version on its own.</p>
+        established, it will not attempt any other HTTP version on its own. Use
+        <i>--http3</i> for similar functionality <i>with</i> a fallback.</p>
+    <p class="Pp">Providing <i>--http3-only</i> multiple times has no extra
+        effect.</p>
+    <p class="Pp">Example:</p>
+    <pre>
+<br/>
+ curl --http3-only https://example.com</pre>
+    <p class="Pp">See also <i>--http1.1</i>, <i>--http2</i> and <i>--http3</i>.
+        <i>--http3-only</i> requires that the underlying libcurl was built to
+        support HTTP/3. This option is mutually exclusive to <i>--http1.1</i>
+        and <i>-0, --http1.0</i> and <i>--http2</i> and
+        <i>--http2-prior-knowledge</i> and <i>--http3</i>. Added in 7.88.0.</p>
+  </dd>
+  <dt id="http3"><a class="permalink" href="#http3">--http3</a></dt>
+  <dd>(HTTP) **WARNING**: this option is experimental. Do not use in production.
+    <p class="Pp">Tells curl to try HTTP/3 to the host in the URL, but fallback
+        to earlier HTTP versions if the HTTP/3 connection establishment fails.
+        HTTP/3 is only available for HTTPS and not for HTTP URLs.</p>
+    <p class="Pp">This option allows a user to avoid using the Alt-Svc method of
+        upgrading to HTTP/3 when you know that the target speaks HTTP/3 on the
+        given host and port.</p>
+    <p class="Pp">When asked to use HTTP/3, curl will issue a separate attempt
+        to use older HTTP versions with a slight delay, so if the HTTP/3
+        transfer fails or is very slow, curl will still try to proceed with an
+        older HTTP version.</p>
+    <p class="Pp">Use <i>--http3-only</i> for similar functionality
+        <i>without</i> a fallback.</p>
     <p class="Pp">Providing <i>--http3</i> multiple times has no extra
       effect.</p>
     <p class="Pp">Example:</p>
@@ -2017,8 +2061,8 @@
     <p class="Pp">See also <i>--http1.1</i> and <i>--http2</i>. <i>--http3</i>
         requires that the underlying libcurl was built to support HTTP/3. This
         option is mutually exclusive to <i>--http1.1</i> and <i>-0,
-        --http1.0</i> and <i>--http2</i> and <i>--http2-prior-knowledge</i>.
-        Added in 7.66.0.</p>
+        --http1.0</i> and <i>--http2</i> and <i>--http2-prior-knowledge</i> and
+        <i>--http3-only</i>. Added in 7.66.0.</p>
   </dd>
   <dt id="ignore-content-length"><a class="permalink" href="#ignore-content-length">--ignore-content-length</a></dt>
   <dd>(FTP HTTP) For HTTP, Ignore the Content-Length header. This is
@@ -2069,6 +2113,10 @@
         subdirectory, which contains host names and their public keys.</p>
     <p class="Pp"><b>WARNING</b>: using this option makes the transfer
       insecure.</p>
+    <p class="Pp">When curl uses secure protocols it trusts responses and allows
+        for example HSTS and Alt-Svc information to be stored and used
+        subsequently. Using <i>-k, --insecure</i> can make curl trust and use
+        such information from malicious servers.</p>
     <p class="Pp">Providing <i>-k, --insecure</i> multiple times has no extra
         effect. Disable it again with --no-insecure.</p>
     <p class="Pp">Example:</p>
@@ -2248,7 +2296,7 @@
       libcurl-using C source code written to the file that does the equivalent
       of what your command-line operation does!
     <p class="Pp">This option is global and does not need to be specified for
-        each use of <i>-:, --next</i>.</p>
+        each use of --next.</p>
     <p class="Pp">If <i>--libcurl</i> is provided several times, the last set
         value will be used.</p>
     <p class="Pp">Example:</p>
@@ -2443,8 +2491,6 @@
   </dd>
   <dt id="M,"><a class="permalink" href="#M,">-M, --manual</a></dt>
   <dd>Manual. Display the huge help text.
-    <p class="Pp">Providing <i>-M, --manual</i> multiple times has no extra
-        effect. Disable it again with --no-manual.</p>
     <p class="Pp">Example:</p>
     <pre>
 <br/>
@@ -2662,7 +2708,7 @@
       create any file.
     <p class="Pp">Note that this is the negated option name documented. You can
         thus use --clobber to enforce the clobbering, even if <i>-J,
-        --remote-header-name</i> or -J is specified.</p>
+        --remote-header-name</i> is specified.</p>
     <p class="Pp">Providing <i>--no-clobber</i> multiple times has no extra
         effect. Disable it again with --clobber.</p>
     <p class="Pp">Example:</p>
@@ -2888,7 +2934,7 @@
       rather than waiting to see if new transfers can be added as multiplexed
       streams on another connection.
     <p class="Pp">This option is global and does not need to be specified for
-        each use of <i>-:, --next</i>.</p>
+        each use of --next.</p>
     <p class="Pp">Providing <i>--parallel-immediate</i> multiple times has no
         extra effect. Disable it again with --no-parallel-immediate.</p>
     <p class="Pp">Example:</p>
@@ -2917,7 +2963,7 @@
   <dd>Makes curl perform its transfers in parallel as compared to the regular
       serial manner.
     <p class="Pp">This option is global and does not need to be specified for
-        each use of <i>-:, --next</i>.</p>
+        each use of --next.</p>
     <p class="Pp">Providing <i>-Z, --parallel</i> multiple times has no extra
         effect. Disable it again with --no-parallel.</p>
     <p class="Pp">Example:</p>
@@ -3057,7 +3103,7 @@
         moves back and forth but only while data is being transferred, with a
         set of flying hash sign symbols on top.</p>
     <p class="Pp">This option is global and does not need to be specified for
-        each use of <i>-:, --next</i>.</p>
+        each use of --next.</p>
     <p class="Pp">Providing <i>-#, --progress-bar</i> multiple times has no
         extra effect. Disable it again with --no-progress-bar.</p>
     <p class="Pp">Example:</p>
@@ -3768,16 +3814,18 @@
         unrestricted.</p>
     <p class="Pp">When retrying transfers, enabled with <i>--retry</i>, the
         separate retry delay logic is used and not this setting.</p>
+    <p class="Pp">This option is global and does not need to be specified for
+        each use of --next.</p>
     <p class="Pp">If <i>--rate</i> is provided several times, the last set value
         will be used.</p>
     <p class="Pp">Examples:</p>
     <pre>
 <br/>
- curl --rate 2/s https://example.com
+ curl --rate 2/s https://example.com ...
 <br/>
- curl --rate 3/h https://example.com
+ curl --rate 3/h https://example.com ...
 <br/>
- curl --rate 14/m https://example.com</pre>
+ curl --rate 14/m https://example.com ...</pre>
     <p class="Pp">See also <i>--limit-rate</i> and <i>--retry-delay</i>. Added
         in 7.84.0.</p>
   </dd>
@@ -3820,11 +3868,15 @@
         directory specified with <i>--output-dir</i>.</p>
     <p class="Pp">If the server specifies a file name and a file with that name
         already exists in the destination directory, it will not be overwritten
-        and an error will occur. If the server does not specify a file name then
-        this option has no effect.</p>
+        and an error will occur - unless you allow it by using the --clobber
+        option. If the server does not specify a file name then this option has
+        no effect.</p>
     <p class="Pp">There's no attempt to decode %-sequences (yet) in the provided
         file name, so this option may provide you with rather unexpected file
         names.</p>
+    <p class="Pp">This feature uses the name from the &quot;filename&quot;
+        field, it does not yet support the &quot;filename*&quot; field
+        (filenames with explicit character sets).</p>
     <p class="Pp"><b>WARNING</b>: Exercise judicious use of this option,
         especially on Windows. A rogue server could send you the name of a DLL
         or other file that could be loaded automatically by Windows or some
@@ -4136,7 +4188,7 @@
   <dd>When used with <i>-s, --silent</i>, it makes curl show an error message if
       it fails.
     <p class="Pp">This option is global and does not need to be specified for
-        each use of <i>-:, --next</i>.</p>
+        each use of --next.</p>
     <p class="Pp">Providing <i>-S, --show-error</i> multiple times has no extra
         effect. Disable it again with --no-show-error.</p>
     <p class="Pp">Example:</p>
@@ -4474,7 +4526,7 @@
   <dd>Redirect all writes to stderr to the specified file instead. If the file
       name is a plain '-', it is instead written to stdout.
     <p class="Pp">This option is global and does not need to be specified for
-        each use of <i>-:, --next</i>.</p>
+        each use of --next.</p>
     <p class="Pp">If <i>--stderr</i> is provided several times, the last set
         value will be used.</p>
     <p class="Pp">Example:</p>
@@ -4490,7 +4542,7 @@
         This feature is not present on curl for Windows due to lack of this
         capability.</p>
     <p class="Pp">This option is global and does not need to be specified for
-        each use of <i>-:, --next</i>.</p>
+        each use of --next.</p>
     <p class="Pp">Providing <i>--styled-output</i> multiple times has no extra
         effect. Disable it again with --no-styled-output.</p>
     <p class="Pp">Example:</p>
@@ -4798,7 +4850,7 @@
         and only shows the ASCII part of the dump. It makes smaller output that
         might be easier to read for untrained humans.</p>
     <p class="Pp">This option is global and does not need to be specified for
-        each use of <i>-:, --next</i>.</p>
+        each use of --next.</p>
     <p class="Pp">If <i>--trace-ascii</i> is provided several times, the last
         set value will be used.</p>
     <p class="Pp">Example:</p>
@@ -4811,7 +4863,7 @@
   <dt id="trace-time"><a class="permalink" href="#trace-time">--trace-time</a></dt>
   <dd>Prepends a time stamp to each trace or verbose line that curl displays.
     <p class="Pp">This option is global and does not need to be specified for
-        each use of <i>-:, --next</i>.</p>
+        each use of --next.</p>
     <p class="Pp">Providing <i>--trace-time</i> multiple times has no extra
         effect. Disable it again with --no-trace-time.</p>
     <p class="Pp">Example:</p>
@@ -4827,7 +4879,7 @@
       filename to have the output sent to stdout. Use &quot;%&quot; as filename
       to have the output sent to stderr.
     <p class="Pp">This option is global and does not need to be specified for
-        each use of <i>-:, --next</i>.</p>
+        each use of --next.</p>
     <p class="Pp">If <i>--trace</i> is provided several times, the last set
         value will be used.</p>
     <p class="Pp">Example:</p>
@@ -5006,20 +5058,21 @@
       data&quot; received by curl that is hidden in normal cases, and a line
       starting with '*' means additional info provided by curl.
     <p class="Pp">If you only want HTTP headers in the output, <i>-i,
-        --include</i> might be the option you are looking for.</p>
+        --include</i> or <i>-D, --dump-header</i> might be more suitable
+        options.</p>
     <p class="Pp">If you think this option still does not give you enough
         details, consider using <i>--trace</i> or <i>--trace-ascii</i>
       instead.</p>
     <p class="Pp">This option is global and does not need to be specified for
-        each use of <i>-:, --next</i>.</p>
-    <p class="Pp">Use <i>-s, --silent</i> to make curl really quiet.</p>
+        each use of --next.</p>
     <p class="Pp">Providing <i>-v, --verbose</i> multiple times has no extra
         effect. Disable it again with --no-verbose.</p>
     <p class="Pp">Example:</p>
     <pre>
 <br/>
  curl --verbose https://example.com</pre>
-    <p class="Pp">See also <i>-i, --include</i>. This option is mutually
+    <p class="Pp">See also <i>-i, --include</i>, <i>-s, --silent</i>,
+        <i>--trace</i> and <i>--trace-ascii</i>. This option is mutually
         exclusive to <i>--trace</i> and <i>--trace-ascii</i>.</p>
   </dd>
   <dt id="V,"><a class="permalink" href="#V,">-V, --version</a></dt>
@@ -5101,8 +5154,6 @@
       supported.</dd>
 </dl>
 </div>
-<p class="Pp">Providing <i>-V, --version</i> multiple times has no extra effect.
-    Disable it again with --no-version.</p>
 <p class="Pp">Example:</p>
 <pre>
 <br/>
@@ -5128,14 +5179,20 @@
         the header (without the trailing colon). The header contents are exactly
         as sent over the network, with leading and trailing whitespace trimmed.
         Added in curl 7.84.0.</p>
-    <p class="Pp"><b>NOTE:</b> The %-symbol is a special symbol in the
-        win32-environment, where all occurrences of % must be doubled when using
-        this option.</p>
+    <p class="Pp"><b>NOTE:</b> In Windows the %-symbol is a special symbol used
+        to expand environment variables. In batch files all occurrences of %
+        must be doubled when using this option to properly escape. If this
+        option is used at the command prompt then the % cannot be escaped and
+        unintended expansion is possible.</p>
     <p class="Pp">The variables available are:</p>
   </dd>
 </dl>
 <div class="Bd-indent">
 <dl class="Bl-tag">
+  <dt id="certs"><a class="permalink" href="#certs"><b>certs</b></a></dt>
+  <dd>Output the certificate chain with details. Supported only by the OpenSSL,
+      GnuTLS, Schannel, NSS, GSKit and Secure Transport backends (Added in
+      7.88.0)</dd>
   <dt id="content_type"><a class="permalink" href="#content_type"><b>content_type</b></a></dt>
   <dd>The Content-Type of the requested document, if there was any.</dd>
   <dt id="errormsg"><a class="permalink" href="#errormsg"><b>errormsg</b></a></dt>
@@ -5153,7 +5210,7 @@
   <dt id="header_json"><a class="permalink" href="#header_json"><b>header_json</b></a></dt>
   <dd>A JSON object with all HTTP response headers from the recent transfer.
       Values are provided as arrays, since in the case of multiple headers there
-      can be multiple values.
+      can be multiple values. (Added in 7.83.0)
     <p class="Pp">The header names provided in lowercase, listed in order of
         appearance over the wire. Except for duplicated headers. They are
         grouped on the first occurrence of that header, each value is presented
@@ -5177,6 +5234,10 @@
   <dt id="method"><a class="permalink" href="#method"><b>method</b></a></dt>
   <dd>The http method used in the most recent HTTP request. (Added in
     7.72.0)</dd>
+  <dt id="num_certs"><a class="permalink" href="#num_certs"><b>num_certs</b></a></dt>
+  <dd>Number of server certificates received in the TLS handshake. Supported
+      only by the OpenSSL, GnuTLS, Schannel, NSS, GSKit and Secure Transport
+      backends (Added in 7.88.0)</dd>
   <dt id="num_connects"><a class="permalink" href="#num_connects"><b>num_connects</b></a></dt>
   <dd>Number of new connects made in the recent transfer.</dd>
   <dt id="num_headers"><a class="permalink" href="#num_headers"><b>num_headers</b></a></dt>
@@ -5639,6 +5700,12 @@
   <dt>96</dt>
   <dd>QUIC connection error. This error may be caused by an SSL library error.
       QUIC is the protocol used for HTTP/3 transfers.</dd>
+  <dt>97</dt>
+  <dd>Proxy handshake error.</dd>
+  <dt>98</dt>
+  <dd>A client-side certificate is required to complete the TLS handshake.</dd>
+  <dt>99</dt>
+  <dd>Poll or select returned fatal error.</dd>
   <dt id="XX"><a class="permalink" href="#XX">XX</a></dt>
   <dd>More error codes will appear here in future releases. The existing ones
       are meant to never change.</dd>
