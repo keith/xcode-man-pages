@@ -76,17 +76,18 @@ CURLcode curl_easy_setopt(CURL *handle, CURLOPT_POSTFIELDS, char *postdata);</pr
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
-<p class="Pp">Pass a char * as parameter, pointing to the full data to send in
-    an HTTP POST operation. You must make sure that the data is formatted the
-    way you want the server to receive it. libcurl will not convert or encode it
-    for you in any way. For example, the web server may assume that this data is
-    URL encoded.</p>
+<p class="Pp">Pass a char * as parameter, pointing to the data buffer to use in
+    an HTTP POST operation. The data must be formatted and encoded the way you
+    want the server to receive it. libcurl does not convert or encode it in any
+    way. For example, the web server may assume that this data is URL
+  encoded.</p>
 <p class="Pp">The data pointed to is NOT copied by the library: as a
     consequence, it must be preserved by the calling application until the
     associated transfer finishes. This behavior can be changed (so libcurl does
-    copy the data) by setting the <i>CURLOPT_COPYPOSTFIELDS(3)</i> option.</p>
+    copy the data) by instead using the <i>CURLOPT_COPYPOSTFIELDS(3)</i>
+  option.</p>
 <p class="Pp">This POST is a normal <b>application/x-www-form-urlencoded</b>
-    kind (and libcurl will set that Content-Type by default when this option is
+    kind (and libcurl sets that Content-Type by default when this option is
     used), which is commonly used by HTML forms. Change Content-Type with
     <i>CURLOPT_HTTPHEADER(3)</i>.</p>
 <p class="Pp">You can use <i>curl_easy_escape(3)</i> to URL encode your data, if
@@ -95,16 +96,16 @@ CURLcode curl_easy_setopt(CURL *handle, CURLOPT_POSTFIELDS, char *postdata);</pr
 <p class="Pp">Using <i>CURLOPT_POSTFIELDS(3)</i> implies setting
     <i>CURLOPT_POST(3)</i> to 1.</p>
 <p class="Pp">If <i>CURLOPT_POSTFIELDS(3)</i> is explicitly set to NULL then
-    libcurl will get the POST data from the read callback. If you want to send a
+    libcurl gets the POST data from the read callback. If you want to send a
     zero-byte POST set <i>CURLOPT_POSTFIELDS(3)</i> to an empty string, or set
     <i>CURLOPT_POST(3)</i> to 1 and <i>CURLOPT_POSTFIELDSIZE(3)</i> to 0.</p>
-<p class="Pp">libcurl will use assume this option points to a null-terminated
-    string unless you also set <i>CURLOPT_POSTFIELDSIZE(3)</i> to specify the
-    length of the provided data, which then is strictly required if you want to
-    send off null bytes included in the data.</p>
+<p class="Pp">libcurl assumes this option points to a null-terminated string
+    unless you also set <i>CURLOPT_POSTFIELDSIZE(3)</i> to specify the length of
+    the provided data, which then is strictly required if you want to send off
+    null bytes included in the data.</p>
 <p class="Pp">Using POST with HTTP 1.1 implies the use of a &quot;Expect:
-    100-continue&quot; header, and libcurl will add that header automatically if
-    the POST is either known to be larger than 1MB or if the expected size is
+    100-continue&quot; header, and libcurl adds that header automatically if the
+    POST is either known to be larger than 1MB or if the expected size is
     unknown. You can disable this header with <i>CURLOPT_HTTPHEADER(3)</i> as
     usual.</p>
 <p class="Pp">To make <b>multipart/formdata</b> posts, check out the
@@ -121,23 +122,49 @@ CURLcode curl_easy_setopt(CURL *handle, CURLOPT_POSTFIELDS, char *postdata);</pr
 </section>
 <section class="Sh">
 <h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
-<pre>CURL *curl = curl_easy_init();
+<pre>/* send an application/x-www-form-urlencoded POST */
+CURL *curl = curl_easy_init();
 if(curl) {
 <br/>
   const char *data = &quot;data to send&quot;;
 <br/>
   curl_easy_setopt(curl, CURLOPT_URL, &quot;https://example.com&quot;);
 <br/>
-  /* size of the POST data */
+  /* size of the POST data if strlen() is not good enough */
 <br/>
   curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, 12L);
 <br/>
-  /* pass in a pointer to the data - libcurl will not copy */
+  /* pass in a pointer to the data - libcurl does not copy */
 <br/>
   curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data);
 <br/>
   curl_easy_perform(curl);
-}</pre>
+}
+/* send an application/json POST */
+CURL *curl = curl_easy_init();
+if(curl) {
+<br/>
+  const char *json = &quot;{
+<br/>
+  struct curl_slist *slist1 = NULL;
+<br/>
+  slist1 = curl_slist_append(slist1, &quot;Content-Type: application/json&quot;);
+<br/>
+  slist1 = curl_slist_append(slist1, &quot;Accept: application/json&quot;);
+<br/>
+  /* set custom headers */
+<br/>
+  curl_easy_setopt(hnd, CURLOPT_HTTPHEADER, slist1);
+<br/>
+  curl_easy_setopt(curl, CURLOPT_URL, &quot;https://example.com&quot;);
+<br/>
+  /* pass in a pointer to the data - libcurl does not copy */
+<br/>
+  curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json);
+<br/>
+  curl_easy_perform(curl);
+}
+</pre>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
@@ -151,14 +178,14 @@ if(curl) {
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
-<p class="Pp"><b>CURLOPT_POSTFIELDSIZE</b>(3), <b>CURLOPT_READFUNCTION</b>(3),
-    <b>CURLOPT_MIMEPOST</b>(3), <b>CURLOPT_UPLOAD</b>(3), </p>
+<p class="Pp"><b>CURLOPT_MIMEPOST</b>(3), <b>CURLOPT_POSTFIELDSIZE</b>(3),
+    <b>CURLOPT_READFUNCTION</b>(3), <b>CURLOPT_UPLOAD</b>(3)</p>
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">October 17, 2022</td>
-    <td class="foot-os">libcurl 7.86.0</td>
+    <td class="foot-date">September 26, 2023</td>
+    <td class="foot-os">ibcurl 8.4.0</td>
   </tr>
 </table>
 </body>

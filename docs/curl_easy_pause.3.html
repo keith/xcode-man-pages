@@ -77,38 +77,39 @@
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
 <p class="Pp">Using this function, you can explicitly mark a running connection
-    to get paused, and you can unpause a connection that was previously
-  paused.</p>
+    to get paused, and you can unpause a connection that was previously paused.
+    Unlike most other libcurl functions, <i>curl_easy_pause(3)</i> can be used
+    from within callbacks.</p>
 <p class="Pp">A connection can be paused by using this function or by letting
     the read or the write callbacks return the proper magic return code
     (<i>CURL_READFUNC_PAUSE</i> and <i>CURL_WRITEFUNC_PAUSE</i>). A write
     callback that returns pause signals to the library that it could not take
-    care of any data at all, and that data will then be delivered again to the
+    care of any data at all, and that data is then delivered again to the
     callback when the transfer is unpaused.</p>
 <p class="Pp">While it may feel tempting, take care and notice that you cannot
     call this function from another thread. To unpause, you may for example call
     it from the progress callback (<i>CURLOPT_PROGRESSFUNCTION(3)</i>).</p>
 <p class="Pp">When this function is called to unpause receiving, the write
     callback might get called before this function returns to deliver cached
-    content. When libcurl delivers such cached data to the write callback, it
-    will be delivered as fast as possible, which may overstep the boundary set
-    in <i>CURLOPT_MAX_RECV_SPEED_LARGE(3)</i> etc.</p>
+    content. When libcurl delivers such cached data to the write callback, it is
+    delivered as fast as possible, which may overstep the boundary set in
+    <i>CURLOPT_MAX_RECV_SPEED_LARGE(3)</i> etc.</p>
 <p class="Pp">The <b>handle</b> argument identifies the transfer you want to
     pause or unpause.</p>
 <p class="Pp">A paused transfer is excluded from low speed cancels via the
-    <i>CURLOPT_LOW_SPEED_LIMIT(3)</i> option and unpausing a transfer will reset
-    the time period required for the low speed limit to be met.</p>
+    <i>CURLOPT_LOW_SPEED_LIMIT(3)</i> option and unpausing a transfer resets the
+    time period required for the low speed limit to be met.</p>
 <p class="Pp">The <b>bitmask</b> argument is a set of bits that sets the new
     state of the connection. The following bits can be used:</p>
 <dl class="Bl-tag">
   <dt id="CURLPAUSE_RECV"><a class="permalink" href="#CURLPAUSE_RECV">CURLPAUSE_RECV</a></dt>
-  <dd>Pause receiving data. There will be no data received on this connection
-      until this function is called again without this bit set. Thus, the write
-      callback (<i>CURLOPT_WRITEFUNCTION(3)</i>) will not be called.</dd>
+  <dd>Pause receiving data. There is no data received on this connection until
+      this function is called again without this bit set. Thus, the write
+      callback (<i>CURLOPT_WRITEFUNCTION(3)</i>) is not called.</dd>
   <dt id="CURLPAUSE_SEND"><a class="permalink" href="#CURLPAUSE_SEND">CURLPAUSE_SEND</a></dt>
-  <dd>Pause sending data. There will be no data sent on this connection until
-      this function is called again without this bit set. Thus, the read
-      callback (<i>CURLOPT_READFUNCTION(3)</i>) will not be called.</dd>
+  <dd>Pause sending data. There is no data sent on this connection until this
+      function is called again without this bit set. Thus, the read callback
+      (<i>CURLOPT_READFUNCTION(3)</i>) is not called.</dd>
   <dt id="CURLPAUSE_ALL"><a class="permalink" href="#CURLPAUSE_ALL">CURLPAUSE_ALL</a></dt>
   <dd>Convenience define that pauses both directions.</dd>
   <dt id="CURLPAUSE_CONT"><a class="permalink" href="#CURLPAUSE_CONT">CURLPAUSE_CONT</a></dt>
@@ -119,8 +120,7 @@
 <h1 class="Sh" id="LIMITATIONS"><a class="permalink" href="#LIMITATIONS">LIMITATIONS</a></h1>
 <p class="Pp">The pausing of transfers does not work with protocols that work
     without network connectivity, like FILE://. Trying to pause such a transfer,
-    in any direction, will cause problems in the worst case or an error in the
-    best case.</p>
+    in any direction, might cause problems or error.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="MULTIPLEXED"><a class="permalink" href="#MULTIPLEXED">MULTIPLEXED</a></h1>
@@ -128,12 +128,12 @@
     the transfers over the connection is paused and the others continue flowing,
     libcurl might end up buffering contents for the paused transfer. It has to
     do this because it needs to drain the socket for the other transfers and the
-    already announced window size for the paused transfer will allow the server
-    to continue sending data up to that window size amount. By default, libcurl
+    already announced window size for the paused transfer allows the server to
+    continue sending data up to that window size amount. By default, libcurl
     announces a 32 megabyte window size, which thus can make libcurl end up
     buffering 32 megabyte of data for a paused stream.</p>
-<p class="Pp">When such a paused stream is unpaused again, any buffered data
-    will be delivered first.</p>
+<p class="Pp">When such a paused stream is unpaused again, any buffered data is
+    delivered first.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
@@ -143,17 +143,21 @@ curl_easy_pause(curl, CURL_READFUNC_PAUSE | CURL_WRITEFUNC_PAUSE);</pre>
 <section class="Sh">
 <h1 class="Sh" id="MEMORY_USE"><a class="permalink" href="#MEMORY_USE">MEMORY
   USE</a></h1>
-<p class="Pp">When pausing a read by returning the magic return code from a
-    write callback, the read data is already in libcurl's internal buffers so it
-    will have to keep it in an allocated buffer until the receiving is again
-    unpaused using this function.</p>
+<p class="Pp">When pausing a download transfer by returning the magic return
+    code from a write callback, the read data is already in libcurl's internal
+    buffers so it has to keep it in an allocated buffer until the receiving is
+    again unpaused using this function.</p>
 <p class="Pp">If the downloaded data is compressed and is asked to get
-    uncompressed automatically on download, libcurl will continue to uncompress
-    the entire downloaded chunk and it will cache the data uncompressed. This
-    has the side- effect that if you download something that is compressed a
-    lot, it can result in a large data amount needing to be allocated to save
-    the data during the pause. This said, you should probably consider not using
-    paused receiving if you allow libcurl to uncompress data automatically.</p>
+    uncompressed automatically on download, libcurl continues to uncompress the
+    entire downloaded chunk and it caches the data uncompressed. This has the
+    side- effect that if you download something that is compressed a lot, it can
+    result in a large data amount needing to be allocated to save the data
+    during the pause. consider not using paused receiving if you allow libcurl
+    to uncompress data automatically.</p>
+<p class="Pp">If the download is done with HTTP/2 or HTTP/3, there is up to a
+    stream window size worth of data that curl cannot stop but instead needs to
+    cache while the transfer is paused. This means that if a window size of 64
+    MB is used, libcurl might end up having to cache 64 MB of data.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
