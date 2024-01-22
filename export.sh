@@ -26,7 +26,7 @@ do
 
     output_path="$output_dir/$(basename "$file").html"
     (timeout 5 bsdman -Thtml "$file" > "$output_path" \
-      || roff2html "$file" > "$output_path") && \
+      || (echo "warning: invalid man page: $file" && exit 1)) && \
       "$script_root/add_custom_css.py" "$output_path" &
   done
 done
