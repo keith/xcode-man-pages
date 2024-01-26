@@ -158,7 +158,8 @@
     represent a single regop of the program. Struct
     <span class="Li">&quot;regnode&quot;</span> is the smallest struct needed,
     and has a field structure which is shared with all the other larger
-    structures.</p>
+    structures. (Outside this document, the term &quot;regnode&quot; is
+    sometimes used to mean &quot;regop&quot;, which could be confusing.)</p>
 <p class="Pp">The &quot;next&quot; pointers of all regops except
     <span class="Li">&quot;BRANCH&quot;</span> implement concatenation; a
     &quot;next&quot; pointer with a <span class="Li">&quot;BRANCH&quot;</span>
@@ -209,8 +210,8 @@
   <dt>&quot;regnode_string&quot;</dt>
   <dd><span class="Li">&quot;regnode_string&quot;</span> structures, used for
       literal strings, follow the header with a one-byte length and then the
-      string data. Strings are padded on the end with zero bytes so that the
-      total length of the node is a multiple of four bytes:
+      string data. Strings are padded on the tail end with zero bytes so that
+      the total length of the node is a multiple of four bytes:
     <p class="Pp"></p>
     <pre>    regnode_string           char string[1];
                              U8 str_len; /* overrides flags */
@@ -305,11 +306,9 @@
 </dl>
 <div class="Bd-indent">
 <dl class="Bl-tag">
-  <dt>1. Parsing for size</dt>
+  <dt>1. Parsing</dt>
   <dd></dd>
-  <dt>2. Parsing for construction</dt>
-  <dd></dd>
-  <dt>3. Peep-hole optimisation and analysis</dt>
+  <dt>2. Peep-hole optimisation and analysis</dt>
   <dd></dd>
 </dl>
 </div>
@@ -320,9 +319,9 @@
 </dl>
 <div class="Bd-indent">
 <dl class="Bl-tag">
-  <dt>4. Start position and no-match optimisations</dt>
+  <dt>3. Start position and no-match optimisations</dt>
   <dd></dd>
-  <dt>5. Program execution</dt>
+  <dt>4. Program execution</dt>
   <dd></dd>
 </dl>
 </div>
@@ -355,28 +354,13 @@
     many macros which operate on this variable: anything that looks like
     <span class="Li">&quot;RExC_xxxx&quot;</span> is a macro that operates on
     this pointer/structure.</p>
-<p class="Pp"><i>Parsing for size</i></p>
-<p class="Pp">In this pass the input pattern is parsed in order to calculate how
-    much space is needed for each regop we would need to emit. The size is also
-    used to determine whether long jumps will be required in the program.</p>
-<p class="Pp">This stage is controlled by the macro
-    <span class="Li">&quot;SIZE_ONLY&quot;</span> being set.</p>
-<p class="Pp">The parse proceeds pretty much exactly as it does during the
-    construction phase, except that most routines are short-circuited to change
-    the size field <span class="Li">&quot;RExC_size&quot;</span> and not do
-    anything else.</p>
-<p class="Pp"><i>Parsing for construction</i></p>
-<p class="Pp">Once the size of the program has been determined, the pattern is
-    parsed again, but this time for real. Now
-    <span class="Li">&quot;SIZE_ONLY&quot;</span> will be false, and the actual
-    construction can occur.</p>
 <p class="Pp"><span class="Li">&quot;reg()&quot;</span> is the start of the
     parse process. It is responsible for parsing an arbitrary chunk of pattern
     up to either the end of the string, or the first closing parenthesis it
     encounters in the pattern. This means it can be used to parse the top-level
     regex, or any section inside of a grouping parenthesis. It also handles the
     &quot;special parens&quot; that perl's regexes have. For instance when
-    parsing <span class="Li">&quot;/x(?:foo)y/&quot;</span>
+    parsing <span class="Li">&quot;/x(?:foo)y/&quot;</span>,
     <span class="Li">&quot;reg()&quot;</span> will at one point be called to
     parse from the &quot;?&quot; symbol up to and including the
   &quot;)&quot;.</p>
@@ -396,6 +380,31 @@
     <span class="Li">&quot;$&quot;</span>. If
     <span class="Li">&quot;regatom()&quot;</span> encounters a &quot;(&quot;
     character it in turn calls <span class="Li">&quot;reg()&quot;</span>.</p>
+<p class="Pp">There used to be two main passes involved in parsing, the first to
+    calculate the size of the compiled program, and the second to actually
+    compile it. But now there is only one main pass, with an initial crude guess
+    based on the length of the input pattern, which is increased if necessary as
+    parsing proceeds, and afterwards, trimmed to the actual amount used.</p>
+<p class="Pp">However, it may happen that parsing must be restarted at the
+    beginning when various circumstances occur along the way. An example is if
+    the program turns out to be so large that there are jumps in it that won't
+    fit in the normal 16 bits available. There are two special regops that can
+    hold bigger jump destinations, BRANCHJ and LONGBRANCH. The parse is
+    restarted, and these are used instead of the normal shorter ones. Whenever
+    restarting the parse is required, the function returns failure and sets a
+    flag as to what needs to be done. This is passed up to the top level routine
+    which takes the appropriate action and restarts from scratch. In the case of
+    needing longer jumps, the
+    <span class="Li">&quot;RExC_use_BRANCHJ&quot;</span> flag is set in the
+    <span class="Li">&quot;RExC_state_t&quot;</span> structure, which the
+    functions know to inspect before deciding how to do branches.</p>
+<p class="Pp">In most instances, the function that discovers the issue sets the
+    causal flag and returns failure immediately. &quot;Parsing
+    complications&quot; contains an explicit example of how this works. In other
+    cases, such as a forward reference to a numbered parenthetical grouping, we
+    need to finish the parse to know if that numbered grouping actually appears
+    in the pattern. In those cases, the parse is just redone at the end, with
+    the knowledge of how many groupings occur in it.</p>
 <p class="Pp">The routine <span class="Li">&quot;regtail()&quot;</span> is
     called by both <span class="Li">&quot;reg()&quot;</span> and
     <span class="Li">&quot;regbranch()&quot;</span> in order to &quot;set the
@@ -479,16 +488,12 @@
     the pattern which must be stored as Unicode, such as an
     <span class="Li">&quot;\x{...}&quot;</span> escape sequence representing a
     character literal, then this means that all previously calculated sizes need
-    to be redone, using values appropriate for the Unicode representation.
-    Currently, all regular expression constructions which can trigger this are
-    parsed by code in <span class="Li">&quot;regatom()&quot;</span>.</p>
-<p class="Pp">To avoid wasted work when a restart is needed, the sizing pass is
-    abandoned - <span class="Li">&quot;regatom()&quot;</span> immediately
-    returns NULL, setting the flag
-    <span class="Li">&quot;RESTART_UTF8&quot;</span>. (This action is
-    encapsulated using the macro
-    <span class="Li">&quot;REQUIRE_UTF8&quot;</span>.) This restart request is
-    propagated up the call chain in a similar fashion, until it is
+    to be redone, using values appropriate for the Unicode representation. This
+    is another instance where the parsing needs to be restarted, and it can and
+    is done immediately. The function returns failure, and sets the flag
+    <span class="Li">&quot;RESTART_UTF8&quot;</span> (encapsulated by using the
+    macro <span class="Li">&quot;REQUIRE_UTF8&quot;</span>). This restart
+    request is propagated up the call chain in a similar fashion, until it is
     &quot;caught&quot; in
     <span class="Li">&quot;Perl_re_op_compile()&quot;</span>, which marks the
     pattern as containing Unicode, and restarts the sizing pass. It is also
@@ -505,10 +510,11 @@
     variables, which interact badly with the emergent control flow of
     <span class="Li">&quot;setjmp&quot;</span>.</p>
 <p class="Pp"><i>Debug Output</i></p>
-<p class="Pp">In the 5.9.x development version of perl you can
-    <span class="Li">&quot;use re Debug =&gt; 'PARSE'&quot;</span> to see some
-    trace information about the parse process. We will start with some simple
-    patterns and build up to more complex patterns.</p>
+<p class="Pp">Starting in the 5.9.x development version of perl you can
+    <span class="Li">&quot;use re</span> <span class="Li">Debug =&gt;
+    'PARSE'&quot;</span> to see some trace information about the parse process.
+    We will start with some simple patterns and build up to more complex
+    patterns.</p>
 <p class="Pp">So when we parse <span class="Li">&quot;/foo/&quot;</span> we see
     something like the following table. The left shows what is being parsed, and
     the number indicates where the next regop would go. The stuff on the right
@@ -967,6 +973,7 @@
 <p class="Pp">With excerpts from Perl, and contributions and suggestions from
     Ronald J. Kimball, Dave Mitchell, Dominic Dunlop, Mark Jason Dominus,
     Stephen McCamant, and David Landgren.</p>
+<p class="Pp">Now maintained by Perl 5 Porters.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="LICENCE"><a class="permalink" href="#LICENCE">LICENCE</a></h1>
@@ -974,14 +981,14 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="REFERENCES"><a class="permalink" href="#REFERENCES">REFERENCES</a></h1>
-<p class="Pp">[1] &lt;http://perl.plover.com/Rx/paper/&gt;</p>
-<p class="Pp">[2] &lt;http://www.unicode.org&gt;</p>
+<p class="Pp">[1] &lt;https://perl.plover.com/Rx/paper/&gt;</p>
+<p class="Pp">[2] &lt;https://www.unicode.org/&gt;</p>
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">2019-10-21</td>
-    <td class="foot-os">perl v5.30.3</td>
+    <td class="foot-date">2022-02-19</td>
+    <td class="foot-os">perl v5.34.1</td>
   </tr>
 </table>
 </body>

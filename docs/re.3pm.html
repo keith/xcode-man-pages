@@ -158,8 +158,8 @@
 <p class="Pp">that is, the character whose code point value is
     <span class="Li">0xAB</span>, followed by the letter
     <span class="Li">&quot;C&quot;</span>. But since
-    <span class="Li">&quot;C&quot;</span> is a a hex digit, there is a
-    reasonable chance that the intent was</p>
+    <span class="Li">&quot;C&quot;</span> is a hex digit, there is a reasonable
+    chance that the intent was</p>
 <p class="Pp"></p>
 <pre> qr/\x{ABC}/
 </pre>
@@ -275,7 +275,7 @@
 <div class="Bd-indent">
 <dl class="Bl-tag">
   <dt id="COMPILE"><a class="permalink" href="#COMPILE">COMPILE</a></dt>
-  <dd>Turns on all compile related debug options.</dd>
+  <dd>Turns on all non-extra compile related debug options.</dd>
   <dt id="PARSE"><a class="permalink" href="#PARSE">PARSE</a></dt>
   <dd>Turns on debug output related to the process of parsing the pattern.</dd>
   <dt id="OPTIMISE"><a class="permalink" href="#OPTIMISE">OPTIMISE</a></dt>
@@ -300,7 +300,7 @@
 <div class="Bd-indent">
 <dl class="Bl-tag">
   <dt id="EXECUTE"><a class="permalink" href="#EXECUTE">EXECUTE</a></dt>
-  <dd>Turns on all execute related debug options.</dd>
+  <dd>Turns on all non-extra execute related debug options.</dd>
   <dt id="MATCH"><a class="permalink" href="#MATCH">MATCH</a></dt>
   <dd>Turns on debugging of the main matching loop.</dd>
   <dt id="TRIEE"><a class="permalink" href="#TRIEE">TRIEE</a></dt>
@@ -351,6 +351,34 @@
     <p class="Pp">Almost definitely only useful to people hacking on the offsets
         part of the debug engine.</p>
   </dd>
+  <dt id="DUMP_PRE_OPTIMIZE"><a class="permalink" href="#DUMP_PRE_OPTIMIZE">DUMP_PRE_OPTIMIZE</a></dt>
+  <dd>Enable the dumping of the compiled pattern before the optimization
+    phase.</dd>
+  <dt id="WILDCARD"><a class="permalink" href="#WILDCARD">WILDCARD</a></dt>
+  <dd>When Perl encounters a wildcard subpattern, (see &quot;Wildcards in
+      Property Values&quot; in perlunicode), it suspends compilation of the main
+      pattern, compiles the subpattern, and then matches that against all legal
+      possibilities to determine the actual code points the subpattern matches.
+      After that it adds these to the main pattern, and continues its
+      compilation.
+    <p class="Pp">You may very well want to see how your subpattern gets
+        compiled, but it is likely of less use to you to see how Perl matches
+        that against all the legal possibilities, as that is under control of
+        Perl, not you. Therefore, the debugging information of the compilation
+        portion is as specified by the other options, but the debugging output
+        of the matching portion is normally suppressed.</p>
+    <p class="Pp">You can use the WILDCARD option to enable the debugging output
+        of this subpattern matching. Careful! This can lead to voluminous
+        outputs, and it may not make much sense to you what and why Perl is
+        doing what it is. But it may be helpful to you to see why things aren't
+        going the way you expect.</p>
+    <p class="Pp">Note that this option alone doesn't cause any debugging
+        information to be output. What it does is stop the normal suppression of
+        execution-related debugging information during the matching portion of
+        the compilation of wildcards. You also have to specify which execution
+        debugging information you want, such as by also including the EXECUTE
+        option.</p>
+  </dd>
 </dl>
 </div>
 <div class="Bd-indent"></div>
@@ -361,12 +389,13 @@
 <div class="Bd-indent">
 <dl class="Bl-tag">
   <dt id="ALL"><a class="permalink" href="#ALL">ALL</a></dt>
-  <dd>Enable all options at once except OFFSETS, OFFSETSDBG and BUFFERS. (To get
-      every single option without exception, use both ALL and EXTRA, or starting
-      in 5.30 on a <span class="Li">&quot;-DDEBUGGING&quot;</span>-enabled perl
-      interpreter, use the <b>-Drv</b> command-line switches.)</dd>
+  <dd>Enable all options at once except OFFSETS, OFFSETSDBG, BUFFERS, WILDCARD,
+      and DUMP_PRE_OPTIMIZE. (To get every single option without exception, use
+      both ALL and EXTRA, or starting in 5.30 on a
+      <span class="Li">&quot;-DDEBUGGING&quot;</span>-enabled perl interpreter,
+      use the <b>-Drv</b> command-line switches.)</dd>
   <dt id="All"><a class="permalink" href="#All">All</a></dt>
-  <dd>Enable DUMP and all execute options. Equivalent to:
+  <dd>Enable DUMP and all non-extra execute options. Equivalent to:
     <p class="Pp"></p>
     <pre>  use re 'debug';
     </pre>
@@ -422,6 +451,24 @@
         function will not be confused by overloading or blessing of the
       object.</p>
   </dd>
+  <dt id="regname($name,$all)"><a class="permalink" href="#regname($name,$all)">regname($name,$all)</a></dt>
+  <dd>Returns the contents of a named buffer of the last successful match. If
+      <span class="Li">$all</span> is true, then returns an array ref containing
+      one entry per buffer, otherwise returns the first defined buffer.</dd>
+  <dt id="regnames($all)"><a class="permalink" href="#regnames($all)">regnames($all)</a></dt>
+  <dd>Returns a list of all of the named buffers defined in the last successful
+      match. If <span class="Li">$all</span> is true, then it returns all names
+      defined, if not it returns only names which were involved in the
+    match.</dd>
+  <dt id="regnames_count()"><a class="permalink" href="#regnames_count()"><b>regnames_count()</b></a></dt>
+  <dd>Returns the number of distinct names defined in the pattern used for the
+      last successful match.
+    <p class="Pp"><b>Note:</b> this result is always the actual number of
+        distinct named buffers defined, it may not actually match that which is
+        returned by <span class="Li">&quot;regnames()&quot;</span> and related
+        routines when those routines have not been called with the
+        <span class="Li">$all</span> parameter set.</p>
+  </dd>
   <dt id="regmust($ref)"><a class="permalink" href="#regmust($ref)">regmust($ref)</a></dt>
   <dd>If the argument is a compiled regular expression as returned by
       <span class="Li">&quot;qr//&quot;</span>, then this function returns what
@@ -455,25 +502,101 @@
         the Perl that you are using thinks is the longest. If you believe that
         the result is wrong please report it via the perlbug utility.</p>
   </dd>
-  <dt id="regname($name,$all)"><a class="permalink" href="#regname($name,$all)">regname($name,$all)</a></dt>
-  <dd>Returns the contents of a named buffer of the last successful match. If
-      <span class="Li">$all</span> is true, then returns an array ref containing
-      one entry per buffer, otherwise returns the first defined buffer.</dd>
-  <dt id="regnames($all)"><a class="permalink" href="#regnames($all)">regnames($all)</a></dt>
-  <dd>Returns a list of all of the named buffers defined in the last successful
-      match. If <span class="Li">$all</span> is true, then it returns all names
-      defined, if not it returns only names which were involved in the
-    match.</dd>
-  <dt id="regnames_count()"><a class="permalink" href="#regnames_count()"><b>regnames_count()</b></a></dt>
-  <dd>Returns the number of distinct names defined in the pattern used for the
-      last successful match.
-    <p class="Pp"><b>Note:</b> this result is always the actual number of
-        distinct named buffers defined, it may not actually match that which is
-        returned by <span class="Li">&quot;regnames()&quot;</span> and related
-        routines when those routines have not been called with the
-        <span class="Li">$all</span> parameter set.</p>
+  <dt id="optimization($ref)"><a class="permalink" href="#optimization($ref)">optimization($ref)</a></dt>
+  <dd>If the argument is a compiled regular expression as returned by
+      <span class="Li">&quot;qr//&quot;</span>, then this function returns a
+      hashref of the optimization information discovered at compile time, so we
+      can write tests around it. If any other argument is given, returns
+      <span class="Li">&quot;undef&quot;</span>.
+    <p class="Pp">The hash contents are expected to change from time to time as
+        we develop new ways to optimize - no assumption of stability should be
+        made, not even between minor versions of perl.</p>
+    <p class="Pp">For the current version, the hash will have the following
+        contents:</p>
   </dd>
 </dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="minlen"><a class="permalink" href="#minlen">minlen</a></dt>
+  <dd>An integer, the least number of characters in any string that can
+    match.</dd>
+  <dt id="minlenret"><a class="permalink" href="#minlenret">minlenret</a></dt>
+  <dd>An integer, the least number of characters that can be in
+      <span class="Li">$&amp;</span> after a match. (Consider eg
+      <span class="Li">&quot; /ns(?=\d)/ &quot;</span>.)</dd>
+  <dt id="gofs"><a class="permalink" href="#gofs">gofs</a></dt>
+  <dd>An integer, the number of characters before
+      <span class="Li">&quot;pos()&quot;</span> to start match at.</dd>
+  <dt id="noscan"><a class="permalink" href="#noscan">noscan</a></dt>
+  <dd>A boolean, <span class="Li">&quot;TRUE&quot;</span> to indicate that any
+      anchored/floating substrings found should not be used. (CHECKME:
+      apparently this is set for an anchored pattern with no floating substring,
+      but never used.)</dd>
+  <dt id="isall"><a class="permalink" href="#isall">isall</a></dt>
+  <dd>A boolean, <span class="Li">&quot;TRUE&quot;</span> to indicate that the
+      optimizer information is all that the regular expression contains, and
+      thus one does not need to enter the regexp runtime engine at all.</dd>
+  <dt id="anchor"><a class="permalink" href="#anchor">anchor SBOL</a></dt>
+  <dd>A boolean, <span class="Li">&quot;TRUE&quot;</span> if the pattern is
+      anchored to start of string.</dd>
+  <dt id="anchor~2"><a class="permalink" href="#anchor~2">anchor MBOL</a></dt>
+  <dd>A boolean, <span class="Li">&quot;TRUE&quot;</span> if the pattern is
+      anchored to any start of line within the string.</dd>
+  <dt id="anchor~3"><a class="permalink" href="#anchor~3">anchor GPOS</a></dt>
+  <dd>A boolean, <span class="Li">&quot;TRUE&quot;</span> if the pattern is
+      anchored to the end of the previous match.</dd>
+  <dt id="skip"><a class="permalink" href="#skip">skip</a></dt>
+  <dd>A boolean, <span class="Li">&quot;TRUE&quot;</span> if the start class can
+      match only the first of a run.</dd>
+  <dt id="implicit"><a class="permalink" href="#implicit">implicit</a></dt>
+  <dd>A boolean, <span class="Li">&quot;TRUE&quot;</span> if a
+      <span class="Li">&quot;/.*/&quot;</span> has been turned implicitly into a
+      <span class="Li">&quot;/^.*/&quot;</span>.</dd>
+  <dt id="anchored/floating"><a class="permalink" href="#anchored/floating">anchored/floating</a></dt>
+  <dd>A byte string representing an anchored or floating substring respectively
+      that any match must contain, or undef if no such substring was found, or
+      if the substring would require utf8 to represent.</dd>
+  <dt id="anchored"><a class="permalink" href="#anchored">anchored utf8/floating
+    utf8</a></dt>
+  <dd>A utf8 string representing an anchored or floating substring respectively
+      that any match must contain, or undef if no such substring was found, or
+      if the substring contains only 7-bit ASCII characters.</dd>
+  <dt id="anchored~2"><a class="permalink" href="#anchored~2">anchored min
+    offset/floating min offset</a></dt>
+  <dd>An integer, the first offset in characters from a match location at which
+      we should look for the corresponding substring.</dd>
+  <dt id="anchored~3"><a class="permalink" href="#anchored~3">anchored max
+    offset/floating max offset</a></dt>
+  <dd>An integer, the last offset in characters from a match location at which
+      we should look for the corresponding substring.
+    <p class="Pp">Ignored for anchored, so may be 0 or same as min.</p>
+  </dd>
+  <dt id="anchored~4"><a class="permalink" href="#anchored~4">anchored end
+    shift/floating end shift</a></dt>
+  <dd>FIXME: not sure what this is, something to do with lookbehind. regcomp.c
+      says:
+    <br/>
+     When the final pattern is compiled and the data is moved from the
+    <br/>
+     scan_data_t structure into the regexp structure the information
+    <br/>
+     about lookbehind is factored in, with the information that would
+    <br/>
+     have been lost precalculated in the end_shift field for the
+    <br/>
+     associated string.</dd>
+  <dt id="checking"><a class="permalink" href="#checking">checking</a></dt>
+  <dd>A constant string, one of &quot;anchored&quot;, &quot;floating&quot; or
+      &quot;none&quot; to indicate which substring (if any) should be checked
+      for first.</dd>
+  <dt id="stclass"><a class="permalink" href="#stclass">stclass</a></dt>
+  <dd>A string representation of a character class (&quot;start class&quot;)
+      that must be the first character of any match.
+    <p class="Pp">TODO: explain the representations.</p>
+  </dd>
+</dl>
+</div>
+<div class="Bd-indent"></div>
 </section>
 </section>
 <section class="Sh">

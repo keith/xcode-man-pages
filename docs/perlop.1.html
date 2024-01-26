@@ -91,7 +91,7 @@
     <span class="Li">&quot;2 + 20 == 22&quot;</span>, rather than
     <span class="Li">&quot;6 * 5 == 30&quot;</span>.</p>
 <p class="Pp"><i>Operator associativity</i> defines what happens if a sequence
-    of the same operators is used one after another: whether they will be
+    of the same operators is used one after another: usually that they will be
     grouped at the left or the right. For example, in <span class="Li">&quot;9 -
     3 - 2&quot;</span>, subtraction is left associative, so
     <span class="Li">&quot;9 - 3&quot;</span> is grouped together as the
@@ -119,6 +119,65 @@
     special evaluation rules that can result in an operand not being evaluated
     at all; in general, the top-level operator in an expression has control of
     operand evaluation.</p>
+<p class="Pp">Some comparison operators, as their associativity, <i>chain</i>
+    with some operators of the same precedence (but never with operators of
+    different precedence). This chaining means that each comparison is performed
+    on the two arguments surrounding it, with each interior argument taking part
+    in two comparisons, and the comparison results are implicitly ANDed. Thus
+    <span class="Li">&quot;$x&#x00A0;&lt;&#x00A0;$y&#x00A0;&lt;=&#x00A0;$z&quot;</span>
+    behaves exactly like
+    <span class="Li">&quot;$x&#x00A0;&lt;&#x00A0;$y&#x00A0;&amp;&amp;&#x00A0;$y&#x00A0;&lt;=&#x00A0;$z&quot;</span>,
+    assuming that <span class="Li">&quot;$y&quot;</span> is as simple a scalar
+    as it looks. The ANDing short-circuits just like
+    <span class="Li">&quot;&amp;&amp;&quot;</span> does, stopping the sequence
+    of comparisons as soon as one yields false.</p>
+<p class="Pp">In a chained comparison, each argument expression is evaluated at
+    most once, even if it takes part in two comparisons, but the result of the
+    evaluation is fetched for each comparison. (It is not evaluated at all if
+    the short-circuiting means that it's not required for any comparisons.) This
+    matters if the computation of an interior argument is expensive or
+    non-deterministic. For example,</p>
+<p class="Pp"></p>
+<pre>    if($x &lt; expensive_sub() &lt;= $z) { ...
+</pre>
+<p class="Pp">is not entirely like</p>
+<p class="Pp"></p>
+<pre>    if($x &lt; expensive_sub() &amp;&amp; expensive_sub() &lt;= $z) { ...
+</pre>
+<p class="Pp">but instead closer to</p>
+<p class="Pp"></p>
+<pre>    my $tmp = expensive_sub();
+    if($x &lt; $tmp &amp;&amp; $tmp &lt;= $z) { ...
+</pre>
+<p class="Pp">in that the subroutine is only called once. However, it's not
+    exactly like this latter code either, because the chained comparison doesn't
+    actually involve any temporary variable (named or otherwise): there is no
+    assignment. This doesn't make much difference where the expression is a call
+    to an ordinary subroutine, but matters more with an lvalue subroutine, or if
+    the argument expression yields some unusual kind of scalar by other means.
+    For example, if the argument expression yields a tied scalar, then the
+    expression is evaluated to produce that scalar at most once, but the value
+    of that scalar may be fetched up to twice, once for each comparison in which
+    it is actually used.</p>
+<p class="Pp">In this example, the expression is evaluated only once, and the
+    tied scalar (the result of the expression) is fetched for each comparison
+    that uses it.</p>
+<p class="Pp"></p>
+<pre>    if ($x &lt; $tied_scalar &lt; $z) { ...
+</pre>
+<p class="Pp">In the next example, the expression is evaluated only once, and
+    the tied scalar is fetched once as part of the operation within the
+    expression. The result of that operation is fetched for each comparison,
+    which normally doesn't matter unless that expression result is also magical
+    due to operator overloading.</p>
+<p class="Pp"></p>
+<pre>    if ($x &lt; $tied_scalar + 42 &lt; $z) { ...
+</pre>
+<p class="Pp">Some operators are instead non-associative, meaning that it is a
+    syntax error to use a sequence of those operators of the same precedence.
+    For example,
+    <span class="Li">&quot;$x&#x00A0;..&#x00A0;$y&#x00A0;..&#x00A0;$z&quot;</span>
+    is an error.</p>
 <p class="Pp">Perl operators have the following associativity and precedence,
     listed from highest precedence to lowest. Operators borrowed from C keep the
     same precedence relationship with each other, even where C's precedence is
@@ -130,16 +189,17 @@
     left        -&gt;
     nonassoc    ++ --
     right       **
-    right       ! ~ \ and unary + and -
+    right       ! ~ ~. \ and unary + and -
     left        =~ !~
     left        * / % x
     left        + - .
     left        &lt;&lt; &gt;&gt;
     nonassoc    named unary operators
-    nonassoc    &lt; &gt; &lt;= &gt;= lt gt le ge
-    nonassoc    == != &lt;=&gt; eq ne cmp ~~
-    left        &amp;
-    left        | ^
+    nonassoc    isa
+    chained     &lt; &gt; &lt;= &gt;= lt gt le ge
+    chain/na    == != eq ne &lt;=&gt; cmp ~~
+    left        &amp; &amp;.
+    left        | |. ^ ^.
     left        &amp;&amp;
     left        || //
     nonassoc    ..  ...
@@ -584,6 +644,11 @@
     left argument is stringwise less than or equal to the right argument.</p>
 <p class="Pp">Binary <span class="Li">&quot;ge&quot;</span> returns true if the
     left argument is stringwise greater than or equal to the right argument.</p>
+<p class="Pp">A sequence of relational operators, such as
+    <span class="Li">&quot;$x&#x00A0;&lt;&#x00A0;$y&#x00A0;&lt;=&#x00A0;$z&quot;</span>,
+    performs chained comparisons, in the manner described above in the section
+    &quot;Operator Precedence and Associativity&quot;. Beware that they do not
+    chain with equality operators, which have lower precedence.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="Equality_Operators"><a class="permalink" href="#Equality_Operators">Equality
@@ -592,6 +657,15 @@
     left argument is numerically equal to the right argument.</p>
 <p class="Pp">Binary <span class="Li">&quot;!=&quot;</span> returns true if the
     left argument is numerically not equal to the right argument.</p>
+<p class="Pp">Binary <span class="Li">&quot;eq&quot;</span> returns true if the
+    left argument is stringwise equal to the right argument.</p>
+<p class="Pp">Binary <span class="Li">&quot;ne&quot;</span> returns true if the
+    left argument is stringwise not equal to the right argument.</p>
+<p class="Pp">A sequence of the above equality operators, such as
+    <span class="Li">&quot;$x&#x00A0;==&#x00A0;$y&#x00A0;==&#x00A0;$z&quot;</span>,
+    performs chained comparisons, in the manner described above in the section
+    &quot;Operator Precedence and Associativity&quot;. Beware that they do not
+    chain with relational operators, which have higher precedence.</p>
 <p class="Pp">Binary <span class="Li">&quot;&lt;=&gt;&quot;</span> returns -1,
     0, or 1 depending on whether the left argument is numerically less than,
     equal to, or greater than the right argument. If your platform supports
@@ -616,15 +690,17 @@
 </pre>
 <p class="Pp">(Note that the bigint, bigrat, and bignum pragmas all support
     <span class="Li">&quot;NaN&quot;</span>.)</p>
-<p class="Pp">Binary <span class="Li">&quot;eq&quot;</span> returns true if the
-    left argument is stringwise equal to the right argument.</p>
-<p class="Pp">Binary <span class="Li">&quot;ne&quot;</span> returns true if the
-    left argument is stringwise not equal to the right argument.</p>
 <p class="Pp">Binary <span class="Li">&quot;cmp&quot;</span> returns -1, 0, or 1
     depending on whether the left argument is stringwise less than, equal to, or
     greater than the right argument.</p>
 <p class="Pp">Binary <span class="Li">&quot;~~&quot;</span> does a smartmatch
     between its arguments. Smart matching is described in the next section.</p>
+<p class="Pp">The two-sided ordering operators
+    <span class="Li">&quot;&lt;=&gt;&quot;</span> and
+    <span class="Li">&quot;cmp&quot;</span>, and the smartmatch operator
+    <span class="Li">&quot;~~&quot;</span>, are non-associative with respect to
+    each other and with respect to the equality operators of the same
+    precedence.</p>
 <p class="Pp"><span class="Li">&quot;lt&quot;</span>,
     <span class="Li">&quot;le&quot;</span>,
     <span class="Li">&quot;ge&quot;</span>,
@@ -642,6 +718,26 @@
 <p class="Pp"></p>
 <pre>    if ( fc($x) eq fc($y) ) { ... }
 </pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Class_Instance_Operator"><a class="permalink" href="#Class_Instance_Operator">Class
+  Instance Operator</a></h2>
+<p class="Pp">Binary <span class="Li">&quot;isa&quot;</span> evaluates to true
+    when the left argument is an object instance of the class (or a subclass
+    derived from that class) given by the right argument. If the left argument
+    is not defined, not a blessed object instance, nor does not derive from the
+    class given by the right argument, the operator evaluates as false. The
+    right argument may give the class either as a bareword or a scalar
+    expression that yields a string class name:</p>
+<p class="Pp"></p>
+<pre>    if( $obj isa Some::Class ) { ... }
+    if( $obj isa &quot;Different::Class&quot; ) { ... }
+    if( $obj isa $name_of_class ) { ... }
+</pre>
+<p class="Pp">This is an experimental feature and is available from Perl 5.31.6
+    when enabled by <span class="Li">&quot;use feature 'isa'&quot;</span>. It
+    emits a warning in the <span class="Li">&quot;experimental::isa&quot;</span>
+    category.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="Smartmatch_Operator"><a class="permalink" href="#Smartmatch_Operator">Smartmatch
@@ -1152,34 +1248,106 @@
     @foo = @foo[0 .. $#foo];        # an expensive no-op
     @foo = @foo[$#foo-4 .. $#foo];  # slice last 5 items
 </pre>
-<p class="Pp">The range operator (in list context) makes use of the magical
-    auto-increment algorithm if the operands are strings. You can say</p>
+<p class="Pp">Because each operand is evaluated in integer form,
+    <span class="Li">&quot;2.18&#x00A0;..&#x00A0;3.14&quot;</span> will return
+    two elements in list context.</p>
 <p class="Pp"></p>
-<pre>    @alphabet = (&quot;A&quot; .. &quot;Z&quot;);
+<pre>    @list = (2.18 .. 3.14); # same as @list = (2 .. 3);
 </pre>
-<p class="Pp">to get all normal letters of the English alphabet, or</p>
-<p class="Pp"></p>
-<pre>    $hexdigit = (0 .. 9, &quot;a&quot; .. &quot;f&quot;)[$num &amp; 15];
-</pre>
-<p class="Pp">to get a hexadecimal digit, or</p>
-<p class="Pp"></p>
-<pre>    @z2 = (&quot;01&quot; .. &quot;31&quot;);
+<p class="Pp">The range operator in list context can make use of the magical
+    auto-increment algorithm if both operands are strings, subject to the
+    following rules:</p>
+<ul class="Bl-bullet">
+  <li>With one exception (below), if both strings look like numbers to Perl, the
+      magic increment will not be applied, and the strings will be treated as
+      numbers (more specifically, integers) instead.
+    <p class="Pp">For example,
+        <span class="Li">&quot;-2&quot;..&quot;2&quot;</span> is the same as
+        <span class="Li">&quot;-2..2&quot;</span>, and
+        <span class="Li">&quot;2.18&quot;..&quot;3.14&quot;</span> produces
+        <span class="Li">&quot;2, 3&quot;</span>.</p>
+  </li>
+  <li>The exception to the above rule is when the left-hand string begins with
+      <span class="Li">0</span> and is longer than one character, in this case
+      the magic increment <i>will</i> be applied, even though strings like
+      <span class="Li">&quot;01&quot;</span> would normally look like a number
+      to Perl.
+    <p class="Pp">For example,
+        <span class="Li">&quot;01&quot;..&quot;04&quot;</span> produces
+        <span class="Li">&quot;01&quot;, &quot;02&quot;, &quot;03&quot;,
+        &quot;04&quot;</span>, and
+        <span class="Li">&quot;00&quot;..&quot;-1&quot;</span> produces
+        <span class="Li">&quot;00&quot;</span> through
+        <span class="Li">&quot;99&quot;</span> - this may seem surprising, but
+        see the following rules for why it works this way. To get dates with
+        leading zeros, you can say:</p>
+    <p class="Pp"></p>
+    <pre>    @z2 = (&quot;01&quot; .. &quot;31&quot;);
     print $z2[$mday];
-</pre>
-<p class="Pp">to get dates with leading zeros.</p>
-<p class="Pp">If the final value specified is not in the sequence that the
-    magical increment would produce, the sequence goes until the next value
-    would be longer than the final value specified.</p>
+    </pre>
+    <p class="Pp">If you want to force strings to be interpreted as numbers, you
+        could say</p>
+    <p class="Pp"></p>
+    <pre>    @numbers = ( 0+$first .. 0+$last );
+    </pre>
+    <p class="Pp"><b>Note:</b> In Perl versions 5.30 and below, <i>any</i>
+        string on the left-hand side beginning with
+        <span class="Li">&quot;0&quot;</span>, including the string
+        <span class="Li">&quot;0&quot;</span> itself, would cause the magic
+        string increment behavior. This means that on these Perl versions,
+        <span class="Li">&quot;0&quot;..&quot;-1&quot;</span> would produce
+        <span class="Li">&quot;0&quot;</span> through
+        <span class="Li">&quot;99&quot;</span>, which was inconsistent with
+        <span class="Li">&quot;0..-1&quot;</span>, which produces the empty
+        list. This also means that
+        <span class="Li">&quot;0&quot;..&quot;9&quot;</span> now produces a list
+        of integers instead of a list of strings.</p>
+  </li>
+  <li>If the initial value specified isn't part of a magical increment sequence
+      (that is, a non-empty string matching
+      <span class="Li">&quot;/^[a-zA-Z]*[0-9]*\z/&quot;</span>), only the
+      initial value will be returned.
+    <p class="Pp">For example,
+        <span class="Li">&quot;ax&quot;..&quot;az&quot;</span> produces
+        <span class="Li">&quot;ax&quot;, &quot;ay&quot;, &quot;az&quot;</span>,
+        but <span class="Li">&quot;*x&quot;..&quot;az&quot;</span> produces only
+        <span class="Li">&quot;*x&quot;</span>.</p>
+  </li>
+  <li>For other initial values that are strings that do follow the rules of the
+      magical increment, the corresponding sequence will be returned.
+    <p class="Pp">For example, you can say</p>
+    <p class="Pp"></p>
+    <pre>    @alphabet = (&quot;A&quot; .. &quot;Z&quot;);
+    </pre>
+    <p class="Pp">to get all normal letters of the English alphabet, or</p>
+    <p class="Pp"></p>
+    <pre>    $hexdigit = (0 .. 9, &quot;a&quot; .. &quot;f&quot;)[$num &amp; 15];
+    </pre>
+    <p class="Pp">to get a hexadecimal digit.</p>
+  </li>
+  <li>If the final value specified is not in the sequence that the magical
+      increment would produce, the sequence goes until the next value would be
+      longer than the final value specified. If the length of the final string
+      is shorter than the first, the empty list is returned.
+    <p class="Pp">For example,
+        <span class="Li">&quot;a&quot;..&quot;--&quot;</span> is the same as
+        <span class="Li">&quot;a&quot;..&quot;zz&quot;</span>,
+        <span class="Li">&quot;0&quot;..&quot;xx&quot;</span> produces
+        <span class="Li">&quot;0&quot;</span> through
+        <span class="Li">&quot;99&quot;</span>, and
+        <span class="Li">&quot;aaa&quot;..&quot;--&quot;</span> returns the
+        empty list.</p>
+  </li>
+</ul>
 <p class="Pp">As of Perl 5.26, the list-context range operator on strings works
     as expected in the scope of
     <span class="Li">&quot;use&#x00A0;feature&#x00A0;'unicode_strings&quot;</span>.
     In previous versions, and outside the scope of that feature, it exhibits
     &quot;The &quot;Unicode Bug&quot;&quot; in perlunicode: its behavior depends
     on the internal encoding of the range endpoint.</p>
-<p class="Pp">If the initial value specified isn't part of a magical increment
-    sequence (that is, a non-empty string matching
-    <span class="Li">&quot;/^[a-zA-Z]*[0-9]*\z/&quot;</span>), only the initial
-    value will be returned. So the following will only return an alpha:</p>
+<p class="Pp">Because the magical increment only works on non-empty strings
+    matching <span class="Li">&quot;/^[a-zA-Z]*[0-9]*\z/&quot;</span>, the
+    following will only return an alpha:</p>
 <p class="Pp"></p>
 <pre>    use charnames &quot;greek&quot;;
     my @greek_small =  (&quot;\N{alpha}&quot; .. &quot;\N{omega}&quot;);
@@ -1199,12 +1367,6 @@
     <span class="Li">&quot;/(?:(?=\p{Greek})\p{Lower})+/&quot;</span> (or the
     experimental feature
     <span class="Li">&quot;/(?[&#x00A0;\p{Greek}&#x00A0;&amp;&#x00A0;\p{Lower}&#x00A0;])+/&quot;</span>).</p>
-<p class="Pp">Because each operand is evaluated in integer form,
-    <span class="Li">&quot;2.18&#x00A0;..&#x00A0;3.14&quot;</span> will return
-    two elements in list context.</p>
-<p class="Pp"></p>
-<pre>    @list = (2.18 .. 3.14); # same as @list = (2 .. 3);
-</pre>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="Conditional_Operator"><a class="permalink" href="#Conditional_Operator">Conditional
@@ -1524,7 +1686,9 @@
 </pre>
 <p class="Pp">The following escape sequences are available in constructs that
     interpolate, and in transliterations whose delimiters aren't single quotes
-    (<span class="Li">&quot;'&quot;</span>).</p>
+    (<span class="Li">&quot;'&quot;</span>). In all the ones with braces, any
+    number of blanks and/or tabs adjoining and within the braces are allowed
+    (and ignored).</p>
 <p class="Pp"></p>
 <pre>    Sequence     Note  Description
     \t                  tab               (HT, TAB)
@@ -1534,7 +1698,9 @@
     \b                  backspace         (BS)
     \a                  alarm (bell)      (BEL)
     \e                  escape            (ESC)
-    \x{263A}     [1,8]  hex char          (example: SMILEY)
+    \x{263A}     [1,8]  hex char          (example shown: SMILEY)
+    \x{ 263A }          Same, but shows optional blanks inside and
+                        adjoining the braces
     \x1b         [2,8]  restricted range hex char (example: ESC)
     \N{name}     [3]    named Unicode character or character sequence
     \N{U+263D}   [4,8]  Unicode character (example: FIRST QUARTER MOON)
@@ -1542,14 +1708,20 @@
     \o{23072}    [6,8]  octal char        (example: SMILEY)
     \033         [7,8]  restricted range octal char  (example: ESC)
 </pre>
+<p class="Pp">Note that any escape sequence using braces inside interpolated
+    constructs may have optional blanks (tab or space characters) adjoining with
+    and inside of the braces, as illustrated above by the second
+    <span class="Li">&quot;\x{&#x00A0;}&quot;</span> example.</p>
 <dl class="Bl-tag">
   <dt>[1]</dt>
   <dd>The result is the character specified by the hexadecimal number between
       the braces. See &quot;[8]&quot; below for details on which character.
-    <p class="Pp">Only hexadecimal digits are valid between the braces. If an
-        invalid character is encountered, a warning will be issued and the
-        invalid character and all subsequent characters (valid or invalid)
-        within the braces will be discarded.</p>
+    <p class="Pp">Blanks (tab or space characters) may separate the number from
+        either or both of the braces.</p>
+    <p class="Pp">Otherwise, only hexadecimal digits are valid between the
+        braces. If an invalid character is encountered, a warning will be issued
+        and the invalid character and all subsequent characters (valid or
+        invalid) within the braces will be discarded.</p>
     <p class="Pp">If there are no valid digits between the braces, the generated
         character is the NULL character
         (<span class="Li">&quot;\x{00}&quot;</span>). However, an explicit empty
@@ -1640,10 +1812,13 @@
   <dt>[6]</dt>
   <dd>The result is the character specified by the octal number between the
       braces. See &quot;[8]&quot; below for details on which character.
-    <p class="Pp">If a character that isn't an octal digit is encountered, a
-        warning is raised, and the value is based on the octal digits before it,
-        discarding it and all following characters up to the closing brace. It
-        is a fatal error if there are no octal digits at all.</p>
+    <p class="Pp">Blanks (tab or space characters) may separate the number from
+        either or both of the braces.</p>
+    <p class="Pp">Otherwise, if a character that isn't an octal digit is
+        encountered, a warning is raised, and the value is based on the octal
+        digits before it, discarding it and all following characters up to the
+        closing brace. It is a fatal error if there are no octal digits at
+      all.</p>
   </dd>
   <dt>[7]</dt>
   <dd>The result is the character specified by the three-digit octal number in
@@ -2362,6 +2537,9 @@
     # expand tabs to 8-column spacing
     1 while s/\t+/' ' x (length($&amp;)*8 - length($`)%8)/e;
     </pre>
+    <p class="Pp">While <span class="Li">&quot;s///&quot;</span> accepts the
+        <span class="Li">&quot;/c&quot;</span> flag, it has no effect beyond
+        producing a warning if warnings are enabled.</p>
   </dd>
 </dl>
 </section>
@@ -2396,15 +2574,17 @@
   <dd></dd>
   <dt>&quot;`<i>STRING</i>`&quot;</dt>
   <dd>A string which is (possibly) interpolated and then executed as a system
-      command with <i>/bin/sh</i> or its equivalent. Shell wildcards, pipes, and
-      redirections will be honored. The collected standard output of the command
-      is returned; standard error is unaffected. In scalar context, it comes
-      back as a single (potentially multi-line) string, or
-      <span class="Li">&quot;undef&quot;</span> if the command failed. In list
-      context, returns a list of lines (however you've defined lines with
-      <span class="Li">$/</span> or
+      command, via <i>/bin/sh</i> or its equivalent if required. Shell
+      wildcards, pipes, and redirections will be honored. Similarly to
+      <span class="Li">&quot;system&quot;</span>, if the string contains no
+      shell metacharacters then it will executed directly. The collected
+      standard output of the command is returned; standard error is unaffected.
+      In scalar context, it comes back as a single (potentially multi-line)
+      string, or <span class="Li">&quot;undef&quot;</span> if the shell (or
+      command) could not be started. In list context, returns a list of lines
+      (however you've defined lines with <span class="Li">$/</span> or
       <span class="Li">$INPUT_RECORD_SEPARATOR</span>), or an empty list if the
-      command failed.
+      shell (or command) could not be started.
     <p class="Pp">Because backticks do not affect standard error, use shell file
         descriptor syntax (assuming the shell supports this) if you care to
         address this. To capture a command's STDERR and STDOUT together:</p>
@@ -2563,8 +2743,9 @@
         used, the string specified with <span class="Li">&quot;=~&quot;</span>
         must be a scalar variable, an array element, a hash element, or an
         assignment to one of those; in other words, an lvalue.</p>
-    <p class="Pp">If the characters delimiting <i>SEARCHLIST</i> and
-        <i>REPLACEMENTLIST</i> are single quotes
+    <p class="Pp">The characters delimitting <i>SEARCHLIST</i> and
+        <i>REPLACEMENTLIST</i> can be any printable character, not just forward
+        slashes. If they are single quotes
         (<span class="Li">&quot;tr'</span><span class="Li"><i>SEARCHLIST</i></span><span class="Li">'</span><span class="Li"><i>REPLACEMENTLIST</i></span><span class="Li">'&quot;</span>),
         the only interpolation is removal of
         <span class="Li">&quot;\&quot;</span> from pairs of
@@ -2668,8 +2849,8 @@
         transliterated to the same character are squashed down to a single
         instance of that character.</p>
     <p class="Pp"></p>
-    <pre> my $a = &quot;aaaba&quot;
- $a =~ tr/a/a/s     # $a now is &quot;aba&quot;
+    <pre> my $a = &quot;aaabbbca&quot;;
+ $a =~ tr/ab/dd/s;     # $a now is &quot;dcd&quot;
     </pre>
     <p class="Pp">If the <span class="Li">&quot;/d&quot;</span> modifier is
         used, the <i>REPLACEMENTLIST</i> is always interpreted exactly as
@@ -3469,13 +3650,14 @@
     <span class="Li">&quot;readline(*</span><span class="Li"><i>FILEHANDLE</i></span><span class="Li">)&quot;</span>.
     See &quot;readline&quot; in perlfunc.</p>
 <p class="Pp">The null filehandle <span class="Li">&quot;&lt;&gt;&quot;</span>
-    is special: it can be used to emulate the behavior of <b>sed</b> and
-    <b>awk</b>, and any other Unix filter program that takes a list of
-    filenames, doing the same to each line of input from all of them. Input from
-    <span class="Li">&quot;&lt;&gt;&quot;</span> comes either from standard
-    input, or from each file listed on the command line. Here's how it works:
-    the first time <span class="Li">&quot;&lt;&gt;&quot;</span> is evaluated,
-    the <span class="Li">@ARGV</span> array is checked, and if it is empty,
+    (sometimes called the diamond operator) is special: it can be used to
+    emulate the behavior of <b>sed</b> and <b>awk</b>, and any other Unix filter
+    program that takes a list of filenames, doing the same to each line of input
+    from all of them. Input from <span class="Li">&quot;&lt;&gt;&quot;</span>
+    comes either from standard input, or from each file listed on the command
+    line. Here's how it works: the first time
+    <span class="Li">&quot;&lt;&gt;&quot;</span> is evaluated, the
+    <span class="Li">@ARGV</span> array is checked, and if it is empty,
     <span class="Li">$ARGV[0]</span> is set to
     <span class="Li">&quot;-&quot;</span>, which when opened gives you standard
     input. The <span class="Li">@ARGV</span> array is then processed as a list
@@ -3518,7 +3700,7 @@
     <span class="Li">&quot;rm&quot;</span>'s output from that pipe. If you want
     all items in <span class="Li">@ARGV</span> to be interpreted as file names,
     you can use the module <span class="Li">&quot;ARGV::readonly&quot;</span>
-    from CPAN, or use the double bracket:</p>
+    from CPAN, or use the double diamond bracket:</p>
 <p class="Pp"></p>
 <pre>    while (&lt;&lt;&gt;&gt;) {
         print;

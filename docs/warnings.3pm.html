@@ -56,7 +56,9 @@
 <pre>    use warnings;
     no warnings;
     use warnings &quot;all&quot;;
-    no warnings &quot;all&quot;;
+    no warnings &quot;uninitialized&quot;;
+    # or equivalent to those last two ...
+    use warnings qw(all -uninitialized);
     use warnings::register;
     if (warnings::enabled()) {
         warnings::warn(&quot;some warning&quot;);
@@ -103,19 +105,19 @@
 <p class="Pp">For example, consider the code below:</p>
 <p class="Pp"></p>
 <pre>    use warnings;
-    my @a;
+    my @x;
     {
         no warnings;
-        my $b = @a[0];
+        my $y = @x[0];
     }
-    my $c = @a[0];
+    my $z = @x[0];
 </pre>
 <p class="Pp">The code in the enclosing block has warnings enabled, but the
     inner block has them disabled. In this case that means the assignment to the
-    scalar <span class="Li">$c</span> will trip the
-    <span class="Li">&quot;Scalar value @a[0] better written as
-    $a[0]&quot;</span> warning, but the assignment to the scalar
-    <span class="Li">$b</span> will not.</p>
+    scalar <span class="Li">$z</span> will trip the
+    <span class="Li">&quot;Scalar value @x[0] better written as
+    $x[0]&quot;</span> warning, but the assignment to the scalar
+    <span class="Li">$y</span> will not.</p>
 <section class="Ss">
 <h2 class="Ss" id="Default_Warnings_and_Optional_Warnings"><a class="permalink" href="#Default_Warnings_and_Optional_Warnings">Default
   Warnings and Optional Warnings</a></h2>
@@ -126,7 +128,7 @@
     below would always produce an <span class="Li">&quot;isn't
     numeric&quot;</span> warning about the &quot;2:&quot;.</p>
 <p class="Pp"></p>
-<pre>    my $a = &quot;2:&quot; + 3;
+<pre>    my $x = &quot;2:&quot; + 3;
 </pre>
 <p class="Pp">With the introduction of lexical warnings, mandatory warnings now
     become <i>default</i> warnings. The difference is that although the
@@ -134,15 +136,54 @@
     subsequently enabled or disabled with the lexical warning pragma. For
     example, in the code below, an <span class="Li">&quot;isn't
     numeric&quot;</span> warning will only be reported for the
-    <span class="Li">$a</span> variable.</p>
+    <span class="Li">$x</span> variable.</p>
 <p class="Pp"></p>
-<pre>    my $a = &quot;2:&quot; + 3;
+<pre>    my $x = &quot;2:&quot; + 3;
     no warnings;
-    my $b = &quot;2:&quot; + 3;
+    my $y = &quot;2:&quot; + 3;
 </pre>
 <p class="Pp">Note that neither the <b>-w</b> flag or the
     <span class="Li">$^W</span> can be used to disable/enable default warnings.
     They are still mandatory in this case.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_Negative_warnings_"><a class="permalink" href="#_Negative_warnings_">&quot;Negative
+  warnings&quot;</a></h2>
+<p class="Pp">As a convenience, you can (as of Perl 5.34) pass arguments to the
+    <span class="Li">&quot;import()&quot;</span> method both positively and
+    negatively. Negative warnings are those with a
+    <span class="Li">&quot;-&quot;</span> sign prepended to their names;
+    positive warnings are anything else. This lets you turn on some warnings and
+    turn off others in one command. So, assuming that you've already turned on a
+    bunch of warnings but want to tweak them a bit in some block, you can do
+    this:</p>
+<p class="Pp"></p>
+<pre>    {
+        use warnings qw(uninitialized -redefine);
+        ...
+    }
+</pre>
+<p class="Pp">which is equivalent to:</p>
+<p class="Pp"></p>
+<pre>    {
+        use warnings qw(uninitialized);
+        no warnings qw(redefine);
+        ...
+    }
+</pre>
+<p class="Pp">The argument list is processed in the order you specify. So, for
+    example, if you don't want to be warned about use of experimental features,
+    except for <span class="Li">&quot;somefeature&quot;</span> that you really
+    dislike, you can say this:</p>
+<p class="Pp"></p>
+<pre>    use warnings qw(all -experimental experimental::somefeature);
+</pre>
+<p class="Pp">which is equivalent to:</p>
+<p class="Pp"></p>
+<pre>    use warnings 'all';
+    no warnings  'experimental';
+    use warnings 'experimental::somefeature';
+</pre>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="What's_wrong_with_"><a class="permalink" href="#What's_wrong_with_">What's
@@ -160,12 +201,12 @@
 <p class="Pp"></p>
 <pre>     {
          local ($^W) = 0;
-         my $a =+ 2;
-         my $b; chop $b;
+         my $x =+ 2;
+         my $y; chop $y;
      }
 </pre>
 <p class="Pp">When this code is run with the <b>-w</b> flag, a warning will be
-    produced for the <span class="Li">$a</span> line:
+    produced for the <span class="Li">$x</span> line:
     <span class="Li">&quot;Reversed += operator&quot;</span>.</p>
 <p class="Pp">The problem is that Perl has both compile-time and run-time
     warnings. To disable compile-time warnings you need to rewrite the code like
@@ -173,10 +214,13 @@
 <p class="Pp"></p>
 <pre>     {
          BEGIN { $^W = 0 }
-         my $a =+ 2;
-         my $b; chop $b;
+         my $x =+ 2;
+         my $y; chop $y;
      }
 </pre>
+<p class="Pp">And note that unlike the first example, this will permanently set
+    <span class="Li">$^W</span> since it cannot both run during compile-time and
+    be localized to a run-time block.</p>
 <p class="Pp">The other big problem with <span class="Li">$^W</span> is the way
     you can inadvertently change the warning setting in unexpected places in
     your code. For example, when the code below is run (without the <b>-w</b>
@@ -186,7 +230,7 @@
 <p class="Pp"></p>
 <pre>    sub doit
     {
-        my $b; chop $b;
+        my $y; chop $y;
     }
     doit();
     {
@@ -207,7 +251,7 @@
 <dl class="Bl-tag">
   <dt id="w"><a class="permalink" href="#w"><b>-w</b></a></dt>
   <dd>This is the existing flag. If the lexical warnings pragma is <b>not</b>
-      used in any of you code, or any of the modules that you use, this flag
+      used in any of your code, or any of the modules that you use, this flag
       will enable warnings everywhere. See &quot;Backward Compatibility&quot;
       for details of how this flag interacts with lexical warnings.</dd>
   <dt id="W"><a class="permalink" href="#W"><b>-W</b></a></dt>
@@ -290,6 +334,8 @@
          |                 |
          |                 +- experimental::declared_refs
          |                 |
+         |                 +- experimental::isa
+         |                 |
          |                 +- experimental::lexical_subs
          |                 |
          |                 +- experimental::postderef
@@ -307,6 +353,8 @@
          |                 +- experimental::signatures
          |                 |
          |                 +- experimental::smartmatch
+         |                 |
+         |                 +- experimental::try
          |                 |
          |                 +- experimental::uniprop_wildcards
          |                 |
@@ -467,7 +515,7 @@
     <span class="Li">&quot;FATAL =&gt; 'all'&quot;</span> is discouraged.</p>
 <p class="Pp">The strictures module on CPAN offers one example of a warnings
     subset that the module's authors believe is relatively safe to fatalize.</p>
-<p class="Pp"><b>NOTE:</b> users of FATAL warnings, especially those using
+<p class="Pp"><b>NOTE:</b> Users of FATAL warnings, especially those using
     <span class="Li">&quot;FATAL =&gt; 'all'&quot;</span>, should be fully aware
     that they are risking future portability of their programs by doing so. Perl
     makes absolutely no commitments to not introduce new warnings or warnings
@@ -534,6 +582,9 @@
 <pre>   use v5.20;       # Perl 5.20 or greater is required for the following
    use warnings 'FATAL';  # short form of &quot;use warnings FATAL =&gt; 'all';&quot;
 </pre>
+<p class="Pp">However, you should still heed the guidance earlier in this
+    section against using <span class="Li">&quot;use warnings FATAL
+    =&quot;</span> 'all';&gt;.</p>
 <p class="Pp">If you want your program to be compatible with versions of Perl
     before 5.20, you must use <span class="Li">&quot;use warnings FATAL =&gt;
     'all';&quot;</span> instead. (In previous versions of Perl, the behavior of
@@ -667,14 +718,14 @@
 <pre>    use Original;
     use Derived;
     use warnings 'Derived';
-    my $a = Original-&gt;new();
-    $a-&gt;doit(1);
-    my $b = Derived-&gt;new();
-    $a-&gt;doit(1);
+    my $x = Original-&gt;new();
+    $x-&gt;doit(1);
+    my $y = Derived-&gt;new();
+    $x-&gt;doit(1);
 </pre>
 <p class="Pp">When this code is run only the
     <span class="Li">&quot;Derived&quot;</span> object,
-    <span class="Li">$b</span>, will generate a warning.</p>
+    <span class="Li">$y</span>, will generate a warning.</p>
 <p class="Pp"></p>
 <pre>    Odd numbers are unsafe at main.pl line 7
 </pre>

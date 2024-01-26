@@ -53,7 +53,7 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="VERSION"><a class="permalink" href="#VERSION">VERSION</a></h1>
-<p class="Pp">version 5.20190126</p>
+<p class="Pp">version 5.20210411</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
@@ -1231,6 +1231,50 @@
 </pre>
 </section>
 <section class="Ss">
+<h2 class="Ss" id="Does_Perl_have_anything_like_Ruby's_____or_Python's_f_string?"><a class="permalink" href="#Does_Perl_have_anything_like_Ruby's_____or_Python's_f_string?">Does
+  Perl have anything like Ruby's #{} or Python's f string?</a></h2>
+<p class="Pp">Unlike the others, Perl allows you to embed a variable naked in a
+    double quoted string, e.g. <span class="Li">&quot;variable
+    $variable&quot;</span>. When there isn't whitespace or other non-word
+    characters following the variable name, you can add braces (e.g.
+    <span class="Li">&quot;foo ${foo}bar&quot;</span>) to ensure correct
+    parsing.</p>
+<p class="Pp">An array can also be embedded directly in a string, and will be
+    expanded by default with spaces between the elements. The default
+    LIST_SEPARATOR can be changed by assigning a different string to the special
+    variable <span class="Li">$&quot;</span>, such as
+    <span class="Li">&quot;local $&quot; = ', ';&quot;</span>.</p>
+<p class="Pp">Perl also supports references within a string providing the
+    equivalent of the features in the other two languages.</p>
+<p class="Pp"><span class="Li">&quot;${\ ... }&quot;</span> embedded within a
+    string will work for most simple statements such as an object-&gt;method
+    call. More complex code can be wrapped in a do block
+    <span class="Li">&quot;${\ do{...} }&quot;</span>.</p>
+<p class="Pp">When you want a list to be expanded per
+    <span class="Li">$&quot;</span>, use <span class="Li">&quot;@{[ ...
+    ]}&quot;</span>.</p>
+<p class="Pp"></p>
+<pre>    use Time::Piece;
+    use Time::Seconds;
+    my $scalar = 'STRING';
+    my @array = ( 'zorro', 'a', 1, 'B', 3 );
+    # Print the current date and time and then Tommorrow
+    my $t = Time::Piece-&gt;new;
+    say &quot;Now is: ${\ $t-&gt;cdate() }&quot;;
+    say &quot;Tomorrow: ${\ do{ my $T=Time::Piece-&gt;new + ONE_DAY ; $T-&gt;fullday }}&quot;;
+    # some variables in strings
+    say &quot;This is some scalar I have $scalar, this is an array @array.&quot;;
+    say &quot;You can also write it like this ${scalar} @{array}.&quot;;
+    # Change the $LIST_SEPARATOR
+    local $&quot; = ':';
+    say &quot;Set \$\&quot; to delimit with ':' and sort the Array @{[ sort @array ]}&quot;;
+</pre>
+<p class="Pp">You may also want to look at the module Quote::Code, and
+    templating tools such as Template::Toolkit and Mojo::Template.</p>
+<p class="Pp">See also: &quot;How can I expand variables in text strings?&quot;
+    and &quot;How do I expand function calls in a string?&quot; in this FAQ.</p>
+</section>
+<section class="Ss">
 <h2 class="Ss" id="What's_wrong_with_always_quoting__$vars_?"><a class="permalink" href="#What's_wrong_with_always_quoting__$vars_?">What's
   wrong with always quoting &quot;$vars&quot;?</a></h2>
 <p class="Pp">The problem is that those double-quotes force
@@ -1537,21 +1581,9 @@
     probably should have used a hash, not a list or array, to store your data.
     Hashes are designed to answer this question quickly and efficiently. Arrays
     aren't.</p>
-<p class="Pp">That being said, there are several ways to approach this. In Perl
-    5.10 and later, you can use the smart match operator to check that an item
-    is contained in an array or a hash:</p>
-<p class="Pp"></p>
-<pre>    use 5.010;
-    if( $item ~~ @array ) {
-        say &quot;The array contains $item&quot;
-    }
-    if( $item ~~ %hash ) {
-        say &quot;The hash contains $item&quot;
-    }
-</pre>
-<p class="Pp">With earlier versions of Perl, you have to do a bit more work. If
-    you are going to make this query many times over arbitrary string values,
-    the fastest way is probably to invert the original array and maintain a hash
+<p class="Pp">That being said, there are several ways to approach this. If you
+    are going to make this query many times over arbitrary string values, the
+    fastest way is probably to invert the original array and maintain a hash
     whose keys are the first array's values:</p>
 <p class="Pp"></p>
 <pre>    my @blues = qw/azure cerulean teal turquoise lapis-lazuli/;
@@ -1585,16 +1617,16 @@
     re-organization of the original list or array. They only pay off if you have
     to test multiple values against the same array.</p>
 <p class="Pp">If you are testing only once, the standard module List::Util
-    exports the function <span class="Li">&quot;first&quot;</span> for this
+    exports the function <span class="Li">&quot;any&quot;</span> for this
     purpose. It works by stopping once it finds the element. It's written in C
     for speed, and its Perl equivalent looks like this subroutine:</p>
 <p class="Pp"></p>
-<pre>    sub first (&amp;@) {
+<pre>    sub any (&amp;@) {
         my $code = shift;
         foreach (@_) {
-            return $_ if &amp;{$code}();
+            return 1 if $code-&gt;();
         }
-        undef;
+        return 0;
     }
 </pre>
 <p class="Pp">If speed is of little concern, the common idiom uses grep in
@@ -1632,17 +1664,6 @@
 <section class="Ss">
 <h2 class="Ss" id="How_do_I_test_whether_two_arrays_or_hashes_are_equal?"><a class="permalink" href="#How_do_I_test_whether_two_arrays_or_hashes_are_equal?">How
   do I test whether two arrays or hashes are equal?</a></h2>
-<p class="Pp">With Perl 5.10 and later, the smart match operator can give you
-    the answer with the least amount of work:</p>
-<p class="Pp"></p>
-<pre>    use 5.010;
-    if( @array1 ~~ @array2 ) {
-        say &quot;The arrays are the same&quot;;
-    }
-    if( %hash1 ~~ %hash2 ) # doesn't check values!  {
-        say &quot;The hash keys are the same&quot;;
-    }
-</pre>
 <p class="Pp">The following code works for single-level arrays. It uses a
     stringwise comparison, and does not distinguish defined versus undefined
     empty strings. Modify if you have other needs.</p>

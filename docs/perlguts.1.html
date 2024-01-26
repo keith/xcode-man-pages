@@ -78,10 +78,27 @@
 <p class="Pp">Perl uses a special typedef IV which is a simple signed integer
     type that is guaranteed to be large enough to hold a pointer (as well as an
     integer). Additionally, there is the UV, which is simply an unsigned IV.</p>
-<p class="Pp">Perl also uses two special typedefs, I32 and I16, which will
-    always be at least 32-bits and 16-bits long, respectively. (Again, there are
-    U32 and U16, as well.) They will usually be exactly 32 and 16 bits long, but
-    on Crays they will both be 64 bits.</p>
+<p class="Pp">Perl also uses several special typedefs to declare variables to
+    hold integers of (at least) a given size. Use I8, I16, I32, and I64 to
+    declare a signed integer variable which has at least as many bits as the
+    number in its name. These all evaluate to the native C type that is closest
+    to the given number of bits, but no smaller than that number. For example,
+    on many platforms, a <span class="Li">&quot;short&quot;</span> is 16 bits
+    long, and if so, I16 will evaluate to a
+    <span class="Li">&quot;short&quot;</span>. But on platforms where a
+    <span class="Li">&quot;short&quot;</span> isn't exactly 16 bits, Perl will
+    use the smallest type that contains 16 bits or more.</p>
+<p class="Pp">U8, U16, U32, and U64 are to declare the corresponding unsigned
+    integer types.</p>
+<p class="Pp">If the platform doesn't support 64-bit integers, both I64 and U64
+    will be undefined. Use IV and UV to declare the largest practicable, and
+    <span class="Li">&quot;&quot;WIDEST_UTYPE&quot; in perlapi&quot;</span> for
+    the absolute maximum unsigned, but which may not be usable in all
+    circumstances.</p>
+<p class="Pp">A numeric constant can be specified with
+    &quot;<span class="Li">&quot;INT16_C&quot;</span>&quot; in perlapi,
+    &quot;<span class="Li">&quot;UINTMAX_C&quot;</span>&quot; in perlapi, and
+    similar.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="Working_with_SVs"><a class="permalink" href="#Working_with_SVs">Working
@@ -171,32 +188,89 @@
     functions typically add a trailing <span class="Li">&quot;NUL&quot;</span>
     for this reason. Nevertheless, you should be very careful when you pass a
     string stored in an SV to a C function or system call.</p>
-<p class="Pp">To access the actual value that an SV points to, you can use the
-    macros:</p>
-<p class="Pp"></p>
-<pre>    SvIV(SV*)
-    SvUV(SV*)
-    SvNV(SV*)
-    SvPV(SV*, STRLEN len)
-    SvPV_nolen(SV*)
-</pre>
-<p class="Pp">which will automatically coerce the actual scalar type into an IV,
-    UV, double, or string.</p>
-<p class="Pp">In the <span class="Li">&quot;SvPV&quot;</span> macro, the length
-    of the string returned is placed into the variable
-    <span class="Li">&quot;len&quot;</span> (this is a macro, so you do
-    <i>not</i> use <span class="Li">&amp;len</span>). If you do not care what
-    the length of the data is, use the
-    <span class="Li">&quot;SvPV_nolen&quot;</span> macro. Historically the
-    <span class="Li">&quot;SvPV&quot;</span> macro with the global variable
-    <span class="Li">&quot;PL_na&quot;</span> has been used in this case. But
-    that can be quite inefficient because
+<p class="Pp">To access the actual value that an SV points to, Perl's API
+    exposes several macros that coerce the actual scalar type into an IV, UV,
+    double, or string:</p>
+<ul class="Bl-bullet">
+  <li><span class="Li">&quot;SvIV(SV*)&quot;</span>
+      (<span class="Li">&quot;IV&quot;</span>) and
+      <span class="Li">&quot;SvUV(SV*)&quot;</span>
+      (<span class="Li">&quot;UV&quot;</span>)</li>
+  <li><span class="Li">&quot;SvNV(SV*)&quot;</span>
+      (<span class="Li">&quot;double&quot;</span>)</li>
+  <li>Strings are a bit complicated:</li>
+</ul>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>Byte string: <span class="Li">&quot;SvPVbyte(SV*, STRLEN len)&quot;</span>
+      or <span class="Li">&quot;SvPVbyte_nolen(SV*)&quot;</span>
+    <p class="Pp">If the Perl string is
+        <span class="Li">&quot;\xff\xff&quot;</span>, then this returns a 2-byte
+        <span class="Li">&quot;char*&quot;</span>.</p>
+    <p class="Pp">This is suitable for Perl strings that represent bytes.</p>
+  </li>
+  <li>UTF-8 string: <span class="Li">&quot;SvPVutf8(SV*, STRLEN
+      len)&quot;</span> or
+      <span class="Li">&quot;SvPVutf8_nolen(SV*)&quot;</span>
+    <p class="Pp">If the Perl string is
+        <span class="Li">&quot;\xff\xff&quot;</span>, then this returns a 4-byte
+        <span class="Li">&quot;char*&quot;</span>.</p>
+    <p class="Pp">This is suitable for Perl strings that represent
+      characters.</p>
+    <p class="Pp"><b>CAVEAT</b>: That <span class="Li">&quot;char*&quot;</span>
+        will be encoded via Perl's internal UTF-8 variant, which means that if
+        the SV contains non-Unicode code points (e.g., 0x110000), then the
+        result may contain extensions over valid UTF-8. See
+        &quot;is_strict_utf8_string&quot; in perlapi for some methods Perl gives
+        you to check the UTF-8 validity of these macros' returns.</p>
+  </li>
+  <li>You can also use <span class="Li">&quot;SvPV(SV*, STRLEN len)&quot;</span>
+      or <span class="Li">&quot;SvPV_nolen(SV*)&quot;</span> to fetch the SV's
+      raw internal buffer. This is tricky, though; if your Perl string is
+      <span class="Li">&quot;\xff\xff&quot;</span>, then depending on the SV's
+      internal encoding you might get back a 2-byte <b>OR</b> a 4-byte
+      <span class="Li">&quot;char*&quot;</span>. Moreover, if it's the 4-byte
+      string, that could come from either Perl
+      <span class="Li">&quot;\xff\xff&quot;</span> stored UTF-8 encoded, or Perl
+      <span class="Li">&quot;\xc3\xbf\xc3\xbf&quot;</span> stored as raw octets.
+      To differentiate between these you <b>MUST</b> look up the SV's UTF8 bit
+      (cf. <span class="Li">&quot;SvUTF8&quot;</span>) to know whether the
+      source Perl string is 2 characters
+      (<span class="Li">&quot;SvUTF8&quot;</span> would be on) or 4 characters
+      (<span class="Li">&quot;SvUTF8&quot;</span> would be off).
+    <p class="Pp"><b>IMPORTANT:</b> Use of
+        <span class="Li">&quot;SvPV&quot;</span>,
+        <span class="Li">&quot;SvPV_nolen&quot;</span>, or similarly-named
+        macros <i>without</i> looking up the SV's UTF8 bit is almost certainly a
+        bug if non-ASCII input is allowed.</p>
+    <p class="Pp">When the UTF8 bit is on, the same <b>CAVEAT</b> about UTF-8
+        validity applies here as for
+        <span class="Li">&quot;SvPVutf8&quot;</span>.</p>
+  </li>
+</ul>
+</div>
+<div class="Bd-indent">
+<p class="Pp">(See &quot;How do I pass a Perl string to a C library?&quot; for
+    more details.)</p>
+<p class="Pp">In <span class="Li">&quot;SvPVbyte&quot;</span>,
+    <span class="Li">&quot;SvPVutf8&quot;</span>, and
+    <span class="Li">&quot;SvPV&quot;</span>, the length of the
+    <span class="Li">&quot;char*&quot;</span> returned is placed into the
+    variable <span class="Li">&quot;len&quot;</span> (these are macros, so you
+    do <i>not</i> use <span class="Li">&amp;len</span>). If you do not care what
+    the length of the data is, use
+    <span class="Li">&quot;SvPVbyte_nolen&quot;</span>,
+    <span class="Li">&quot;SvPVutf8_nolen&quot;</span>, or
+    <span class="Li">&quot;SvPV_nolen&quot;</span> instead. The global variable
+    <span class="Li">&quot;PL_na&quot;</span> can also be given to
+    <span class="Li">&quot;SvPVbyte&quot;</span>/<span class="Li">&quot;SvPVutf8&quot;</span>/<span class="Li">&quot;SvPV&quot;</span>
+    in this case. But that can be quite inefficient because
     <span class="Li">&quot;PL_na&quot;</span> must be accessed in thread-local
     storage in threaded Perl. In any case, remember that Perl allows arbitrary
     strings of data that may both contain NULs and might not be terminated by a
     <span class="Li">&quot;NUL&quot;</span>.</p>
 <p class="Pp">Also remember that C doesn't allow you to safely say
-    <span class="Li">&quot;foo(SvPV(s, len),</span>
+    <span class="Li">&quot;foo(SvPVbyte(s, len),</span>
     <span class="Li">len);&quot;</span>. It might work with your compiler, but
     it won't work for everyone. Break this sort of statement up into separate
     assignments:</p>
@@ -204,9 +278,10 @@
 <pre>    SV *s;
     STRLEN len;
     char *ptr;
-    ptr = SvPV(s, len);
+    ptr = SvPVbyte(s, len);
     foo(ptr, len);
 </pre>
+</div>
 <p class="Pp">If you want to know if the scalar value is TRUE, you can use:</p>
 <p class="Pp"></p>
 <pre>    SvTRUE(SV*)
@@ -224,10 +299,10 @@
     (perl's own string functions typically do <span class="Li">&quot;SvGROW(sv,
     len + 1)&quot;</span>).</p>
 <p class="Pp">If you want to write to an existing SV's buffer and set its value
-    to a string, use <b>SvPV_force()</b> or one of its variants to force the SV
-    to be a PV. This will remove any of various types of non-stringness from the
-    SV while preserving the content of the SV in the PV. This can be used, for
-    example, to append data from an API function to a buffer without extra
+    to a string, use <b>SvPVbyte_force()</b> or one of its variants to force the
+    SV to be a PV. This will remove any of various types of non-stringness from
+    the SV while preserving the content of the SV in the PV. This can be used,
+    for example, to append data from an API function to a buffer without extra
     copying:</p>
 <p class="Pp"></p>
 <pre>    (void)SvPVbyte_force(sv, len);
@@ -253,7 +328,7 @@
     s = SvGROW(sv, needlen + 1);
     /* something that modifies up to needlen bytes at s, but modifies
        newlen bytes
-         eg. newlen = read(fd, s. needlen);
+         eg. newlen = read(fd, s, needlen);
      */
     s[newlen] = '\0';
     SvCUR_set(sv, newlen);
@@ -992,7 +1067,8 @@
     multiple sets of mortal references hanging around at the same time, with
     different death dates. Internally, the actual determinant for when mortal xV
     references are destroyed depends on two macros, SAVETMPS and FREETMPS. See
-    perlcall and perlxs for more details on these macros.</p>
+    perlcall and perlxs and &quot;Temporaries Stack&quot; below for more details
+    on these macros.</p>
 <p class="Pp">Mortal references are mainly used for xVs that are placed on
     perl's main stack. The stack is problematic for reference tracking, because
     it contains a lot of xV references, but doesn't own those references: they
@@ -1100,6 +1176,60 @@
     can now be used in the same way as any other SV.</p>
 <p class="Pp">For more information on references and blessings, consult
   perlref.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="I/O_Handles"><a class="permalink" href="#I/O_Handles">I/O
+  Handles</a></h2>
+<p class="Pp">Like AVs and HVs, IO objects are another type of non-scalar SV
+    which may contain input and output PerlIO objects or a
+    <span class="Li">&quot;DIR *&quot;</span> from <b>opendir()</b>.</p>
+<p class="Pp">You can create a new IO object:</p>
+<p class="Pp"></p>
+<pre>    IO*  newIO();
+</pre>
+<p class="Pp">Unlike other SVs, a new IO object is automatically blessed into
+    the IO::File class.</p>
+<p class="Pp">The IO object contains an input and output PerlIO handle:</p>
+<p class="Pp"></p>
+<pre>  PerlIO *IoIFP(IO *io);
+  PerlIO *IoOFP(IO *io);
+</pre>
+<p class="Pp">Typically if the IO object has been opened on a file, the input
+    handle is always present, but the output handle is only present if the file
+    is open for output. For a file, if both are present they will be the same
+    PerlIO object.</p>
+<p class="Pp">Distinct input and output PerlIO objects are created for sockets
+    and character devices.</p>
+<p class="Pp">The IO object also contains other data associated with Perl I/O
+    handles:</p>
+<p class="Pp"></p>
+<pre>  IV IoLINES(io);                /* $. */
+  IV IoPAGE(io);                 /* $% */
+  IV IoPAGE_LEN(io);             /* $= */
+  IV IoLINES_LEFT(io);           /* $- */
+  char *IoTOP_NAME(io);          /* $^ */
+  GV *IoTOP_GV(io);              /* $^ */
+  char *IoFMT_NAME(io);          /* $~ */
+  GV *IoFMT_GV(io);              /* $~ */
+  char *IoBOTTOM_NAME(io);
+  GV *IoBOTTOM_GV(io);
+  char IoTYPE(io);
+  U8 IoFLAGS(io);
+</pre>
+<p class="Pp">Most of these are involved with formats.</p>
+<p class="Pp"><b>IoFLAGs()</b> may contain a combination of flags, the most
+    interesting of which are <span class="Li">&quot;IOf_FLUSH&quot;</span>
+    (<span class="Li">$|</span>) for autoflush and
+    <span class="Li">&quot;IOf_UNTAINT&quot;</span>, settable with IO::Handle's
+    <b>untaint()</b> method.</p>
+<p class="Pp">The IO object may also contains a directory handle:</p>
+<p class="Pp"></p>
+<pre>  DIR *IoDIRP(io);
+</pre>
+<p class="Pp">suitable for use with <b>PerlDir_read()</b> etc.</p>
+<p class="Pp">All of these accessors macros are lvalues, there are no distinct
+    <span class="Li">&quot;_set()&quot;</span> macros to modify the members of
+    the IO object.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="Double-Typed_SVs"><a class="permalink" href="#Double-Typed_SVs">Double-Typed
@@ -1697,8 +1827,14 @@
   <dt>&quot;SAVEI32(I32 i)&quot;</dt>
   <dd></dd>
   <dt>&quot;SAVELONG(long i)&quot;</dt>
+  <dd></dd>
+  <dt>&quot;SAVEI8(I8 i)&quot;</dt>
+  <dd></dd>
+  <dt>&quot;SAVEI16(I16 i)&quot;</dt>
+  <dd></dd>
+  <dt>&quot;SAVEBOOL(int i)&quot;</dt>
   <dd>These macros arrange things to restore the value of integer variable
-      <span class="Li">&quot;i&quot;</span> at the end of enclosing
+      <span class="Li">&quot;i&quot;</span> at the end of the enclosing
       <i>pseudo-block</i>.</dd>
   <dt id="SAVESPTR(s)"><a class="permalink" href="#SAVESPTR(s)">SAVESPTR(s)</a></dt>
   <dd></dd>
@@ -1770,6 +1906,8 @@
     Perlish <span class="Li">&quot;GV *&quot;</span>s). Where the above macros
     take <span class="Li">&quot;int&quot;</span>, a similar function takes
     <span class="Li">&quot;int *&quot;</span>.</p>
+<p class="Pp">Other macros above have functions implementing them, but its
+    probably best to just use the macro, and not those or the ones below.</p>
 <dl class="Bl-tag">
   <dt>&quot;SV* save_scalar(GV *gv)&quot;</dt>
   <dd>Equivalent to Perl code <span class="Li">&quot;local
@@ -1780,13 +1918,12 @@
   <dd>Similar to <span class="Li">&quot;save_scalar&quot;</span>, but localize
       <span class="Li">@gv</span> and <span class="Li">%gv</span>.</dd>
   <dt>&quot;void save_item(SV *item)&quot;</dt>
-  <dd>Duplicates the current value of <span class="Li">&quot;SV&quot;</span>, on
+  <dd>Duplicates the current value of <span class="Li">&quot;SV&quot;</span>. On
       the exit from the current
       <span class="Li">&quot;ENTER&quot;</span>/<span class="Li">&quot;LEAVE&quot;</span>
-      <i>pseudo-block</i> will restore the value of
-      <span class="Li">&quot;SV&quot;</span> using the stored value. It doesn't
-      handle magic. Use <span class="Li">&quot;save_scalar&quot;</span> if magic
-      is affected.</dd>
+      <i>pseudo-block</i> the value of <span class="Li">&quot;SV&quot;</span>
+      will be restored using the stored value. It doesn't handle magic. Use
+      <span class="Li">&quot;save_scalar&quot;</span> if magic is affected.</dd>
   <dt>&quot;void save_list(SV **sarg, I32 maxsarg)&quot;</dt>
   <dd>A variant of <span class="Li">&quot;save_item&quot;</span> which takes
       multiple arguments via an array <span class="Li">&quot;sarg&quot;</span>
@@ -2061,10 +2198,6 @@
     manipulated using the macros described in this section. The macros provide
     the necessary transparency between differences in the actual malloc
     implementation that is used within perl.</p>
-<p class="Pp">It is suggested that you enable the version of malloc that is
-    distributed with Perl. It keeps pools of various sizes of unallocated memory
-    in order to satisfy allocation requests more quickly. However, on some
-    platforms, it may cause spurious malloc or free errors.</p>
 <p class="Pp">The following three macros are used to initially allocate memory
   :</p>
 <p class="Pp"></p>
@@ -2363,11 +2496,14 @@
         prev_peepp = PL_peepp;
         PL_peepp = my_peep;
     static peep_t prev_rpeepp;
-    static void my_rpeep(pTHX_ OP *o)
+    static void my_rpeep(pTHX_ OP *first)
     {
-        OP *orig_o = o;
-        for(; o; o = o-&gt;op_next) {
+        OP *o = first, *t = first;
+        for(; o = o-&gt;op_next, t = t-&gt;op_next) {
             /* custom per-op optimisation goes here */
+            o = o-&gt;op_next;
+            if (!o || o == t) break;
+            /* custom per-op optimisation goes AND here */
         }
         prev_rpeepp(aTHX_ orig_o);
     }
@@ -2518,33 +2654,18 @@
   and PERL_IMPLICIT_CONTEXT</a></h2>
 <p class="Pp">The Perl interpreter can be regarded as a closed box: it has an
     API for feeding it code or otherwise making it do things, but it also has
-    functions for its own use. This smells a lot like an object, and there are
-    ways for you to build Perl so that you can have multiple interpreters, with
+    functions for its own use. This smells a lot like an object, and there is a
+    way for you to build Perl so that you can have multiple interpreters, with
     one interpreter represented either as a C structure, or inside a
     thread-specific structure. These structures contain all the context, the
     state of that interpreter.</p>
-<p class="Pp">One macro controls the major Perl build flavor: MULTIPLICITY. The
-    MULTIPLICITY build has a C structure that packages all the interpreter
-    state. With multiplicity-enabled perls, PERL_IMPLICIT_CONTEXT is also
-    normally defined, and enables the support for passing in a
+<p class="Pp">The macro that controls the major Perl build flavor is
+    MULTIPLICITY. The MULTIPLICITY build has a C structure that packages all the
+    interpreter state. With multiplicity-enabled perls, PERL_IMPLICIT_CONTEXT is
+    also normally defined, and enables the support for passing in a
     &quot;hidden&quot; first argument that represents all three data structures.
     MULTIPLICITY makes multi-threaded perls possible (with the ithreads
     threading model, related to the macro USE_ITHREADS.)</p>
-<p class="Pp">Two other &quot;encapsulation&quot; macros are the
-    PERL_GLOBAL_STRUCT and PERL_GLOBAL_STRUCT_PRIVATE (the latter turns on the
-    former, and the former turns on MULTIPLICITY.) The PERL_GLOBAL_STRUCT causes
-    all the internal variables of Perl to be wrapped inside a single global
-    struct, struct perl_vars, accessible as (globals) &amp;PL_Vars or PL_VarsPtr
-    or the function <b>Perl_GetVars()</b>. The PERL_GLOBAL_STRUCT_PRIVATE goes
-    one step further, there is still a single struct (allocated in <b>main()</b>
-    either from heap or from stack) but there are no global data symbols
-    pointing to it. In either case the global struct should be initialized as
-    the very first thing in <b>main()</b> using <b>Perl_init_global_struct()</b>
-    and correspondingly tear it down after <b>perl_free()</b> using
-    <b>Perl_free_global_struct()</b>, please see <i>miniperlmain.c</i> for usage
-    details. You may also need to use <span class="Li">&quot;dVAR&quot;</span>
-    in your coding to &quot;declare the global variables&quot; when you are
-    using them. dTHX does this for you automatically.</p>
 <p class="Pp">To see whether you have non-const data you can use a BSD (or GNU)
     compatible <span class="Li">&quot;nm&quot;</span>:</p>
 <p class="Pp"></p>
@@ -2561,11 +2682,6 @@
     symbols referred to.</p>
 <p class="Pp">The test <i>t/porting/libperl.t</i> does this kind of symbol
     sanity checking on <span class="Li">&quot;libperl.a&quot;</span>.</p>
-<p class="Pp">For backward compatibility reasons defining just
-    PERL_GLOBAL_STRUCT doesn't actually hide all symbols inside a big global
-    struct: some PerlIO_xxx vtables are left visible. The
-    PERL_GLOBAL_STRUCT_PRIVATE then hides everything (see how the
-    PERLIO_FUNCS_DECL is used).</p>
 <p class="Pp">All this obviously requires a way for the Perl internal functions
     to be either subroutines taking some kind of structure as the first
     argument, or subroutines taking nothing as the first argument. To enable
@@ -2644,10 +2760,11 @@
     context-free version.</p>
 <p class="Pp">The context-free version of Perl_warner is called
     Perl_warner_nocontext, and does not take the extra argument. Instead it does
-    dTHX; to get the context from thread-local storage. We
-    <span class="Li">&quot;#define warner Perl_warner_nocontext&quot;</span> so
-    that extensions get source compatibility at the expense of performance.
-    (Passing an arg is cheaper than grabbing it from thread-local storage.)</p>
+    <span class="Li">&quot;dTHX;&quot;</span> to get the context from
+    thread-local storage. We <span class="Li">&quot;#define warner
+    Perl_warner_nocontext&quot;</span> so that extensions get source
+    compatibility at the expense of performance. (Passing an arg is cheaper than
+    grabbing it from thread-local storage.)</p>
 <p class="Pp">You can ignore [pad]THXx when browsing the Perl headers/sources.
     Those are strictly for use within the core. Extensions and embedders need
     only be aware of [pad]THX.</p>
@@ -2754,15 +2871,6 @@
     yourself--always use the form of the macro with the underscore for functions
     that take explicit arguments, or the form without the argument for functions
     with no explicit arguments.</p>
-<p class="Pp">If one is compiling Perl with the
-    <span class="Li">&quot;-DPERL_GLOBAL_STRUCT&quot;</span> the
-    <span class="Li">&quot;dVAR&quot;</span> definition is needed if the Perl
-    global variables (see <i>perlvars.h</i> or <i>globvar.sym</i>) are accessed
-    in the function and <span class="Li">&quot;dTHX&quot;</span> is not used
-    (the <span class="Li">&quot;dTHX&quot;</span> includes the
-    <span class="Li">&quot;dVAR&quot;</span> if necessary). One notices the need
-    for <span class="Li">&quot;dVAR&quot;</span> only with the said compile-time
-    define, because otherwise the Perl global variables are visible as-is.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="Should_I_do_anything_special_if_I_call_perl_from_multiple_threads?"><a class="permalink" href="#Should_I_do_anything_special_if_I_call_perl_from_multiple_threads?">Should
@@ -2835,67 +2943,9 @@
 <p class="Pp"></p>
 <pre>    Apd |SV**   |av_fetch   |AV* ar|I32 key|I32 lval
 </pre>
-<p class="Pp">The second column is the return type, the third column the name.
-    Columns after that are the arguments. The first column is a set of
-  flags:</p>
-<dl class="Bl-tag">
-  <dt id="A"><a class="permalink" href="#A">A</a></dt>
-  <dd>This function is a part of the public API. All such functions should also
-      have 'd', very few do not.</dd>
-  <dt id="p"><a class="permalink" href="#p">p</a></dt>
-  <dd>This function has a <span class="Li">&quot;Perl_&quot;</span> prefix; i.e.
-      it is defined as <span class="Li">&quot;Perl_av_fetch&quot;</span>.</dd>
-  <dt id="d"><a class="permalink" href="#d">d</a></dt>
-  <dd>This function has documentation using the
-      <span class="Li">&quot;apidoc&quot;</span> feature which we'll look at in
-      a second. Some functions have 'd' but not 'A'; docs are good.</dd>
-</dl>
-<p class="Pp">Other available flags are:</p>
-<dl class="Bl-tag">
-  <dt id="s"><a class="permalink" href="#s">s</a></dt>
-  <dd>This is a static function and is defined as <span class="Li">&quot;STATIC
-      S_whatever&quot;</span>, and usually called within the sources as
-      <span class="Li">&quot;whatever(...)&quot;</span>.</dd>
-  <dt id="n"><a class="permalink" href="#n">n</a></dt>
-  <dd>This does not need an interpreter context, so the definition has no
-      <span class="Li">&quot;pTHX&quot;</span>, and it follows that callers
-      don't use <span class="Li">&quot;aTHX&quot;</span>. (See &quot;Background
-      and PERL_IMPLICIT_CONTEXT&quot;.)</dd>
-  <dt id="r"><a class="permalink" href="#r">r</a></dt>
-  <dd>This function never returns; <span class="Li">&quot;croak&quot;</span>,
-      <span class="Li">&quot;exit&quot;</span> and friends.</dd>
-  <dt id="f"><a class="permalink" href="#f">f</a></dt>
-  <dd>This function takes a variable number of arguments,
-      <span class="Li">&quot;printf&quot;</span> style. The argument list should
-      end with <span class="Li">&quot;...&quot;</span>, like this:
-    <p class="Pp"></p>
-    <pre>    Afprd   |void   |croak          |const char* pat|...
-    </pre>
-  </dd>
-  <dt id="M"><a class="permalink" href="#M">M</a></dt>
-  <dd>This function is part of the experimental development API, and may change
-      or disappear without notice.</dd>
-  <dt id="o"><a class="permalink" href="#o">o</a></dt>
-  <dd>This function should not have a compatibility macro to define, say,
-      <span class="Li">&quot;Perl_parse&quot;</span> to
-      <span class="Li">&quot;parse&quot;</span>. It must be called as
-      <span class="Li">&quot;Perl_parse&quot;</span>.</dd>
-  <dt id="x"><a class="permalink" href="#x">x</a></dt>
-  <dd>This function isn't exported out of the Perl core.</dd>
-  <dt id="m"><a class="permalink" href="#m">m</a></dt>
-  <dd>This is implemented as a macro.</dd>
-  <dt id="X"><a class="permalink" href="#X">X</a></dt>
-  <dd>This function is explicitly exported.</dd>
-  <dt id="E"><a class="permalink" href="#E">E</a></dt>
-  <dd>This function is visible to extensions included in the Perl core.</dd>
-  <dt id="b"><a class="permalink" href="#b">b</a></dt>
-  <dd>Binary backward compatibility; this function is a macro but also has a
-      <span class="Li">&quot;Perl_&quot;</span> implementation (which is
-      exported).</dd>
-  <dt id="others"><a class="permalink" href="#others">others</a></dt>
-  <dd>See the comments at the top of
-      <span class="Li">&quot;embed.fnc&quot;</span> for others.</dd>
-</dl>
+<p class="Pp">The first column is a set of flags, the second column the return
+    type, the third column the name. Columns after that are the arguments. The
+    flags are documented at the top of <i>embed.fnc</i>.</p>
 <p class="Pp">If you edit <i>embed.pl</i> or <i>embed.fnc</i>, you will need to
     run <span class="Li">&quot;make regen_headers&quot;</span> to force a
     rebuild of <i>embed.h</i> and other auto-generated files.</p>
@@ -2918,15 +2968,80 @@
 <p class="Pp">These will take care of 64-bit integers and long doubles. For
     example:</p>
 <p class="Pp"></p>
-<pre>        printf(&quot;IV is %&quot;IVdf&quot;\n&quot;, iv);
+<pre>        printf(&quot;IV is %&quot; IVdf &quot;\n&quot;, iv);
 </pre>
-<p class="Pp">The IVdf will expand to whatever is the correct format for the
-    IVs.</p>
+<p class="Pp">The <span class="Li">&quot;IVdf&quot;</span> will expand to
+    whatever is the correct format for the IVs. Note that the spaces are
+    required around the format in case the code is compiled with C++, to
+    maintain compliance with its standard.</p>
 <p class="Pp">Note that there are different &quot;long doubles&quot;: Perl will
     use whatever the compiler has.</p>
-<p class="Pp">If you are printing addresses of pointers, use UVxf combined with
-    <b>PTR2UV()</b>, do not use <span class="Li">%lx</span> or
-    <span class="Li">%p</span>.</p>
+<p class="Pp">If you are printing addresses of pointers, use
+    <span class="Li">%p</span> or UVxf combined with <b>PTR2UV()</b>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Formatted_Printing_of_SVs"><a class="permalink" href="#Formatted_Printing_of_SVs">Formatted
+  Printing of SVs</a></h2>
+<p class="Pp">The contents of SVs may be printed using the
+    <span class="Li">&quot;SVf&quot;</span> format, like so:</p>
+<p class="Pp"></p>
+<pre> Perl_croak(aTHX_ &quot;This croaked because: %&quot; SVf &quot;\n&quot;, SVfARG(err_msg))
+</pre>
+<p class="Pp">where <span class="Li">&quot;err_msg&quot;</span> is an SV.</p>
+<p class="Pp">Not all scalar types are printable. Simple values certainly are:
+    one of IV, UV, NV, or PV. Also, if the SV is a reference to some value,
+    either it will be dereferenced and the value printed, or information about
+    the type of that value and its address are displayed. The results of
+    printing any other type of SV are undefined and likely to lead to an
+    interpreter crash. NVs are printed using a <span class="Li">%g</span>-ish
+    format.</p>
+<p class="Pp">Note that the spaces are required around the
+    <span class="Li">&quot;SVf&quot;</span> in case the code is compiled with
+    C++, to maintain compliance with its standard.</p>
+<p class="Pp">Note that any filehandle being printed to under UTF-8 must be
+    expecting UTF-8 in order to get good results and avoid Wide-character
+    warnings. One way to do this for typical filehandles is to invoke perl with
+    the <span class="Li">&quot;-C&quot;</span>&gt; parameter. (See &quot;-C
+    [number/list]&quot; in perlrun.</p>
+<p class="Pp">You can use this to concatenate two scalars:</p>
+<p class="Pp"></p>
+<pre> SV *var1 = get_sv(&quot;var1&quot;, GV_ADD);
+ SV *var2 = get_sv(&quot;var2&quot;, GV_ADD);
+ SV *var3 = newSVpvf(&quot;var1=%&quot; SVf &quot; and var2=%&quot; SVf,
+                     SVfARG(var1), SVfARG(var2));
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Formatted_Printing_of_Strings"><a class="permalink" href="#Formatted_Printing_of_Strings">Formatted
+  Printing of Strings</a></h2>
+<p class="Pp">If you just want the bytes printed in a 7bit NUL-terminated
+    string, you can just use <span class="Li">%s</span> (assuming they are all
+    really only 7bit). But if there is a possibility the value will be encoded
+    as UTF-8 or contains bytes above <span class="Li">0x7F</span> (and therefore
+    8bit), you should instead use the <span class="Li">&quot;UTF8f&quot;</span>
+    format. And as its parameter, use the
+    <span class="Li">&quot;UTF8fARG()&quot;</span> macro:</p>
+<p class="Pp"></p>
+<pre> chr * msg;
+ /* U+2018: \xE2\x80\x98 LEFT SINGLE QUOTATION MARK
+    U+2019: \xE2\x80\x99 RIGHT SINGLE QUOTATION MARK */
+ if (can_utf8)
+   msg = &quot;\xE2\x80\x98Uses fancy quotes\xE2\x80\x99&quot;;
+ else
+   msg = &quot;'Uses simple quotes'&quot;;
+ Perl_croak(aTHX_ &quot;The message is: %&quot; UTF8f &quot;\n&quot;,
+                  UTF8fARG(can_utf8, strlen(msg), msg));
+</pre>
+<p class="Pp">The first parameter to
+    <span class="Li">&quot;UTF8fARG&quot;</span> is a boolean: 1 if the string
+    is in UTF-8; 0 if string is in native byte encoding (Latin1). The second
+    parameter is the number of bytes in the string to print. And the third and
+    final parameter is a pointer to the first byte in the string.</p>
+<p class="Pp">Note that any filehandle being printed to under UTF-8 must be
+    expecting UTF-8 in order to get good results and avoid Wide-character
+    warnings. One way to do this for typical filehandles is to invoke perl with
+    the <span class="Li">&quot;-C&quot;</span>&gt; parameter. (See &quot;-C
+    [number/list]&quot; in perlrun.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="Formatted_Printing_of__Size_t__and__SSize_t_"><a class="permalink" href="#Formatted_Printing_of__Size_t__and__SSize_t_">Formatted
@@ -2935,13 +3050,21 @@
     print as in the previous section.</p>
 <p class="Pp">But if you're using
     <span class="Li">&quot;PerlIO_printf()&quot;</span>, it's less typing and
-    visual clutter to use the <span class="Li">&quot;%z&quot;</span> length
-    modifier (for <i>siZe</i>):</p>
+    visual clutter to use the <span class="Li">%z</span> length modifier (for
+    <i>siZe</i>):</p>
 <p class="Pp"></p>
 <pre>        PerlIO_printf(&quot;STRLEN is %zu\n&quot;, len);
 </pre>
 <p class="Pp">This modifier is not portable, so its use should be restricted to
     <span class="Li">&quot;PerlIO_printf()&quot;</span>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Formatted_Printing_of__Ptrdiff_t_,__intmax_t_,__short__and_other_special_sizes"><a class="permalink" href="#Formatted_Printing_of__Ptrdiff_t_,__intmax_t_,__short__and_other_special_sizes">Formatted
+  Printing of &quot;Ptrdiff_t&quot;, &quot;intmax_t&quot;, &quot;short&quot; and
+  other special sizes</a></h2>
+<p class="Pp">There are modifiers for these special situations if you are using
+    <span class="Li">&quot;PerlIO_printf()&quot;</span>. See &quot;size&quot; in
+    perlfunc.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="Pointer-To-Integer_and_Integer-To-Pointer"><a class="permalink" href="#Pointer-To-Integer_and_Integer-To-Pointer">Pointer-To-Integer
@@ -2964,6 +3087,15 @@
 <pre>        AV *av = ...;
         UV  uv = PTR2UV(av);
 </pre>
+<p class="Pp">There are also</p>
+<p class="Pp"></p>
+<pre> PTR2nat(pointer)   /* pointer to integer of PTRSIZE */
+ PTR2ul(pointer)    /* pointer to unsigned long */
+</pre>
+<p class="Pp">And <span class="Li">&quot;PTRV&quot;</span> which gives the
+    native type for an integer the same size as pointers, such as
+    <span class="Li">&quot;unsigned&quot;</span> or
+    <span class="Li">&quot;unsigned long&quot;</span>.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="Exception_Handling"><a class="permalink" href="#Exception_Handling">Exception
@@ -3244,6 +3376,65 @@
     as to how it's currently done.</p>
 </section>
 <section class="Ss">
+<h2 class="Ss" id="How_do_I_pass_a_Perl_string_to_a_C_library?"><a class="permalink" href="#How_do_I_pass_a_Perl_string_to_a_C_library?">How
+  do I pass a Perl string to a C library?</a></h2>
+<p class="Pp">A Perl string, conceptually, is an opaque sequence of code points.
+    Many C libraries expect their inputs to be &quot;classical&quot; C strings,
+    which are arrays of octets 1-255, terminated with a NUL byte. Your job when
+    writing an interface between Perl and a C library is to define the mapping
+    between Perl and that library.</p>
+<p class="Pp">Generally speaking, <span class="Li">&quot;SvPVbyte&quot;</span>
+    and related macros suit this task well. These assume that your Perl string
+    is a &quot;byte string&quot;, i.e., is either raw, undecoded input into Perl
+    or is pre-encoded to, e.g., UTF-8.</p>
+<p class="Pp">Alternatively, if your C library expects UTF-8 text, you can use
+    <span class="Li">&quot;SvPVutf8&quot;</span> and related macros. This has
+    the same effect as encoding to UTF-8 then calling the corresponding
+    <span class="Li">&quot;SvPVbyte&quot;</span>-related macro.</p>
+<p class="Pp">Some C libraries may expect other encodings (e.g., UTF-16LE). To
+    give Perl strings to such libraries you must either do that encoding in Perl
+    then use <span class="Li">&quot;SvPVbyte&quot;</span>, or use an
+    intermediary C library to convert from however Perl stores the string to the
+    desired encoding.</p>
+<p class="Pp">Take care also that NULs in your Perl string don't confuse the C
+    library. If possible, give the string's length to the C library; if that's
+    not possible, consider rejecting strings that contain NUL bytes.</p>
+<p class="Pp"><i>What about
+    </i><span class="Li"><i>&quot;SvPV&quot;</i></span><i>,
+    </i><span class="Li"><i>&quot;SvPV_nolen&quot;</i></span><i>, etc.?</i></p>
+<p class="Pp">Consider a 3-character Perl string <span class="Li">&quot;$foo =
+    &quot;\x64\x78\x8c&quot;&quot;</span>. Perl can store these 3 characters
+    either of two ways:</p>
+<ul class="Bl-bullet">
+  <li>bytes: 0x64 0x78 0x8c</li>
+  <li>UTF-8: 0x64 0x78 0xc2 0x8c</li>
+</ul>
+<p class="Pp">Now let's say you convert <span class="Li">$foo</span> to a C
+    string thus:</p>
+<p class="Pp"></p>
+<pre>    STRLEN strlen;
+    char *str = SvPV(foo_sv, strlen);
+</pre>
+<p class="Pp">At this point <span class="Li">&quot;str&quot;</span> could point
+    to a 3-byte C string or a 4-byte one.</p>
+<p class="Pp">Generally speaking, we want
+    <span class="Li">&quot;str&quot;</span> to be the same regardless of how
+    Perl stores <span class="Li">$foo</span>, so the ambiguity here is
+    undesirable. <span class="Li">&quot;SvPVbyte&quot;</span> and
+    <span class="Li">&quot;SvPVutf8&quot;</span> solve that by giving
+    predictable output: use <span class="Li">&quot;SvPVbyte&quot;</span> if your
+    C library expects byte strings, or
+    <span class="Li">&quot;SvPVutf8&quot;</span> if it expects UTF-8.</p>
+<p class="Pp">If your C library happens to support both encodings, then
+    <span class="Li">&quot;SvPV&quot;</span>--always in tandem with lookups to
+    <span class="Li">&quot;SvUTF8&quot;</span>!--may be safe and (slightly) more
+    efficient.</p>
+<p class="Pp"><b>TESTING</b> <b>TIP:</b> Use utf8's
+    <span class="Li">&quot;upgrade&quot;</span> and
+    <span class="Li">&quot;downgrade&quot;</span> functions in your tests to
+    ensure consistent handling regardless of Perl's internal encoding.</p>
+</section>
+<section class="Ss">
 <h2 class="Ss" id="How_do_I_convert_a_string_to_"><a class="permalink" href="#How_do_I_convert_a_string_to_">How
   do I convert a string to UTF-8?</a></h2>
 <p class="Pp">If you're mixing UTF-8 and non-UTF-8 strings, it is necessary to
@@ -3424,6 +3615,272 @@
 </dl>
 <p class="Pp"><span class="Li">&quot;B::Generate&quot;</span> directly supports
     the creation of custom ops by name.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Stacks"><a class="permalink" href="#Stacks">Stacks</a></h1>
+<p class="Pp">Descriptions above occasionally refer to &quot;the stack&quot;,
+    but there are in fact many stack-like data structures within the perl
+    interpreter. When otherwise unqualified, &quot;the stack&quot; usually
+    refers to the value stack.</p>
+<p class="Pp">The various stacks have different purposes, and operate in
+    slightly different ways. Their differences are noted below.</p>
+<section class="Ss">
+<h2 class="Ss" id="Value_Stack"><a class="permalink" href="#Value_Stack">Value
+  Stack</a></h2>
+<p class="Pp">This stack stores the values that regular perl code is operating
+    on, usually intermediate values of expressions within a statement. The stack
+    itself is formed of an array of SV pointers.</p>
+<p class="Pp">The base of this stack is pointed to by the interpreter variable
+    <span class="Li">&quot;PL_stack_base&quot;</span>, of type
+    <span class="Li">&quot;SV **&quot;</span>.</p>
+<p class="Pp">The head of the stack is
+    <span class="Li">&quot;PL_stack_sp&quot;</span>, and points to the most
+    recently-pushed item.</p>
+<p class="Pp">Items are pushed to the stack by using the
+    <span class="Li">&quot;PUSHs()&quot;</span> macro or its variants described
+    above; <span class="Li">&quot;XPUSHs()&quot;</span>,
+    <span class="Li">&quot;mPUSHs()&quot;</span>,
+    <span class="Li">&quot;mXPUSHs()&quot;</span> and the typed versions. Note
+    carefully that the non-<span class="Li">&quot;X&quot;</span> versions of
+    these macros do not check the size of the stack and assume it to be big
+    enough. These must be paired with a suitable check of the stack's size, such
+    as the <span class="Li">&quot;EXTEND&quot;</span> macro to ensure it is
+    large enough. For example</p>
+<p class="Pp"></p>
+<pre>    EXTEND(SP, 4);
+    mPUSHi(10);
+    mPUSHi(20);
+    mPUSHi(30);
+    mPUSHi(40);
+</pre>
+<p class="Pp">This is slightly more performant than making four separate checks
+    in four separate <span class="Li">&quot;mXPUSHi()&quot;</span> calls.</p>
+<p class="Pp">As a further performance optimisation, the various
+    <span class="Li">&quot;PUSH&quot;</span> macros all operate using a local
+    variable <span class="Li">&quot;SP&quot;</span>, rather than the
+    interpreter-global variable <span class="Li">&quot;PL_stack_sp&quot;</span>.
+    This variable is declared by the <span class="Li">&quot;dSP&quot;</span>
+    macro - though it is normally implied by XSUBs and similar so it is rare you
+    have to consider it directly. Once declared, the
+    <span class="Li">&quot;PUSH&quot;</span> macros will operate only on this
+    local variable, so before invoking any other perl core functions you must
+    use the <span class="Li">&quot;PUTBACK&quot;</span> macro to return the
+    value from the local <span class="Li">&quot;SP&quot;</span> variable back to
+    the interpreter variable. Similarly, after calling a perl core function
+    which may have had reason to move the stack or push/pop values to it, you
+    must use the <span class="Li">&quot;SPAGAIN&quot;</span> macro which
+    refreshes the local <span class="Li">&quot;SP&quot;</span> value back from
+    the interpreter one.</p>
+<p class="Pp">Items are popped from the stack by using the
+    <span class="Li">&quot;POPs&quot;</span> macro or its typed versions, There
+    is also a macro <span class="Li">&quot;TOPs&quot;</span> that inspects the
+    topmost item without removing it.</p>
+<p class="Pp">Note specifically that SV pointers on the value stack do not
+    contribute to the overall reference count of the xVs being referred to. If
+    newly-created xVs are being pushed to the stack you must arrange for them to
+    be destroyed at a suitable time; usually by using one of the
+    <span class="Li">&quot;mPUSH*&quot;</span> macros or
+    <span class="Li">&quot;sv_2mortal()&quot;</span> to mortalise the xV.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Mark_Stack"><a class="permalink" href="#Mark_Stack">Mark
+  Stack</a></h2>
+<p class="Pp">The value stack stores individual perl scalar values as
+    temporaries between expressions. Some perl expressions operate on entire
+    lists; for that purpose we need to know where on the stack each list begins.
+    This is the purpose of the mark stack.</p>
+<p class="Pp">The mark stack stores integers as I32 values, which are the height
+    of the value stack at the time before the list began; thus the mark itself
+    actually points to the value stack entry one before the list. The list
+    itself starts at <span class="Li">&quot;mark + 1&quot;</span>.</p>
+<p class="Pp">The base of this stack is pointed to by the interpreter variable
+    <span class="Li">&quot;PL_markstack&quot;</span>, of type
+    <span class="Li">&quot;I32 *&quot;</span>.</p>
+<p class="Pp">The head of the stack is
+    <span class="Li">&quot;PL_markstack_ptr&quot;</span>, and points to the most
+    recently-pushed item.</p>
+<p class="Pp">Items are pushed to the stack by using the
+    <span class="Li">&quot;PUSHMARK()&quot;</span> macro. Even though the stack
+    itself stores (value) stack indices as integers, the
+    <span class="Li">&quot;PUSHMARK&quot;</span> macro should be given a stack
+    pointer directly; it will calculate the index offset by comparing to the
+    <span class="Li">&quot;PL_stack_sp&quot;</span> variable. Thus almost always
+    the code to perform this is</p>
+<p class="Pp"></p>
+<pre>    PUSHMARK(SP);
+</pre>
+<p class="Pp">Items are popped from the stack by the
+    <span class="Li">&quot;POPMARK&quot;</span> macro. There is also a macro
+    <span class="Li">&quot;TOPMARK&quot;</span> that inspects the topmost item
+    without removing it. These macros return I32 index values directly. There is
+    also the <span class="Li">&quot;dMARK&quot;</span> macro which declares a
+    new SV double-pointer variable, called
+    <span class="Li">&quot;mark&quot;</span>, which points at the marked stack
+    slot; this is the usual macro that C code will use when operating on lists
+    given on the stack.</p>
+<p class="Pp">As noted above, the <span class="Li">&quot;mark&quot;</span>
+    variable itself will point at the most recently pushed value on the value
+    stack before the list begins, and so the list itself starts at
+    <span class="Li">&quot;mark + 1&quot;</span>. The values of the list may be
+    iterated by code such as</p>
+<p class="Pp"></p>
+<pre>    for(SV **svp = mark + 1; svp &lt;= PL_stack_sp; svp++) {
+      SV *item = *svp;
+      ...
+    }
+</pre>
+<p class="Pp">Note specifically in the case that the list is already empty,
+    <span class="Li">&quot;mark&quot;</span> will equal
+    <span class="Li">&quot;PL_stack_sp&quot;</span>.</p>
+<p class="Pp">Because the <span class="Li">&quot;mark&quot;</span> variable is
+    converted to a pointer on the value stack, extra care must be taken if
+    <span class="Li">&quot;EXTEND&quot;</span> or any of the
+    <span class="Li">&quot;XPUSH&quot;</span> macros are invoked within the
+    function, because the stack may need to be moved to extend it and so the
+    existing pointer will now be invalid. If this may be a problem, a possible
+    solution is to track the mark offset as an integer and track the mark itself
+    later on after the stack had been moved.</p>
+<p class="Pp"></p>
+<pre>    I32 markoff = POPMARK;
+    ...
+    SP **mark = PL_stack_base + markoff;
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Temporaries_Stack"><a class="permalink" href="#Temporaries_Stack">Temporaries
+  Stack</a></h2>
+<p class="Pp">As noted above, xV references on the main value stack do not
+    contribute to the reference count of an xV, and so another mechanism is used
+    to track when temporary values which live on the stack must be released.
+    This is the job of the temporaries stack.</p>
+<p class="Pp">The temporaries stack stores pointers to xVs whose reference
+    counts will be decremented soon.</p>
+<p class="Pp">The base of this stack is pointed to by the interpreter variable
+    <span class="Li">&quot;PL_tmps_stack&quot;</span>, of type
+    <span class="Li">&quot;SV **&quot;</span>.</p>
+<p class="Pp">The head of the stack is indexed by
+    <span class="Li">&quot;PL_tmps_ix&quot;</span>, an integer which stores the
+    index in the array of the most recently-pushed item.</p>
+<p class="Pp">There is no public API to directly push items to the temporaries
+    stack. Instead, the API function
+    <span class="Li">&quot;sv_2mortal()&quot;</span> is used to mortalize an xV,
+    adding its address to the temporaries stack.</p>
+<p class="Pp">Likewise, there is no public API to read values from the
+    temporaries stack. Instead, the macros
+    <span class="Li">&quot;SAVETMPS&quot;</span> and
+    <span class="Li">&quot;FREETMPS&quot;</span> are used. The
+    <span class="Li">&quot;SAVETMPS&quot;</span> macro establishes the base
+    levels of the temporaries stack, by capturing the current value of
+    <span class="Li">&quot;PL_tmps_ix&quot;</span> into
+    <span class="Li">&quot;PL_tmps_floor&quot;</span> and saving the previous
+    value to the save stack. Thereafter, whenever
+    <span class="Li">&quot;FREETMPS&quot;</span> is invoked all of the
+    temporaries that have been pushed since that level are reclaimed.</p>
+<p class="Pp">While it is common to see these two macros in pairs within an
+    <span class="Li">&quot;ENTER&quot;</span>/
+    <span class="Li">&quot;LEAVE&quot;</span> pair, it is not necessary to match
+    them. It is permitted to invoke <span class="Li">&quot;FREETMPS&quot;</span>
+    multiple times since the most recent
+    <span class="Li">&quot;SAVETMPS&quot;</span>; for example in a loop
+    iterating over elements of a list. While you can invoke
+    <span class="Li">&quot;SAVETMPS&quot;</span> multiple times within a scope
+    pair, it is unlikely to be useful. Subsequent invocations will move the
+    temporaries floor further up, thus effectively trapping the existing
+    temporaries to only be released at the end of the scope.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Save_Stack"><a class="permalink" href="#Save_Stack">Save
+  Stack</a></h2>
+<p class="Pp">The save stack is used by perl to implement the
+    <span class="Li">&quot;local&quot;</span> keyword and other similar
+    behaviours; any cleanup operations that need to be performed when leaving
+    the current scope. Items pushed to this stack generally capture the current
+    value of some internal variable or state, which will be restored when the
+    scope is unwound due to leaving, <span class="Li">&quot;return&quot;</span>,
+    <span class="Li">&quot;die&quot;</span>,
+    <span class="Li">&quot;goto&quot;</span> or other reasons.</p>
+<p class="Pp">Whereas other perl internal stacks store individual items all of
+    the same type (usually SV pointers or integers), the items pushed to the
+    save stack are formed of many different types, having multiple fields to
+    them. For example, the <span class="Li">&quot;SAVEt_INT&quot;</span> type
+    needs to store both the address of the
+    <span class="Li">&quot;int&quot;</span> variable to restore, and the value
+    to restore it to. This information could have been stored using fields of a
+    <span class="Li">&quot;struct&quot;</span>, but would have to be large
+    enough to store three pointers in the largest case, which would waste a lot
+    of space in most of the smaller cases.</p>
+<p class="Pp">Instead, the stack stores information in a variable-length
+    encoding of <span class="Li">&quot;ANY&quot;</span> structures. The final
+    value pushed is stored in the <span class="Li">&quot;UV&quot;</span> field
+    which encodes the kind of item held by the preceeding items; the count and
+    types of which will depend on what kind of item is being stored. The kind
+    field is pushed last because that will be the first field to be popped when
+    unwinding items from the stack.</p>
+<p class="Pp">The base of this stack is pointed to by the interpreter variable
+    <span class="Li">&quot;PL_savestack&quot;</span>, of type
+    <span class="Li">&quot;ANY *&quot;</span>.</p>
+<p class="Pp">The head of the stack is indexed by
+    <span class="Li">&quot;PL_savestack_ix&quot;</span>, an integer which stores
+    the index in the array at which the next item should be pushed. (Note that
+    this is different to most other stacks, which reference the most
+    recently-pushed item).</p>
+<p class="Pp">Items are pushed to the save stack by using the various
+    <span class="Li">&quot;SAVE...()&quot;</span> macros. Many of these macros
+    take a variable and store both its address and current value on the save
+    stack, ensuring that value gets restored on scope exit.</p>
+<p class="Pp"></p>
+<pre>    SAVEI8(i8)
+    SAVEI16(i16)
+    SAVEI32(i32)
+    SAVEINT(i)
+    ...
+</pre>
+<p class="Pp">There are also a variety of other special-purpose macros which
+    save particular types or values of interest.
+    <span class="Li">&quot;SAVETMPS&quot;</span> has already been mentioned
+    above. Others include <span class="Li">&quot;SAVEFREEPV&quot;</span> which
+    arranges for a PV (i.e. a string buffer) to be freed, or
+    <span class="Li">&quot;SAVEDESTRUCTOR&quot;</span> which arranges for a
+    given function pointer to be invoked on scope exit. A full list of such
+    macros can be found in <i>scope.h</i>.</p>
+<p class="Pp">There is no public API for popping individual values or items from
+    the save stack. Instead, via the scope stack, the
+    <span class="Li">&quot;ENTER&quot;</span> and
+    <span class="Li">&quot;LEAVE&quot;</span> pair form a way to start and stop
+    nested scopes. Leaving a nested scope via
+    <span class="Li">&quot;LEAVE&quot;</span> will restore all of the saved
+    values that had been pushed since the most recent
+    <span class="Li">&quot;ENTER&quot;</span>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Scope_Stack"><a class="permalink" href="#Scope_Stack">Scope
+  Stack</a></h2>
+<p class="Pp">As with the mark stack to the value stack, the scope stack forms a
+    pair with the save stack. The scope stack stores the height of the save
+    stack at which nested scopes begin, and allows the save stack to be unwound
+    back to that point when the scope is left.</p>
+<p class="Pp">When perl is built with debugging enabled, there is a second part
+    to this stack storing human-readable string names describing the type of
+    stack context. Each push operation saves the name as well as the height of
+    the save stack, and each pop operation checks the topmost name with what is
+    expected, causing an assertion failure if the name does not match.</p>
+<p class="Pp">The base of this stack is pointed to by the interpreter variable
+    <span class="Li">&quot;PL_scopestack&quot;</span>, of type
+    <span class="Li">&quot;I32 *&quot;</span>. If enabled, the scope stack names
+    are stored in a separate array pointed to by
+    <span class="Li">&quot;PL_scopestack_name&quot;</span>, of type
+    <span class="Li">&quot;const char **&quot;</span>.</p>
+<p class="Pp">The head of the stack is indexed by
+    <span class="Li">&quot;PL_scopestack_ix&quot;</span>, an integer which
+    stores the index of the array or arrays at which the next item should be
+    pushed. (Note that this is different to most other stacks, which reference
+    the most recently-pushed item).</p>
+<p class="Pp">Values are pushed to the scope stack using the
+    <span class="Li">&quot;ENTER&quot;</span> macro, which begins a new nested
+    scope. Any items pushed to the save stack are then restored at the next
+    nested invocation of the <span class="Li">&quot;LEAVE&quot;</span>
+  macro.</p>
+</section>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="Dynamic_Scope_and_the_Context_Stack"><a class="permalink" href="#Dynamic_Scope_and_the_Context_Stack">Dynamic
@@ -3661,11 +4118,11 @@
 </pre>
 <p class="Pp">The steps above are in a very specific order, designed to be the
     reverse order of when the context was pushed. The first thing to do is to
-    copy and/or protect any any return arguments and free any temps in the
-    current scope. Scope exits like an rvalue sub normally return a mortal copy
-    of their return args (as opposed to lvalue subs). It is important to make
-    this copy before the save stack is popped or variables are restored, or bad
-    things like the following can happen:</p>
+    copy and/or protect any return arguments and free any temps in the current
+    scope. Scope exits like an rvalue sub normally return a mortal copy of their
+    return args (as opposed to lvalue subs). It is important to make this copy
+    before the save stack is popped or variables are restored, or bad things
+    like the following can happen:</p>
 <p class="Pp"></p>
 <pre>    sub f { my $x =...; $x }  # $x freed before we get to copy it
     sub f { /(...)/;    $1 }  # PL_curpm restored before $1 copied
@@ -3797,8 +4254,8 @@
     therefore hopefully be cache-friendly. In addition, this means that there's
     no need to store the size of the slab (see below on why slabs vary in size),
     because Perl can follow pointers to find the last op.</p>
-<p class="Pp">It might seem possible eliminate slab reference counts altogether,
-    by having all ops implicitly attached to
+<p class="Pp">It might seem possible to eliminate slab reference counts
+    altogether, by having all ops implicitly attached to
     <span class="Li">&quot;PL_compcv&quot;</span> when allocated and freed when
     the CV is freed. That would also allow
     <span class="Li">&quot;op_free&quot;</span> to skip

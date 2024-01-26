@@ -190,14 +190,17 @@
     <i>if</i> and only if the condition is true.
     <span class="Li">&quot;unless&quot;</span> is the opposite, it executes the
     statement <i>unless</i> the condition is true (that is, if the condition is
-    false).</p>
+    false). See &quot;Scalar values&quot; in perldata for definitions of true
+    and false.</p>
 <p class="Pp"></p>
 <pre>    print &quot;Basset hounds got long ears&quot; if length $ear &gt;= 10;
     go_outside() and play() unless $is_raining;
 </pre>
 <p class="Pp">The <span class="Li">&quot;for(each)&quot;</span> modifier is an
     iterator: it executes the statement once for each item in the LIST (with
-    <span class="Li">$_</span> aliased to each item in turn).</p>
+    <span class="Li">$_</span> aliased to each item in turn). There is no syntax
+    to specify a C-style for loop or a lexically scoped iteration variable in
+    this form.</p>
 <p class="Pp"></p>
 <pre>    print &quot;Hello $_!\n&quot; for qw(world Dolly nurse);
 </pre>
@@ -341,6 +344,12 @@
     LABEL BLOCK continue BLOCK
     PHASE BLOCK
 </pre>
+<p class="Pp">If enabled by the experimental
+    <span class="Li">&quot;try&quot;</span> feature, the following may also be
+    used</p>
+<p class="Pp"></p>
+<pre>    try BLOCK catch (VAR) BLOCK
+</pre>
 <p class="Pp">The experimental <span class="Li">&quot;given&quot;</span>
     statement is <i>not automatically enabled</i>; see &quot;Switch
     Statements&quot; below for how to do so, and the attendant caveats.</p>
@@ -379,8 +388,8 @@
     <span class="Li">&quot;last&quot;</span>, and
     <span class="Li">&quot;redo&quot;</span>. If the LABEL is omitted, the loop
     control statement refers to the innermost enclosing loop. This may include
-    dynamically looking back your call-stack at run time to find the LABEL. Such
-    desperate behavior triggers a warning if you use the
+    dynamically searching through your call-stack at run time to find the LABEL.
+    Such desperate behavior triggers a warning if you use the
     <span class="Li">&quot;use warnings&quot;</span> pragma or the <b>-w</b>
     flag.</p>
 <p class="Pp">If the condition expression of a
@@ -533,7 +542,22 @@
     <span class="Li">&quot;my&quot;</span> in the initialization section of the
     <span class="Li">&quot;for&quot;</span>, the lexical scope of those
     variables is exactly the <span class="Li">&quot;for&quot;</span> loop (the
-    body of the loop and the control sections).</p>
+    body of the loop and the control sections). To illustrate:</p>
+<p class="Pp"></p>
+<pre>    my $i = 'samba';
+    for (my $i = 1; $i &lt;= 4; $i++) {
+        print &quot;$i\n&quot;;
+    }
+    print &quot;$i\n&quot;;
+</pre>
+<p class="Pp">when executed, gives:</p>
+<p class="Pp"></p>
+<pre>    1
+    2
+    3
+    4
+    samba
+</pre>
 <p class="Pp">As a special case, if the test in the
     <span class="Li">&quot;for&quot;</span> loop (or the corresponding
     <span class="Li">&quot;while&quot;</span> loop) is empty, it is treated as
@@ -667,6 +691,92 @@
     without notice. Do not rely on it.</p>
 </section>
 <section class="Ss">
+<h2 class="Ss" id="Try_Catch_Exception_Handling"><a class="permalink" href="#Try_Catch_Exception_Handling">Try
+  Catch Exception Handling</a></h2>
+<p class="Pp">The
+    <span class="Li">&quot;try&quot;</span>/<span class="Li">&quot;catch&quot;</span>
+    syntax provides control flow relating to exception handling. The
+    <span class="Li">&quot;try&quot;</span> keyword introduces a block which
+    will be executed when it is encountered, and the
+    <span class="Li">&quot;catch&quot;</span> block provides code to handle any
+    exception that may be thrown by the first.</p>
+<p class="Pp"></p>
+<pre>    try {
+        my $x = call_a_function();
+        $x &lt; 100 or die &quot;Too big&quot;;
+        send_output($x);
+    }
+    catch ($e) {
+        warn &quot;Unable to output a value; $e&quot;;
+    }
+    print &quot;Finished\n&quot;;
+</pre>
+<p class="Pp">Here, the body of the <span class="Li">&quot;catch&quot;</span>
+    block (i.e. the <span class="Li">&quot;warn&quot;</span> statement) will be
+    executed if the initial block invokes the conditional
+    <span class="Li">&quot;die&quot;</span>, or if either of the functions it
+    invokes throws an uncaught exception. The
+    <span class="Li">&quot;catch&quot;</span> block can inspect the
+    <span class="Li">$e</span> lexical variable in this case to see what the
+    exception was. If no exception was thrown then the
+    <span class="Li">&quot;catch&quot;</span> block does not happen. In either
+    case, execution will then continue from the following statement - in this
+    example the <span class="Li">&quot;print&quot;</span>.</p>
+<p class="Pp">The <span class="Li">&quot;catch&quot;</span> keyword must be
+    immediately followed by a variable declaration in parentheses, which
+    introduces a new variable visible to the body of the subsequent block.
+    Inside the block this variable will contain the exception value that was
+    thrown by the code in the <span class="Li">&quot;try&quot;</span> block. It
+    is not necessary to use the <span class="Li">&quot;my&quot;</span> keyword
+    to declare this variable; this is implied (similar as it is for subroutine
+    signatures).</p>
+<p class="Pp">Both the <span class="Li">&quot;try&quot;</span> and the
+    <span class="Li">&quot;catch&quot;</span> blocks are permitted to contain
+    control-flow expressions, such as
+    <span class="Li">&quot;return&quot;</span>,
+    <span class="Li">&quot;goto&quot;</span>, or
+    <span class="Li">&quot;next&quot;</span>/<span class="Li">&quot;last&quot;</span>/<span class="Li">&quot;redo&quot;</span>.
+    In all cases they behave as expected without warnings. In particular, a
+    <span class="Li">&quot;return&quot;</span> expression inside the
+    <span class="Li">&quot;try&quot;</span> block will make its entire
+    containing function return - this is in contrast to its behaviour inside an
+    <span class="Li">&quot;eval&quot;</span> block, where it would only make
+    that block return.</p>
+<p class="Pp">Like other control-flow syntax,
+    <span class="Li">&quot;try&quot;</span> and
+    <span class="Li">&quot;catch&quot;</span> will yield the last evaluated
+    value when placed as the final statement in a function or a
+    <span class="Li">&quot;do&quot;</span> block. This permits the syntax to be
+    used to create a value. In this case remember not to use the
+    <span class="Li">&quot;return&quot;</span> expression, or that will cause
+    the containing function to return.</p>
+<p class="Pp"></p>
+<pre>    my $value = do {
+        try {
+            get_thing(@args);
+        }
+        catch ($e) {
+            warn &quot;Unable to get thing - $e&quot;;
+            $DEFAULT_THING;
+        }
+    };
+</pre>
+<p class="Pp">As with other control-flow syntax,
+    <span class="Li">&quot;try&quot;</span> blocks are not visible to
+    <span class="Li">&quot;caller()&quot;</span> (just as for example,
+    <span class="Li">&quot;while&quot;</span> or
+    <span class="Li">&quot;foreach&quot;</span> loops are not). Successive
+    levels of the <span class="Li">&quot;caller&quot;</span> result can see
+    subroutine calls and <span class="Li">&quot;eval&quot;</span> blocks,
+    because those affect the way that <span class="Li">&quot;return&quot;</span>
+    would work. Since <span class="Li">&quot;try&quot;</span> blocks do not
+    intercept <span class="Li">&quot;return&quot;</span>, they are not of
+    interest to <span class="Li">&quot;caller&quot;</span>.</p>
+<p class="Pp">This syntax is currently experimental and must be enabled with
+    <span class="Li">&quot;use feature 'try'&quot;</span>. It emits a warning in
+    the <span class="Li">&quot;experimental::try&quot;</span> category.</p>
+</section>
+<section class="Ss">
 <h2 class="Ss" id="Basic_BLOCKs"><a class="permalink" href="#Basic_BLOCKs">Basic
   BLOCKs</a></h2>
 <p class="Pp">A BLOCK by itself (labeled or not) is semantically equivalent to a
@@ -711,7 +821,7 @@
 <pre>    use feature &quot;switch&quot;;
 </pre>
 <p class="Pp">to enable an experimental switch feature. This is loosely based on
-    an old version of a Perl 6 proposal, but it no longer resembles the Perl 6
+    an old version of a Raku proposal, but it no longer resembles the Raku
     construct. You also get the switch feature whenever you declare that your
     code prefers to run under a version of Perl that is 5.10 or later. For
     example:</p>
@@ -796,9 +906,9 @@
     <span class="Li">&quot;given&quot;</span> is merely a lexically scoped copy
     of the original, not a dynamically scoped alias to the original, as it would
     be if it were a <span class="Li">&quot;foreach&quot;</span> or under both
-    the original and the current Perl 6 language specification. This bug was
-    fixed in Perl 5.18 (and lexicalized <span class="Li">$_</span> itself was
-    removed in Perl 5.24).</p>
+    the original and the current Raku language specification. This bug was fixed
+    in Perl 5.18 (and lexicalized <span class="Li">$_</span> itself was removed
+    in Perl 5.24).</p>
 <p class="Pp">If your code still needs to run on older versions, stick to
     <span class="Li">&quot;foreach&quot;</span> for your topicalizer and you
     will be less unhappy.</p>
@@ -1292,16 +1402,16 @@
 <p class="Pp">This doesn't work if you explicitly specify a loop variable, as in
     <span class="Li">&quot;for $item (@array)&quot;</span>. You have to use the
     default variable <span class="Li">$_</span>.</p>
-<p class="Pp"><i>Differences from Perl 6</i></p>
+<p class="Pp"><i>Differences from Raku</i></p>
 <p class="Pp">The Perl 5 smartmatch and
     <span class="Li">&quot;given&quot;</span>/<span class="Li">&quot;when&quot;</span>
-    constructs are not compatible with their Perl 6 analogues. The most visible
+    constructs are not compatible with their Raku analogues. The most visible
     difference and least important difference is that, in Perl 5, parentheses
     are required around the argument to
     <span class="Li">&quot;given()&quot;</span> and
     <span class="Li">&quot;when()&quot;</span> (except when this last one is
-    used as a statement modifier). Parentheses in Perl 6 are always optional in
-    a control construct such as <span class="Li">&quot;if()&quot;</span>,
+    used as a statement modifier). Parentheses in Raku are always optional in a
+    control construct such as <span class="Li">&quot;if()&quot;</span>,
     <span class="Li">&quot;while()&quot;</span>, or
     <span class="Li">&quot;when()&quot;</span>; they can't be made optional in
     Perl 5 without a great deal of potential confusion, because Perl 5 would
@@ -1328,7 +1438,7 @@
     }
     say &quot;that's all, folks!&quot;;
 </pre>
-<p class="Pp">But it doesn't work at all in Perl 6. Instead, you should use the
+<p class="Pp">But it doesn't work at all in Raku. Instead, you should use the
     (parallelizable) <span class="Li">&quot;any&quot;</span> operator:</p>
 <p class="Pp"></p>
 <pre>   if any(@primary) eq &quot;red&quot; {
@@ -1339,23 +1449,22 @@
    }
 </pre>
 <p class="Pp">The table of smartmatches in &quot;Smartmatch Operator&quot; in
-    perlop is not identical to that proposed by the Perl 6 specification, mainly
-    due to differences between Perl 6's and Perl 5's data models, but also
-    because the Perl 6 spec has changed since Perl 5 rushed into early
-  adoption.</p>
-<p class="Pp">In Perl 6, <span class="Li">&quot;when()&quot;</span> will always
-    do an implicit smartmatch with its argument, while in Perl 5 it is
-    convenient (albeit potentially confusing) to suppress this implicit
-    smartmatch in various rather loosely-defined situations, as roughly outlined
-    above. (The difference is largely because Perl 5 does not have, even
-    internally, a boolean type.)</p>
+    perlop is not identical to that proposed by the Raku specification, mainly
+    due to differences between Raku's and Perl 5's data models, but also because
+    the Raku spec has changed since Perl 5 rushed into early adoption.</p>
+<p class="Pp">In Raku, <span class="Li">&quot;when()&quot;</span> will always do
+    an implicit smartmatch with its argument, while in Perl 5 it is convenient
+    (albeit potentially confusing) to suppress this implicit smartmatch in
+    various rather loosely-defined situations, as roughly outlined above. (The
+    difference is largely because Perl 5 does not have, even internally, a
+    boolean type.)</p>
 </section>
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">2019-10-21</td>
-    <td class="foot-os">perl v5.30.3</td>
+    <td class="foot-date">2022-02-19</td>
+    <td class="foot-os">perl v5.34.1</td>
   </tr>
 </table>
 </body>

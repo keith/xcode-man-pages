@@ -330,7 +330,7 @@
      croak &quot;length of $value is greater than $self-&gt;{ELEMSIZE}&quot;;
    }
    # fill in the blanks
-   $self-&gt;EXTEND( $index ) if $index &gt; $self-&gt;FETCHSIZE();
+   $self-&gt;STORESIZE( $index ) if $index &gt; $self-&gt;FETCHSIZE();
    # right justify to keep element size for smaller elements
    $self-&gt;{ARRAY}-&gt;[$index] = sprintf &quot;%$self-&gt;{ELEMSIZE}s&quot;, $value;
  }
@@ -345,7 +345,7 @@
     <p class="Pp"></p>
     <pre>    sub FETCHSIZE {
       my $self = shift;
-      return scalar @{$self-&gt;{ARRAY}};
+      return scalar $self-&gt;{ARRAY}-&gt;@*;
     }
     </pre>
   </dd>
@@ -379,18 +379,24 @@
     count</a></dt>
   <dd>Informative call that array is likely to grow to have <i>count</i>
       entries. Can be used to optimize allocation. This method need do nothing.
-    <p class="Pp">In our example, we want to make sure there are no blank
-        (<span class="Li">&quot;undef&quot;</span>) entries, so
-        <span class="Li">&quot;EXTEND&quot;</span> will make use of
-        <span class="Li">&quot;STORESIZE&quot;</span> to fill elements as
-        needed:</p>
+    <p class="Pp">In our example there is no reason to implement this method, so
+        we leave it as a no-op. This method is only relevant to tied array
+        implementations where there is the possibility of having the allocated
+        size of the array be larger than is visible to a perl programmer
+        inspecting the size of the array. Many tied array implementations will
+        have no reason to implement it.</p>
     <p class="Pp"></p>
     <pre>    sub EXTEND {   
       my $self  = shift;
       my $count = shift;
-      $self-&gt;STORESIZE( $count );
+      # nothing to see here, move along.
     }
     </pre>
+    <p class="Pp"><b>NOTE:</b> It is generally an error to make this equivalent
+        to STORESIZE. Perl may from time to time call EXTEND without wanting to
+        actually change the array size directly. Any tied array should function
+        correctly if this method is a no-op, even if perhaps they might not be
+        as efficient as they would if this method was implemented.</p>
   </dd>
   <dt id="EXISTS"><a class="permalink" href="#EXISTS">EXISTS this, key</a></dt>
   <dd>Verify that the element at index <i>key</i> exists in the tied array
@@ -447,7 +453,7 @@
     <p class="Pp"></p>
     <pre>    sub POP {
       my $self = shift;
-      return pop @{$self-&gt;{ARRAY}};
+      return pop $self-&gt;{ARRAY}-&gt;@*;
     }
     </pre>
   </dd>
@@ -457,7 +463,7 @@
     <p class="Pp"></p>
     <pre>    sub SHIFT {
       my $self = shift;
-      return shift @{$self-&gt;{ARRAY}};
+      return shift $self-&gt;{ARRAY}-&gt;@*;
     }
     </pre>
   </dd>
@@ -471,8 +477,8 @@
       my @list = @_;
       my $size = scalar( @list );
       # make room for our list
-      @{$self-&gt;{ARRAY}}[ $size .. $#{$self-&gt;{ARRAY}} + $size ]
-       = @{$self-&gt;{ARRAY}};
+      $self-&gt;{ARRAY}[ $size .. $self-&gt;{ARRAY}-&gt;$#* + $size ]-&gt;@*
+       = $self-&gt;{ARRAY}-&gt;@*
       $self-&gt;STORE( $_, $list[$_] ) foreach 0 .. $#list;
     }
     </pre>
@@ -500,7 +506,7 @@
         tie @list, __PACKAGE__, $self-&gt;{ELEMSIZE};
         @list   = @_;
       }
-      return splice @{$self-&gt;{ARRAY}}, $offset, $length, @list;
+      return splice $self-&gt;{ARRAY}-&gt;@*, $offset, $length, @list;
     }
     </pre>
   </dd>
@@ -736,7 +742,7 @@
      croak &quot;@{[&amp;whowasi]}: won't remove all dot files for $self-&gt;{USER}&quot;
          unless $self-&gt;{CLOBBER} &gt; 1;
      my $dot;
-     foreach $dot ( keys %{$self-&gt;{LIST}}) {
+     foreach $dot ( keys $self-&gt;{LIST}-&gt;%* ) {
          $self-&gt;DELETE($dot);
      }
  }
@@ -764,8 +770,8 @@
     <pre>    sub FIRSTKEY {
         carp &amp;whowasi if $DEBUG;
         my $self = shift;
-        my $a = keys %{$self-&gt;{LIST}};  # reset each() iterator
-        each %{$self-&gt;{LIST}}
+        my $a = keys $self-&gt;{LIST}-&gt;%*;  # reset each() iterator
+        each $self-&gt;{LIST}-&gt;%*
     }
     </pre>
     <p class="Pp">FIRSTKEY is always called in scalar context and it should just
@@ -789,9 +795,15 @@
     <pre>    sub NEXTKEY  {
         carp &amp;whowasi if $DEBUG;
         my $self = shift;
-        return each %{ $self-&gt;{LIST} }
+        return each $self-&gt;{LIST}-&gt;%*
     }
     </pre>
+    <p class="Pp">If the object underlying your tied hash isn't a real hash and
+        you don't have <span class="Li">&quot;each&quot;</span> available, then
+        you should return <span class="Li">&quot;undef&quot;</span> or the empty
+        list once you've reached the end of your list of keys. See
+        <span class="Li">&quot;each's own documentation&quot;</span> for more
+        details.</p>
   </dd>
   <dt id="SCALAR"><a class="permalink" href="#SCALAR">SCALAR this</a></dt>
   <dd>This is called when the hash is evaluated in scalar context, and in 5.28
@@ -815,7 +827,7 @@
     <pre>    sub SCALAR {
         carp &amp;whowasi if $DEBUG;
         my $self = shift;
-        return scalar %{ $self-&gt;{LIST} }
+        return scalar $self-&gt;{LIST}-&gt;%*
     }
     </pre>
     <p class="Pp">NOTE: In perl 5.25 the behavior of scalar

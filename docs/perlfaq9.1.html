@@ -53,7 +53,7 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="VERSION"><a class="permalink" href="#VERSION">VERSION</a></h1>
-<p class="Pp">version 5.20190126</p>
+<p class="Pp">version 5.20210411</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
@@ -119,7 +119,7 @@
     Plack is like Ruby's Rack or Python's Paste for WSGI.</p>
 <p class="Pp">You could build a web site using Plack and your own code, but for
     anything other than a very basic web site, using a web framework (that uses
-    Plack) is a better option.</p>
+    &lt;https://plackperl.org&gt;) is a better option.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="How_do_I_remove_"><a class="permalink" href="#How_do_I_remove_">How
@@ -136,28 +136,30 @@
     URL. If you need anything more complex, you can create your own subclass of
     HTML::LinkExtor or HTML::Parser. You might even use HTML::SimpleLinkExtor as
     an example for something specifically suited to your needs.</p>
-<p class="Pp">You can use URI::Find to extract URLs from an arbitrary text
-    document.</p>
+<p class="Pp">You can use URI::Find or URL::Search to extract URLs from an
+    arbitrary text document.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="How_do_I_fetch_an_"><a class="permalink" href="#How_do_I_fetch_an_">How
   do I fetch an HTML file?</a></h2>
 <p class="Pp">(contributed by brian d foy)</p>
-<p class="Pp">Use the libwww-perl distribution. The LWP::Simple module can fetch
-    web resources and give their content back to you as a string:</p>
+<p class="Pp">The core HTTP::Tiny module can fetch web resources and give their
+    content back to you as a string:</p>
 <p class="Pp"></p>
-<pre>    use LWP::Simple qw(get);
-    my $html = get( &quot;http://www.example.com/index.html&quot; );
+<pre>    use HTTP::Tiny;
+    my $ua = HTTP::Tiny-&gt;new;
+    my $html = $ua-&gt;get( &quot;http://www.example.com/index.html&quot; )-&gt;{content};
 </pre>
 <p class="Pp">It can also store the resource directly in a file:</p>
 <p class="Pp"></p>
-<pre>    use LWP::Simple qw(getstore);
-    getstore( &quot;http://www.example.com/index.html&quot;, &quot;foo.html&quot; );
+<pre>    $ua-&gt;mirror( &quot;http://www.example.com/index.html&quot;, &quot;foo.html&quot; );
 </pre>
-<p class="Pp">If you need to do something more complicated, you can use
-    LWP::UserAgent module to create your own user-agent (e.g. browser) to get
-    the job done. If you want to simulate an interactive web browser, you can
-    use the WWW::Mechanize module.</p>
+<p class="Pp">If you need to do something more complicated, the HTTP::Tiny
+    object can be customized by setting attributes, or you can use
+    LWP::UserAgent from the libwww-perl distribution or Mojo::UserAgent from the
+    Mojolicious distribution to make common tasks easier. If you want to
+    simulate an interactive web browser, you can use the WWW::Mechanize
+  module.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="How_do_I_automate_an_"><a class="permalink" href="#How_do_I_automate_an_">How
@@ -166,24 +168,25 @@
     pages and forms or a web site, you can use WWW::Mechanize. See its
     documentation for all the details.</p>
 <p class="Pp">If you're submitting values using the GET method, create a URL and
-    encode the form using the <span class="Li">&quot;query_form&quot;</span>
-    method:</p>
+    encode the form using the
+    <span class="Li">&quot;www_form_urlencode&quot;</span> method from
+    HTTP::Tiny:</p>
 <p class="Pp"></p>
-<pre>    use LWP::Simple;
-    use URI::URL;
-    my $url = url('L&lt;http://www.perl.com/cgi-bin/cpan_mod')&gt;;
-    $url-&gt;query_form(module =&gt; 'DB_File', readme =&gt; 1);
-    $content = get($url);
+<pre>    use HTTP::Tiny;
+    my $ua = HTTP::Tiny-&gt;new;
+    my $query = $ua-&gt;www_form_urlencode([ q =&gt; 'DB_File', lucky =&gt; 1 ]);
+    my $url = &quot;https://metacpan.org/search?$query&quot;;
+    my $content = $ua-&gt;get($url)-&gt;{content};
 </pre>
-<p class="Pp">If you're using the POST method, create your own user agent and
-    encode the content appropriately.</p>
+<p class="Pp">If you're using the POST method, the
+    <span class="Li">&quot;post_form&quot;</span> method will encode the content
+    appropriately.</p>
 <p class="Pp"></p>
-<pre>    use HTTP::Request::Common qw(POST);
-    use LWP::UserAgent;
-    my $ua = LWP::UserAgent-&gt;new();
-    my $req = POST 'L&lt;http://www.perl.com/cgi-bin/cpan_mod'&gt;,
-                   [ module =&gt; 'DB_File', readme =&gt; 1 ];
-    my $content = $ua-&gt;request($req)-&gt;as_string;
+<pre>    use HTTP::Tiny;
+    my $ua = HTTP::Tiny-&gt;new;
+    my $url = 'https://metacpan.org/search';
+    my $form = [ q =&gt; 'DB_File', lucky =&gt; 1 ];
+    my $content = $ua-&gt;post_form($url, $form)-&gt;{content};
 </pre>
 </section>
 <section class="Ss">
@@ -331,26 +334,19 @@
 <section class="Ss">
 <h2 class="Ss" id="How_do_I_send_email?"><a class="permalink" href="#How_do_I_send_email?">How
   do I send email?</a></h2>
-<p class="Pp">Use the Email::MIME and Email::Sender::Simple modules, like
-  so:</p>
+<p class="Pp">Use the Email::Stuffer module, like so:</p>
 <p class="Pp"></p>
 <pre>  # first, create your message
-  my $message = Email::MIME-&gt;create(
-    header_str =&gt; [
-      From    =&gt; 'you@example.com',
-      To      =&gt; 'friend@example.com',
-      Subject =&gt; 'Happy birthday!',
-    ],
-    attributes =&gt; {
-      encoding =&gt; 'quoted-printable',
-      charset  =&gt; 'utf-8',
-    },
-    body_str =&gt; &quot;Happy birthday to you!\n&quot;,
-  );
-  use Email::Sender::Simple qw(sendmail);
-  sendmail($message);
+  my $message = Email::Stuffer-&gt;from('you@example.com')
+                              -&gt;to('friend@example.com')
+                              -&gt;subject('Happy birthday!')
+                              -&gt;text_body(&quot;Happy birthday to you!\n&quot;);
+  $message-&gt;send_or_die;
 </pre>
-<p class="Pp">By default, Email::Sender::Simple will try `sendmail` first, if it
+<p class="Pp">By default, Email::Sender::Simple (the
+    <span class="Li">&quot;send&quot;</span> and
+    <span class="Li">&quot;send_or_die&quot;</span> methods use this under the
+    hood) will try <span class="Li">&quot;sendmail&quot;</span> first, if it
     exists in your <span class="Li">$PATH</span>. This generally isn't the case.
     If there's a remote mail server you use to send mail, consider investigating
     one of the Transport classes. At time of writing, the available transports
@@ -364,15 +360,10 @@
   <dd>This transport contacts a remote SMTP server over TCP. It optionally uses
       TLS or SSL and can authenticate to the server via SASL.</dd>
 </dl>
-<p class="Pp">Telling Email::Sender::Simple to use your transport is
-    straightforward.</p>
+<p class="Pp">Telling Email::Stuffer to use your transport is
+  straightforward.</p>
 <p class="Pp"></p>
-<pre>  sendmail(
-    $message,
-    {
-      transport =&gt; $email_sender_transport_object,
-    }
-  );
+<pre>  $message-&gt;transport($email_sender_transport_object)-&gt;send_or_die;
 </pre>
 </section>
 <section class="Ss">
@@ -382,6 +373,16 @@
     objects themselves are parts and can be attached to other Email::MIME
     objects. Consult the Email::MIME documentation for more information,
     including all of the supported methods and examples of their use.</p>
+<p class="Pp">Email::Stuffer uses Email::MIME under the hood to construct
+    messages, and wraps the most common attachment tasks with the simple
+    <span class="Li">&quot;attach&quot;</span> and
+    <span class="Li">&quot;attach_file&quot;</span> methods.</p>
+<p class="Pp"></p>
+<pre>  Email::Stuffer-&gt;to('friend@example.com')
+                -&gt;subject('The file')
+                -&gt;attach_file('stuff.csv')
+                -&gt;send_or_die;
+</pre>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="How_do_I_read_email?"><a class="permalink" href="#How_do_I_read_email?">How

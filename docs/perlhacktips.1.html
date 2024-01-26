@@ -81,7 +81,7 @@
     <p class="Pp">The first one explicitly passes in the context, which is
         needed for e.g. threaded builds. The second one does that implicitly; do
         not get them mixed. If you are not passing in a aTHX_, you will need to
-        do a dTHX (or a dVAR) as the first thing in the function.</p>
+        do a dTHX as the first thing in the function.</p>
     <p class="Pp">See &quot;How multiple interpreters and concurrency are
         supported&quot; in perlguts for further discussion about context.</p>
   </li>
@@ -110,11 +110,6 @@
     <pre>    static const char * const yippee[] =
         {&quot;hi&quot;, &quot;ho&quot;, &quot;silver&quot;};
     </pre>
-    <p class="Pp">There is a way to completely hide any modifiable globals (they
-        are all moved to heap), the compilation setting
-        <span class="Li">&quot;-DPERL_GLOBAL_STRUCT_PRIVATE&quot;</span>. It is
-        not normally used, but can be used for testing, read more about it in
-        &quot;Background and PERL_IMPLICIT_CONTEXT&quot; in perlguts.</p>
   </li>
   <li>Not exporting your new function
     <p class="Pp">Some platforms (Win32, AIX, VMS, OS/2, to name a few) require
@@ -429,7 +424,7 @@
     <p class="Pp">That is C99 or C++. Some C compilers allow that, but you
         shouldn't.</p>
     <p class="Pp">The gcc option
-        <span class="Li">&quot;-Wdeclaration-after-statements&quot;</span> scans
+        <span class="Li">&quot;-Wdeclaration-after-statement&quot;</span> scans
         for such problems (by default on starting from Perl 5.9.4).</p>
   </li>
   <li>Introducing variables inside <b>for()</b>
@@ -622,6 +617,49 @@
 <h2 class="Ss" id="Problematic_System_Interfaces"><a class="permalink" href="#Problematic_System_Interfaces">Problematic
   System Interfaces</a></h2>
 <ul class="Bl-bullet">
+  <li>Perl strings are NOT the same as C strings: They may contain
+      <span class="Li">&quot;NUL&quot;</span> characters, whereas a C string is
+      terminated by the first <span class="Li">&quot;NUL&quot;</span>. That is
+      why Perl API functions that deal with strings generally take a pointer to
+      the first byte and either a length or a pointer to the byte just beyond
+      the final one.
+    <p class="Pp">And this is the reason that many of the C library string
+        handling functions should not be used. They don't cope with the full
+        generality of Perl strings. It may be that your test cases don't have
+        embedded <span class="Li">&quot;NUL&quot;</span>s, and so the tests
+        pass, whereas there may well eventually arise real-world cases where
+        they fail. A lesson here is to include
+        <span class="Li">&quot;NUL&quot;</span>s in your tests. Now it's fairly
+        rare in most real world cases to get
+        <span class="Li">&quot;NUL&quot;</span>s, so your code may seem to work,
+        until one day a <span class="Li">&quot;NUL&quot;</span> comes along.</p>
+    <p class="Pp">Here's an example. It used to be a common paradigm, for
+        decades, in the perl core to use
+        <span class="Li">&quot;strchr(&quot;list&quot;,&#x00A0;c)&quot;</span>
+        to see if the character <span class="Li">&quot;c&quot;</span> is any of
+        the ones given in <span class="Li">&quot;list&quot;</span>, a
+        double-quote-enclosed string of the set of characters that we are seeing
+        if <span class="Li">&quot;c&quot;</span> is one of. As long as
+        <span class="Li">&quot;c&quot;</span> isn't a
+        <span class="Li">&quot;NUL&quot;</span>, it works. But when
+        <span class="Li">&quot;c&quot;</span> is a
+        <span class="Li">&quot;NUL&quot;</span>,
+        <span class="Li">&quot;strchr&quot;</span> returns a pointer to the
+        terminating <span class="Li">&quot;NUL&quot;</span> in
+        <span class="Li">&quot;list&quot;</span>. This likely will result in a
+        segfault or a security issue when the caller uses that end pointer as
+        the starting point to read from.</p>
+    <p class="Pp">A solution to this and many similar issues is to use the
+        <span class="Li">&quot;mem&quot;</span><i>-foo</i> C library functions
+        instead. In this case <span class="Li">&quot;memchr&quot;</span> can be
+        used to see if <span class="Li">&quot;c&quot;</span> is in
+        <span class="Li">&quot;list&quot;</span> and works even if
+        <span class="Li">&quot;c&quot;</span> is
+        <span class="Li">&quot;NUL&quot;</span>. These functions need an
+        additional parameter to give the string length. In the case of literal
+        string parameters, perl has defined macros that calculate the length for
+        you. See &quot;String Handling&quot; in perlapi.</p>
+  </li>
   <li><b>malloc</b>(0), <b>realloc</b>(0), calloc(0, 0) are non-portable. To be
       portable allocate at least one byte. (In general you should rarely need to
       work at this low level, but instead use the various malloc wrappers.)</li>
@@ -1181,18 +1219,23 @@
 </section>
 <section class="Ss">
 <h2 class="Ss" id="AddressSanitizer"><a class="permalink" href="#AddressSanitizer">AddressSanitizer</a></h2>
-<p class="Pp">AddressSanitizer is a clang and gcc extension, included in clang
-    since v3.1 and gcc since v4.8. It checks illegal heap pointers, global
-    pointers, stack pointers and use after free errors, and is fast enough that
-    you can easily compile your debugging or optimized perl with it. It does not
-    check memory leaks though. AddressSanitizer is available for Linux, Mac OS X
-    and soon on Windows.</p>
+<p class="Pp">AddressSanitizer (&quot;ASan&quot;) consists of a compiler
+    instrumentation module and a run-time
+    <span class="Li">&quot;malloc&quot;</span> library. ASan is available for a
+    variety of architectures, operating systems, and compilers (see project link
+    below). It checks for unsafe memory usage, such as use after free and buffer
+    overflow conditions, and is fast enough that you can easily compile your
+    debugging or optimized perl with it. Modern versions of ASan check for
+    memory leaks by default on most platforms, otherwise (e.g. x86_64 OS X) this
+    feature can be enabled via
+    <span class="Li">&quot;ASAN_OPTIONS=detect_leaks=1&quot;</span>.</p>
 <p class="Pp">To build perl with AddressSanitizer, your Configure invocation
     should look like:</p>
 <p class="Pp"></p>
 <pre>    sh Configure -des -Dcc=clang \
-       -Accflags=-faddress-sanitizer -Aldflags=-faddress-sanitizer \
-       -Alddlflags=-shared\ -faddress-sanitizer
+       -Accflags=-fsanitize=address -Aldflags=-fsanitize=address \
+       -Alddlflags=-shared\ -fsanitize=address \
+       -fsanitize-blacklist=`pwd`/asan_ignore
 </pre>
 <p class="Pp">where these arguments mean:</p>
 <ul class="Bl-bullet">
@@ -1200,13 +1243,13 @@
     <p class="Pp">This should be replaced by the full path to your clang
         executable if it is not in your path.</p>
   </li>
-  <li>-Accflags=-faddress-sanitizer
+  <li>-Accflags=-fsanitize=address
     <p class="Pp">Compile perl and extensions sources with AddressSanitizer.</p>
   </li>
-  <li>-Aldflags=-faddress-sanitizer
+  <li>-Aldflags=-fsanitize=address
     <p class="Pp">Link the perl executable with AddressSanitizer.</p>
   </li>
-  <li>-Alddlflags=-shared\ -faddress-sanitizer
+  <li>-Alddlflags=-shared\ -fsanitize=address
     <p class="Pp">Link dynamic extensions with AddressSanitizer. You must
         manually specify <span class="Li">&quot;-shared&quot;</span> because
         using <span class="Li">&quot;-Alddlflags=-shared&quot;</span> will
@@ -1214,9 +1257,14 @@
         <span class="Li">&quot;lddlflags&quot;</span>, which usually contains
         <span class="Li">&quot;-shared&quot;</span> (at least on Linux).</p>
   </li>
+  <li>-fsanitize-blacklist=`pwd`/asan_ignore
+    <p class="Pp">AddressSanitizer will ignore functions listed in the
+        <span class="Li">&quot;asan_ignore&quot;</span> file. (This file should
+        contain a short explanation of why each of the functions is listed.)</p>
+  </li>
 </ul>
 <p class="Pp">See also
-    &lt;http://code.google.com/p/address-sanitizer/wiki/AddressSanitizer&gt;.</p>
+    &lt;https://github.com/google/sanitizers/wiki/AddressSanitizer&gt;.</p>
 </section>
 </section>
 <section class="Sh">

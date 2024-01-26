@@ -103,9 +103,9 @@
   </li>
   <li>Each scalar
       <span class="Li">&quot;${&quot;_&lt;$filename&quot;}&quot;</span> contains
-      <span class="Li">&quot;_&lt;$filename&quot;</span>. This is also the case
-      for evaluated strings that contain subroutines, or which are currently
-      being executed. The <span class="Li">$filename</span> for
+      <span class="Li">$filename</span>. This is also the case for evaluated
+      strings that contain subroutines, or which are currently being executed.
+      The <span class="Li">$filename</span> for
       <span class="Li">&quot;eval&quot;</span>ed strings looks like
       <span class="Li">&quot;(eval 34)&quot;</span>.</li>
   <li>After each <span class="Li">&quot;require&quot;</span>d file is compiled,
@@ -585,7 +585,7 @@
   of Nodes</a></h2>
 <p class="Pp">Here are the current possible types, with short descriptions:</p>
 <p class="Pp"></p>
-<pre> # TYPE arg-description [num-args] [longjump-len] DESCRIPTION
+<pre> # TYPE arg-description [regnode-struct-suffix] [longjump-len] DESCRIPTION
  # Exit points
  END              no         End of program.
  SUCCEED          no         Return from a subroutine, basically.
@@ -599,16 +599,16 @@
  # Match Start Anchors:
  GPOS             no         Matches where last m//g left off.
  # Word Boundary Opcodes:
- BOUND            no         Like BOUNDA for non-utf8, otherwise match
-                             &quot;&quot; between any Unicode \w\W or \W\w
+ BOUND            no         Like BOUNDA for non-utf8, otherwise like
+                             BOUNDU
  BOUNDL           no         Like BOUND/BOUNDU, but \w and \W are
                              defined by current locale
  BOUNDU           no         Match &quot;&quot; at any boundary of a given type
                              using /u rules.
  BOUNDA           no         Match &quot;&quot; at any boundary between \w\W or
                              \W\w, where \w is [_a-zA-Z0-9]
- NBOUND           no         Like NBOUNDA for non-utf8, otherwise match
-                             &quot;&quot; between any Unicode \w\w or \W\W
+ NBOUND           no         Like NBOUNDA for non-utf8, otherwise like
+                             BOUNDU
  NBOUNDL          no         Like NBOUND/NBOUNDU, but \w and \W are
                              defined by current locale
  NBOUNDU          no         Match &quot;&quot; at any non-boundary of a given
@@ -628,9 +628,24 @@
                   charclass_ classes
                   posixl
  ANYOFH           sv 1       Like ANYOF, but only has &quot;High&quot; matches,
-                             none in the bitmap; non-zero flags &quot;f&quot;
-                             means &quot;f&quot; is the first UTF-8 byte shared in
-                             common by all code points matched
+                             none in the bitmap; the flags field
+                             contains the lowest matchable UTF-8 start
+                             byte
+ ANYOFHb          sv 1       Like ANYOFH, but all matches share the same
+                             UTF-8 start byte, given in the flags field
+ ANYOFHr          sv 1       Like ANYOFH, but the flags field contains
+                             packed bounds for all matchable UTF-8 start
+                             bytes.
+ ANYOFHs          sv 1       Like ANYOFHb, but has a string field that
+                             gives the leading matchable UTF-8 bytes;
+                             flags field is len
+ ANYOFR           packed 1   Matches any character in the range given by
+                             its packed args: upper 12 bits is the max
+                             delta from the base lower 20; the flags
+                             field contains the lowest matchable UTF-8
+                             start byte
+ ANYOFRb          packed 1   Like ANYOFR, but all matches share the same
+                             UTF-8 start byte, given in the flags field
  ANYOFM           byte 1     Like ANYOF, but matches an invariant byte
                              as determined by the mask and arg
  NANYOFM          byte 1     complement of ANYOFM
@@ -661,36 +676,56 @@
  #
  BRANCH           node       Match this alternative, or the next...
  # Literals
- EXACT            str        Match this string (preceded by length).
+ EXACT            str        Match this string (flags field is the
+                             length).
+ # In a long string node, the U32 argument is the length, and is
+ # immediately followed by the string.
+ LEXACT           len:str 1  Match this long string (preceded by length;
+                             flags unused).
  EXACTL           str        Like EXACT, but /l is in effect (used so
-                             locale-related warnings can be checked
-                             for).
- EXACTF           str        Match this string using /id rules (w/len);
-                             (string not UTF-8, not guaranteed to be
-                             folded).
- EXACTFL          str        Match this string using /il rules (w/len);
-                             (string not guaranteed to be folded).
- EXACTFU          str        Match this string using /iu rules (w/len);
-                             (string folded iff in UTF-8; non-UTF8
-                             folded length &lt;= unfolded).
- EXACTFAA         str        Match this string using /iaa rules (w/len)
-                             (string folded iff in UTF-8; non-UTF8
-                             folded length &lt;= unfolded).
- EXACTFUP         str        Match this string using /iu rules (w/len);
-                             (string not UTF-8, not guaranteed to be
-                             folded; and its Problematic).
- EXACTFLU8        str        Like EXACTFU, but use /il, UTF-8, folded,
-                             and everything in it is above 255.
- EXACTFAA_NO_TRIE str        Match this string using /iaa rules (w/len)
-                             (string not UTF-8, not guaranteed to be
-                             folded, not currently trie-able).
- EXACT_ONLY8      str        Like EXACT, but only UTF-8 encoded targets
+                             locale-related warnings can be checked for)
+ EXACTF           str        Like EXACT, but match using /id rules;
+                             (string not UTF-8, ASCII folded; non-ASCII
+                             not)
+ EXACTFL          str        Like EXACT, but match using /il rules;
+                             (string not likely to be folded)
+ EXACTFU          str        Like EXACT, but match using /iu rules;
+                             (string folded)
+ EXACTFAA         str        Like EXACT, but match using /iaa rules;
+                             (string folded except MICRO in non-UTF8
+                             patterns; doesn't contain SHARP S unless
+                             UTF-8; folded length &lt;= unfolded)
+ EXACTFAA_NO_TRIE str        Like EXACTFAA, (string not UTF-8, folded
+                             except: MICRO, SHARP S; folded length &lt;=
+                             unfolded, not currently trie-able)
+ EXACTFUP         str        Like EXACT, but match using /iu rules;
+                             (string not UTF-8, folded except MICRO:
+                             hence Problematic)
+ EXACTFLU8        str        Like EXACTFU, but use /il, UTF-8, (string
+                             is folded, and everything in it is above
+                             255
+ EXACT_REQ8       str        Like EXACT, but only UTF-8 encoded targets
                              can match
- EXACTFU_ONLY8    str        Like EXACTFU, but only UTF-8 encoded
+ LEXACT_REQ8      len:str 1  Like LEXACT, but only UTF-8 encoded targets
+                             can match
+ EXACTFU_REQ8     str        Like EXACTFU, but only UTF-8 encoded
                              targets can match
  EXACTFU_S_EDGE   str        /di rules, but nothing in it precludes /ui,
                              except begins and/or ends with [Ss];
-                             (string not UTF-8; compile-time only).
+                             (string not UTF-8; compile-time only)
+ # New charclass like patterns
+ LNBREAK          none       generic newline pattern
+ # Trie Related
+ # Behave the same as A|LIST|OF|WORDS would. The '..C' variants
+ # have inline charclass data (ascii only), the 'C' store it in the
+ # structure.
+ TRIE             trie 1     Match many EXACT(F[ALU]?)? at once.
+                             flags==type
+ TRIEC            trie       Same as TRIE, but with embedded charclass
+                  charclass  data
+ AHOCORASICK      trie 1     Aho Corasick stclass. flags==type
+ AHOCORASICKC     trie       Same as AHOCORASICK, but with embedded
+                  charclass  charclass data
  # Do nothing types
  NOTHING          no         Match empty string.
  # A variant of above which delimits a group, thus stops optimizations
@@ -728,14 +763,14 @@
                              rules.
  # Named references.  Code in regcomp.c assumes that these all are after
  # the numbered references
- NREF             no-sv 1    Match some already matched string
- NREFF            no-sv 1    Match already matched string, using /di
+ REFN             no-sv 1    Match some already matched string
+ REFFN            no-sv 1    Match already matched string, using /di
                              rules.
- NREFFL           no-sv 1    Match already matched string, using /li
+ REFFLN           no-sv 1    Match already matched string, using /li
                              rules.
- NREFFU           num 1      Match already matched string, using /ui
+ REFFUN           num 1      Match already matched string, using /ui
                              rules.
- NREFFA           num 1      Match already matched string, using /aai
+ REFFAN           num 1      Match already matched string, using /aai
                              rules.
  # Support for long RE
  LONGJMP          off 1 1    Jump far away.
@@ -760,21 +795,10 @@
  LOGICAL          no         Next opcode should set the flag only.
  # This is not used yet
  RENUM            off 1 1    Group with independently numbered parens.
- # Trie Related
- # Behave the same as A|LIST|OF|WORDS would. The '..C' variants
- # have inline charclass data (ascii only), the 'C' store it in the
- # structure.
- TRIE             trie 1     Match many EXACT(F[ALU]?)? at once.
-                             flags==type
- TRIEC            trie       Same as TRIE, but with embedded charclass
-                  charclass  data
- AHOCORASICK      trie 1     Aho Corasick stclass. flags==type
- AHOCORASICKC     trie       Same as AHOCORASICK, but with embedded
-                  charclass  charclass data
  # Regex Subroutines
  GOSUB            num/ofs 2L recurse to paren arg1 at (signed) ofs arg2
  # Special conditionals
- NGROUPP          no-sv 1    Whether the group matched.
+ GROUPPN          no-sv 1    Whether the group matched.
  INSUBP           num 1      Whether we are in a specific recurse.
  DEFINEP          none 1     Never execute directly.
  # Backtracking Verbs
@@ -796,8 +820,6 @@
                              the group
  # Control what to keep in $&amp;.
  KEEPS            no         $&amp; begins here.
- # New charclass like patterns
- LNBREAK          none       generic newline pattern
  # SPECIAL  REGOPS
  # This is not really a node, but an optimized away piece of a &quot;long&quot;
  # node.  To simplify debugging output, we mark it as if it were a node
@@ -808,6 +830,8 @@
  # node cant be optimized. So END implies &quot;unoptimizable&quot; and PSEUDO
  # mean &quot;not seen anything to optimize yet&quot;.
  PSEUDO           off        Pseudo opcode for internal use.
+ REGEX_SET        depth p    Regex set, temporary node used in pre-
+                             optimization compilation
 </pre>
 <p class="Pp">Following the optimizer information is a dump of the offset/length
     table, here split across several lines:</p>
@@ -1017,13 +1041,14 @@
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
-<p class="Pp">perldebug, perlguts, perlrun re, and Devel::DProf.</p>
+<p class="Pp">perldebug, perl5db.pl, perlguts, perlrun, re, and
+  Devel::DProf.</p>
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">2019-10-21</td>
-    <td class="foot-os">perl v5.30.3</td>
+    <td class="foot-date">2022-02-19</td>
+    <td class="foot-os">perl v5.34.1</td>
   </tr>
 </table>
 </body>

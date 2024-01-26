@@ -117,6 +117,10 @@
 <p class="Pp">Note: For some extensions, Dave Beazley's SWIG system may provide
     a significantly more convenient mechanism for creating the extension glue
     code. See &lt;http://www.swig.org/&gt; for more information.</p>
+<p class="Pp">For simple bindings to C libraries as well as other machine code
+    libraries, consider instead using the much simpler libffi
+    &lt;http://sourceware.org/libffi/&gt; interface via CPAN modules like
+    FFI::Platypus or FFI::Raw.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="On_The_Road"><a class="permalink" href="#On_The_Road">On The
@@ -636,7 +640,7 @@
 <p class="Pp"></p>
 <pre>     bool_t
      rpcb_gettime(host,timep)
-          char *host = (char *)SvPV_nolen($arg);
+          char *host = (char *)SvPVbyte_nolen($arg);
           time_t &amp;timep = 0;
         OUTPUT:
           timep
@@ -663,7 +667,7 @@
 <pre>     bool_t
      rpcb_gettime(host,timep)
           time_t &amp;timep; /* \$v{timep}=@{[$v{timep}=$arg]} */
-          char *host + SvOK($v{timep}) ? SvPV_nolen($arg) : NULL;
+          char *host + SvOK($v{timep}) ? SvPVbyte_nolen($arg) : NULL;
         OUTPUT:
           timep
 </pre>
@@ -1052,7 +1056,7 @@
           char *host = &quot;localhost&quot;;
         CODE:
           if( items &gt; 1 )
-               host = (char *)SvPV_nolen(ST(1));
+               host = (char *)SvPVbyte_nolen(ST(1));
           RETVAL = rpcb_gettime( host, &amp;timep );
         OUTPUT:
           timep
@@ -1358,7 +1362,7 @@
           char *host = &quot;localhost&quot;;
         CODE:
                   if( items &gt; 1 )
-                       host = (char *)SvPV_nolen(ST(1));
+                       host = (char *)SvPVbyte_nolen(ST(1));
                   RETVAL = rpcb_gettime( host, &amp;timep );
         OUTPUT:
           timep
@@ -1844,8 +1848,8 @@
         if( sv_isobject($arg) &amp;&amp; (SvTYPE(SvRV($arg)) == SVt_PVMG) )
             $var = ($type)SvIV((SV*)SvRV( $arg ));
         else{
-            warn(&quot;${Package}::$func_name() -- &quot; .
-                &quot;$var is not a blessed SV reference&quot;);
+            warn(\&quot;${Package}::$func_name() -- \&quot;
+                \&quot;$var is not a blessed SV reference\&quot;);
             XSRETURN_UNDEF;
         }
 </pre>
@@ -2174,7 +2178,8 @@
      #include &quot;EXTERN.h&quot;
      #include &quot;perl.h&quot;
      #include &quot;XSUB.h&quot;
-     #include &lt;rpc/rpc.h&gt;
+     /* Note: On glibc 2.13 and earlier, this needs be &lt;rpc/rpc.h&gt; */
+     #include &lt;tirpc/rpc.h&gt;
      typedef struct netconfig Netconfig;
      MODULE = RPC  PACKAGE = RPC
      SV *
@@ -2227,6 +2232,7 @@
      print &quot;time = $a\n&quot;;
      print &quot;netconf = $netconf\n&quot;;
 </pre>
+<p class="Pp">In Makefile.PL add -ltirpc and -I/usr/include/tirpc.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
@@ -2334,7 +2340,7 @@
         per-thread locales. Perl makes this transparent to perl-space code. It
         continues to use <span class="Li">&quot;POSIX::setlocale()&quot;</span>,
         and the interpreter translates that into the per-thread functions.</p>
-    <p class="Pp">All other locale-senstive functions automatically use the
+    <p class="Pp">All other locale-sensitive functions automatically use the
         per-thread locale, if that is turned on, and failing that, the global
         locale. Thus calls to <span class="Li">&quot;setlocale&quot;</span> are
         ineffective on POSIX systems for the current thread if that thread is

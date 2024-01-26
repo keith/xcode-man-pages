@@ -709,7 +709,7 @@
     modules, it may be appropriate to calculate an offset for the epoch.</p>
 <p class="Pp"></p>
 <pre>    use Time::Local qw(timegm);
-    my $offset = timegm(0, 0, 0, 1, 0, 70);
+    my $offset = timegm(0, 0, 0, 1, 0, 1970);
 </pre>
 <p class="Pp">The value for <span class="Li">$offset</span> in Unix will be
     <span class="Li">0</span>, but in Mac OS Classic will be some large number.
@@ -855,7 +855,7 @@
 <p class="Pp">Also see:</p>
 <ul class="Bl-bullet">
   <li>Mailing list: cpan-testers-discuss@perl.org</li>
-  <li>Testing results: &lt;http://www.cpantesters.org/&gt;</li>
+  <li>Testing results: &lt;https://www.cpantesters.org/&gt;</li>
 </ul>
 </section>
 <section class="Sh">
@@ -1044,9 +1044,9 @@
   <li>Build instructions for Win32 in perlwin32, or under the Cygnus environment
       in perlcygwin.</li>
   <li>The <span class="Li">&quot;Win32::*&quot;</span> modules in Win32.</li>
-  <li>The ActiveState Pages, &lt;http://www.activestate.com/&gt;</li>
+  <li>The ActiveState Pages, &lt;https://www.activestate.com/&gt;</li>
   <li>The Cygwin environment for Win32; <i>README.cygwin</i> (installed as
-      perlcygwin), &lt;http://www.cygwin.com/&gt;</li>
+      perlcygwin), &lt;https://www.cygwin.com/&gt;</li>
   <li>The U/WIN environment for Win32,
       &lt;http://www.research.att.com/sw/tools/uwin/&gt;</li>
   <li>Build instructions for OS/2, perlos2</li>
@@ -1489,6 +1489,8 @@
         <span class="Li">&quot;-u&quot;</span>,
         <span class="Li">&quot;-A&quot;</span> are not particularly
       meaningful.</p>
+    <p class="Pp">(Win32) <span class="Li">&quot;-l&quot;</span> returns true
+        for both symlinks and directory junctions.</p>
     <p class="Pp">(VMS, RISC&#x00A0;OS) <span class="Li">&quot;-p&quot;</span>
         is not particularly meaningful.</p>
     <p class="Pp">(VMS) <span class="Li">&quot;-d&quot;</span> is true if passed
@@ -1526,6 +1528,9 @@
         <span class="Li">&quot;tell&quot;</span> may be affected after the call,
         and the filehandle may be flushed.</p>
   </dd>
+  <dt id="chdir"><a class="permalink" href="#chdir">chdir</a></dt>
+  <dd>(Win32) The current directory reported by the system may include any
+      symbolic links specified to <b>chdir()</b>.</dd>
   <dt id="chmod"><a class="permalink" href="#chmod">chmod</a></dt>
   <dd>(Win32) Only good for changing &quot;owner&quot; read-write access;
       &quot;group&quot; and &quot;other&quot; bits are meaningless.
@@ -1574,7 +1579,6 @@
         your code.</p>
     <p class="Pp">(SunOS, Solaris, HP-UX) Does not automatically flush output
         handles on some platforms.</p>
-    <p class="Pp">(Symbian OS) Not supported.</p>
   </dd>
   <dt id="exit"><a class="permalink" href="#exit">exit</a></dt>
   <dd>(VMS) Emulates Unix <span class="Li">&quot;exit&quot;</span> (which
@@ -1743,8 +1747,7 @@
       hour.</dd>
   <dt id="lstat"><a class="permalink" href="#lstat">lstat</a></dt>
   <dd>(RISC&#x00A0;OS) Not implemented.
-    <p class="Pp">(Win32) Return values (especially for device and inode) may be
-        bogus.</p>
+    <p class="Pp">(Win32) Treats directory junctions as symlinks.</p>
   </dd>
   <dt id="msgctl"><a class="permalink" href="#msgctl">msgctl</a></dt>
   <dd></dd>
@@ -1767,7 +1770,10 @@
         implications for your code.</p>
   </dd>
   <dt id="readlink"><a class="permalink" href="#readlink">readlink</a></dt>
-  <dd>(Win32, VMS, RISC&#x00A0;OS) Not implemented.</dd>
+  <dd>(VMS, RISC&#x00A0;OS) Not implemented.
+    <p class="Pp">(Win32) <b>readlink()</b> on a directory junction returns the
+        object name, not a simple path.</p>
+  </dd>
   <dt id="rename"><a class="permalink" href="#rename">rename</a></dt>
   <dd>(Win32) Can't move directories between directories on different logical
       volumes.</dd>
@@ -1824,8 +1830,6 @@
         <span class="Li">&quot;ctime&quot;</span> not supported on UFS.</p>
     <p class="Pp">(Win32) <span class="Li">&quot;ctime&quot;</span> is creation
         time instead of inode change time.</p>
-    <p class="Pp">(Win32) <span class="Li">&quot;dev&quot;</span> and
-        <span class="Li">&quot;ino&quot;</span> are not meaningful.</p>
     <p class="Pp">(VMS) <span class="Li">&quot;dev&quot;</span> and
         <span class="Li">&quot;ino&quot;</span> are not necessarily
       reliable.</p>
@@ -1845,15 +1849,16 @@
         <span class="Li">&quot;stat(&quot;foo&quot;)&quot;</span> and not
         finding it may then attempt to
         <span class="Li">&quot;stat(&quot;foo.exe&quot;)&quot;</span>.</p>
-    <p class="Pp">(Win32) <span class="Li">&quot;stat&quot;</span> needs to open
-        the file to determine the link count and update attributes that may have
-        been changed through hard links. Setting
-        <span class="Li">&quot;${^WIN32_SLOPPY_STAT}&quot;</span> to a true
-        value speeds up <span class="Li">&quot;stat&quot;</span> by not
-        performing this operation.</p>
   </dd>
   <dt id="symlink"><a class="permalink" href="#symlink">symlink</a></dt>
-  <dd>(Win32, RISC&#x00A0;OS) Not implemented.
+  <dd>(RISC&#x00A0;OS) Not implemented.
+    <p class="Pp">(Win32) Requires either elevated permissions or developer mode
+        and a sufficiently recent version of Windows 10. You can check whether
+        the current process has the required privileges using the
+        <b>Win32::IsSymlinkCreationAllowed()</b> function.</p>
+    <p class="Pp">Since Windows needs to know whether the target is a directory
+        or not when creating the link the target Perl will only create the link
+        as a directory link when the target exists and is a directory.</p>
     <p class="Pp">(VMS) Implemented on 64 bit VMS 8.3. VMS requires the symbolic
         link to be in Unix syntax if it is intended to resolve to a valid
       path.</p>
@@ -2008,7 +2013,7 @@
 <div class="Bd-indent">
 <ul class="Bl-bullet">
   <li><i>ext/XS-APItest/t/call_checker.t</i> - see
-      &lt;https://rt.perl.org/Ticket/Display.html?id=78502&gt;</li>
+      &lt;https://github.com/Perl/perl5/issues/10750&gt;</li>
   <li><i>dist/I18N-Collate/t/I18N-Collate.t</i></li>
   <li><i>ext/Win32CORE/t/win32core.t</i> - may fail on recent cygwin
     installs.</li>
@@ -2033,8 +2038,6 @@
 </div>
 <div class="Bd-indent"></div>
 <dl class="Bl-tag">
-  <dt id="Symbian"><a class="permalink" href="#Symbian">Symbian</a></dt>
-  <dd></dd>
   <dt id="NetBSD"><a class="permalink" href="#NetBSD">NetBSD</a></dt>
   <dd></dd>
   <dt id="FreeBSD"><a class="permalink" href="#FreeBSD">FreeBSD</a></dt>
@@ -2072,8 +2075,6 @@
 </div>
 <div class="Bd-indent"></div>
 <dl class="Bl-tag">
-  <dt>Symbian (Series 60 v3, 3.2 and 5 - what else?)</dt>
-  <dd></dd>
   <dt id="Stratus~2"><a class="permalink" href="#Stratus~2">Stratus VOS /
     OpenVOS</a></dt>
   <dd></dd>
@@ -2270,11 +2271,10 @@
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
-<p class="Pp">perlaix, perlamiga, perlbs2000, perlce, perlcygwin, perldos,
-    perlebcdic, perlfreebsd, perlhurd, perlhpux, perlirix, perlmacos,
-    perlmacosx, perlnetware, perlos2, perlos390, perlos400, perlplan9, perlqnx,
-    perlsolaris, perltru64, perlunicode, perlvms, perlvos, perlwin32, and
-  Win32.</p>
+<p class="Pp">perlaix, perlamiga, perlbs2000, perlcygwin, perldos, perlebcdic,
+    perlfreebsd, perlhurd, perlhpux, perlirix, perlmacos, perlmacosx,
+    perlnetware, perlos2, perlos390, perlos400, perlplan9, perlqnx, perlsolaris,
+    perltru64, perlunicode, perlvms, perlvos, perlwin32, and Win32.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="AUTHORS_/_CONTRIBUTORS"><a class="permalink" href="#AUTHORS_/_CONTRIBUTORS">AUTHORS

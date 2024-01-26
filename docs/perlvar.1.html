@@ -482,12 +482,11 @@
     <p class="Pp">This variable can be used to determine whether the Perl
         interpreter executing a script is in the right range of versions:</p>
     <p class="Pp"></p>
-    <pre>    warn &quot;No PerlIO!\n&quot; if $] lt '5.008';
+    <pre>    warn &quot;No PerlIO!\n&quot; if &quot;$]&quot; &lt; 5.008;
     </pre>
-    <p class="Pp">When comparing <span class="Li">$]</span>, string comparison
-        operators are <b>highly</b> <b>recommended</b>. The inherent limitations
-        of binary floating point representation can sometimes lead to incorrect
-        comparisons for some numbers on some architectures.</p>
+    <p class="Pp">When comparing <span class="Li">$]</span>, numeric comparison
+        operators should be used, but the variable should be stringified first
+        to avoid issues where its original numeric value is inaccurate.</p>
     <p class="Pp">See also the documentation of <span class="Li">&quot;use
         VERSION&quot;</span> and <span class="Li">&quot;require
         VERSION&quot;</span> for a convenient way to fail if the running Perl
@@ -498,9 +497,9 @@
         <span class="Li">$^V</span> is that it works the same on any version of
         Perl. The disadvantages are that it can't easily be compared to versions
         in other formats (e.g. literal v-strings, &quot;v1.2.3&quot; or version
-        objects) and numeric comparisons can occasionally fail; it's good for
-        string literal version checks and bad for comparing to a variable that
-        hasn't been sanity-checked.</p>
+        objects) and numeric comparisons are subject to the binary floating
+        point representation; it's good for numeric literal version checks and
+        bad for comparing to a variable that hasn't been sanity-checked.</p>
     <p class="Pp">The <span class="Li">$OLD_PERL_VERSION</span> form was added
         in Perl v5.20.0 for historical reasons but its use is discouraged. (If
         your reason to use <span class="Li">$]</span> is to run code on old
@@ -641,7 +640,9 @@
     <p class="Pp">Using a value of <span class="Li">'IGNORE'</span> usually has
         the effect of ignoring the signal, except for the
         <span class="Li">&quot;CHLD&quot;</span> signal. See perlipc for more
-        about this special case.</p>
+        about this special case. Using an empty string or
+        <span class="Li">&quot;undef&quot;</span> as the value has the same
+        effect as <span class="Li">'DEFAULT'</span>.</p>
     <p class="Pp">Here are some other examples:</p>
     <p class="Pp"></p>
     <pre>    $SIG{&quot;PIPE&quot;} = &quot;Plumber&quot;;   # assumes main::Plumber (not
@@ -654,6 +655,11 @@
     </pre>
     <p class="Pp">Be sure not to use a bareword as the name of a signal handler,
         lest you inadvertently call it.</p>
+    <p class="Pp">Using a string that doesn't correspond to any existing
+        function or a glob that doesn't contain a code slot is equivalent to
+        <span class="Li">'IGNORE'</span>, but a warning is emitted when the
+        handler is being called (the warning is not emitted for the internal
+        hooks described below).</p>
     <p class="Pp">If your system has the
         <span class="Li">&quot;sigaction()&quot;</span> function then signal
         handlers are installed using it. This means you get reliable signal
@@ -675,8 +681,9 @@
     eval $proggie;
     </pre>
     <p class="Pp">As the <span class="Li">'IGNORE'</span> hook is not supported
-        by <span class="Li">&quot;__WARN__&quot;</span>, you can disable
-        warnings using the empty subroutine:</p>
+        by <span class="Li">&quot;__WARN__&quot;</span>, its effect is the same
+        as using <span class="Li">'DEFAULT'</span>. You can disable warnings
+        using the empty subroutine:</p>
     <p class="Pp"></p>
     <pre>    local $SIG{__WARN__} = sub {};
     </pre>
@@ -700,6 +707,9 @@
         <span class="Li">$@</span>. Plans to rectify this have been scrapped, as
         users found that rewriting a pending exception is actually a useful
         feature, and not a bug.</p>
+    <p class="Pp">The <span class="Li">$SIG{__DIE__}</span> doesn't support
+        <span class="Li">'IGNORE'</span>; it has the same effect as
+        <span class="Li">'DEFAULT'</span>.</p>
     <p class="Pp"><span class="Li">&quot;__DIE__&quot;</span>/<span class="Li">&quot;__WARN__&quot;</span>
         handlers are very special in one respect: they may be called to report
         (probable) errors found by the parser. In such a case the parser may be
@@ -776,18 +786,9 @@
     <p class="Pp">Mnemonic: use ^V for a version object.</p>
   </dd>
   <dt>${^WIN32_SLOPPY_STAT}</dt>
-  <dd>If this variable is set to a true value, then
-      <span class="Li">&quot;stat()&quot;</span> on Windows will not try to open
-      the file. This means that the link count cannot be determined and file
-      attributes may be out of date if additional hardlinks to the file exist.
-      On the other hand, not opening the file is considerably faster, especially
-      for files on network drives.
-    <p class="Pp">This variable could be set in the <i>sitecustomize.pl</i> file
-        to configure the local Perl installation to use &quot;sloppy&quot;
-        <span class="Li">&quot;stat()&quot;</span> by default. See the
-        documentation for <b>-f</b> in perlrun for more information about site
-        customization.</p>
-    <p class="Pp">This variable was added in Perl v5.10.0.</p>
+  <dd>This variable no longer has any function.
+    <p class="Pp">This variable was added in Perl v5.10.0 and removed in Perl
+        v5.34.0.</p>
   </dd>
   <dt>$EXECUTABLE_NAME</dt>
   <dd></dd>
@@ -1508,15 +1509,14 @@
         so-called <i>paragraph mode</i> -- merits special attention. When
         <span class="Li">$/</span> is set to
         <span class="Li">&quot;&quot;</span> and the entire file is read in with
-        that setting, any sequence of consecutive newlines
-        <span class="Li">&quot;\n\n&quot;</span> at the beginning of the file is
-        discarded. With the exception of the final record in the file, each
-        sequence of characters ending in two or more newlines is treated as one
-        record and is read in to end in exactly two newlines. If the last record
-        in the file ends in zero or one consecutive newlines, that record is
-        read in with that number of newlines. If the last record ends in two or
-        more consecutive newlines, it is read in with two newlines like all
-        preceding records.</p>
+        that setting, any sequence of one or more consecutive newlines at the
+        beginning of the file is discarded. With the exception of the final
+        record in the file, each sequence of characters ending in two or more
+        newlines is treated as one record and is read in to end in exactly two
+        newlines. If the last record in the file ends in zero or one consecutive
+        newlines, that record is read in with that number of newlines. If the
+        last record ends in two or more consecutive newlines, it is read in with
+        two newlines like all preceding records.</p>
     <p class="Pp">Suppose we wrote the following string to a file:</p>
     <p class="Pp"></p>
     <pre>    my $string = &quot;\n\n\n&quot;;
@@ -1794,8 +1794,8 @@
       <span class="Li">&quot;waitpid()&quot;</span>, or from the
       <span class="Li">&quot;system()&quot;</span> operator. On POSIX-like
       systems this value can be decoded with the WIFEXITED, WEXITSTATUS,
-      WIFSIGNALED, WTERMSIG, WIFSTOPPED, WSTOPSIG and WIFCONTINUED functions
-      provided by the POSIX module.
+      WIFSIGNALED, WTERMSIG, WIFSTOPPED, and WSTOPSIG functions provided by the
+      POSIX module.
     <p class="Pp">Under VMS this reflects the actual VMS exit status; i.e. it is
         the same as <span class="Li">$?</span> when the pragma
         <span class="Li">&quot;use vmsish 'status'&quot;</span> is in
@@ -1883,8 +1883,9 @@
     <p class="Pp">Many system or library calls set
         <span class="Li">&quot;errno&quot;</span> if they fail, to indicate the
         cause of failure. They usually do <b>not</b> set
-        <span class="Li">&quot;errno&quot;</span> to zero if they succeed. This
-        means <span class="Li">&quot;errno&quot;</span>, hence
+        <span class="Li">&quot;errno&quot;</span> to zero if they succeed and
+        may set <span class="Li">&quot;errno&quot;</span> to a non-zero value on
+        success. This means <span class="Li">&quot;errno&quot;</span>, hence
         <span class="Li">$!</span>, is meaningful only <i>immediately</i> after
         a <b>failure</b>:</p>
     <p class="Pp"></p>
@@ -1909,6 +1910,8 @@
         value, or to inspect the system error string corresponding to error
         <i>n</i>, or to restore <span class="Li">$!</span> to a meaningful
         state.</p>
+    <p class="Pp">Perl itself may set <span class="Li">&quot;errno&quot;</span>
+        to a non-zero on failure even if no system call is performed.</p>
     <p class="Pp">Mnemonic: What just went bang?</p>
   </dd>
   <dt>%OS_ERROR</dt>
@@ -2201,6 +2204,35 @@
   <dd>An internal variable used by PerlIO. A string in two parts, separated by a
       <span class="Li">&quot;\0&quot;</span> byte, the first part describes the
       input layers, the second part describes the output layers.
+    <p class="Pp">This is the mechanism that applies the lexical effects of the
+        open pragma, and the main program scope effects of the
+        <span class="Li">&quot;io&quot;</span> or
+        <span class="Li">&quot;D&quot;</span> options for the -C command-line
+        switch and PERL_UNICODE environment variable.</p>
+    <p class="Pp">The functions <span class="Li">&quot;accept()&quot;</span>,
+        <span class="Li">&quot;open()&quot;</span>,
+        <span class="Li">&quot;pipe()&quot;</span>,
+        <span class="Li">&quot;readpipe()&quot;</span> (as well as the related
+        <span class="Li">&quot;qx&quot;</span> and
+        <span class="Li">&quot;`STRING`&quot;</span> operators),
+        <span class="Li">&quot;socket()&quot;</span>,
+        <span class="Li">&quot;socketpair()&quot;</span>, and
+        <span class="Li">&quot;sysopen()&quot;</span> are affected by the
+        lexical value of this variable. The implicit &quot;ARGV&quot; handle
+        opened by <span class="Li">&quot;readline()&quot;</span> (or the related
+        <span class="Li">&quot;&lt;&gt;&quot;</span> and
+        <span class="Li">&quot;&lt;&lt;&gt;&gt;&quot;</span> operators) on
+        passed filenames is also affected (but not if it opens
+        <span class="Li">&quot;STDIN&quot;</span>). If this variable is not set,
+        these functions will set the default layers as described in
+        &quot;Defaults and how to override them&quot; in PerlIO.</p>
+    <p class="Pp"><span class="Li">&quot;open()&quot;</span> ignores this
+        variable (and the default layers) when called with 3 arguments and
+        explicit layers are specified. Indirect calls to these functions via
+        modules like IO::Handle are not affected as they occur in a different
+        lexical scope. Directory handles such as opened by
+        <span class="Li">&quot;opendir()&quot;</span> are not currently
+        affected.</p>
     <p class="Pp">This variable was added in Perl v5.8.0.</p>
   </dd>
   <dt>$PERLDB</dt>

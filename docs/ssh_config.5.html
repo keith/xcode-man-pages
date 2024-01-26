@@ -35,7 +35,7 @@
    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
    THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   
-   $OpenBSD: ssh_config.5,v 1.383 2023/07/17 05:36:14 jsg Exp $
+   $OpenBSD: ssh_config.5,v 1.391 2023/10/12 02:18:18 djm Exp $
  -->
 <head>
 
@@ -321,6 +321,55 @@ rsa-sha2-512,rsa-sha2-256</pre>
         configuration files; these certificates will be tried in sequence.
         Multiple <code class="Cm">CertificateFile</code> directives will add to
         the list of certificates used for authentication.</p>
+  </dd>
+  <dt id="ChannelTimeout"><a class="permalink" href="#ChannelTimeout"><code class="Cm">ChannelTimeout</code></a></dt>
+  <dd>Specifies whether and how quickly <a class="Xr">ssh(1)</a> should close
+      inactive channels. Timeouts are specified as one or more
+      &#x201C;type=interval&#x201D; pairs separated by whitespace, where the
+      &#x201C;type&#x201D; must be a channel type name (as described in the
+      table below), optionally containing wildcard characters.
+    <p class="Pp">The timeout value &#x201C;interval&#x201D; is specified in
+        seconds or may use any of the units documented in the
+        <a class="Sx" href="#TIME_FORMATS">TIME FORMATS</a> section. For
+        example, &#x201C;session=5m&#x201D; would cause the interactive session
+        to terminate after five minutes of inactivity. Specifying a zero value
+        disables the inactivity timeout.</p>
+    <p class="Pp">The available channel types include:</p>
+    <dl class="Bl-tag">
+      <dt id="agent-connection"><a class="permalink" href="#agent-connection"><code class="Cm">agent-connection</code></a></dt>
+      <dd>Open connections to <a class="Xr">ssh-agent(1)</a>.</dd>
+      <dt id="direct-tcpip"><a class="permalink" href="#direct-tcpip"><code class="Cm">direct-tcpip</code></a>,
+        <code class="Cm">direct-streamlocal@openssh.com</code></dt>
+      <dd>Open TCP or Unix socket (respectively) connections that have been
+          established from a <a class="Xr">ssh(1)</a> local forwarding, i.e.
+          <code class="Cm">LocalForward</code> or
+          <code class="Cm">DynamicForward</code>.</dd>
+      <dt id="forwarded-tcpip"><a class="permalink" href="#forwarded-tcpip"><code class="Cm">forwarded-tcpip</code></a>,
+        <code class="Cm">forwarded-streamlocal@openssh.com</code></dt>
+      <dd>Open TCP or Unix socket (respectively) connections that have been
+          established to a <a class="Xr">sshd(8)</a> listening on behalf of a
+          <a class="Xr">ssh(1)</a> remote forwarding, i.e.
+          <code class="Cm">RemoteForward</code>.</dd>
+      <dt id="session"><a class="permalink" href="#session"><code class="Cm">session</code></a></dt>
+      <dd>The interactive main session, including shell session, command
+          execution, <a class="Xr">scp(1)</a>, <a class="Xr">sftp(1)</a>,
+        etc.</dd>
+      <dt id="tun-connection"><a class="permalink" href="#tun-connection"><code class="Cm">tun-connection</code></a></dt>
+      <dd>Open <code class="Cm">TunnelForward</code> connections.</dd>
+      <dt id="x11-connection"><a class="permalink" href="#x11-connection"><code class="Cm">x11-connection</code></a></dt>
+      <dd>Open X11 forwarding sessions.</dd>
+    </dl>
+    <p class="Pp">Note that in all the above cases, terminating an inactive
+        session does not guarantee to remove all resources associated with the
+        session, e.g. shell processes or X11 clients relating to the session may
+        continue to execute.</p>
+    <p class="Pp">Moreover, terminating an inactive channel or session does not
+        necessarily close the SSH connection, nor does it prevent a client from
+        requesting another channel of the same type. In particular, expiring an
+        inactive forwarding session does not prevent another identical
+        forwarding from being subsequently created.</p>
+    <p class="Pp">The default is not to expire channels of any type for
+        inactivity.</p>
   </dd>
   <dt id="CheckHostIP"><a class="permalink" href="#CheckHostIP"><code class="Cm">CheckHostIP</code></a></dt>
   <dd>If set to <code class="Cm">yes</code>, <a class="Xr">ssh(1)</a> will
@@ -716,7 +765,9 @@ rsa-sha2-512,rsa-sha2-256</pre>
       path of a specified <code class="Cm">IdentityFile</code>.
     <p class="Pp">Arguments to <code class="Cm">IdentityFile</code> may use the
         tilde syntax to refer to a user's home directory or the tokens described
-        in the <a class="Sx" href="#TOKENS">TOKENS</a> section.</p>
+        in the <a class="Sx" href="#TOKENS">TOKENS</a> section. Alternately an
+        argument of <code class="Cm">none</code> may be used to indicate no
+        identity files should be loaded.</p>
     <p class="Pp">It is possible to have multiple identity files specified in
         configuration files; all these identities will be tried in sequence.
         Multiple <code class="Cm">IdentityFile</code> directives will add to the
@@ -906,9 +957,26 @@ hmac-sha2-256,hmac-sha2-512,hmac-sha1</pre>
   <dd>Disable host authentication for localhost (loopback addresses). The
       argument to this keyword must be <code class="Cm">yes</code> or
       <code class="Cm">no</code> (the default).</dd>
+  <dt id="NoHostAuthenticationForProxyCommand"><a class="permalink" href="#NoHostAuthenticationForProxyCommand"><code class="Cm">NoHostAuthenticationForProxyCommand</code></a></dt>
+  <dd>Disable host authentication when using
+      <code class="Cm">ProxyCommand</code>. The argument to this keyword must be
+      <code class="Cm">yes</code> or <code class="Cm">no</code> (the
+    default).</dd>
   <dt id="NumberOfPasswordPrompts"><a class="permalink" href="#NumberOfPasswordPrompts"><code class="Cm">NumberOfPasswordPrompts</code></a></dt>
   <dd>Specifies the number of password prompts before giving up. The argument to
       this keyword must be an integer. The default is 3.</dd>
+  <dt id="ObscureKeystrokeTiming"><a class="permalink" href="#ObscureKeystrokeTiming"><code class="Cm">ObscureKeystrokeTiming</code></a></dt>
+  <dd>Specifies whether <a class="Xr">ssh(1)</a> should try to obscure
+      inter-keystroke timings from passive observers of network traffic. If
+      enabled, then for interactive sessions, <a class="Xr">ssh(1)</a> will send
+      keystrokes at fixed intervals of a few tens of milliseconds and will send
+      fake keystroke packets for some time after typing ceases. The argument to
+      this keyword must be <code class="Cm">yes</code>,
+      <code class="Cm">no</code> or an interval specifier of the form
+      <code class="Cm">interval:milliseconds</code> (e.g.
+      <code class="Cm">interval:80</code> for 80 milliseconds). The default is
+      to obscure keystrokes using a 20ms packet interval. Note that smaller
+      intervals will result in higher fake keystroke packet rates.</dd>
   <dt id="PasswordAuthentication"><a class="permalink" href="#PasswordAuthentication"><code class="Cm">PasswordAuthentication</code></a></dt>
   <dd>Specifies whether to use password authentication. The argument to this
       keyword must be <code class="Cm">yes</code> (the default) or
@@ -1405,7 +1473,7 @@ rsa-sha2-512,rsa-sha2-256</pre>
   <dt>%%</dt>
   <dd>A literal &#x2018;%&#x2019;.</dd>
   <dt>%C</dt>
-  <dd>Hash of %l%h%p%r.</dd>
+  <dd>Hash of %l%h%p%r%j.</dd>
   <dt>%d</dt>
   <dd>Local user's home directory.</dd>
   <dt>%f</dt>
@@ -1425,6 +1493,9 @@ rsa-sha2-512,rsa-sha2-256</pre>
       preference list to use for the destination host.</dd>
   <dt>%i</dt>
   <dd>The local user ID.</dd>
+  <dt>%j</dt>
+  <dd>The contents of the ProxyJump option, or the empty string if this option
+      is unset.</dd>
   <dt>%K</dt>
   <dd>The base64 encoded host key.</dd>
   <dt>%k</dt>
@@ -1460,7 +1531,7 @@ rsa-sha2-512,rsa-sha2-256</pre>
     <code class="Cm">RemoteForward</code>,
     <code class="Cm">RevokedHostKeys</code>, and
     <code class="Cm">UserKnownHostsFile</code> accept the tokens %%, %C, %d, %h,
-    %i, %k, %L, %l, %n, %p, %r, and %u.</p>
+    %i, %j, %k, %L, %l, %n, %p, %r, and %u.</p>
 <p class="Pp"><code class="Cm">KnownHostsCommand</code> additionally accepts the
     tokens %f, %H, %I, %K and %t.</p>
 <p class="Pp"><code class="Cm">Hostname</code> accepts the tokens %% and %h.</p>
@@ -1468,6 +1539,12 @@ rsa-sha2-512,rsa-sha2-256</pre>
 <p class="Pp"><code class="Cm">ProxyCommand</code> and
     <code class="Cm">ProxyJump</code> accept the tokens %%, %h, %n, %p, and
   %r.</p>
+<p class="Pp">Note that some of these directives build commands for execution
+    via the shell. Because <a class="Xr">ssh(1)</a> performs no filtering or
+    escaping of characters that have special meaning in shell commands (e.g.
+    quotes), it is the user's responsibility to ensure that the arguments passed
+    to <a class="Xr">ssh(1)</a> do not contain such characters and that tokens
+    are appropriately quoted when used.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="ENVIRONMENT_VARIABLES"><a class="permalink" href="#ENVIRONMENT_VARIABLES">ENVIRONMENT

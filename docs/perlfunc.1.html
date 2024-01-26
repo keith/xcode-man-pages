@@ -919,8 +919,8 @@
         <span class="Li">&quot;:raw&quot;</span> is <i>not</i> simply the
         inverse of <span class="Li">&quot;:crlf&quot;</span>. Other layers that
         would affect the binary nature of the stream are <i>also</i> disabled.
-        See PerlIO, perlrun, and the discussion about the PERLIO environment
-        variable.</p>
+        See PerlIO, and the discussion about the PERLIO environment variable in
+        perlrun.</p>
     <p class="Pp">The <span class="Li">&quot;:bytes&quot;</span>,
         <span class="Li">&quot;:crlf&quot;</span>,
         <span class="Li">&quot;:utf8&quot;</span>, and any other directives of
@@ -1046,6 +1046,10 @@
     <pre>       # 0         1          2
     my ($package, $filename, $line) = caller;
     </pre>
+    <p class="Pp">Like <span class="Li">&quot;__FILE__&quot;</span> and
+        <span class="Li">&quot;__LINE__&quot;</span>, the filename and line
+        number returned here may be altered by the mechanism described at
+        &quot;Plain Old Comments (Not!)&quot; in perlsyn.</p>
     <p class="Pp">With EXPR, it returns some extra information that the debugger
         uses to print a stack trace. The value of EXPR indicates how many call
         frames to go back before the current one.</p>
@@ -1094,6 +1098,14 @@
         <span class="Li">&quot;%^H&quot;</span> was empty. Do not modify the
         values of this hash, as they are the actual values stored in the
       optree.</p>
+    <p class="Pp">Note that the only types of call frames that are visible are
+        subroutine calls and <span class="Li">&quot;eval&quot;</span>. Other
+        forms of context, such as <span class="Li">&quot;while&quot;</span> or
+        <span class="Li">&quot;foreach&quot;</span> loops or
+        <span class="Li">&quot;try&quot;</span> blocks are not considered
+        interesting to <span class="Li">&quot;caller&quot;</span>, as they do
+        not alter the behaviour of the
+        <span class="Li">&quot;return&quot;</span> expression.</p>
     <p class="Pp">Furthermore, when called from within the DB package in list
         context, and with an argument, caller returns more detailed information:
         it sets the list variable <span class="Li">@DB::args</span> to be the
@@ -1313,10 +1325,12 @@
       unaffected.) For security reasons, this call is restricted to the
       superuser. If FILENAME is omitted, does a
       <span class="Li">&quot;chroot&quot;</span> to <span class="Li">$_</span>.
-    <p class="Pp"><b>NOTE:</b> It is good security practice to do
+    <p class="Pp"><b>NOTE:</b> It is mandatory for security to
         <span class="Li">&quot;chdir(&quot;/&quot;)&quot;</span>
         (<span class="Li">&quot;chdir&quot;</span> to the root directory)
-        immediately after a <span class="Li">&quot;chroot&quot;</span>.</p>
+        immediately after a <span class="Li">&quot;chroot&quot;</span>,
+        otherwise the current working directory may be outside of the new
+      root.</p>
     <p class="Pp">Portability issues: &quot;chroot&quot; in perlport.</p>
   </dd>
   <dt>close FILEHANDLE</dt>
@@ -1716,9 +1730,9 @@
         operation is an element or slice of an aggregate:</p>
     <p class="Pp"></p>
     <pre>    delete $ref-&gt;[$x][$y]{$key};
-    delete @{$ref-&gt;[$x][$y]}{$key1, $key2, @morekeys};
+    delete $ref-&gt;[$x][$y]-&gt;@{$key1, $key2, @morekeys};
     delete $ref-&gt;[$x][$y][$index];
-    delete @{$ref-&gt;[$x][$y]}[$index1, $index2, @moreindices];
+    delete $ref-&gt;[$x][$y]-&gt;@[$index1, $index2, @moreindices];
     </pre>
   </dd>
   <dt id="die"><a class="permalink" href="#die">die LIST</a></dt>
@@ -2661,8 +2675,8 @@
         Operations&quot;</span>, 4.2
         <span class="Li">&quot;Case-Normative&quot;</span>, and 5.18
         <span class="Li">&quot;Case Mappings&quot;</span>, available at
-        &lt;http://www.unicode.org/versions/latest/&gt;, as well as the Case
-        Charts available at &lt;http://www.unicode.org/charts/case/&gt;.</p>
+        &lt;https://www.unicode.org/versions/latest/&gt;, as well as the Case
+        Charts available at &lt;https://www.unicode.org/charts/case/&gt;.</p>
     <p class="Pp">If EXPR is omitted, uses <span class="Li">$_</span>.</p>
     <p class="Pp">This function behaves the same way under various pragmas, such
         as within
@@ -2736,7 +2750,9 @@
     <p class="Pp">Portability issues: &quot;fcntl&quot; in perlport.</p>
   </dd>
   <dt>__FILE__</dt>
-  <dd>A special token that returns the name of the file in which it occurs.</dd>
+  <dd>A special token that returns the name of the file in which it occurs. It
+      can be altered by the mechanism described at &quot;Plain Old Comments
+      (Not!)&quot; in perlsyn.</dd>
   <dt id="fileno"><a class="permalink" href="#fileno">fileno FILEHANDLE</a></dt>
   <dd></dd>
   <dt id="fileno~2"><a class="permalink" href="#fileno~2">fileno
@@ -3345,7 +3361,7 @@
   <dt>gmtime EXPR</dt>
   <dd></dd>
   <dt id="gmtime"><a class="permalink" href="#gmtime">gmtime</a></dt>
-  <dd>Works just like <span class="Li">&quot;localtime&quot;</span> but the
+  <dd>Works just like <span class="Li">&quot;localtime&quot;</span>, but the
       returned values are localized for the standard Greenwich time zone.
     <p class="Pp">Note: When called in list context,
         <span class="Li">$isdst</span>, the last value returned by gmtime, is
@@ -3500,7 +3516,22 @@
       the string. POSITION before the beginning of the string or after its end
       is treated as if it were the beginning or the end, respectively. POSITION
       and the return value are based at zero. If the substring is not found,
-      <span class="Li">&quot;index&quot;</span> returns -1.</dd>
+      <span class="Li">&quot;index&quot;</span> returns -1.
+    <p class="Pp">Find characters or strings:</p>
+    <p class="Pp"></p>
+    <pre>    index(&quot;Perl is great&quot;, &quot;P&quot;);     # Returns 0
+    index(&quot;Perl is great&quot;, &quot;g&quot;);     # Returns 8
+    index(&quot;Perl is great&quot;, &quot;great&quot;); # Also returns 8
+    </pre>
+    <p class="Pp">Attempting to find something not there:</p>
+    <p class="Pp"></p>
+    <pre>    index(&quot;Perl is great&quot;, &quot;Z&quot;);     # Returns -1 (not found)
+    </pre>
+    <p class="Pp">Using an offset to find the <i>second</i> occurrence:</p>
+    <p class="Pp"></p>
+    <pre>    index(&quot;Perl is great&quot;, &quot;e&quot;, 5);  # Returns 10
+    </pre>
+  </dd>
   <dt>int EXPR</dt>
   <dd></dd>
   <dt id="int"><a class="permalink" href="#int">int</a></dt>
@@ -3840,7 +3871,9 @@
         Encode&quot;</span> first). See Encode and perlunicode.</p>
   </dd>
   <dt>__LINE__</dt>
-  <dd>A special token that compiles to the current line number.</dd>
+  <dd>A special token that compiles to the current line number. It can be
+      altered by the mechanism described at &quot;Plain Old Comments
+      (Not!)&quot; in perlsyn.</dd>
   <dt id="link"><a class="permalink" href="#link">link OLDFILE,NEWFILE</a></dt>
   <dd>Creates a new filename linked to the old filename. Returns true for
       success, false otherwise.
@@ -3907,7 +3940,7 @@
         <span class="Li">0..364</span> (or <span class="Li">0..365</span> in
         leap years.)</p>
     <p class="Pp"><span class="Li">$isdst</span> is true if the specified time
-        occurs during Daylight Saving Time, false otherwise.</p>
+        occurs when Daylight Saving Time is in effect, false otherwise.</p>
     <p class="Pp">If EXPR is omitted,
         <span class="Li">&quot;localtime&quot;</span> uses the current time (as
         returned by <span class="Li">&quot;time&quot;</span>).</p>
@@ -3915,28 +3948,23 @@
         <span class="Li">&quot;localtime&quot;</span> returns the
         <b>ctime</b>(3) value:</p>
     <p class="Pp"></p>
-    <pre>    my $now_string = localtime;  # e.g., &quot;Thu Oct 13 04:54:34 1994&quot;
+    <pre> my $now_string = localtime;  # e.g., &quot;Thu Oct 13 04:54:34 1994&quot;
     </pre>
-    <p class="Pp">The format of this scalar value is <b>not</b> locale-dependent
-        but built into Perl. For GMT instead of local time use the
-        <span class="Li">&quot;gmtime&quot;</span> builtin. See also the
-        <span class="Li">&quot;Time::Local&quot;</span> module (for converting
-        seconds, minutes, hours, and such back to the integer value returned by
-        <span class="Li">&quot;time&quot;</span>), and the POSIX module's
-        <span class="Li">&quot;strftime&quot;</span> and
-        <span class="Li">&quot;mktime&quot;</span> functions.</p>
-    <p class="Pp">To get somewhat similar but locale-dependent date strings, set
-        up your locale environment variables appropriately (please see
-        perllocale) and try for example:</p>
+    <p class="Pp">This scalar value is always in English, and is <b>not</b>
+        locale-dependent. To get similar but locale-dependent date strings, try
+        for example:</p>
     <p class="Pp"></p>
-    <pre>    use POSIX qw(strftime);
-    my $now_string = strftime &quot;%a %b %e %H:%M:%S %Y&quot;, localtime;
-    # or for GMT formatted appropriately for your locale:
-    my $now_string = strftime &quot;%a %b %e %H:%M:%S %Y&quot;, gmtime;
+    <pre> use POSIX qw(strftime);
+ my $now_string = strftime &quot;%a %b %e %H:%M:%S %Y&quot;, localtime;
+ # or for GMT formatted appropriately for your locale:
+ my $now_string = strftime &quot;%a %b %e %H:%M:%S %Y&quot;, gmtime;
     </pre>
-    <p class="Pp">Note that <span class="Li">%a</span> and
-        <span class="Li">%b</span>, the short forms of the day of the week and
-        the month of the year, may not necessarily be three characters wide.</p>
+    <p class="Pp">C$now_string&gt; will be formatted according to the current
+        LC_TIME locale the program or thread is running in. See perllocale for
+        how to set up and change that locale. Note that
+        <span class="Li">%a</span> and <span class="Li">%b</span>, the short
+        forms of the day of the week and the month of the year, may not
+        necessarily be three characters wide.</p>
     <p class="Pp">The Time::gmtime and Time::localtime modules provide a
         convenient, by-name access mechanism to the
         <span class="Li">&quot;gmtime&quot;</span> and
@@ -3944,6 +3972,13 @@
       respectively.</p>
     <p class="Pp">For a comprehensive date and time representation look at the
         DateTime module on CPAN.</p>
+    <p class="Pp">For GMT instead of local time use the
+        <span class="Li">&quot;gmtime&quot;</span> builtin.</p>
+    <p class="Pp">See also the <span class="Li">&quot;Time::Local&quot;</span>
+        module (for converting seconds, minutes, hours, and such back to the
+        integer value returned by <span class="Li">&quot;time&quot;</span>), and
+        the POSIX module's <span class="Li">&quot;mktime&quot;</span>
+      function.</p>
     <p class="Pp">Portability issues: &quot;localtime&quot; in perlport.</p>
   </dd>
   <dt id="lock"><a class="permalink" href="#lock">lock THING</a></dt>
@@ -4146,9 +4181,8 @@
     ID,MSG,FLAGS</a></dt>
   <dd>Calls the System V IPC function msgsnd to send the message MSG to the
       message queue ID. MSG must begin with the native long integer message
-      type, be followed by the length of the actual message, and then finally
-      the message itself. This kind of packing can be achieved with
-      <span class="Li">&quot;pack(&quot;l! a*&quot;, $type,
+      type, followed by the message itself. This kind of packing can be achieved
+      with <span class="Li">&quot;pack(&quot;l! a*&quot;, $type,
       $message)&quot;</span>. Returns true if successful, false on error. See
       also &quot;SysV IPC&quot; in perlipc and the documentation for
       <span class="Li">&quot;IPC::SysV&quot;</span> and
@@ -4167,6 +4201,17 @@
       be local (lexically) to the enclosing block, file, or
       <span class="Li">&quot;eval&quot;</span>. If more than one variable is
       listed, the list must be placed in parentheses.
+    <p class="Pp">Note that with a parenthesised list,
+        <span class="Li">&quot;undef&quot;</span> can be used as a dummy
+        placeholder, for example to skip assignment of initial values:</p>
+    <p class="Pp"></p>
+    <pre>    my ( undef, $min, $hour ) = localtime;
+    </pre>
+    <p class="Pp">Redeclaring a variable in the same scope or statement will
+        &quot;shadow&quot; the previous declaration, creating a new instance and
+        preventing access to the previous one. This is usually undesired and, if
+        warnings are enabled, will result in a warning in the
+        <span class="Li">&quot;shadow&quot;</span> category.</p>
     <p class="Pp">The exact semantics and interface of TYPE and ATTRS are still
         evolving. TYPE may be a bareword, a constant declared with
         <span class="Li">&quot;use constant&quot;</span>, or
@@ -4175,12 +4220,6 @@
         attributes pragma, or starting from Perl 5.8.0 also via the
         Attribute::Handlers module. See &quot;Private Variables via
         <b>my()</b>&quot; in perlsub for details.</p>
-    <p class="Pp">Note that with a parenthesised list,
-        <span class="Li">&quot;undef&quot;</span> can be used as a dummy
-        placeholder, for example to skip assignment of initial values:</p>
-    <p class="Pp"></p>
-    <pre>    my ( undef, $min, $hour ) = localtime;
-    </pre>
   </dd>
   <dt>next LABEL</dt>
   <dd></dd>
@@ -4238,10 +4277,15 @@
   <dt>oct EXPR</dt>
   <dd></dd>
   <dt id="oct"><a class="permalink" href="#oct">oct</a></dt>
-  <dd>Interprets EXPR as an octal string and returns the corresponding value.
-      (If EXPR happens to start off with <span class="Li">&quot;0x&quot;</span>,
-      interprets it as a hex string. If EXPR starts off with
-      <span class="Li">&quot;0b&quot;</span>, it is interpreted as a binary
+  <dd>Interprets EXPR as an octal string and returns the corresponding value. An
+      octal string consists of octal digits and, as of Perl 5.33.5, an optional
+      <span class="Li">&quot;0o&quot;</span> or
+      <span class="Li">&quot;o&quot;</span> prefix. Each octal digit may be
+      preceded by a single underscore, which will be ignored. (If EXPR happens
+      to start off with <span class="Li">&quot;0x&quot;</span> or
+      <span class="Li">&quot;x&quot;</span>, interprets it as a hex string. If
+      EXPR starts off with <span class="Li">&quot;0b&quot;</span> or
+      <span class="Li">&quot;b&quot;</span>, it is interpreted as a binary
       string. Leading whitespace is ignored in all three cases.) The following
       will handle decimal, binary, octal, and hex in standard Perl notation:
     <p class="Pp"></p>
@@ -4265,47 +4309,84 @@
         (<span class="Li">&quot;oct&quot;</span> only handles non-negative
         integers, not negative integers or floating point).</p>
   </dd>
-  <dt id="open"><a class="permalink" href="#open">open FILEHANDLE,EXPR</a></dt>
-  <dd></dd>
-  <dt id="open~2"><a class="permalink" href="#open~2">open
+  <dt id="open"><a class="permalink" href="#open">open
     FILEHANDLE,MODE,EXPR</a></dt>
   <dd></dd>
-  <dt id="open~3"><a class="permalink" href="#open~3">open
+  <dt id="open~2"><a class="permalink" href="#open~2">open
     FILEHANDLE,MODE,EXPR,LIST</a></dt>
   <dd></dd>
-  <dt id="open~4"><a class="permalink" href="#open~4">open
+  <dt id="open~3"><a class="permalink" href="#open~3">open
     FILEHANDLE,MODE,REFERENCE</a></dt>
   <dd></dd>
+  <dt id="open~4"><a class="permalink" href="#open~4">open
+    FILEHANDLE,EXPR</a></dt>
+  <dd></dd>
   <dt id="open~5"><a class="permalink" href="#open~5">open FILEHANDLE</a></dt>
-  <dd>Opens the file whose filename is given by EXPR, and associates it with
-      FILEHANDLE.
-    <p class="Pp">Simple examples to open a file for reading:</p>
+  <dd>Associates an internal FILEHANDLE with the external file specified by
+      EXPR. That filehandle will subsequently allow you to perform I/O
+      operations on that file, such as reading from it or writing to it.
+    <p class="Pp">Instead of a filename, you may specify an external command
+        (plus an optional argument list) or a scalar reference, in order to open
+        filehandles on commands or in-memory scalars, respectively.</p>
+    <p class="Pp">A thorough reference to
+        <span class="Li">&quot;open&quot;</span> follows. For a gentler
+        introduction to the basics of <span class="Li">&quot;open&quot;</span>,
+        see also the perlopentut manual page.</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Working"><a class="permalink" href="#Working">Working with
+    files</a></dt>
+  <dd>Most often, <span class="Li">&quot;open&quot;</span> gets invoked with
+      three arguments: the required FILEHANDLE (usually an empty scalar
+      variable), followed by MODE (usually a literal describing the I/O mode the
+      filehandle will use), and then the filename that the new filehandle will
+      refer to.</dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Simple"><a class="permalink" href="#Simple">Simple examples</a></dt>
+  <dd>Reading from a file:
     <p class="Pp"></p>
     <pre>    open(my $fh, &quot;&lt;&quot;, &quot;input.txt&quot;)
         or die &quot;Can't open &lt; input.txt: $!&quot;;
+    # Process every line in input.txt
+    while (my $line = &lt;$fh&gt;) {
+        #
+        # ... do something interesting with $line here ...
+        #
+    }
     </pre>
-    <p class="Pp">and for writing:</p>
+    <p class="Pp">or writing to one:</p>
     <p class="Pp"></p>
     <pre>    open(my $fh, &quot;&gt;&quot;, &quot;output.txt&quot;)
         or die &quot;Can't open &gt; output.txt: $!&quot;;
+    print $fh &quot;This line gets printed into output.txt.\n&quot;;
     </pre>
-    <p class="Pp">(The following is a comprehensive reference to
-        <span class="Li">&quot;open&quot;</span>: for a gentler introduction you
-        may consider perlopentut.)</p>
-    <p class="Pp">If FILEHANDLE is an undefined scalar variable (or array or
-        hash element), a new filehandle is autovivified, meaning that the
-        variable is assigned a reference to a newly allocated anonymous
-        filehandle. Otherwise if FILEHANDLE is an expression, its value is the
-        real filehandle. (This is considered a symbolic reference, so
-        <span class="Li">&quot;use strict &quot;refs&quot;&quot;</span> should
-        <i>not</i> be in effect.)</p>
-    <p class="Pp">If three (or more) arguments are specified, the open mode
-        (including optional encoding) in the second argument are distinct from
-        the filename in the third. If MODE is
-        <span class="Li">&quot;&lt;&quot;</span> or nothing, the file is opened
-        for input. If MODE is <span class="Li">&quot;&gt;&quot;</span>, the file
-        is opened for output, with existing files first being truncated
-        (&quot;clobbered&quot;) and nonexisting files newly created. If MODE is
+    <p class="Pp">For a summary of common filehandle operations such as these,
+        see &quot;Files and I/O&quot; in perlintro.</p>
+  </dd>
+  <dt id="About"><a class="permalink" href="#About">About filehandles</a></dt>
+  <dd>The first argument to <span class="Li">&quot;open&quot;</span>, labeled
+      FILEHANDLE in this reference, is usually a scalar variable. (Exceptions
+      exist, described in &quot;Other considerations&quot;, below.) If the call
+      to <span class="Li">&quot;open&quot;</span> succeeds, then the expression
+      provided as FILEHANDLE will get assigned an open <i>filehandle</i>. That
+      filehandle provides an internal reference to the specified external file,
+      conveniently stored in a Perl variable, and ready for I/O operations such
+      as reading and writing.</dd>
+  <dt id="About~2"><a class="permalink" href="#About~2">About modes</a></dt>
+  <dd>When calling <span class="Li">&quot;open&quot;</span> with three or more
+      arguments, the second argument -- labeled MODE here -- defines the <i>open
+      mode</i>. MODE is usually a literal string comprising special characters
+      that define the intended I/O role of the filehandle being created: whether
+      it's read-only, or read-and-write, and so on.
+    <p class="Pp">If MODE is <span class="Li">&quot;&lt;&quot;</span>, the file
+        is opened for input (read-only). If MODE is
+        <span class="Li">&quot;&gt;&quot;</span>, the file is opened for output,
+        with existing files first being truncated (&quot;clobbered&quot;) and
+        nonexisting files newly created. If MODE is
         <span class="Li">&quot;&gt;&gt;&quot;</span>, the file is opened for
         appending, again being created if necessary.</p>
     <p class="Pp">You can put a <span class="Li">&quot;+&quot;</span> in front
@@ -4326,99 +4407,61 @@
         <span class="Li">&quot;w+&quot;</span>,
         <span class="Li">&quot;a&quot;</span>, and
         <span class="Li">&quot;a+&quot;</span>.</p>
-    <p class="Pp">In the one- and two-argument forms of the call, the mode and
-        filename should be concatenated (in that order), preferably separated by
-        white space. You can--but shouldn't--omit the mode in these forms when
-        that mode is <span class="Li">&quot;&lt;&quot;</span>. It is safe to use
-        the two-argument form of <span class="Li">&quot;open&quot;</span> if the
-        filename argument is a known literal.</p>
-    <p class="Pp">For three or more arguments if MODE is
-        <span class="Li">&quot;|-&quot;</span>, the filename is interpreted as a
-        command to which output is to be piped, and if MODE is
-        <span class="Li">&quot;-|&quot;</span>, the filename is interpreted as a
-        command that pipes output to us. In the two-argument (and one-argument)
-        form, one should replace dash (<span class="Li">&quot;-&quot;</span>)
-        with the command. See &quot;Using <b>open()</b> for IPC&quot; in perlipc
-        for more examples of this. (You are not allowed to
-        <span class="Li">&quot;open&quot;</span> to a command that pipes both in
-        <i>and</i> out, but see IPC::Open2, IPC::Open3, and &quot;Bidirectional
-        Communication with Another Process&quot; in perlipc for
-      alternatives.)</p>
-    <p class="Pp">In the form of pipe opens taking three or more arguments, if
-        LIST is specified (extra arguments after the command name) then LIST
-        becomes arguments to the command invoked if the platform supports it.
-        The meaning of <span class="Li">&quot;open&quot;</span> with more than
-        three arguments for non-pipe modes is not yet defined, but experimental
-        &quot;layers&quot; may give extra LIST arguments meaning.</p>
-    <p class="Pp">In the two-argument (and one-argument) form, opening
-        <span class="Li">&quot;&lt;-&quot;</span> or
-        <span class="Li">&quot;-&quot;</span> opens STDIN and opening
-        <span class="Li">&quot;&gt;-&quot;</span> opens STDOUT.</p>
-    <p class="Pp">You may (and usually should) use the three-argument form of
-        open to specify I/O layers (sometimes referred to as
-        &quot;disciplines&quot;) to apply to the handle that affect how the
-        input and output are processed (see open and PerlIO for more details).
-        For example:</p>
+    <p class="Pp">More examples of different modes in action:</p>
     <p class="Pp"></p>
-    <pre>  open(my $fh, &quot;&lt;:encoding(UTF-8)&quot;, $filename)
-    || die &quot;Can't open UTF-8 encoded $filename: $!&quot;;
+    <pre> # Open a file for concatenation
+ open(my $log, &quot;&gt;&gt;&quot;, &quot;/usr/spool/news/twitlog&quot;)
+     or warn &quot;Couldn't open log file; discarding input&quot;;
+ # Open a file for reading and writing
+ open(my $dbase, &quot;+&lt;&quot;, &quot;dbase.mine&quot;)
+     or die &quot;Can't open 'dbase.mine' for update: $!&quot;;
     </pre>
-    <p class="Pp">opens the UTF8-encoded file containing Unicode characters; see
-        perluniintro. Note that if layers are specified in the three-argument
-        form, then default layers stored in ${^OPEN} (see perlvar; usually set
-        by the open pragma or the switch
-        <span class="Li">&quot;-CioD&quot;</span>) are ignored. Those layers
-        will also be ignored if you specify a colon with no name following it.
-        In that case the default layer for the operating system (:raw on Unix,
-        :crlf on Windows) is used.</p>
-    <p class="Pp">Open returns nonzero on success, the undefined value
-        otherwise. If the <span class="Li">&quot;open&quot;</span> involved a
-        pipe, the return value happens to be the pid of the subprocess.</p>
+  </dd>
+  <dt id="Checking"><a class="permalink" href="#Checking">Checking the return
+    value</a></dt>
+  <dd>Open returns nonzero on success, the undefined value otherwise. If the
+      <span class="Li">&quot;open&quot;</span> involved a pipe, the return value
+      happens to be the pid of the subprocess.
+    <p class="Pp">When opening a file, it's seldom a good idea to continue if
+        the request failed, so <span class="Li">&quot;open&quot;</span> is
+        frequently used with <span class="Li">&quot;die&quot;</span>. Even if
+        you want your code to do something other than
+        <span class="Li">&quot;die&quot;</span> on a failed open, you should
+        still always check the return value from opening a file.</p>
+  </dd>
+</dl>
+</div>
+<div class="Bd-indent"></div>
+<dl class="Bl-tag">
+  <dt id="Specifying"><a class="permalink" href="#Specifying">Specifying I/O
+    layers in MODE</a></dt>
+  <dd>You can use the three-argument form of open to specify I/O layers
+      (sometimes referred to as &quot;disciplines&quot;) to apply to the new
+      filehandle. These affect how the input and output are processed (see open
+      and PerlIO for more details). For example:
+    <p class="Pp"></p>
+    <pre>    open(my $fh, &quot;&lt;:encoding(UTF-8)&quot;, $filename)
+        || die &quot;Can't open UTF-8 encoded $filename: $!&quot;;
+    </pre>
+    <p class="Pp">This opens the UTF8-encoded file containing Unicode
+        characters; see perluniintro. Note that if layers are specified in the
+        three-argument form, then default layers stored in
+        <span class="Li">&quot;${^OPEN}&quot;</span> (usually set by the open
+        pragma or the switch <span class="Li">&quot;-CioD&quot;</span>) are
+        ignored. Those layers will also be ignored if you specify a colon with
+        no name following it. In that case the default layer for the operating
+        system (:raw on Unix, :crlf on Windows) is used.</p>
     <p class="Pp">On some systems (in general, DOS- and Windows-based systems)
         <span class="Li">&quot;binmode&quot;</span> is necessary when you're not
         working with a text file. For the sake of portability it is a good idea
         always to use it when appropriate, and never to use it when it isn't
         appropriate. Also, people can set their I/O to be by default
         UTF8-encoded Unicode, not bytes.</p>
-    <p class="Pp">When opening a file, it's seldom a good idea to continue if
-        the request failed, so <span class="Li">&quot;open&quot;</span> is
-        frequently used with <span class="Li">&quot;die&quot;</span>. Even if
-        <span class="Li">&quot;die&quot;</span> won't do what you want (say, in
-        a CGI script, where you want to format a suitable error message (but
-        there are modules that can help with that problem)) always check the
-        return value from opening a file.</p>
-    <p class="Pp">The filehandle will be closed when its reference count reaches
-        zero. If it is a lexically scoped variable declared with
-        <span class="Li">&quot;my&quot;</span>, that usually means the end of
-        the enclosing scope. However, this automatic close does not check for
-        errors, so it is better to explicitly close filehandles, especially
-        those used for writing:</p>
-    <p class="Pp"></p>
-    <pre>    close($handle)
-       || warn &quot;close failed: $!&quot;;
-    </pre>
-    <p class="Pp">An older style is to use a bareword as the filehandle, as</p>
-    <p class="Pp"></p>
-    <pre>    open(FH, &quot;&lt;&quot;, &quot;input.txt&quot;)
-       or die &quot;Can't open &lt; input.txt: $!&quot;;
-    </pre>
-    <p class="Pp">Then you can use <span class="Li">&quot;FH&quot;</span> as the
-        filehandle, in <span class="Li">&quot;close FH&quot;</span> and
-        <span class="Li">&quot;&lt;FH&gt;&quot;</span> and so on. Note that it's
-        a global variable, so this form is not recommended in new code.</p>
-    <p class="Pp">As a shortcut a one-argument call takes the filename from the
-        global scalar variable of the same name as the filehandle:</p>
-    <p class="Pp"></p>
-    <pre>    $ARTICLE = 100;
-    open(ARTICLE) or die &quot;Can't find article $ARTICLE: $!\n&quot;;
-    </pre>
-    <p class="Pp">Here <span class="Li">$ARTICLE</span> must be a global
-        (package) scalar variable - not one declared with
-        <span class="Li">&quot;my&quot;</span> or
-        <span class="Li">&quot;state&quot;</span>.</p>
-    <p class="Pp">As a special case the three-argument form with a read/write
-        mode and the third argument being
-        <span class="Li">&quot;undef&quot;</span>:</p>
+  </dd>
+  <dt id="Using"><a class="permalink" href="#Using">Using &quot;undef&quot; for
+    temporary files</a></dt>
+  <dd>As a special case the three-argument form with a read/write mode and the
+      third argument being <span class="Li">&quot;undef&quot;</span>:
     <p class="Pp"></p>
     <pre>    open(my $tmp, &quot;+&gt;&quot;, undef) or die ...
     </pre>
@@ -4427,12 +4470,17 @@
         <span class="Li">&quot;+&gt;&quot;</span> the only useful and sensible
         mode to use.) You will need to <span class="Li">&quot;seek&quot;</span>
         to do the reading.</p>
-    <p class="Pp">Perl is built using PerlIO by default. Unless you've changed
-        this (such as building Perl with <span class="Li">&quot;Configure
-        -Uuseperlio&quot;</span>), you can open filehandles directly to Perl
-        scalars via:</p>
+  </dd>
+  <dt id="Opening"><a class="permalink" href="#Opening">Opening a filehandle
+    into an in-memory scalar</a></dt>
+  <dd>You can open filehandles directly to Perl scalars instead of a file or
+      other resource external to the program. To do so, provide a reference to
+      that scalar as the third argument to
+      <span class="Li">&quot;open&quot;</span>, like so:
     <p class="Pp"></p>
-    <pre>    open(my $fh, &quot;&gt;&quot;, \$variable) || ..
+    <pre> open(my $memory, &quot;&gt;&quot;, \$var)
+     or die &quot;Can't open memory file: $!&quot;;
+ print $memory &quot;foo!\n&quot;;    # output will appear in $var
     </pre>
     <p class="Pp">To (re)open <span class="Li">&quot;STDOUT&quot;</span> or
         <span class="Li">&quot;STDERR&quot;</span> as an in-memory file, close
@@ -4448,57 +4496,150 @@
     <p class="Pp">Opening in-memory files <i>can</i> fail for a variety of
         reasons. As with any other <span class="Li">&quot;open&quot;</span>,
         check the return value for success.</p>
+    <p class="Pp"><i>Technical note</i>: This feature works only when Perl is
+        built with PerlIO -- the default, except with older (pre-5.16) Perl
+        installations that were configured to not include it (e.g. via
+        <span class="Li">&quot;Configure</span>
+        <span class="Li">-Uuseperlio&quot;</span>). You can see whether your
+        Perl was built with PerlIO by running <span class="Li">&quot;perl
+        -V:useperlio&quot;</span>. If it says <span class="Li">'define'</span>,
+        you have PerlIO; otherwise you don't.</p>
     <p class="Pp">See perliol for detailed info on PerlIO.</p>
-    <p class="Pp">General examples:</p>
+  </dd>
+  <dt id="Opening~2"><a class="permalink" href="#Opening~2">Opening a filehandle
+    into a command</a></dt>
+  <dd>If MODE is <span class="Li">&quot;|-&quot;</span>, then the filename is
+      interpreted as a command to which output is to be piped, and if MODE is
+      <span class="Li">&quot;-|&quot;</span>, the filename is interpreted as a
+      command that pipes output to us. In the two-argument (and one-argument)
+      form, one should replace dash (<span class="Li">&quot;-&quot;</span>) with
+      the command. See &quot;Using <b>open()</b> for IPC&quot; in perlipc for
+      more examples of this. (You are not allowed to
+      <span class="Li">&quot;open&quot;</span> to a command that pipes both in
+      <i>and</i> out, but see IPC::Open2, IPC::Open3, and &quot;Bidirectional
+      Communication with Another Process&quot; in perlipc for alternatives.)
     <p class="Pp"></p>
-    <pre> open(my $log, &quot;&gt;&gt;&quot;, &quot;/usr/spool/news/twitlog&quot;);
- # if the open fails, output is discarded
- open(my $dbase, &quot;+&lt;&quot;, &quot;dbase.mine&quot;)      # open for update
-     or die &quot;Can't open 'dbase.mine' for update: $!&quot;;
- open(my $dbase, &quot;+&lt;dbase.mine&quot;)          # ditto
-     or die &quot;Can't open 'dbase.mine' for update: $!&quot;;
- open(my $article_fh, &quot;-|&quot;, &quot;caesar &lt;$article&quot;)  # decrypt
+    <pre> open(my $article_fh, &quot;-|&quot;, &quot;caesar &lt;$article&quot;)  # decrypt
                                                  # article
      or die &quot;Can't start caesar: $!&quot;;
  open(my $article_fh, &quot;caesar &lt;$article |&quot;)      # ditto
      or die &quot;Can't start caesar: $!&quot;;
  open(my $out_fh, &quot;|-&quot;, &quot;sort &gt;Tmp$$&quot;)    # $$ is our process id
      or die &quot;Can't start sort: $!&quot;;
- # in-memory files
- open(my $memory, &quot;&gt;&quot;, \$var)
-     or die &quot;Can't open memory file: $!&quot;;
- print $memory &quot;foo!\n&quot;;              # output will appear in $var
     </pre>
-    <p class="Pp">You may also, in the Bourne shell tradition, specify an EXPR
-        beginning with <span class="Li">&quot;&gt;&amp;&quot;</span>, in which
-        case the rest of the string is interpreted as the name of a filehandle
-        (or file descriptor, if numeric) to be duped (as in <b>dup</b>(2)) and
-        opened. You may use <span class="Li">&quot;&amp;&quot;</span> after
-        <span class="Li">&quot;&gt;&quot;</span>,
-        <span class="Li">&quot;&gt;&gt;&quot;</span>,
-        <span class="Li">&quot;&lt;&quot;</span>,
-        <span class="Li">&quot;+&gt;&quot;</span>,
-        <span class="Li">&quot;+&gt;&gt;&quot;</span>, and
-        <span class="Li">&quot;+&lt;&quot;</span>. The mode you specify should
-        match the mode of the original filehandle. (Duping a filehandle does not
-        take into account any existing contents of IO buffers.) If you use the
-        three-argument form, then you can pass either a number, the name of a
-        filehandle, or the normal &quot;reference to a glob&quot;.</p>
+    <p class="Pp">In the form of pipe opens taking three or more arguments, if
+        LIST is specified (extra arguments after the command name) then LIST
+        becomes arguments to the command invoked if the platform supports it.
+        The meaning of <span class="Li">&quot;open&quot;</span> with more than
+        three arguments for non-pipe modes is not yet defined, but experimental
+        &quot;layers&quot; may give extra LIST arguments meaning.</p>
+    <p class="Pp">If you open a pipe on the command
+        <span class="Li">&quot;-&quot;</span> (that is, specify either
+        <span class="Li">&quot;|-&quot;</span> or
+        <span class="Li">&quot;-|&quot;</span> with the one- or two-argument
+        forms of <span class="Li">&quot;open&quot;</span>), an implicit
+        <span class="Li">&quot;fork&quot;</span> is done, so
+        <span class="Li">&quot;open&quot;</span> returns twice: in the parent
+        process it returns the pid of the child process, and in the child
+        process it returns (a defined) <span class="Li">0</span>. Use
+        <span class="Li">&quot;defined($pid)&quot;</span> or
+        <span class="Li">&quot;//&quot;</span> to determine whether the open was
+        successful.</p>
+    <p class="Pp">For example, use either</p>
+    <p class="Pp"></p>
+    <pre>   my $child_pid = open(my $from_kid, &quot;-|&quot;)
+        // die &quot;Can't fork: $!&quot;;
+    </pre>
+    <p class="Pp">or</p>
+    <p class="Pp"></p>
+    <pre>   my $child_pid = open(my $to_kid,   &quot;|-&quot;)
+        // die &quot;Can't fork: $!&quot;;
+    </pre>
+    <p class="Pp">followed by</p>
+    <p class="Pp"></p>
+    <pre>    if ($child_pid) {
+        # am the parent:
+        # either write $to_kid or else read $from_kid
+        ...
+       waitpid $child_pid, 0;
+    } else {
+        # am the child; use STDIN/STDOUT normally
+        ...
+        exit;
+    }
+    </pre>
+    <p class="Pp">The filehandle behaves normally for the parent, but I/O to
+        that filehandle is piped from/to the STDOUT/STDIN of the child process.
+        In the child process, the filehandle isn't opened--I/O happens from/to
+        the new STDOUT/STDIN. Typically this is used like the normal piped open
+        when you want to exercise more control over just how the pipe command
+        gets executed, such as when running setuid and you don't want to have to
+        scan shell commands for metacharacters.</p>
+    <p class="Pp">The following blocks are more or less equivalent:</p>
+    <p class="Pp"></p>
+    <pre>    open(my $fh, &quot;|tr '[a-z]' '[A-Z]'&quot;);
+    open(my $fh, &quot;|-&quot;, &quot;tr '[a-z]' '[A-Z]'&quot;);
+    open(my $fh, &quot;|-&quot;) || exec 'tr', '[a-z]', '[A-Z]';
+    open(my $fh, &quot;|-&quot;, &quot;tr&quot;, '[a-z]', '[A-Z]');
+    open(my $fh, &quot;cat -n '$file'|&quot;);
+    open(my $fh, &quot;-|&quot;, &quot;cat -n '$file'&quot;);
+    open(my $fh, &quot;-|&quot;) || exec &quot;cat&quot;, &quot;-n&quot;, $file;
+    open(my $fh, &quot;-|&quot;, &quot;cat&quot;, &quot;-n&quot;, $file);
+    </pre>
+    <p class="Pp">The last two examples in each block show the pipe as
+        &quot;list form&quot;, which is not yet supported on all platforms. (If
+        your platform has a real <span class="Li">&quot;fork&quot;</span>, such
+        as Linux and macOS, you can use the list form; it also works on Windows
+        with Perl 5.22 or later.) You would want to use the list form of the
+        pipe so you can pass literal arguments to the command without risk of
+        the shell interpreting any shell metacharacters in them. However, this
+        also bars you from opening pipes to commands that intentionally contain
+        shell metacharacters, such as:</p>
+    <p class="Pp"></p>
+    <pre>    open(my $fh, &quot;|cat -n | expand -4 | lpr&quot;)
+        || die &quot;Can't open pipeline to lpr: $!&quot;;
+    </pre>
+    <p class="Pp">See &quot;Safe Pipe Opens&quot; in perlipc for more examples
+        of this.</p>
+  </dd>
+  <dt id="Duping"><a class="permalink" href="#Duping">Duping
+    filehandles</a></dt>
+  <dd>You may also, in the Bourne shell tradition, specify an EXPR beginning
+      with <span class="Li">&quot;&gt;&amp;&quot;</span>, in which case the rest
+      of the string is interpreted as the name of a filehandle (or file
+      descriptor, if numeric) to be duped (as in <b>dup</b>(2)) and opened. You
+      may use <span class="Li">&quot;&amp;&quot;</span> after
+      <span class="Li">&quot;&gt;&quot;</span>,
+      <span class="Li">&quot;&gt;&gt;&quot;</span>,
+      <span class="Li">&quot;&lt;&quot;</span>,
+      <span class="Li">&quot;+&gt;&quot;</span>,
+      <span class="Li">&quot;+&gt;&gt;&quot;</span>, and
+      <span class="Li">&quot;+&lt;&quot;</span>. The mode you specify should
+      match the mode of the original filehandle. (Duping a filehandle does not
+      take into account any existing contents of IO buffers.) If you use the
+      three-argument form, then you can pass either a number, the name of a
+      filehandle, or the normal &quot;reference to a glob&quot;.
     <p class="Pp">Here is a script that saves, redirects, and restores
         <span class="Li">&quot;STDOUT&quot;</span> and
         <span class="Li">&quot;STDERR&quot;</span> using various methods:</p>
     <p class="Pp"></p>
     <pre>    #!/usr/bin/perl
-    open(my $oldout, &quot;&gt;&amp;STDOUT&quot;)     or die &quot;Can't dup STDOUT: $!&quot;;
-    open(OLDERR,     &quot;&gt;&amp;&quot;, \*STDERR) or die &quot;Can't dup STDERR: $!&quot;;
-    open(STDOUT, '&gt;', &quot;foo.out&quot;) or die &quot;Can't redirect STDOUT: $!&quot;;
-    open(STDERR, &quot;&gt;&amp;STDOUT&quot;)     or die &quot;Can't dup STDOUT: $!&quot;;
+    open(my $oldout, &quot;&gt;&amp;STDOUT&quot;)
+        or die &quot;Can't dup STDOUT: $!&quot;;
+    open(OLDERR,     &quot;&gt;&amp;&quot;, \*STDERR)
+        or die &quot;Can't dup STDERR: $!&quot;;
+    open(STDOUT, '&gt;', &quot;foo.out&quot;)
+        or die &quot;Can't redirect STDOUT: $!&quot;;
+    open(STDERR, &quot;&gt;&amp;STDOUT&quot;)
+        or die &quot;Can't dup STDOUT: $!&quot;;
     select STDERR; $| = 1;  # make unbuffered
     select STDOUT; $| = 1;  # make unbuffered
     print STDOUT &quot;stdout 1\n&quot;;  # this works for
     print STDERR &quot;stderr 1\n&quot;;  # subprocesses too
-    open(STDOUT, &quot;&gt;&amp;&quot;, $oldout) or die &quot;Can't dup \$oldout: $!&quot;;
-    open(STDERR, &quot;&gt;&amp;OLDERR&quot;)    or die &quot;Can't dup OLDERR: $!&quot;;
+    open(STDOUT, &quot;&gt;&amp;&quot;, $oldout)
+        or die &quot;Can't dup \$oldout: $!&quot;;
+    open(STDERR, &quot;&gt;&amp;OLDERR&quot;)
+        or die &quot;Can't dup OLDERR: $!&quot;;
     print STDOUT &quot;stdout 2\n&quot;;
     print STDERR &quot;stderr 2\n&quot;;
     </pre>
@@ -4538,84 +4679,95 @@
         systems, <b>fdopen</b>(3) fails when file descriptors exceed a certain
         value, typically 255. For Perls 5.8.0 and later, PerlIO is (most often)
         the default.</p>
-    <p class="Pp">You can see whether your Perl was built with PerlIO by running
-        <span class="Li">&quot;perl -V:useperlio&quot;</span>. If it says
-        <span class="Li">'define'</span>, you have PerlIO; otherwise you
-      don't.</p>
-    <p class="Pp">If you open a pipe on the command
-        <span class="Li">&quot;-&quot;</span> (that is, specify either
-        <span class="Li">&quot;|-&quot;</span> or
-        <span class="Li">&quot;-|&quot;</span> with the one- or two-argument
-        forms of <span class="Li">&quot;open&quot;</span>), an implicit
-        <span class="Li">&quot;fork&quot;</span> is done, so
-        <span class="Li">&quot;open&quot;</span> returns twice: in the parent
-        process it returns the pid of the child process, and in the child
-        process it returns (a defined) <span class="Li">0</span>. Use
-        <span class="Li">&quot;defined($pid)&quot;</span> or
-        <span class="Li">&quot;//&quot;</span> to determine whether the open was
-        successful.</p>
-    <p class="Pp">For example, use either</p>
+  </dd>
+  <dt id="Legacy"><a class="permalink" href="#Legacy">Legacy usage</a></dt>
+  <dd>This section describes ways to call
+      <span class="Li">&quot;open&quot;</span> outside of best practices; you
+      may encounter these uses in older code. Perl does not consider their use
+      deprecated, exactly, but neither is it recommended in new code, for the
+      sake of clarity and readability.</dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Specifying~2"><a class="permalink" href="#Specifying~2">Specifying
+    mode and filename as a single argument</a></dt>
+  <dd>In the one- and two-argument forms of the call, the mode and filename
+      should be concatenated (in that order), preferably separated by white
+      space. You can--but shouldn't--omit the mode in these forms when that mode
+      is <span class="Li">&quot;&lt;&quot;</span>. It is safe to use the
+      two-argument form of <span class="Li">&quot;open&quot;</span> if the
+      filename argument is a known literal.
     <p class="Pp"></p>
-    <pre>   my $child_pid = open(my $from_kid, &quot;-|&quot;) // die &quot;Can't fork: $!&quot;;
+    <pre> open(my $dbase, &quot;+&lt;dbase.mine&quot;)          # ditto
+     or die &quot;Can't open 'dbase.mine' for update: $!&quot;;
     </pre>
-    <p class="Pp">or</p>
+    <p class="Pp">In the two-argument (and one-argument) form, opening
+        <span class="Li">&quot;&lt;-&quot;</span> or
+        <span class="Li">&quot;-&quot;</span> opens STDIN and opening
+        <span class="Li">&quot;&gt;-&quot;</span> opens STDOUT.</p>
+    <p class="Pp">New code should favor the three-argument form of
+        <span class="Li">&quot;open&quot;</span> over this older form. Declaring
+        the mode and the filename as two distinct arguments avoids any confusion
+        between the two.</p>
+  </dd>
+  <dt id="Calling"><a class="permalink" href="#Calling">Calling &quot;open&quot;
+    with one argument via global variables</a></dt>
+  <dd>As a shortcut, a one-argument call takes the filename from the global
+      scalar variable of the same name as the filehandle:
     <p class="Pp"></p>
-    <pre>   my $child_pid = open(my $to_kid,   &quot;|-&quot;) // die &quot;Can't fork: $!&quot;;
+    <pre>    $ARTICLE = 100;
+    open(ARTICLE)
+        or die &quot;Can't find article $ARTICLE: $!\n&quot;;
     </pre>
-    <p class="Pp">followed by</p>
+    <p class="Pp">Here <span class="Li">$ARTICLE</span> must be a global
+        (package) scalar variable - not one declared with
+        <span class="Li">&quot;my&quot;</span> or
+        <span class="Li">&quot;state&quot;</span>.</p>
+  </dd>
+  <dt id="Assigning"><a class="permalink" href="#Assigning">Assigning a
+    filehandle to a bareword</a></dt>
+  <dd>An older style is to use a bareword as the filehandle, as
     <p class="Pp"></p>
-    <pre>    if ($child_pid) {
-        # am the parent:
-        # either write $to_kid or else read $from_kid
-        ...
-       waitpid $child_pid, 0;
-    } else {
-        # am the child; use STDIN/STDOUT normally
-        ...
-        exit;
-    }
+    <pre>    open(FH, &quot;&lt;&quot;, &quot;input.txt&quot;)
+       or die &quot;Can't open &lt; input.txt: $!&quot;;
     </pre>
-    <p class="Pp">The filehandle behaves normally for the parent, but I/O to
-        that filehandle is piped from/to the STDOUT/STDIN of the child process.
-        In the child process, the filehandle isn't opened--I/O happens from/to
-        the new STDOUT/STDIN. Typically this is used like the normal piped open
-        when you want to exercise more control over just how the pipe command
-        gets executed, such as when running setuid and you don't want to have to
-        scan shell commands for metacharacters.</p>
-    <p class="Pp">The following blocks are more or less equivalent:</p>
+    <p class="Pp">Then you can use <span class="Li">&quot;FH&quot;</span> as the
+        filehandle, in <span class="Li">&quot;close FH&quot;</span> and
+        <span class="Li">&quot;&lt;FH&gt;&quot;</span> and so on. Note that it's
+        a global variable, so this form is not recommended when dealing with
+        filehandles other than Perl's built-in ones (e.g. STDOUT and STDIN).</p>
+  </dd>
+</dl>
+</div>
+<div class="Bd-indent"></div>
+<dl class="Bl-tag">
+  <dt id="Other"><a class="permalink" href="#Other">Other
+    considerations</a></dt>
+  <dd></dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Automatic"><a class="permalink" href="#Automatic">Automatic filehandle
+    closure</a></dt>
+  <dd>The filehandle will be closed when its reference count reaches zero. If it
+      is a lexically scoped variable declared with
+      <span class="Li">&quot;my&quot;</span>, that usually means the end of the
+      enclosing scope. However, this automatic close does not check for errors,
+      so it is better to explicitly close filehandles, especially those used for
+      writing:
     <p class="Pp"></p>
-    <pre>    open(my $fh, &quot;|tr '[a-z]' '[A-Z]'&quot;);
-    open(my $fh, &quot;|-&quot;, &quot;tr '[a-z]' '[A-Z]'&quot;);
-    open(my $fh, &quot;|-&quot;) || exec 'tr', '[a-z]', '[A-Z]';
-    open(my $fh, &quot;|-&quot;, &quot;tr&quot;, '[a-z]', '[A-Z]');
-    open(my $fh, &quot;cat -n '$file'|&quot;);
-    open(my $fh, &quot;-|&quot;, &quot;cat -n '$file'&quot;);
-    open(my $fh, &quot;-|&quot;) || exec &quot;cat&quot;, &quot;-n&quot;, $file;
-    open(my $fh, &quot;-|&quot;, &quot;cat&quot;, &quot;-n&quot;, $file);
+    <pre>    close($handle)
+       || warn &quot;close failed: $!&quot;;
     </pre>
-    <p class="Pp">The last two examples in each block show the pipe as
-        &quot;list form&quot;, which is not yet supported on all platforms. A
-        good rule of thumb is that if your platform has a real
-        <span class="Li">&quot;fork&quot;</span> (in other words, if your
-        platform is Unix, including Linux and MacOS X), you can use the list
-        form. You would want to use the list form of the pipe so you can pass
-        literal arguments to the command without risk of the shell interpreting
-        any shell metacharacters in them. However, this also bars you from
-        opening pipes to commands that intentionally contain shell
-        metacharacters, such as:</p>
-    <p class="Pp"></p>
-    <pre>    open(my $fh, &quot;|cat -n | expand -4 | lpr&quot;)
-        || die &quot;Can't open pipeline to lpr: $!&quot;;
-    </pre>
-    <p class="Pp">See &quot;Safe Pipe Opens&quot; in perlipc for more examples
-        of this.</p>
-    <p class="Pp">Perl will attempt to flush all files opened for output before
-        any operation that may do a fork, but this may not be supported on some
-        platforms (see perlport). To be safe, you may need to set
-        <span class="Li">$|</span> (<span class="Li">$AUTOFLUSH</span> in
-        English) or call the <span class="Li">&quot;autoflush&quot;</span>
-        method of <span class="Li">&quot;IO::Handle&quot;</span> on any open
-        handles.</p>
+  </dd>
+  <dt id="Automatic~2"><a class="permalink" href="#Automatic~2">Automatic pipe
+    flushing</a></dt>
+  <dd>Perl will attempt to flush all files opened for output before any
+      operation that may do a fork, but this may not be supported on some
+      platforms (see perlport). To be safe, you may need to set
+      <span class="Li">$|</span> (<span class="Li">$AUTOFLUSH</span> in English)
+      or call the <span class="Li">&quot;autoflush&quot;</span> method of
+      <span class="Li">&quot;IO::Handle&quot;</span> on any open handles.
     <p class="Pp">On systems that support a close-on-exec flag on files, the
         flag will be set for the newly opened file descriptor as determined by
         the value of <span class="Li">$^F</span>. See &quot;$^F&quot; in
@@ -4624,15 +4776,29 @@
         for the child to finish, then returns the status value in
         <span class="Li">$?</span> and
         <span class="Li">&quot;${^CHILD_ERROR_NATIVE}&quot;</span>.</p>
-    <p class="Pp">The filename passed to the one- and two-argument forms of
-        <span class="Li">&quot;open&quot;</span> will have leading and trailing
-        whitespace deleted and normal redirection characters honored. This
-        property, known as &quot;magic open&quot;, can often be used to good
-        effect. A user could specify a filename of <i>&quot;rsh cat file
-        |&quot;</i>, or you could change certain filenames as needed:</p>
+  </dd>
+  <dt id="Direct"><a class="permalink" href="#Direct">Direct versus by-reference
+    assignment of filehandles</a></dt>
+  <dd>If FILEHANDLE -- the first argument in a call to
+      <span class="Li">&quot;open&quot;</span> -- is an undefined scalar
+      variable (or array or hash element), a new filehandle is autovivified,
+      meaning that the variable is assigned a reference to a newly allocated
+      anonymous filehandle. Otherwise if FILEHANDLE is an expression, its value
+      is the real filehandle. (This is considered a symbolic reference, so
+      <span class="Li">&quot;use strict &quot;refs&quot;&quot;</span> should
+      <i>not</i> be in effect.)</dd>
+  <dt id="Whitespace"><a class="permalink" href="#Whitespace">Whitespace and
+    special characters in the filename argument</a></dt>
+  <dd>The filename passed to the one- and two-argument forms of
+      <span class="Li">&quot;open&quot;</span> will have leading and trailing
+      whitespace deleted and normal redirection characters honored. This
+      property, known as &quot;magic open&quot;, can often be used to good
+      effect. A user could specify a filename of <i>&quot;rsh cat file
+      |&quot;</i>, or you could change certain filenames as needed:
     <p class="Pp"></p>
     <pre>    $filename =~ s/(.*\.gz)\s*$/gzip -dc &lt; $1|/;
-    open(my $fh, $filename) or die &quot;Can't open $filename: $!&quot;;
+    open(my $fh, $filename)
+        or die &quot;Can't open $filename: $!&quot;;
     </pre>
     <p class="Pp">Use the three-argument form to open a file with arbitrary
         weird characters in it,</p>
@@ -4665,12 +4831,15 @@
         shells support the syntax <span class="Li">&quot;perl your_program.pl
         &lt;( rsh cat file )&quot;</span>, which produces a filename that can be
         opened normally.)</p>
-    <p class="Pp">If you want a &quot;real&quot; C <b>open</b>(2), then you
-        should use the <span class="Li">&quot;sysopen&quot;</span> function,
-        which involves no such magic (but uses different filemodes than Perl
-        <span class="Li">&quot;open&quot;</span>, which corresponds to C
-        <b>fopen</b>(3)). This is another way to protect your filenames from
-        interpretation. For example:</p>
+  </dd>
+  <dt id="Invoking"><a class="permalink" href="#Invoking">Invoking C-style
+    &quot;open&quot;</a></dt>
+  <dd>If you want a &quot;real&quot; C <b>open</b>(2), then you should use the
+      <span class="Li">&quot;sysopen&quot;</span> function, which involves no
+      such magic (but uses different filemodes than Perl
+      <span class="Li">&quot;open&quot;</span>, which corresponds to C
+      <b>fopen</b>(3)). This is another way to protect your filenames from
+      interpretation. For example:
     <p class="Pp"></p>
     <pre>    use IO::Handle;
     sysopen(my $fh, $path, O_RDWR|O_CREAT|O_EXCL)
@@ -4682,8 +4851,15 @@
     </pre>
     <p class="Pp">See <span class="Li">&quot;seek&quot;</span> for some details
         about mixing reading and writing.</p>
-    <p class="Pp">Portability issues: &quot;open&quot; in perlport.</p>
   </dd>
+  <dt>Portability issues</dt>
+  <dd>See &quot;open&quot; in perlport.</dd>
+</dl>
+</div>
+<div class="Bd-indent"></div>
+</div>
+<div class="Bd-indent"></div>
+<dl class="Bl-tag">
   <dt id="opendir"><a class="permalink" href="#opendir">opendir
     DIRHANDLE,EXPR</a></dt>
   <dd>Opens a directory named EXPR for processing by
@@ -4866,8 +5042,7 @@
     F  A Perl internal floating-point value (NV) in native format
     D  A float of long-double precision in native format.
          (Long doubles are available only if your system supports
-          long double values _and_ if Perl has been compiled to
-          support those.  Raises an exception otherwise.
+          long double values. Raises an exception otherwise.
           Note that there are different long double formats.)
     p  A pointer to a null-terminated string.
     P  A pointer to a structure (fixed-length string).
@@ -5528,7 +5703,7 @@
         identifier with the package name and a double colon, as in
         <span class="Li">$SomePack::var</span> or
         <span class="Li">&quot;ThatPack::INPUT_HANDLE&quot;</span>. If package
-        name is omitted, the <span class="Li">&quot;main&quot;</span> package as
+        name is omitted, the <span class="Li">&quot;main&quot;</span> package is
         assumed. That is, <span class="Li">$::sail</span> is equivalent to
         <span class="Li">$main::sail</span> (as well as to
         <span class="Li">&quot;$main'sail&quot;</span>, still seen in ancient
@@ -5777,6 +5952,23 @@
         literal string input from the user,
         <span class="Li">&quot;quotemeta&quot;</span> or
         <span class="Li">&quot;\Q&quot;</span> must be used.</p>
+    <p class="Pp">Beware that if you put literal backslashes (those not inside
+        interpolated variables) between <span class="Li">&quot;\Q&quot;</span>
+        and <span class="Li">&quot;\E&quot;</span>, double-quotish backslash
+        interpolation may lead to confusing results. If you <i>need</i> to use
+        literal backslashes within <span class="Li">&quot;\Q...\E&quot;</span>,
+        consult &quot;Gory details of parsing quoted constructs&quot; in
+      perlop.</p>
+    <p class="Pp">Because the result of
+        <span class="Li">&quot;\Q&#x00A0;</span><span class="Li"><i>STRING</i></span><span class="Li">&#x00A0;\E&quot;</span>
+        has all metacharacters quoted, there is no way to insert a literal
+        <span class="Li">&quot;$&quot;</span> or
+        <span class="Li">&quot;@&quot;</span> inside a
+        <span class="Li">&quot;\Q\E&quot;</span> pair. If protected by
+        <span class="Li">&quot;\&quot;</span>,
+        <span class="Li">&quot;$&quot;</span> will be quoted to become
+        <span class="Li">&quot;\\\$&quot;</span>; if not, it is interpreted as
+        the start of an interpolated scalar.</p>
     <p class="Pp">In Perl v5.14, all non-ASCII characters are quoted in
         non-UTF-8-encoded strings, but not quoted in UTF-8 strings.</p>
     <p class="Pp">Starting in Perl v5.16, Perl adopted a Unicode-defined
@@ -5799,8 +5991,8 @@
         characters.</p>
     <p class="Pp">Otherwise, Perl quotes non-ASCII characters using an
         adaptation from Unicode (see
-        &lt;http://www.unicode.org/reports/tr31/&gt;). The only code points that
-        are quoted are those that have any of the Unicode properties:
+        &lt;https://www.unicode.org/reports/tr31/&gt;). The only code points
+        that are quoted are those that have any of the Unicode properties:
         Pattern_Syntax, Pattern_White_Space, White_Space,
         Default_Ignorable_Code_Point, or General_Category=Control.</p>
     <p class="Pp">Of these properties, the two important ones are Pattern_Syntax
@@ -5878,8 +6070,9 @@
         <span class="Li">&quot;\0&quot;</span> bytes before the result of the
         read is appended.</p>
     <p class="Pp">The call is implemented in terms of either Perl's or your
-        system's native <b>fread</b>(3) library function. To get a true
-        <b>read</b>(2) system call, see sysread.</p>
+        system's native <b>fread</b>(3) library function, via the PerlIO layers
+        applied to the handle. To get a true <b>read</b>(2) system call, see
+        sysread.</p>
     <p class="Pp">Note the <i>characters</i>: depending on the status of the
         filehandle, either (8-bit) bytes or characters are read. By default, all
         filehandles operate on bytes, but for example if the filehandle has been
@@ -6020,8 +6213,9 @@
       internal function implementing the
       <span class="Li">&quot;qx/EXPR/&quot;</span> operator, but you can use it
       directly. The <span class="Li">&quot;qx/EXPR/&quot;</span> operator is
-      discussed in more detail in &quot;I/O Operators&quot; in perlop. If EXPR
-      is omitted, uses <span class="Li">$_</span>.</dd>
+      discussed in more detail in
+      &quot;<span class="Li">&quot;qx/</span><span class="Li"><i>STRING</i></span><span class="Li">/&quot;</span>&quot;
+      in perlop. If EXPR is omitted, uses <span class="Li">$_</span>.</dd>
   <dt id="recv"><a class="permalink" href="#recv">recv
     SOCKET,SCALAR,LENGTH,FLAGS</a></dt>
   <dd>Receives a message on a socket. Attempts to receive LENGTH characters of
@@ -6156,7 +6350,8 @@
   <dt id="rename"><a class="permalink" href="#rename">rename
     OLDNAME,NEWNAME</a></dt>
   <dd>Changes the name of a file; an existing file NEWNAME will be clobbered.
-      Returns true for success, false otherwise.
+      Returns true for success; on failure returns false and sets
+      <span class="Li">$!</span>.
     <p class="Pp">Behavior of this function varies wildly depending on your
         system implementation. For example, it will usually not work across file
         system boundaries, even though the system <i>mv</i> command sometimes
@@ -6421,11 +6616,11 @@
   <dd>Returns from a subroutine, <span class="Li">&quot;eval&quot;</span>,
       <span class="Li">&quot;do FILE&quot;</span>,
       <span class="Li">&quot;sort&quot;</span> block or regex eval block (but
-      not a <span class="Li">&quot;grep&quot;</span> or
-      <span class="Li">&quot;map&quot;</span> block) with the value given in
-      EXPR. Evaluation of EXPR may be in list, scalar, or void context,
-      depending on how the return value will be used, and the context may vary
-      from one execution to the next (see
+      not a <span class="Li">&quot;grep&quot;</span>,
+      <span class="Li">&quot;map&quot;</span>, or <span class="Li">&quot;do
+      BLOCK&quot;</span> block) with the value given in EXPR. Evaluation of EXPR
+      may be in list, scalar, or void context, depending on how the return value
+      will be used, and the context may vary from one execution to the next (see
       <span class="Li">&quot;wantarray&quot;</span>). If no EXPR is given,
       returns an empty list in list context, the undefined value in scalar
       context, and (of course) nothing at all in void context.
@@ -6508,12 +6703,12 @@
   <dd></dd>
   <dt id="say"><a class="permalink" href="#say">say</a></dt>
   <dd>Just like <span class="Li">&quot;print&quot;</span>, but implicitly
-      appends a newline. <span class="Li">&quot;say LIST&quot;</span> is simply
-      an abbreviation for <span class="Li">&quot;{ local $\ = &quot;\n&quot;;
-      print LIST }&quot;</span>. To use FILEHANDLE without a LIST to print the
-      contents of <span class="Li">$_</span> to it, you must use a bareword
-      filehandle like <span class="Li">&quot;FH&quot;</span>, not an indirect
-      one like <span class="Li">$fh</span>.
+      appends a newline at the end of the LIST instead of any value
+      <span class="Li">&quot;$\&quot;</span> might have. To use FILEHANDLE
+      without a LIST to print the contents of <span class="Li">$_</span> to it,
+      you must use a bareword filehandle like
+      <span class="Li">&quot;FH&quot;</span>, not an indirect one like
+      <span class="Li">$fh</span>.
     <p class="Pp"><span class="Li">&quot;say&quot;</span> is available only if
         the <span class="Li">&quot;say&quot;</span> feature is enabled or if it
         is prefixed with <span class="Li">&quot;CORE::&quot;</span>. The
@@ -6549,7 +6744,7 @@
     </pre>
     <p class="Pp">See perlop for more details on unary operators and the comma
         operator, and perldata for details on evaluating a hash in scalar
-        contex.</p>
+        context.</p>
   </dd>
   <dt id="seek"><a class="permalink" href="#seek">seek
     FILEHANDLE,POSITION,WHENCE</a></dt>
@@ -6933,6 +7128,15 @@
   <dt id="sleep"><a class="permalink" href="#sleep">sleep</a></dt>
   <dd>Causes the script to sleep for (integer) EXPR seconds, or forever if no
       argument is given. Returns the integer number of seconds actually slept.
+    <p class="Pp">EXPR should be a positive integer. If called with a negative
+        integer, <span class="Li">&quot;sleep&quot;</span> does not sleep but
+        instead emits a warning, sets $!
+        (<span class="Li">&quot;errno&quot;</span>), and returns zero.</p>
+    <p class="Pp"><span class="Li">&quot;sleep 0&quot;</span> is permitted, but
+        a function call to the underlying platform implementation still occurs,
+        with any side effects that may have. <span class="Li">&quot;sleep
+        0&quot;</span> is therefore not exactly identical to not sleeping at
+        all.</p>
     <p class="Pp">May be interrupted if the process receives a signal such as
         <span class="Li">&quot;SIGALRM&quot;</span>.</p>
     <p class="Pp"></p>
@@ -7221,6 +7425,9 @@
     <p class="Pp"></p>
     <pre>    my @result = sort { $a &lt;=&gt; $b } grep { $_ == $_ } @input;
     </pre>
+    <p class="Pp">In this version of <i>perl</i>, the
+        <span class="Li">&quot;sort&quot;</span> function is implemented via the
+        mergesort algorithm.</p>
   </dd>
   <dt id="splice"><a class="permalink" href="#splice">splice
     ARRAY,OFFSET,LENGTH,LIST</a></dt>
@@ -7295,17 +7502,17 @@
     <p class="Pp">If PATTERN matches the empty string, the EXPR is split at the
         match position (between characters). As an example, the following:</p>
     <p class="Pp"></p>
-    <pre>    print join(':', split(/b/, 'abc')), &quot;\n&quot;;
+    <pre>    my @x = split(/b/, &quot;abc&quot;); # (&quot;a&quot;, &quot;c&quot;)
     </pre>
     <p class="Pp">uses the <span class="Li">&quot;b&quot;</span> in
-        <span class="Li">'abc'</span> as a separator to produce the output
-        <span class="Li">&quot;a:c&quot;</span>. However, this:</p>
+        <span class="Li">'abc'</span> as a separator to produce the list
+        (&quot;a&quot;, &quot;c&quot;). However, this:</p>
     <p class="Pp"></p>
-    <pre>    print join(':', split(//, 'abc')), &quot;\n&quot;;
+    <pre>    my @x = split(//, &quot;abc&quot;); # (&quot;a&quot;, &quot;b&quot;, &quot;c&quot;)
     </pre>
-    <p class="Pp">uses empty string matches as separators to produce the output
-        <span class="Li">&quot;a:b:c&quot;</span>; thus, the empty string may be
-        used to split EXPR into a list of its component characters.</p>
+    <p class="Pp">uses empty string matches as separators; thus, the empty
+        string may be used to split EXPR into a list of its component
+        characters.</p>
     <p class="Pp">As a special case for
         <span class="Li">&quot;split&quot;</span>, the empty pattern given in
         match operator syntax (<span class="Li">&quot;//&quot;</span>)
@@ -7330,19 +7537,27 @@
         PATTERN is instead treated as if it were
         <span class="Li">&quot;/\s+/&quot;</span>; in particular, this means
         that <i>any</i> contiguous whitespace (not just a single space
-        character) is used as a separator. However, this special treatment can
-        be avoided by specifying the pattern
-        <span class="Li">&quot;/&#x00A0;/&quot;</span> instead of the string
-        <span class="Li">&quot;&#x00A0;&quot;</span>, thereby allowing only a
-        single space character to be a separator. In earlier Perls this special
-        case was restricted to the use of a plain
+        character) is used as a separator.</p>
+    <p class="Pp"></p>
+    <pre>    my @x = split(&quot; &quot;, &quot;  Quick brown fox\n&quot;);
+    # (&quot;Quick&quot;, &quot;brown&quot;, &quot;fox&quot;)
+    my @x = split(&quot; &quot;, &quot;RED\tGREEN\tBLUE&quot;);
+    # (&quot;RED&quot;, &quot;GREEN&quot;, &quot;BLUE&quot;)
+    </pre>
+    <p class="Pp">Using split in this fashion is very similar to how
+        <span class="Li">&quot;qw//&quot;</span> works.</p>
+    <p class="Pp">However, this special treatment can be avoided by specifying
+        the pattern <span class="Li">&quot;/&#x00A0;/&quot;</span> instead of
+        the string <span class="Li">&quot;&#x00A0;&quot;</span>, thereby
+        allowing only a single space character to be a separator. In earlier
+        Perls this special case was restricted to the use of a plain
         <span class="Li">&quot;&#x00A0;&quot;</span> as the pattern argument to
         split; in Perl 5.18.0 and later this special case is triggered by any
         expression which evaluates to the simple string
         <span class="Li">&quot;&#x00A0;&quot;</span>.</p>
     <p class="Pp">As of Perl 5.28, this special-cased whitespace splitting works
         as expected in the scope of
-        <span class="Li">&quot;use&#x00A0;feature&#x00A0;'unicode_strings&quot;</span>.
+        <span class="Li">&quot;use&#x00A0;feature&#x00A0;'unicode_strings'&quot;</span>.
         In previous versions, and outside the scope of that feature, it exhibits
         &quot;The &quot;Unicode Bug&quot;&quot; in perlunicode: characters that
         are whitespace according to Unicode rules but not according to ASCII
@@ -7358,21 +7573,11 @@
         maximum of zero times, producing a maximum of one field (namely, the
         entire value of EXPR). For instance:</p>
     <p class="Pp"></p>
-    <pre>    print join(':', split(//, 'abc', 1)), &quot;\n&quot;;
+    <pre>    my @x = split(//, &quot;abc&quot;, 1); # (&quot;abc&quot;)
+    my @x = split(//, &quot;abc&quot;, 2); # (&quot;a&quot;, &quot;bc&quot;)
+    my @x = split(//, &quot;abc&quot;, 3); # (&quot;a&quot;, &quot;b&quot;, &quot;c&quot;)
+    my @x = split(//, &quot;abc&quot;, 4); # (&quot;a&quot;, &quot;b&quot;, &quot;c&quot;)
     </pre>
-    <p class="Pp">produces the output <span class="Li">&quot;abc&quot;</span>,
-        and this:</p>
-    <p class="Pp"></p>
-    <pre>    print join(':', split(//, 'abc', 2)), &quot;\n&quot;;
-    </pre>
-    <p class="Pp">produces the output <span class="Li">&quot;a:bc&quot;</span>,
-        and each of these:</p>
-    <p class="Pp"></p>
-    <pre>    print join(':', split(//, 'abc', 3)), &quot;\n&quot;;
-    print join(':', split(//, 'abc', 4)), &quot;\n&quot;;
-    </pre>
-    <p class="Pp">produces the output
-      <span class="Li">&quot;a:b:c&quot;</span>.</p>
     <p class="Pp">If LIMIT is negative, it is treated as if it were instead
         arbitrarily large; as many fields as possible are produced.</p>
     <p class="Pp">If LIMIT is omitted (or, equivalently, zero), then it is
@@ -7382,15 +7587,13 @@
         be trailing (and are thus stripped in this case). Thus, the
       following:</p>
     <p class="Pp"></p>
-    <pre>    print join(':', split(/,/, 'a,b,c,,,')), &quot;\n&quot;;
+    <pre>    my @x = split(/,/, &quot;a,b,c,,,&quot;); # (&quot;a&quot;, &quot;b&quot;, &quot;c&quot;)
     </pre>
-    <p class="Pp">produces the output <span class="Li">&quot;a:b:c&quot;</span>,
-        but the following:</p>
+    <p class="Pp">produces only a three element list.</p>
     <p class="Pp"></p>
-    <pre>    print join(':', split(/,/, 'a,b,c,,,', -1)), &quot;\n&quot;;
+    <pre>    my @x = split(/,/, &quot;a,b,c,,,&quot;, -1); # (&quot;a&quot;, &quot;b&quot;, &quot;c&quot;, &quot;&quot;, &quot;&quot;, &quot;&quot;)
     </pre>
-    <p class="Pp">produces the output
-        <span class="Li">&quot;a:b:c:::&quot;</span>.</p>
+    <p class="Pp">produces a six element list.</p>
     <p class="Pp">In time-critical applications, it is worthwhile to avoid
         splitting into more fields than necessary. Thus, when assigning to a
         list, if LIMIT is omitted (or zero), then LIMIT is treated as though it
@@ -7404,26 +7607,21 @@
     <p class="Pp">An empty leading field is produced when there is a
         positive-width match at the beginning of EXPR. For instance:</p>
     <p class="Pp"></p>
-    <pre>    print join(':', split(/ /, ' abc')), &quot;\n&quot;;
+    <pre>    my @x = split(/ /, &quot; abc&quot;); # (&quot;&quot;, &quot;abc&quot;)
     </pre>
-    <p class="Pp">produces the output <span class="Li">&quot;:abc&quot;</span>.
-        However, a zero-width match at the beginning of EXPR never produces an
-        empty field, so that:</p>
+    <p class="Pp">splits into two elements. However, a zero-width match at the
+        beginning of EXPR never produces an empty field, so that:</p>
     <p class="Pp"></p>
-    <pre>    print join(':', split(//, ' abc'));
+    <pre>    my @x = split(//, &quot; abc&quot;); # (&quot; &quot;, &quot;a&quot;, &quot;b&quot;, &quot;c&quot;)
     </pre>
-    <p class="Pp">produces the output
-        <span class="Li">&quot;&#x00A0;:a:b:c&quot;</span> (rather than
-        <span class="Li">&quot;:&#x00A0;:a:b:c&quot;</span>).</p>
+    <p class="Pp">splits into four elements instead of five.</p>
     <p class="Pp">An empty trailing field, on the other hand, is produced when
         there is a match at the end of EXPR, regardless of the length of the
         match (of course, unless a non-zero LIMIT is given explicitly, such
         fields are removed, as in the last example). Thus:</p>
     <p class="Pp"></p>
-    <pre>    print join(':', split(//, ' abc', -1)), &quot;\n&quot;;
+    <pre>    my @x = split(//, &quot; abc&quot;, -1); # (&quot; &quot;, &quot;a&quot;, &quot;b&quot;, &quot;c&quot;, &quot;&quot;)
     </pre>
-    <p class="Pp">produces the output
-        <span class="Li">&quot;&#x00A0;:a:b:c:&quot;</span>.</p>
     <p class="Pp">If the PATTERN contains capturing groups, then for each
         separator, an additional field is produced for each substring captured
         by a group (in the order in which the groups are specified, as per
@@ -7435,16 +7633,16 @@
         expressions evaluated in list context (each returned list is provided in
         the associated comment):</p>
     <p class="Pp"></p>
-    <pre>    split(/-|,/, &quot;1-10,20&quot;, 3)
-    # ('1', '10', '20')
-    split(/(-|,)/, &quot;1-10,20&quot;, 3)
-    # ('1', '-', '10', ',', '20')
-    split(/-|(,)/, &quot;1-10,20&quot;, 3)
-    # ('1', undef, '10', ',', '20')
-    split(/(-)|,/, &quot;1-10,20&quot;, 3)
-    # ('1', '-', '10', undef, '20')
-    split(/(-)|(,)/, &quot;1-10,20&quot;, 3)
-    # ('1', '-', undef, '10', undef, ',', '20')
+    <pre>    my @x = split(/-|,/    , &quot;1-10,20&quot;, 3);
+    # (&quot;1&quot;, &quot;10&quot;, &quot;20&quot;)
+    my @x = split(/(-|,)/  , &quot;1-10,20&quot;, 3);
+    # (&quot;1&quot;, &quot;-&quot;, &quot;10&quot;, &quot;,&quot;, &quot;20&quot;)
+    my @x = split(/-|(,)/  , &quot;1-10,20&quot;, 3);
+    # (&quot;1&quot;, undef, &quot;10&quot;, &quot;,&quot;, &quot;20&quot;)
+    my @x = split(/(-)|,/  , &quot;1-10,20&quot;, 3);
+    # (&quot;1&quot;, &quot;-&quot;, &quot;10&quot;, undef, &quot;20&quot;)
+    my @x = split(/(-)|(,)/, &quot;1-10,20&quot;, 3);
+    # (&quot;1&quot;, &quot;-&quot;, undef, &quot;10&quot;, undef, &quot;,&quot;, &quot;20&quot;)
     </pre>
   </dd>
   <dt id="sprintf"><a class="permalink" href="#sprintf">sprintf FORMAT,
@@ -7727,9 +7925,17 @@
                64-bit integers)
    t           interpret integer as C type &quot;ptrdiff_t&quot; on Perl
                5.14 or later
-   z           interpret integer as C type &quot;size_t&quot; on Perl 5.14
-               or later
+   z           interpret integer as C types &quot;size_t&quot; or
+               &quot;ssize_t&quot; on Perl 5.14 or later
     </pre>
+    <p class="Pp">Note that, in general, using the
+        <span class="Li">&quot;l&quot;</span> modifier (for example, when
+        writing <span class="Li">&quot;%ld&quot;</span> or
+        <span class="Li">&quot;%lu&quot;</span> instead of
+        <span class="Li">&quot;%d&quot;</span> and
+        <span class="Li">&quot;%u&quot;</span>) is unnecessary when used from
+        Perl code. Moreover, it may be harmful, for example on Windows 64-bit
+        where a long is 32-bits.</p>
     <p class="Pp">As of 5.14, none of these raises an exception if they are not
         supported on your platform. However, if warnings are enabled, a warning
         of the <span class="Li">&quot;printf&quot;</span> warning class is
@@ -8056,6 +8262,11 @@
         <span class="Li">&quot;undef&quot;</span> can be used as a dummy
         placeholder. However, since initialization of state variables in such
         lists is currently not possible this would serve no purpose.</p>
+    <p class="Pp">Redeclaring a variable in the same scope or statement will
+        &quot;shadow&quot; the previous declaration, creating a new instance and
+        preventing access to the previous one. This is usually undesired and, if
+        warnings are enabled, will result in a warning in the
+        <span class="Li">&quot;shadow&quot;</span> category.</p>
     <p class="Pp"><span class="Li">&quot;state&quot;</span> is available only if
         the <span class="Li">&quot;state&quot;</span> feature is enabled or if
         it is prefixed with <span class="Li">&quot;CORE::&quot;</span>. The
@@ -8247,6 +8458,17 @@
       with the parameters FILENAME, MODE, and PERMS.
     <p class="Pp">Returns true on success and
         <span class="Li">&quot;undef&quot;</span> otherwise.</p>
+    <p class="Pp">PerlIO layers will be applied to the handle the same way they
+        would in an <span class="Li">&quot;open&quot;</span> call that does not
+        specify layers. That is, the current value of
+        <span class="Li">&quot;${^OPEN}&quot;</span> as set by the open pragma
+        in a lexical scope, or the <span class="Li">&quot;-C&quot;</span>
+        commandline option or <span class="Li">&quot;PERL_UNICODE&quot;</span>
+        environment variable in the main program scope, falling back to the
+        platform defaults as described in &quot;Defaults and how to override
+        them&quot; in PerlIO. If you want to remove any layers that may
+        transform the byte stream, use
+        <span class="Li">&quot;binmode&quot;</span> after opening it.</p>
     <p class="Pp">The possible values and flag bits of the MODE parameter are
         system-dependent; they are available via the standard module
         <span class="Li">&quot;Fcntl&quot;</span>. See the documentation of your
@@ -8292,6 +8514,13 @@
         takes away the user's option to have a more permissive umask. Better to
         omit it. See <span class="Li">&quot;umask&quot;</span> for more on
       this.</p>
+    <p class="Pp">This function has no direct relation to the usage of
+        <span class="Li">&quot;sysread&quot;</span>,
+        <span class="Li">&quot;syswrite&quot;</span>, or
+        <span class="Li">&quot;sysseek&quot;</span>. A handle opened with this
+        function can be used with buffered IO just as one opened with
+        <span class="Li">&quot;open&quot;</span> can be used with unbuffered
+      IO.</p>
     <p class="Pp">Note that under Perls older than 5.8.0,
         <span class="Li">&quot;sysopen&quot;</span> depends on the
         <b>fdopen</b>(3) C library function. On many Unix systems,
@@ -8310,18 +8539,22 @@
   <dt id="sysread~2"><a class="permalink" href="#sysread~2">sysread
     FILEHANDLE,SCALAR,LENGTH</a></dt>
   <dd>Attempts to read LENGTH bytes of data into variable SCALAR from the
-      specified FILEHANDLE, using <b>read</b>(2). It bypasses buffered IO, so
+      specified FILEHANDLE, using <b>read</b>(2). It bypasses any PerlIO layers
+      including buffered IO (but is affected by the presence of the
+      <span class="Li">&quot;:utf8&quot;</span> layer as described later), so
       mixing this with other kinds of reads,
       <span class="Li">&quot;print&quot;</span>,
       <span class="Li">&quot;write&quot;</span>,
       <span class="Li">&quot;seek&quot;</span>,
       <span class="Li">&quot;tell&quot;</span>, or
       <span class="Li">&quot;eof&quot;</span> can cause confusion because the
-      perlio or stdio layers usually buffer data. Returns the number of bytes
-      actually read, <span class="Li">0</span> at end of file, or undef if there
-      was an error (in the latter case <span class="Li">$!</span> is also set).
-      SCALAR will be grown or shrunk so that the last byte actually read is the
-      last byte of the scalar after the read.
+      <span class="Li">&quot;:perlio&quot;</span> or
+      <span class="Li">&quot;:crlf&quot;</span> layers usually buffer data.
+      Returns the number of bytes actually read, <span class="Li">0</span> at
+      end of file, or undef if there was an error (in the latter case
+      <span class="Li">$!</span> is also set). SCALAR will be grown or shrunk so
+      that the last byte actually read is the last byte of the scalar after the
+      read.
     <p class="Pp">An OFFSET may be specified to place the read data at some
         place in the string other than the beginning. A negative OFFSET
         specifies placement at that many characters counting backwards from the
@@ -8481,19 +8714,23 @@
     FILEHANDLE,SCALAR</a></dt>
   <dd>Attempts to write LENGTH bytes of data from variable SCALAR to the
       specified FILEHANDLE, using <b>write</b>(2). If LENGTH is not specified,
-      writes whole SCALAR. It bypasses buffered IO, so mixing this with reads
-      (other than <span class="Li">&quot;sysread)&quot;</span>),
+      writes whole SCALAR. It bypasses any PerlIO layers including buffered IO
+      (but is affected by the presence of the
+      <span class="Li">&quot;:utf8&quot;</span> layer as described later), so
+      mixing this with reads (other than
+      <span class="Li">&quot;sysread)&quot;</span>),
       <span class="Li">&quot;print&quot;</span>,
       <span class="Li">&quot;write&quot;</span>,
       <span class="Li">&quot;seek&quot;</span>,
       <span class="Li">&quot;tell&quot;</span>, or
       <span class="Li">&quot;eof&quot;</span> may cause confusion because the
-      perlio and stdio layers usually buffer data. Returns the number of bytes
-      actually written, or <span class="Li">&quot;undef&quot;</span> if there
-      was an error (in this case the errno variable <span class="Li">$!</span>
-      is also set). If the LENGTH is greater than the data available in the
-      SCALAR after the OFFSET, only as much data as is available will be
-      written.
+      <span class="Li">&quot;:perlio&quot;</span> and
+      <span class="Li">&quot;:crlf&quot;</span> layers usually buffer data.
+      Returns the number of bytes actually written, or
+      <span class="Li">&quot;undef&quot;</span> if there was an error (in this
+      case the errno variable <span class="Li">$!</span> is also set). If the
+      LENGTH is greater than the data available in the SCALAR after the OFFSET,
+      only as much data as is available will be written.
     <p class="Pp">An OFFSET may be specified to write the data from some part of
         the string other than the beginning. A negative OFFSET specifies writing
         that many characters counting backwards from the end of the string. If
@@ -9225,11 +9462,7 @@
         thus has the UTF8 flag set), <span class="Li">&quot;vec&quot;</span>
         tries to convert it to use a one-byte-per-character internal
         representation. However, if the string contains characters with values
-        of 256 or higher, that conversion will fail, and a deprecation message
-        will be raised. In that situation,
-        <span class="Li">&quot;vec&quot;</span> will operate on the underlying
-        buffer regardless, in its internal UTF-8 representation. In Perl 5.32,
-        this will be a fatal error.</p>
+        of 256 or higher, a fatal error will occur.</p>
     <p class="Pp">Strings created with <span class="Li">&quot;vec&quot;</span>
         can also be manipulated with the logical operators
         <span class="Li">&quot;|&quot;</span>,

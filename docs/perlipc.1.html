@@ -111,7 +111,8 @@
 <p class="Pp">Some signals can be neither trapped nor ignored, such as the KILL
     and STOP (but not the TSTP) signals. Note that ignoring signals makes them
     disappear. If you only want them blocked temporarily without them getting
-    lost you'll have to use POSIX' sigprocmask.</p>
+    lost you'll have to use the <span class="Li">&quot;POSIX&quot;</span>
+    module's sigprocmask.</p>
 <p class="Pp">Sending a signal to a negative process ID means that you send the
     signal to the entire Unix process group. This code sends a hang-up signal to
     all processes in the current process group, and also sets
@@ -207,7 +208,7 @@
     eval {
         local $SIG{ALRM} = sub { die $ALARM_EXCEPTION };
         alarm 10;
-        flock(FH, 2)    # blocking write lock
+        flock($fh, 2)    # blocking write lock
                         || die &quot;cannot flock: $!&quot;;
         alarm 0;
     };
@@ -454,12 +455,12 @@
             unlink $FIFO;   # discard any failure, will catch later
             require POSIX;  # delayed loading of heavy module
             POSIX::mkfifo($FIFO, 0700)
-                                || die &quot;can't mkfifo $FIFO: $!&quot;;
+                                  || die &quot;can't mkfifo $FIFO: $!&quot;;
         }
         # next line blocks till there's a reader
-        open (FIFO, &quot;&gt; $FIFO&quot;)  || die &quot;can't open $FIFO: $!&quot;;
-        print FIFO &quot;John Smith (smith\@host.org)\n&quot;, `fortune -s`;
-        close(FIFO)             || die &quot;can't close $FIFO: $!&quot;;
+        open (my $fh, &quot;&gt;&quot;, $FIFO) || die &quot;can't open $FIFO: $!&quot;;
+        print $fh &quot;John Smith (smith\@host.org)\n&quot;, `fortune -s`;
+        close($fh)                || die &quot;can't close $FIFO: $!&quot;;
         sleep 2;                # to avoid dup signals
     }
 </pre>
@@ -468,30 +469,46 @@
 <h1 class="Sh" id="Using_"><a class="permalink" href="#Using_">Using
   <b>open()</b> for IPC</a></h1>
 <p class="Pp">Perl's basic <b>open()</b> statement can also be used for
-    unidirectional interprocess communication by either appending or prepending
-    a pipe symbol to the second argument to <b>open()</b>. Here's how to start
-    something up in a child process you intend to write to:</p>
+    unidirectional interprocess communication by specifying the open mode as
+    <span class="Li">&quot;|-&quot;</span> or
+    <span class="Li">&quot;-|&quot;</span>. Here's how to start something up in
+    a child process you intend to write to:</p>
 <p class="Pp"></p>
-<pre>    open(SPOOLER, &quot;| cat -v | lpr -h 2&gt;/dev/null&quot;)
+<pre>    open(my $spooler, &quot;|-&quot;, &quot;cat -v | lpr -h 2&gt;/dev/null&quot;)
                         || die &quot;can't fork: $!&quot;;
     local $SIG{PIPE} = sub { die &quot;spooler pipe broke&quot; };
-    print SPOOLER &quot;stuff\n&quot;;
-    close SPOOLER       || die &quot;bad spool: $! $?&quot;;
+    print $spooler &quot;stuff\n&quot;;
+    close $spooler      || die &quot;bad spool: $! $?&quot;;
 </pre>
 <p class="Pp">And here's how to start up a child process you intend to read
     from:</p>
 <p class="Pp"></p>
-<pre>    open(STATUS, &quot;netstat -an 2&gt;&amp;1 |&quot;)
+<pre>    open(my $status, &quot;-|&quot;, &quot;netstat -an 2&gt;&amp;1&quot;)
                         || die &quot;can't fork: $!&quot;;
-    while (&lt;STATUS&gt;) {
+    while (&lt;$status&gt;) {
         next if /^(tcp|udp)/;
         print;
     }
-    close STATUS        || die &quot;bad netstat: $! $?&quot;;
+    close $status       || die &quot;bad netstat: $! $?&quot;;
 </pre>
-<p class="Pp">If one can be sure that a particular program is a Perl script
-    expecting filenames in <span class="Li">@ARGV</span>, the clever programmer
-    can write something like this:</p>
+<p class="Pp">Be aware that these operations are full Unix forks, which means
+    they may not be correctly implemented on all alien systems. See
+    &quot;open&quot; in perlport for portability details.</p>
+<p class="Pp">In the two-argument form of <b>open()</b>, a pipe open can be
+    achieved by either appending or prepending a pipe symbol to the second
+    argument:</p>
+<p class="Pp"></p>
+<pre>    open(my $spooler, &quot;| cat -v | lpr -h 2&gt;/dev/null&quot;)
+                        || die &quot;can't fork: $!&quot;;
+    open(my $status, &quot;netstat -an 2&gt;&amp;1 |&quot;)
+                        || die &quot;can't fork: $!&quot;;
+</pre>
+<p class="Pp">This can be used even on systems that do not support forking, but
+    this possibly allows code intended to read files to unexpectedly execute
+    programs. If one can be sure that a particular program is a Perl script
+    expecting filenames in <span class="Li">@ARGV</span> using the two-argument
+    form of <b>open()</b> or the <span class="Li">&quot;&lt;&gt;&quot;</span>
+    operator, the clever programmer can write something like this:</p>
 <p class="Pp"></p>
 <pre>    % program f1 &quot;cmd1|&quot; - f2 &quot;cmd2|&quot; f3 &lt; tmpfile
 </pre>
@@ -521,10 +538,10 @@
     quick EOF, writers to bogus commands will get hit with a signal, which
     they'd best be prepared to handle. Consider:</p>
 <p class="Pp"></p>
-<pre>    open(FH, &quot;|bogus&quot;)      || die &quot;can't fork: $!&quot;;
-    print FH &quot;bang\n&quot;;      #  neither necessary nor sufficient
-                            #  to check print retval!
-    close(FH)               || die &quot;can't close: $!&quot;;
+<pre>    open(my $fh, &quot;|-&quot;, &quot;bogus&quot;) || die &quot;can't fork: $!&quot;;
+    print $fh &quot;bang\n&quot;;         #  neither necessary nor sufficient
+                                #  to check print retval!
+    close($fh)                  || die &quot;can't close: $!&quot;;
 </pre>
 <p class="Pp">The reason for not checking the return value from <b>print()</b>
     is because of pipe buffering; physical writes are delayed. That won't blow
@@ -532,9 +549,9 @@
     could use this:</p>
 <p class="Pp"></p>
 <pre>    $SIG{PIPE} = &quot;IGNORE&quot;;
-    open(FH, &quot;|bogus&quot;)  || die &quot;can't fork: $!&quot;;
-    print FH &quot;bang\n&quot;;
-    close(FH)           || die &quot;can't close: status=$?&quot;;
+    open(my $fh, &quot;|-&quot;, &quot;bogus&quot;) || die &quot;can't fork: $!&quot;;
+    print $fh &quot;bang\n&quot;;
+    close($fh)                  || die &quot;can't close: status=$?&quot;;
 </pre>
 <section class="Ss">
 <h2 class="Ss" id="Filehandles"><a class="permalink" href="#Filehandles">Filehandles</a></h2>
@@ -569,13 +586,13 @@
 <p class="Pp"></p>
 <pre> use POSIX &quot;setsid&quot;;
  sub daemonize {
-     chdir(&quot;/&quot;)                  || die &quot;can't chdir to /: $!&quot;;
-     open(STDIN,  &quot;&lt; /dev/null&quot;) || die &quot;can't read /dev/null: $!&quot;;
-     open(STDOUT, &quot;&gt; /dev/null&quot;) || die &quot;can't write to /dev/null: $!&quot;;
-     defined(my $pid = fork())   || die &quot;can't fork: $!&quot;;
-     exit if $pid;               # non-zero now means I am the parent
-     (setsid() != -1)            || die &quot;Can't start a new session: $!&quot;;
-     open(STDERR, &quot;&gt;&amp;STDOUT&quot;)    || die &quot;can't dup stdout: $!&quot;;
+     chdir(&quot;/&quot;)                     || die &quot;can't chdir to /: $!&quot;;
+     open(STDIN,  &quot;&lt;&quot;, &quot;/dev/null&quot;) || die &quot;can't read /dev/null: $!&quot;;
+     open(STDOUT, &quot;&gt;&quot;, &quot;/dev/null&quot;) || die &quot;can't write /dev/null: $!&quot;;
+     defined(my $pid = fork())      || die &quot;can't fork: $!&quot;;
+     exit if $pid;              # non-zero now means I am the parent
+     (setsid() != -1)           || die &quot;Can't start a new session: $!&quot;;
+     open(STDERR, &quot;&gt;&amp;&quot;, STDOUT) || die &quot;can't dup stdout: $!&quot;;
  }
 </pre>
 <p class="Pp">The <b>fork()</b> has to come before the <b>setsid()</b> to ensure
@@ -592,8 +609,8 @@
   Pipe Opens</a></h2>
 <p class="Pp">Another interesting approach to IPC is making your single program
     go multiprocess and communicate between--or even amongst--yourselves. The
-    <b>open()</b> function will accept a file argument of either
-    <span class="Li">&quot;-|&quot;</span> or
+    two-argument form of the <b>open()</b> function will accept a file argument
+    of either <span class="Li">&quot;-|&quot;</span> or
     <span class="Li">&quot;|-&quot;</span> to do a very interesting thing: it
     forks a child connected to the filehandle you've opened. The child is
     running the same program as the parent. This is useful for safely opening a
@@ -603,12 +620,12 @@
     you can read from the filehandle you opened whatever your kid writes to
     <i>his</i> STDOUT.</p>
 <p class="Pp"></p>
-<pre>    use English;
-    my $PRECIOUS = &quot;/path/to/some/safe/file&quot;;
+<pre>    my $PRECIOUS = &quot;/path/to/some/safe/file&quot;;
     my $sleep_count;
     my $pid;
+    my $kid_to_write;
     do {
-        $pid = open(KID_TO_WRITE, &quot;|-&quot;);
+        $pid = open($kid_to_write, &quot;|-&quot;);
         unless (defined $pid) {
             warn &quot;cannot fork: $!&quot;;
             die &quot;bailing out&quot; if $sleep_count++ &gt; 6;
@@ -616,17 +633,17 @@
         }
     } until defined $pid;
     if ($pid) {                 # I am the parent
-        print KID_TO_WRITE @some_data;
-        close(KID_TO_WRITE)     || warn &quot;kid exited $?&quot;;
+        print $kid_to_write @some_data;
+        close($kid_to_write)    || warn &quot;kid exited $?&quot;;
     } else {                    # I am the child
         # drop permissions in setuid and/or setgid programs:
-        ($EUID, $EGID) = ($UID, $GID);
-        open (OUTFILE, &quot;&gt; $PRECIOUS&quot;)
+        ($&gt;, $)) = ($&lt;, $();
+        open (my $outfile, &quot;&gt;&quot;, $PRECIOUS)
                                 || die &quot;can't open $PRECIOUS: $!&quot;;
         while (&lt;STDIN&gt;) {
-            print OUTFILE;      # child's STDIN is parent's KID_TO_WRITE
+            print $outfile;     # child STDIN is parent $kid_to_write
         }
-        close(OUTFILE)          || die &quot;can't close $PRECIOUS: $!&quot;;
+        close($outfile)         || die &quot;can't close $PRECIOUS: $!&quot;;
         exit(0);                # don't forget this!!
     }
 </pre>
@@ -638,32 +655,32 @@
   directly.</p>
 <p class="Pp">Here's a safe backtick or pipe open for read:</p>
 <p class="Pp"></p>
-<pre>    my $pid = open(KID_TO_READ, &quot;-|&quot;);
-    defined($pid)           || die &quot;can't fork: $!&quot;;
+<pre>    my $pid = open(my $kid_to_read, &quot;-|&quot;);
+    defined($pid)            || die &quot;can't fork: $!&quot;;
     if ($pid) {             # parent
-        while (&lt;KID_TO_READ&gt;) {
+        while (&lt;$kid_to_read&gt;) {
                             # do something interesting
         }
-        close(KID_TO_READ)  || warn &quot;kid exited $?&quot;;
+        close($kid_to_read)  || warn &quot;kid exited $?&quot;;
     } else {                # child
-        ($EUID, $EGID) = ($UID, $GID); # suid only
+        ($&gt;, $)) = ($&lt;, $(); # suid only
         exec($program, @options, @args)
-                            || die &quot;can't exec program: $!&quot;;
+                             || die &quot;can't exec program: $!&quot;;
         # NOTREACHED
     }
 </pre>
 <p class="Pp">And here's a safe pipe open for writing:</p>
 <p class="Pp"></p>
-<pre>    my $pid = open(KID_TO_WRITE, &quot;|-&quot;);
-    defined($pid)           || die &quot;can't fork: $!&quot;;
+<pre>    my $pid = open(my $kid_to_write, &quot;|-&quot;);
+    defined($pid)            || die &quot;can't fork: $!&quot;;
     $SIG{PIPE} = sub { die &quot;whoops, $program pipe broke&quot; };
     if ($pid) {             # parent
-        print KID_TO_WRITE @data;
-        close(KID_TO_WRITE) || warn &quot;kid exited $?&quot;;
+        print $kid_to_write @data;
+        close($kid_to_write) || warn &quot;kid exited $?&quot;;
     } else {                # child
-        ($EUID, $EGID) = ($UID, $GID);
+        ($&gt;, $)) = ($&lt;, $();
         exec($program, @options, @args)
-                            || die &quot;can't exec program: $!&quot;;
+                             || die &quot;can't exec program: $!&quot;;
         # NOTREACHED
     }
 </pre>
@@ -673,23 +690,23 @@
     calls <b>exec()</b>. See &quot;Avoiding Pipe Deadlocks&quot; for general
     safety principles, but there are extra gotchas with Safe Pipe Opens.</p>
 <p class="Pp">In particular, if you opened the pipe using
-    <span class="Li">&quot;open FH, &quot;|-&quot;&quot;</span>, then you cannot
-    simply use <b>close()</b> in the parent process to close an unwanted writer.
-    Consider this code:</p>
+    <span class="Li">&quot;open $fh, &quot;|-&quot;&quot;</span>, then you
+    cannot simply use <b>close()</b> in the parent process to close an unwanted
+    writer. Consider this code:</p>
 <p class="Pp"></p>
-<pre>    my $pid = open(WRITER, &quot;|-&quot;);        # fork open a kid
+<pre>    my $pid = open(my $writer, &quot;|-&quot;);        # fork open a kid
     defined($pid)               || die &quot;first fork failed: $!&quot;;
     if ($pid) {
         if (my $sub_pid = fork()) {
             defined($sub_pid)   || die &quot;second fork failed: $!&quot;;
-            close(WRITER)       || die &quot;couldn't close WRITER: $!&quot;;
+            close($writer)      || die &quot;couldn't close writer: $!&quot;;
             # now do something else...
         }
         else {
-            # first write to WRITER
+            # first write to $writer
             # ...
             # then when finished
-            close(WRITER)       || die &quot;couldn't close WRITER: $!&quot;;
+            close($writer)      || die &quot;couldn't close writer: $!&quot;;
             exit(0);
         }
     }
@@ -699,8 +716,9 @@
     }
 </pre>
 <p class="Pp">In the example above, the true parent does not want to write to
-    the WRITER filehandle, so it closes it. However, because WRITER was opened
-    using <span class="Li">&quot;open FH, &quot;|-&quot;&quot;</span>, it has a
+    the <span class="Li">$writer</span> filehandle, so it closes it. However,
+    because <span class="Li">$writer</span> was opened using
+    <span class="Li">&quot;open $fh, &quot;|-&quot;&quot;</span>, it has a
     special behavior: closing it calls <b>waitpid()</b> (see &quot;waitpid&quot;
     in perlfunc), which waits for the subprocess to exit. If the child process
     ends up waiting for something happening in the section marked &quot;do
@@ -712,27 +730,27 @@
     and the form of <b>open()</b> which sets one file descriptor to another, as
     shown below:</p>
 <p class="Pp"></p>
-<pre>    pipe(READER, WRITER)        || die &quot;pipe failed: $!&quot;;
-    $pid = fork();
-    defined($pid)               || die &quot;first fork failed: $!&quot;;
+<pre>    pipe(my $reader, my $writer)   || die &quot;pipe failed: $!&quot;;
+    my $pid = fork();
+    defined($pid)                  || die &quot;first fork failed: $!&quot;;
     if ($pid) {
-        close READER;
+        close $reader;
         if (my $sub_pid = fork()) {
-            defined($sub_pid)   || die &quot;first fork failed: $!&quot;;
-            close(WRITER)       || die &quot;can't close WRITER: $!&quot;;
+            defined($sub_pid)      || die &quot;first fork failed: $!&quot;;
+            close($writer)         || die &quot;can't close writer: $!&quot;;
         }
         else {
-            # write to WRITER...
+            # write to $writer...
             # ...
             # then  when finished
-            close(WRITER)       || die &quot;can't close WRITER: $!&quot;;
+            close($writer)         || die &quot;can't close writer: $!&quot;;
             exit(0);
         }
-        # write to WRITER...
+        # write to $writer...
     }
     else {
-        open(STDIN, &quot;&lt;&amp;READER&quot;) || die &quot;can't reopen STDIN: $!&quot;;
-        close(WRITER)           || die &quot;can't close WRITER: $!&quot;;
+        open(STDIN, &quot;&lt;&amp;&quot;, $reader) || die &quot;can't reopen STDIN: $!&quot;;
+        close($writer)             || die &quot;can't close writer: $!&quot;;
         # do something...
         exit(0);
     }
@@ -743,21 +761,21 @@
     your command string.</p>
 <p class="Pp">So for example, instead of using:</p>
 <p class="Pp"></p>
-<pre>    open(PS_PIPE, &quot;ps aux|&quot;)    || die &quot;can't open ps pipe: $!&quot;;
+<pre>    open(my $ps_pipe, &quot;-|&quot;, &quot;ps aux&quot;) || die &quot;can't open ps pipe: $!&quot;;
 </pre>
 <p class="Pp">One would use either of these:</p>
 <p class="Pp"></p>
-<pre>    open(PS_PIPE, &quot;-|&quot;, &quot;ps&quot;, &quot;aux&quot;)
-                                || die &quot;can't open ps pipe: $!&quot;;
-    @ps_args = qw[ ps aux ];
-    open(PS_PIPE, &quot;-|&quot;, @ps_args)
-                                || die &quot;can't open @ps_args|: $!&quot;;
+<pre>    open(my $ps_pipe, &quot;-|&quot;, &quot;ps&quot;, &quot;aux&quot;)
+                                      || die &quot;can't open ps pipe: $!&quot;;
+    my @ps_args = qw[ ps aux ];
+    open(my $ps_pipe, &quot;-|&quot;, @ps_args)
+                                      || die &quot;can't open @ps_args|: $!&quot;;
 </pre>
-<p class="Pp">Because there are more than three arguments to <b>open()</b>,
+<p class="Pp">Because there are more than three arguments to <b>open()</b>, it
     forks the <b>ps</b>(1) command <i>without</i> spawning a shell, and reads
-    its standard output via the <span class="Li">&quot;PS_PIPE&quot;</span>
-    filehandle. The corresponding syntax to <i>write</i> to command pipes is to
-    use <span class="Li">&quot;|-&quot;</span> in place of
+    its standard output via the <span class="Li">$ps_pipe</span> filehandle. The
+    corresponding syntax to <i>write</i> to command pipes is to use
+    <span class="Li">&quot;|-&quot;</span> in place of
     <span class="Li">&quot;-|&quot;</span>.</p>
 <p class="Pp">This was admittedly a rather silly example, because you're using
     string literals whose content is perfectly safe. There is therefore no cause
@@ -766,15 +784,13 @@
     of shell metacharacters, the fancier form of <b>open()</b> should be used.
     For example:</p>
 <p class="Pp"></p>
-<pre>    @grep_args = (&quot;egrep&quot;, &quot;-i&quot;, $some_pattern, @many_files);
-    open(GREP_PIPE, &quot;-|&quot;, @grep_args)
+<pre>    my @grep_args = (&quot;egrep&quot;, &quot;-i&quot;, $some_pattern, @many_files);
+    open(my $grep_pipe, &quot;-|&quot;, @grep_args)
                         || die &quot;can't open @grep_args|: $!&quot;;
 </pre>
 <p class="Pp">Here the multi-argument form of pipe <b>open()</b> is preferred
     because the pattern and indeed even the filenames themselves might hold
     metacharacters.</p>
-<p class="Pp">Be aware that these operations are full Unix forks, which means
-    they may not be correctly implemented on all alien systems.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="Avoiding_Pipe_Deadlocks"><a class="permalink" href="#Avoiding_Pipe_Deadlocks">Avoiding
@@ -806,7 +822,7 @@
     work:</p>
 <p class="Pp"></p>
 <pre>    # THIS DOES NOT WORK!!
-    open(PROG_FOR_READING_AND_WRITING, &quot;| some program |&quot;)
+    open(my $prog_for_reading_and_writing, &quot;| some program |&quot;)
 </pre>
 <p class="Pp">If you forget to <span class="Li">&quot;use warnings&quot;</span>,
     you'll miss out entirely on the helpful diagnostic message:</p>
@@ -814,11 +830,10 @@
 <pre>    Can't do bidirectional pipe at -e line 1.
 </pre>
 <p class="Pp">If you really want to, you can use the standard <b>open2()</b>
-    from the <span class="Li">&quot;IPC::Open2&quot;</span> module to catch both
-    ends. There's also an <b>open3()</b> in
-    <span class="Li">&quot;IPC::Open3&quot;</span> for tridirectional I/O so you
-    can also catch your child's STDERR, but doing so would then require an
-    awkward <b>select()</b> loop and wouldn't allow you to use normal Perl input
+    from the IPC::Open2 module to catch both ends. There's also an
+    <b>open3()</b> in IPC::Open3 for tridirectional I/O so you can also catch
+    your child's STDERR, but doing so would then require an awkward
+    <b>select()</b> loop and wouldn't allow you to use normal Perl input
     operations.</p>
 <p class="Pp">If you look at its source, you'll see that <b>open2()</b> uses
     low-level primitives like the <b>pipe()</b> and <b>exec()</b> syscalls to
@@ -829,21 +844,21 @@
     compliance.</p>
 <p class="Pp">Here's an example of using <b>open2()</b>:</p>
 <p class="Pp"></p>
-<pre>    use FileHandle;
-    use IPC::Open2;
-    $pid = open2(*Reader, *Writer, &quot;cat -un&quot;);
-    print Writer &quot;stuff\n&quot;;
-    $got = &lt;Reader&gt;;
+<pre>    use IPC::Open2;
+    my $pid = open2(my $reader, my $writer, &quot;cat -un&quot;);
+    print $writer &quot;stuff\n&quot;;
+    my $got = &lt;$reader&gt;;
+    waitpid $pid, 0;
 </pre>
 <p class="Pp">The problem with this is that buffering is really going to ruin
-    your day. Even though your <span class="Li">&quot;Writer&quot;</span>
-    filehandle is auto-flushed so the process on the other end gets your data in
-    a timely manner, you can't usually do anything to force that process to give
-    its data to you in a similarly quick fashion. In this special case, we could
-    actually so, because we gave <i>cat</i> a <b>-u</b> flag to make it
-    unbuffered. But very few commands are designed to operate over pipes, so
-    this seldom works unless you yourself wrote the program on the other end of
-    the double-ended pipe.</p>
+    your day. Even though your <span class="Li">$writer</span> filehandle is
+    auto-flushed so the process on the other end gets your data in a timely
+    manner, you can't usually do anything to force that process to give its data
+    to you in a similarly quick fashion. In this special case, we could actually
+    so, because we gave <i>cat</i> a <b>-u</b> flag to make it unbuffered. But
+    very few commands are designed to operate over pipes, so this seldom works
+    unless you yourself wrote the program on the other end of the double-ended
+    pipe.</p>
 <p class="Pp">A solution to this is to use a library which uses pseudottys to
     make your program behave more reasonably. This way you don't have to have
     control over the source code of the program you're using. The
@@ -863,63 +878,67 @@
     STDOUT and call other processes. (The following example lacks proper error
     checking.)</p>
 <p class="Pp"></p>
-<pre> #!/usr/bin/perl -w
+<pre> #!/usr/bin/perl
  # pipe1 - bidirectional communication using two pipe pairs
  #         designed for the socketpair-challenged
- use IO::Handle;             # thousands of lines just for autoflush :-(
- pipe(PARENT_RDR, CHILD_WTR);  # XXX: check failure?
- pipe(CHILD_RDR,  PARENT_WTR); # XXX: check failure?
- CHILD_WTR-&gt;autoflush(1);
- PARENT_WTR-&gt;autoflush(1);
+ use strict;
+ use warnings;
+ use IO::Handle;  # enable autoflush method before Perl 5.14
+ pipe(my $parent_rdr, my $child_wtr);  # XXX: check failure?
+ pipe(my $child_rdr,  my $parent_wtr); # XXX: check failure?
+ $child_wtr-&gt;autoflush(1);
+ $parent_wtr-&gt;autoflush(1);
  if ($pid = fork()) {
-     close PARENT_RDR;
-     close PARENT_WTR;
-     print CHILD_WTR &quot;Parent Pid $$ is sending this\n&quot;;
-     chomp($line = &lt;CHILD_RDR&gt;);
+     close $parent_rdr;
+     close $parent_wtr;
+     print $child_wtr &quot;Parent Pid $$ is sending this\n&quot;;
+     chomp(my $line = &lt;$child_rdr&gt;);
      print &quot;Parent Pid $$ just read this: '$line'\n&quot;;
-     close CHILD_RDR; close CHILD_WTR;
+     close $child_rdr; close $child_wtr;
      waitpid($pid, 0);
  } else {
      die &quot;cannot fork: $!&quot; unless defined $pid;
-     close CHILD_RDR;
-     close CHILD_WTR;
-     chomp($line = &lt;PARENT_RDR&gt;);
+     close $child_rdr;
+     close $child_wtr;
+     chomp(my $line = &lt;$parent_rdr&gt;);
      print &quot;Child Pid $$ just read this: '$line'\n&quot;;
-     print PARENT_WTR &quot;Child Pid $$ is sending this\n&quot;;
-     close PARENT_RDR;
-     close PARENT_WTR;
+     print $parent_wtr &quot;Child Pid $$ is sending this\n&quot;;
+     close $parent_rdr;
+     close $parent_wtr;
      exit(0);
  }
 </pre>
 <p class="Pp">But you don't actually have to make two pipe calls. If you have
     the <b>socketpair()</b> system call, it will do this all for you.</p>
 <p class="Pp"></p>
-<pre> #!/usr/bin/perl -w
+<pre> #!/usr/bin/perl
  # pipe2 - bidirectional communication using socketpair
  #   &quot;the best ones always go both ways&quot;
+ use strict;
+ use warnings;
  use Socket;
- use IO::Handle;  # thousands of lines just for autoflush :-(
+ use IO::Handle;  # enable autoflush method before Perl 5.14
  # We say AF_UNIX because although *_LOCAL is the
  # POSIX 1003.1g form of the constant, many machines
  # still don't have it.
- socketpair(CHILD, PARENT, AF_UNIX, SOCK_STREAM, PF_UNSPEC)
+ socketpair(my $child, my $parent, AF_UNIX, SOCK_STREAM, PF_UNSPEC)
                              ||  die &quot;socketpair: $!&quot;;
- CHILD-&gt;autoflush(1);
- PARENT-&gt;autoflush(1);
+ $child-&gt;autoflush(1);
+ $parent-&gt;autoflush(1);
  if ($pid = fork()) {
-     close PARENT;
-     print CHILD &quot;Parent Pid $$ is sending this\n&quot;;
-     chomp($line = &lt;CHILD&gt;);
+     close $parent;
+     print $child &quot;Parent Pid $$ is sending this\n&quot;;
+     chomp(my $line = &lt;$child&gt;);
      print &quot;Parent Pid $$ just read this: '$line'\n&quot;;
-     close CHILD;
+     close $child;
      waitpid($pid, 0);
  } else {
      die &quot;cannot fork: $!&quot; unless defined $pid;
-     close CHILD;
-     chomp($line = &lt;PARENT&gt;);
+     close $child;
+     chomp(my $line = &lt;$parent&gt;);
      print &quot;Child Pid $$ just read this: '$line'\n&quot;;
-     print PARENT &quot;Child Pid $$ is sending this\n&quot;;
-     close PARENT;
+     print $parent &quot;Child Pid $$ is sending this\n&quot;;
+     close $parent;
      exit(0);
  }
 </pre>
@@ -944,8 +963,8 @@
     severely hurt portability. If you ever see code that does anything like
     explicitly setting <span class="Li">&quot;$AF_INET = 2&quot;</span>, you
     know you're in for big trouble. An immeasurably superior approach is to use
-    the <span class="Li">&quot;Socket&quot;</span> module, which more reliably
-    grants access to the various constants and functions you'll need.</p>
+    the Socket module, which more reliably grants access to the various
+    constants and functions you'll need.</p>
 <p class="Pp">If you're not writing a server/client for an existing protocol
     like NNTP or SMTP, you should give some thought to how your server will know
     when the client has finished talking, and vice-versa. Most protocols are
@@ -974,23 +993,23 @@
     communication that might extend to machines outside of your own system.</p>
 <p class="Pp">Here's a sample TCP client using Internet-domain sockets:</p>
 <p class="Pp"></p>
-<pre>    #!/usr/bin/perl -w
+<pre>    #!/usr/bin/perl
     use strict;
+    use warnings;
     use Socket;
-    my ($remote, $port, $iaddr, $paddr, $proto, $line);
-    $remote  = shift || &quot;localhost&quot;;
-    $port    = shift || 2345;  # random port
+    my $remote  = shift || &quot;localhost&quot;;
+    my $port    = shift || 2345;  # random port
     if ($port =~ /\D/) { $port = getservbyname($port, &quot;tcp&quot;) }
     die &quot;No port&quot; unless $port;
-    $iaddr   = inet_aton($remote)       || die &quot;no host: $remote&quot;;
-    $paddr   = sockaddr_in($port, $iaddr);
-    $proto   = getprotobyname(&quot;tcp&quot;);
-    socket(SOCK, PF_INET, SOCK_STREAM, $proto)  || die &quot;socket: $!&quot;;
-    connect(SOCK, $paddr)               || die &quot;connect: $!&quot;;
-    while ($line = &lt;SOCK&gt;) {
+    my $iaddr   = inet_aton($remote)       || die &quot;no host: $remote&quot;;
+    my $paddr   = sockaddr_in($port, $iaddr);
+    my $proto   = getprotobyname(&quot;tcp&quot;);
+    socket(my $sock, PF_INET, SOCK_STREAM, $proto)  || die &quot;socket: $!&quot;;
+    connect($sock, $paddr)              || die &quot;connect: $!&quot;;
+    while (my $line = &lt;$sock&gt;) {
         print $line;
     }
-    close (SOCK)                        || die &quot;close: $!&quot;;
+    close ($sock)                        || die &quot;close: $!&quot;;
     exit(0);
 </pre>
 <p class="Pp">And here's a corresponding server to go along with it. We'll leave
@@ -999,8 +1018,9 @@
     sit on a particular interface (like the external side of a gateway or
     firewall machine), fill this in with your real address instead.</p>
 <p class="Pp"></p>
-<pre> #!/usr/bin/perl -Tw
+<pre> #!/usr/bin/perl -T
  use strict;
+ use warnings;
  BEGIN { $ENV{PATH} = &quot;/usr/bin:/bin&quot; }
  use Socket;
  use Carp;
@@ -1009,20 +1029,19 @@
  my $port  = shift || 2345;
  die &quot;invalid port&quot; unless $port =~ /^ \d+ $/x;
  my $proto = getprotobyname(&quot;tcp&quot;);
- socket(Server, PF_INET, SOCK_STREAM, $proto)   || die &quot;socket: $!&quot;;
- setsockopt(Server, SOL_SOCKET, SO_REUSEADDR, pack(&quot;l&quot;, 1))
-                                                || die &quot;setsockopt: $!&quot;;
- bind(Server, sockaddr_in($port, INADDR_ANY))   || die &quot;bind: $!&quot;;
- listen(Server, SOMAXCONN)                      || die &quot;listen: $!&quot;;
+ socket(my $server, PF_INET, SOCK_STREAM, $proto) || die &quot;socket: $!&quot;;
+ setsockopt($server, SOL_SOCKET, SO_REUSEADDR, pack(&quot;l&quot;, 1))
+                                               || die &quot;setsockopt: $!&quot;;
+ bind($server, sockaddr_in($port, INADDR_ANY)) || die &quot;bind: $!&quot;;
+ listen($server, SOMAXCONN)                    || die &quot;listen: $!&quot;;
  logmsg &quot;server started on port $port&quot;;
- my $paddr;
- for ( ; $paddr = accept(Client, Server); close Client) {
+ for (my $paddr; $paddr = accept(my $client, $server); close $client) {
      my($port, $iaddr) = sockaddr_in($paddr);
      my $name = gethostbyaddr($iaddr, AF_INET);
      logmsg &quot;connection from $name [&quot;,
              inet_ntoa($iaddr), &quot;]
              at port $port&quot;;
-     print Client &quot;Hello there, $name, it's now &quot;,
+     print $client &quot;Hello there, $name, it's now &quot;,
                      scalar localtime(), $EOL;
  }
 </pre>
@@ -1031,8 +1050,9 @@
     the client request so that the master server can quickly go back to service
     a new client.</p>
 <p class="Pp"></p>
-<pre> #!/usr/bin/perl -Tw
+<pre> #!/usr/bin/perl -T
  use strict;
+ use warnings;
  BEGIN { $ENV{PATH} = &quot;/usr/bin:/bin&quot; }
  use Socket;
  use Carp;
@@ -1042,14 +1062,13 @@
  my $port  = shift || 2345;
  die &quot;invalid port&quot; unless $port =~ /^ \d+ $/x;
  my $proto = getprotobyname(&quot;tcp&quot;);
- socket(Server, PF_INET, SOCK_STREAM, $proto)   || die &quot;socket: $!&quot;;
- setsockopt(Server, SOL_SOCKET, SO_REUSEADDR, pack(&quot;l&quot;, 1))
-                                                || die &quot;setsockopt: $!&quot;;
- bind(Server, sockaddr_in($port, INADDR_ANY))   || die &quot;bind: $!&quot;;
- listen(Server, SOMAXCONN)                      || die &quot;listen: $!&quot;;
+ socket(my $server, PF_INET, SOCK_STREAM, $proto) || die &quot;socket: $!&quot;;
+ setsockopt($server, SOL_SOCKET, SO_REUSEADDR, pack(&quot;l&quot;, 1))
+                                               || die &quot;setsockopt: $!&quot;;
+ bind($server, sockaddr_in($port, INADDR_ANY)) || die &quot;bind: $!&quot;;
+ listen($server, SOMAXCONN)                    || die &quot;listen: $!&quot;;
  logmsg &quot;server started on port $port&quot;;
  my $waitedpid = 0;
- my $paddr;
  use POSIX &quot;:sys_wait_h&quot;;
  use Errno;
  sub REAPER {
@@ -1061,7 +1080,7 @@
  }
  $SIG{CHLD} = \&amp;REAPER;
  while (1) {
-     $paddr = accept(Client, Server) || do {
+     my $paddr = accept(my $client, $server) || do {
          # try again if accept() returned because got a signal
          next if $!{EINTR};
          die &quot;accept: $!&quot;;
@@ -1071,7 +1090,7 @@
      logmsg &quot;connection from $name [&quot;,
             inet_ntoa($iaddr),
             &quot;] at port $port&quot;;
-     spawn sub {
+     spawn $client, sub {
          $| = 1;
          print &quot;Hello there, $name, it's now &quot;,
                scalar localtime(),
@@ -1079,12 +1098,13 @@
          exec &quot;/usr/games/fortune&quot;       # XXX: &quot;wrong&quot; line terminators
              or confess &quot;can't exec fortune: $!&quot;;
      };
-     close Client;
+     close $client;
  }
  sub spawn {
+     my $client = shift;
      my $coderef = shift;
      unless (@_ == 0 &amp;&amp; $coderef &amp;&amp; ref($coderef) eq &quot;CODE&quot;) {
-         confess &quot;usage: spawn CODEREF&quot;;
+         confess &quot;usage: spawn CLIENT CODEREF&quot;;
      }
      my $pid;
      unless (defined($pid = fork())) {
@@ -1096,9 +1116,9 @@
          return; # I'm the parent
      }
      # else I'm the child -- go spawn
-     open(STDIN,  &quot;&lt;&amp;Client&quot;)    || die &quot;can't dup client to stdin&quot;;
-     open(STDOUT, &quot;&gt;&amp;Client&quot;)    || die &quot;can't dup client to stdout&quot;;
-     ## open(STDERR, &quot;&gt;&amp;STDOUT&quot;) || die &quot;can't dup stdout to stderr&quot;;
+     open(STDIN,  &quot;&lt;&amp;&quot;, $client)   || die &quot;can't dup client to stdin&quot;;
+     open(STDOUT, &quot;&gt;&amp;&quot;, $client)   || die &quot;can't dup client to stdout&quot;;
+     ## open(STDERR, &quot;&gt;&amp;&quot;, STDOUT) || die &quot;can't dup stdout to stderr&quot;;
      exit($coderef-&gt;());
  }
 </pre>
@@ -1136,8 +1156,9 @@
     &quot;time&quot; service on a number of different machines and shows how far
     their clocks differ from the system on which it's being run:</p>
 <p class="Pp"></p>
-<pre>    #!/usr/bin/perl  -w
+<pre>    #!/usr/bin/perl
     use strict;
+    use warnings;
     use Socket;
     my $SECS_OF_70_YEARS = 2208988800;
     sub ctime { scalar localtime(shift() || time()) }
@@ -1145,19 +1166,18 @@
     my $proto = getprotobyname(&quot;tcp&quot;);
     my $port = getservbyname(&quot;time&quot;, &quot;tcp&quot;);
     my $paddr = sockaddr_in(0, $iaddr);
-    my($host);
     $| = 1;
     printf &quot;%-24s %8s %s\n&quot;, &quot;localhost&quot;, 0, ctime();
-    foreach $host (@ARGV) {
+    foreach my $host (@ARGV) {
         printf &quot;%-24s &quot;, $host;
         my $hisiaddr = inet_aton($host)     || die &quot;unknown host&quot;;
         my $hispaddr = sockaddr_in($port, $hisiaddr);
-        socket(SOCKET, PF_INET, SOCK_STREAM, $proto)
+        socket(my $socket, PF_INET, SOCK_STREAM, $proto)
                                             || die &quot;socket: $!&quot;;
-        connect(SOCKET, $hispaddr)          || die &quot;connect: $!&quot;;
+        connect($socket, $hispaddr)         || die &quot;connect: $!&quot;;
         my $rtime = pack(&quot;C4&quot;, ());
-        read(SOCKET, $rtime, 4);
-        close(SOCKET);
+        read($socket, $rtime, 4);
+        close($socket);
         my $histime = unpack(&quot;N&quot;, $rtime) - $SECS_OF_70_YEARS;
         printf &quot;%8d %s\n&quot;, $histime - time(), ctime($histime);
     }
@@ -1184,14 +1204,14 @@
 </pre>
 <p class="Pp">Here's a sample Unix-domain client:</p>
 <p class="Pp"></p>
-<pre>    #!/usr/bin/perl -w
+<pre>    #!/usr/bin/perl
     use Socket;
     use strict;
-    my ($rendezvous, $line);
-    $rendezvous = shift || &quot;catsock&quot;;
-    socket(SOCK, PF_UNIX, SOCK_STREAM, 0)     || die &quot;socket: $!&quot;;
-    connect(SOCK, sockaddr_un($rendezvous))   || die &quot;connect: $!&quot;;
-    while (defined($line = &lt;SOCK&gt;)) {
+    use warnings;
+    my $rendezvous = shift || &quot;catsock&quot;;
+    socket(my $sock, PF_UNIX, SOCK_STREAM, 0) || die &quot;socket: $!&quot;;
+    connect($sock, sockaddr_un($rendezvous))  || die &quot;connect: $!&quot;;
+    while (defined(my $line = &lt;$sock&gt;)) {
         print $line;
     }
     exit(0);
@@ -1200,8 +1220,9 @@
     silly network terminators here because Unix domain sockets are guaranteed to
     be on the localhost, and thus everything works right.</p>
 <p class="Pp"></p>
-<pre>    #!/usr/bin/perl -Tw
+<pre>    #!/usr/bin/perl -T
     use strict;
+    use warnings;
     use Socket;
     use Carp;
     BEGIN { $ENV{PATH} = &quot;/usr/bin:/bin&quot; }
@@ -1210,10 +1231,10 @@
     my $NAME = &quot;catsock&quot;;
     my $uaddr = sockaddr_un($NAME);
     my $proto = getprotobyname(&quot;tcp&quot;);
-    socket(Server, PF_UNIX, SOCK_STREAM, 0) || die &quot;socket: $!&quot;;
+    socket(my $server, PF_UNIX, SOCK_STREAM, 0) || die &quot;socket: $!&quot;;
     unlink($NAME);
-    bind  (Server, $uaddr)                  || die &quot;bind: $!&quot;;
-    listen(Server, SOMAXCONN)               || die &quot;listen: $!&quot;;
+    bind  ($server, $uaddr)                     || die &quot;bind: $!&quot;;
+    listen($server, SOMAXCONN)                  || die &quot;listen: $!&quot;;
     logmsg &quot;server started on $NAME&quot;;
     my $waitedpid;
     use POSIX &quot;:sys_wait_h&quot;;
@@ -1226,20 +1247,21 @@
     }
     $SIG{CHLD} = \&amp;REAPER;
     for ( $waitedpid = 0;
-          accept(Client, Server) || $waitedpid;
-          $waitedpid = 0, close Client)
+          accept(my $client, $server) || $waitedpid;
+          $waitedpid = 0, close $client)
     {
         next if $waitedpid;
         logmsg &quot;connection on $NAME&quot;;
-        spawn sub {
+        spawn $client, sub {
             print &quot;Hello there, it's now &quot;, scalar localtime(), &quot;\n&quot;;
             exec(&quot;/usr/games/fortune&quot;)  || die &quot;can't exec fortune: $!&quot;;
         };
     }
     sub spawn {
+        my $client = shift();
         my $coderef = shift();
         unless (@_ == 0 &amp;&amp; $coderef &amp;&amp; ref($coderef) eq &quot;CODE&quot;) {
-            confess &quot;usage: spawn CODEREF&quot;;
+            confess &quot;usage: spawn CLIENT CODEREF&quot;;
         }
         my $pid;
         unless (defined($pid = fork())) {
@@ -1253,9 +1275,12 @@
         else {
             # I'm the child -- go spawn
         }
-        open(STDIN,  &quot;&lt;&amp;Client&quot;)    || die &quot;can't dup client to stdin&quot;;
-        open(STDOUT, &quot;&gt;&amp;Client&quot;)    || die &quot;can't dup client to stdout&quot;;
-        ## open(STDERR, &quot;&gt;&amp;STDOUT&quot;) || die &quot;can't dup stdout to stderr&quot;;
+        open(STDIN,  &quot;&lt;&amp;&quot;, $client)
+            || die &quot;can't dup client to stdin&quot;;
+        open(STDOUT, &quot;&gt;&amp;&quot;, $client)
+            || die &quot;can't dup client to stdout&quot;;
+        ## open(STDERR, &quot;&gt;&amp;&quot;, STDOUT)
+        ##  || die &quot;can't dup stdout to stderr&quot;;
         exit($coderef-&gt;());
     }
 </pre>
@@ -1292,9 +1317,11 @@
     &quot;localhost&quot; and prints out everything that the server there cares
     to provide.</p>
 <p class="Pp"></p>
-<pre>    #!/usr/bin/perl -w
+<pre>    #!/usr/bin/perl
+    use strict;
+    use warnings;
     use IO::Socket;
-    $remote = IO::Socket::INET-&gt;new(
+    my $remote = IO::Socket::INET-&gt;new(
                         Proto    =&gt; &quot;tcp&quot;,
                         PeerAddr =&gt; &quot;localhost&quot;,
                         PeerPort =&gt; &quot;daytime(13)&quot;,
@@ -1336,23 +1363,6 @@
       have also worked, but numeric literals make careful programmers
     nervous.</dd>
 </dl>
-<p class="Pp">Notice how the return value from the
-    <span class="Li">&quot;new&quot;</span> constructor is used as a filehandle
-    in the <span class="Li">&quot;while&quot;</span> loop? That's what's called
-    an <i>indirect</i> <i>filehandle</i>, a scalar variable containing a
-    filehandle. You can use it the same way you would a normal filehandle. For
-    example, you can read one line from it this way:</p>
-<p class="Pp"></p>
-<pre>    $line = &lt;$handle&gt;;
-</pre>
-<p class="Pp">all remaining lines from is this way:</p>
-<p class="Pp"></p>
-<pre>    @lines = &lt;$handle&gt;;
-</pre>
-<p class="Pp">and send a line of data to it this way:</p>
-<p class="Pp"></p>
-<pre>    print $handle &quot;some data\n&quot;;
-</pre>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="A_Webget_Client"><a class="permalink" href="#A_Webget_Client">A
@@ -1362,16 +1372,18 @@
     more interesting client than the previous one because it first sends
     something to the server before fetching the server's response.</p>
 <p class="Pp"></p>
-<pre>    #!/usr/bin/perl -w
+<pre>    #!/usr/bin/perl
+    use strict;
+    use warnings;
     use IO::Socket;
     unless (@ARGV &gt; 1) { die &quot;usage: $0 host url ...&quot; }
-    $host = shift(@ARGV);
-    $EOL = &quot;\015\012&quot;;
-    $BLANK = $EOL x 2;
+    my $host = shift(@ARGV);
+    my $EOL = &quot;\015\012&quot;;
+    my $BLANK = $EOL x 2;
     for my $document (@ARGV) {
-        $remote = IO::Socket::INET-&gt;new( Proto     =&gt; &quot;tcp&quot;,
-                                         PeerAddr  =&gt; $host,
-                                         PeerPort  =&gt; &quot;http(80)&quot;,
+        my $remote = IO::Socket::INET-&gt;new( Proto     =&gt; &quot;tcp&quot;,
+                                            PeerAddr  =&gt; $host,
+                                            PeerPort  =&gt; &quot;http(80)&quot;,
                   )     || die &quot;cannot connect to httpd on $host&quot;;
         $remote-&gt;autoflush(1);
         print $remote &quot;GET $document HTTP/1.0&quot; . $BLANK;
@@ -1440,25 +1452,25 @@
     which is probably why it's spread to other systems.)</p>
 <p class="Pp">Here's the code:</p>
 <p class="Pp"></p>
-<pre>    #!/usr/bin/perl -w
+<pre>    #!/usr/bin/perl
     use strict;
+    use warnings;
     use IO::Socket;
-    my ($host, $port, $kidpid, $handle, $line);
     unless (@ARGV == 2) { die &quot;usage: $0 host port&quot; }
-    ($host, $port) = @ARGV;
+    my ($host, $port) = @ARGV;
     # create a tcp connection to the specified host and port
-    $handle = IO::Socket::INET-&gt;new(Proto     =&gt; &quot;tcp&quot;,
-                                    PeerAddr  =&gt; $host,
-                                    PeerPort  =&gt; $port)
+    my $handle = IO::Socket::INET-&gt;new(Proto     =&gt; &quot;tcp&quot;,
+                                       PeerAddr  =&gt; $host,
+                                       PeerPort  =&gt; $port)
                || die &quot;can't connect to port $port on $host: $!&quot;;
     $handle-&gt;autoflush(1);       # so output gets there right away
     print STDERR &quot;[Connected to $host:$port]\n&quot;;
     # split the program into two processes, identical twins
-    die &quot;can't fork: $!&quot; unless defined($kidpid = fork());
+    die &quot;can't fork: $!&quot; unless defined(my $kidpid = fork());
     # the if{} block runs only in the parent process
     if ($kidpid) {
         # copy the socket to standard output
-        while (defined ($line = &lt;$handle&gt;)) {
+        while (defined (my $line = &lt;$handle&gt;)) {
             print STDOUT $line;
         }
         kill(&quot;TERM&quot;, $kidpid);   # send SIGTERM to child
@@ -1466,7 +1478,7 @@
     # the else{} block runs only in the child process
     else {
         # copy standard input to the socket
-        while (defined ($line = &lt;STDIN&gt;)) {
+        while (defined (my $line = &lt;STDIN&gt;)) {
             print $handle $line;
         }
         exit(0);                # just in case
@@ -1539,22 +1551,24 @@
     back to the client. Unlike most network servers, this one handles only one
     incoming client at a time. Multitasking servers are covered in Chapter 16 of
     the Camel.</p>
-<p class="Pp">Here's the code. We'll</p>
+<p class="Pp">Here's the code.</p>
 <p class="Pp"></p>
-<pre> #!/usr/bin/perl -w
+<pre> #!/usr/bin/perl
+ use strict;
+ use warnings;
  use IO::Socket;
  use Net::hostent;      # for OOish version of gethostbyaddr
- $PORT = 9000;          # pick something not in use
- $server = IO::Socket::INET-&gt;new( Proto     =&gt; &quot;tcp&quot;,
-                                  LocalPort =&gt; $PORT,
-                                  Listen    =&gt; SOMAXCONN,
-                                  Reuse     =&gt; 1);
+ my $PORT = 9000;       # pick something not in use
+ my $server = IO::Socket::INET-&gt;new( Proto     =&gt; &quot;tcp&quot;,
+                                     LocalPort =&gt; $PORT,
+                                     Listen    =&gt; SOMAXCONN,
+                                     Reuse     =&gt; 1);
  die &quot;can't setup server&quot; unless $server;
  print &quot;[Server $0 accepting clients]\n&quot;;
- while ($client = $server-&gt;accept()) {
+ while (my $client = $server-&gt;accept()) {
    $client-&gt;autoflush(1);
    print $client &quot;Welcome to $0; type help for command list.\n&quot;;
-   $hostinfo = gethostbyaddr($client-&gt;peeraddr);
+   my $hostinfo = gethostbyaddr($client-&gt;peeraddr);
    printf &quot;[Connect from %s]\n&quot;,
           $hostinfo ? $hostinfo-&gt;name : $client-&gt;peerhost;
    print $client &quot;Command? &quot;;
@@ -1598,38 +1612,36 @@
     similar with TCP, you'd have to use a different socket handle for each
   host.</p>
 <p class="Pp"></p>
-<pre> #!/usr/bin/perl -w
+<pre> #!/usr/bin/perl
  use strict;
+ use warnings;
  use Socket;
  use Sys::Hostname;
- my ( $count, $hisiaddr, $hispaddr, $histime,
-      $host, $iaddr, $paddr, $port, $proto,
-      $rin, $rout, $rtime, $SECS_OF_70_YEARS);
- $SECS_OF_70_YEARS = 2_208_988_800;
- $iaddr = gethostbyname(hostname());
- $proto = getprotobyname(&quot;udp&quot;);
- $port = getservbyname(&quot;time&quot;, &quot;udp&quot;);
- $paddr = sockaddr_in(0, $iaddr); # 0 means let kernel pick
- socket(SOCKET, PF_INET, SOCK_DGRAM, $proto)   || die &quot;socket: $!&quot;;
- bind(SOCKET, $paddr)                          || die &quot;bind: $!&quot;;
+ my $SECS_OF_70_YEARS = 2_208_988_800;
+ my $iaddr = gethostbyname(hostname());
+ my $proto = getprotobyname(&quot;udp&quot;);
+ my $port = getservbyname(&quot;time&quot;, &quot;udp&quot;);
+ my $paddr = sockaddr_in(0, $iaddr); # 0 means let kernel pick
+ socket(my $socket, PF_INET, SOCK_DGRAM, $proto) || die &quot;socket: $!&quot;;
+ bind($socket, $paddr)                           || die &quot;bind: $!&quot;;
  $| = 1;
  printf &quot;%-12s %8s %s\n&quot;,  &quot;localhost&quot;, 0, scalar localtime();
- $count = 0;
- for $host (@ARGV) {
+ my $count = 0;
+ for my $host (@ARGV) {
      $count++;
-     $hisiaddr = inet_aton($host)              || die &quot;unknown host&quot;;
-     $hispaddr = sockaddr_in($port, $hisiaddr);
-     defined(send(SOCKET, 0, 0, $hispaddr))    || die &quot;send $host: $!&quot;;
+     my $hisiaddr = inet_aton($host)         || die &quot;unknown host&quot;;
+     my $hispaddr = sockaddr_in($port, $hisiaddr);
+     defined(send($socket, 0, 0, $hispaddr)) || die &quot;send $host: $!&quot;;
  }
- $rin = &quot;&quot;;
- vec($rin, fileno(SOCKET), 1) = 1;
+ my $rout = my $rin = &quot;&quot;;
+ vec($rin, fileno($socket), 1) = 1;
  # timeout after 10.0 seconds
  while ($count &amp;&amp; select($rout = $rin, undef, undef, 10.0)) {
-     $rtime = &quot;&quot;;
-     $hispaddr = recv(SOCKET, $rtime, 4, 0)    || die &quot;recv: $!&quot;;
-     ($port, $hisiaddr) = sockaddr_in($hispaddr);
-     $host = gethostbyaddr($hisiaddr, AF_INET);
-     $histime = unpack(&quot;N&quot;, $rtime) - $SECS_OF_70_YEARS;
+     my $rtime = &quot;&quot;;
+     my $hispaddr = recv($socket, $rtime, 4, 0) || die &quot;recv: $!&quot;;
+     my ($port, $hisiaddr) = sockaddr_in($hispaddr);
+     my $host = gethostbyaddr($hisiaddr, AF_INET);
+     my $histime = unpack(&quot;N&quot;, $rtime) - $SECS_OF_70_YEARS;
      printf &quot;%-12s &quot;, $host;
      printf &quot;%8d %s\n&quot;, $histime - time(), scalar localtime($histime);
      $count--;
@@ -1652,14 +1664,14 @@
 <p class="Pp">Here's a small example showing shared memory usage.</p>
 <p class="Pp"></p>
 <pre>    use IPC::SysV qw(IPC_PRIVATE IPC_RMID S_IRUSR S_IWUSR);
-    $size = 2000;
-    $id = shmget(IPC_PRIVATE, $size, S_IRUSR | S_IWUSR);
+    my $size = 2000;
+    my $id = shmget(IPC_PRIVATE, $size, S_IRUSR | S_IWUSR);
     defined($id)                    || die &quot;shmget: $!&quot;;
     print &quot;shm key $id\n&quot;;
-    $message = &quot;Message #1&quot;;
+    my $message = &quot;Message #1&quot;;
     shmwrite($id, $message, 0, 60)  || die &quot;shmwrite: $!&quot;;
     print &quot;wrote: '$message'\n&quot;;
-    shmread($id, $buff, 0, 60)      || die &quot;shmread: $!&quot;;
+    shmread($id, my $buff, 0, 60)      || die &quot;shmread: $!&quot;;
     print &quot;read : '$buff'\n&quot;;
     # the buffer of shmread is zero-character end-padded.
     substr($buff, index($buff, &quot;\0&quot;)) = &quot;&quot;;
@@ -1671,8 +1683,8 @@
 <p class="Pp">Here's an example of a semaphore:</p>
 <p class="Pp"></p>
 <pre>    use IPC::SysV qw(IPC_CREAT);
-    $IPC_KEY = 1234;
-    $id = semget($IPC_KEY, 10, 0666 | IPC_CREAT);
+    my $IPC_KEY = 1234;
+    my $id = semget($IPC_KEY, 10, 0666 | IPC_CREAT);
     defined($id)                    || die &quot;semget: $!&quot;;
     print &quot;sem id $id\n&quot;;
 </pre>
@@ -1680,19 +1692,19 @@
     process. Call the file <i>take</i>:</p>
 <p class="Pp"></p>
 <pre>    # create a semaphore
-    $IPC_KEY = 1234;
-    $id = semget($IPC_KEY, 0, 0);
+    my $IPC_KEY = 1234;
+    my $id = semget($IPC_KEY, 0, 0);
     defined($id)                    || die &quot;semget: $!&quot;;
-    $semnum  = 0;
-    $semflag = 0;
+    my $semnum  = 0;
+    my $semflag = 0;
     # &quot;take&quot; semaphore
     # wait for semaphore to be zero
-    $semop = 0;
-    $opstring1 = pack(&quot;s!s!s!&quot;, $semnum, $semop, $semflag);
+    my $semop = 0;
+    my $opstring1 = pack(&quot;s!s!s!&quot;, $semnum, $semop, $semflag);
     # Increment the semaphore count
     $semop = 1;
-    $opstring2 = pack(&quot;s!s!s!&quot;, $semnum, $semop,  $semflag);
-    $opstring  = $opstring1 . $opstring2;
+    my $opstring2 = pack(&quot;s!s!s!&quot;, $semnum, $semop,  $semflag);
+    my $opstring  = $opstring1 . $opstring2;
     semop($id, $opstring)   || die &quot;semop: $!&quot;;
 </pre>
 <p class="Pp">Put this code in a separate file to be run in more than one
@@ -1701,14 +1713,14 @@
 <pre>    # &quot;give&quot; the semaphore
     # run this in the original process and you will see
     # that the second process continues
-    $IPC_KEY = 1234;
-    $id = semget($IPC_KEY, 0, 0);
+    my $IPC_KEY = 1234;
+    my $id = semget($IPC_KEY, 0, 0);
     die unless defined($id);
-    $semnum  = 0;
-    $semflag = 0;
+    my $semnum  = 0;
+    my $semflag = 0;
     # Decrement the semaphore count
-    $semop = -1;
-    $opstring = pack(&quot;s!s!s!&quot;, $semnum, $semop, $semflag);
+    my $semop = -1;
+    my $opstring = pack(&quot;s!s!s!&quot;, $semnum, $semop, $semflag);
     semop($id, $opstring)   || die &quot;semop: $!&quot;;
 </pre>
 <p class="Pp">The SysV IPC code above was written long ago, and it's definitely
@@ -1744,8 +1756,9 @@
     optimal success, and don't forget to add the <b>-T</b> taint-checking flag
     to the <span class="Li">&quot;#!&quot;</span> line for servers:</p>
 <p class="Pp"></p>
-<pre>    #!/usr/bin/perl -Tw
+<pre>    #!/usr/bin/perl -T
     use strict;
+    use warnings;
     use sigtrap;
     use Socket;
 </pre>

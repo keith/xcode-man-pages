@@ -53,7 +53,7 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="VERSION"><a class="permalink" href="#VERSION">VERSION</a></h1>
-<p class="Pp">version 5.20190126</p>
+<p class="Pp">version 5.20210411</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
@@ -717,44 +717,33 @@
 <h2 class="Ss" id="How_do_I_efficiently_match_many_regular_expressions_at_once?"><a class="permalink" href="#How_do_I_efficiently_match_many_regular_expressions_at_once?">How
   do I efficiently match many regular expressions at once?</a></h2>
 <p class="Pp">(contributed by brian d foy)</p>
-<p class="Pp">If you have Perl 5.10 or later, this is almost trivial. You just
-    smart match against an array of regular expression objects:</p>
+<p class="Pp">You want to avoid compiling a regular expression every time you
+    want to match it. In this example, perl must recompile the regular
+    expression for every iteration of the
+    <span class="Li">&quot;foreach&quot;</span> loop since
+    <span class="Li">$pattern</span> can change:</p>
 <p class="Pp"></p>
-<pre>    my @patterns = ( qr/Fr.d/, qr/B.rn.y/, qr/W.lm./ );
-    if( $string ~~ @patterns ) {
-        ...
-    };
-</pre>
-<p class="Pp">The smart match stops when it finds a match, so it doesn't have to
-    try every expression.</p>
-<p class="Pp">Earlier than Perl 5.10, you have a bit of work to do. You want to
-    avoid compiling a regular expression every time you want to match it. In
-    this example, perl must recompile the regular expression for every iteration
-    of the <span class="Li">&quot;foreach&quot;</span> loop since it has no way
-    to know what <span class="Li">$pattern</span> will be:</p>
-<p class="Pp"></p>
-<pre>    my @patterns = qw( foo bar baz );
-    LINE: while( &lt;DATA&gt; ) {
-        foreach $pattern ( @patterns ) {
-            if( /\b$pattern\b/i ) {
-                print;
+<pre>    my @patterns = qw( fo+ ba[rz] );
+    LINE: while( my $line = &lt;&gt; ) {
+        foreach my $pattern ( @patterns ) {
+            if( $line =~ m/\b$pattern\b/i ) {
+                print $line;
                 next LINE;
             }
         }
     }
 </pre>
-<p class="Pp">The <span class="Li">&quot;qr//&quot;</span> operator showed up in
-    perl 5.005. It compiles a regular expression, but doesn't apply it. When you
-    use the pre-compiled version of the regex, perl does less work. In this
-    example, I inserted a <span class="Li">&quot;map&quot;</span> to turn each
-    pattern into its pre-compiled form. The rest of the script is the same, but
-    faster:</p>
+<p class="Pp">The <span class="Li">&quot;qr//&quot;</span> operator compiles a
+    regular expression, but doesn't apply it. When you use the pre-compiled
+    version of the regex, perl does less work. In this example, I inserted a
+    <span class="Li">&quot;map&quot;</span> to turn each pattern into its
+    pre-compiled form. The rest of the script is the same, but faster:</p>
 <p class="Pp"></p>
-<pre>    my @patterns = map { qr/\b$_\b/i } qw( foo bar baz );
-    LINE: while( &lt;&gt; ) {
-        foreach $pattern ( @patterns ) {
-            if( /$pattern/ ) {
-                print;
+<pre>    my @patterns = map { qr/\b$_\b/i } qw( fo+ ba[rz] );
+    LINE: while( my $line = &lt;&gt; ) {
+        foreach my $pattern ( @patterns ) {
+            if( $line =~ m/$pattern/ ) {
+                print $line;
                 next LINE;
             }
         }
@@ -762,13 +751,17 @@
 </pre>
 <p class="Pp">In some cases, you may be able to make several patterns into a
     single regular expression. Beware of situations that require backtracking
-    though.</p>
+    though. In this example, the regex is only compiled once because
+    <span class="Li">$regex</span> doesn't change between iterations:</p>
 <p class="Pp"></p>
-<pre>    my $regex = join '|', qw( foo bar baz );
-    LINE: while( &lt;&gt; ) {
-        print if /\b(?:$regex)\b/i;
+<pre>    my $regex = join '|', qw( fo+ ba[rz] );
+    while( my $line = &lt;&gt; ) {
+        print if $line =~ m/\b(?:$regex)\b/i;
     }
 </pre>
+<p class="Pp">The function &quot;list2re&quot; in Data::Munge on CPAN can also
+    be used to form a single regex that matches a list of literal strings (not
+    regexes).</p>
 <p class="Pp">For more details on regular expression efficiency, see
     <i>Mastering</i> <i>Regular Expressions</i> by Jeffrey Friedl. He explains
     how the regular expressions engine works and why some patterns are

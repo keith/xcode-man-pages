@@ -710,7 +710,13 @@
 <p class="Pp">The following keys in the hash reference
     <span class="Li">$CPAN::Config</span> are currently defined:</p>
 <p class="Pp"></p>
-<pre>  applypatch         path to external prg
+<pre>  allow_installing_module_downgrades
+                     allow or disallow installing module downgrades
+  allow_installing_outdated_dists
+                     allow or disallow installing modules that are
+                     indexed in the cpan index pointing to a distro
+                     with a higher distro-version number
+  applypatch         path to external prg
   auto_commit        commit all changes to config variables to disk
   build_cache        size of cache for directories to build modules
   build_dir          locally accessible directory to build modules
@@ -723,7 +729,8 @@
   check_sigs         if signatures should be verified
   cleanup_after_install
                      remove build directory immediately after a
-                     successful install
+                     successful install and remember that for the
+                     duration of the session
   colorize_debug     Term::ANSIColor attributes for debugging output
   colorize_output    boolean if Term::ANSIColor should colorize output
   colorize_print     Term::ANSIColor attributes for normal output
@@ -827,6 +834,10 @@
                      CPAN::Reporter history)
   unzip              location of external program unzip
   urllist            arrayref to nearby CPAN sites (or equivalent locations)
+  urllist_ping_external
+                     use external ping command when autoselecting mirrors
+  urllist_ping_verbose
+                     increase verbosity when autoselecting mirrors
   use_prompt_default set PERL_MM_USE_DEFAULT for configure/make/test/install
   use_sqlite         use CPAN::SQLite for metadata storage (fast and lean)
   username           your username if you CPAN server wants one
@@ -958,13 +969,56 @@
     <span class="Li">&quot;blib/arch&quot;</span> and
     <span class="Li">&quot;blib/lib&quot;</span> directories in the environment
     variable PERL5LIB. If
-    <span class="Li">&quot;build_requires_install_policy&quot;</span> is set ti
+    <span class="Li">&quot;build_requires_install_policy&quot;</span> is set to
     <span class="Li">&quot;yes&quot;</span>, then both modules declared as
     <span class="Li">&quot;requires&quot;</span> and those declared as
     <span class="Li">&quot;build_requires&quot;</span> are treated alike. By
     setting to <span class="Li">&quot;ask/yes&quot;</span> or
     <span class="Li">&quot;ask/no&quot;</span>, CPAN.pm asks the user and sets
     the default accordingly.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Configuration_of_the_allow_installing_*_parameters"><a class="permalink" href="#Configuration_of_the_allow_installing_*_parameters">Configuration
+  of the allow_installing_* parameters</a></h2>
+<p class="Pp">The <span class="Li">&quot;allow_installing_*&quot;</span>
+    parameters are evaluated during the <span class="Li">&quot;make&quot;</span>
+    phase. If set to <span class="Li">&quot;yes&quot;</span>, they allow the
+    testing and the installation of the current distro and otherwise have no
+    effect. If set to <span class="Li">&quot;no&quot;</span>, they may abort the
+    build (preventing testing and installing), depending on the contents of the
+    <span class="Li">&quot;blib/&quot;</span> directory. The
+    <span class="Li">&quot;blib/&quot;</span> directory is the directory that
+    holds all the files that would usually be installed in the
+    <span class="Li">&quot;install&quot;</span> phase.</p>
+<p class="Pp"><span class="Li">&quot;allow_installing_outdated_dists&quot;</span>
+    compares the <span class="Li">&quot;blib/&quot;</span> directory with the
+    CPAN index. If it finds something there that belongs, according to the
+    index, to a different dist, it aborts the current build.</p>
+<p class="Pp"><span class="Li">&quot;allow_installing_module_downgrades&quot;</span>
+    compares the <span class="Li">&quot;blib/&quot;</span> directory with
+    already installed modules, actually their version numbers, as determined by
+    ExtUtils::MakeMaker or equivalent. If a to-be-installed module would
+    downgrade an already installed module, the current build is aborted.</p>
+<p class="Pp">An interesting twist occurs when a distroprefs document demands
+    the installation of an outdated dist via goto while
+    <span class="Li">&quot;allow_installing_outdated_dists&quot;</span> forbids
+    it. Without additional provisions, this would let the
+    <span class="Li">&quot;allow_installing_outdated_dists&quot;</span> win and
+    the distroprefs lose. So the proper arrangement in such a case is to write a
+    second distroprefs document for the distro that
+    <span class="Li">&quot;goto&quot;</span> points to and overrule the
+    <span class="Li">&quot;cpanconfig&quot;</span> there. E.g.:</p>
+<p class="Pp"></p>
+<pre>  ---
+  match:
+    distribution: &quot;^MAUKE/Keyword-Simple-0.04.tar.gz&quot;
+  goto: &quot;MAUKE/Keyword-Simple-0.03.tar.gz&quot;
+  ---
+  match:
+    distribution: &quot;^MAUKE/Keyword-Simple-0.03.tar.gz&quot;
+  cpanconfig:
+    allow_installing_outdated_dists: yes
+</pre>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="Configuration_for_individual_distributions_("><a class="permalink" href="#Configuration_for_individual_distributions_(">Configuration
@@ -2350,6 +2404,25 @@
         build directory) or exit the CPAN shell, respectively. If you never
         start up the CPAN shell, you probably also have to clean up the build
         directory yourself.</p>
+  </dd>
+  <dt>19)</dt>
+  <dd>How can I switch to sudo instead of local::lib?
+    <p class="Pp">The following 5 environment veriables need to be reset to the
+        previous values: PATH, PERL5LIB, PERL_LOCAL_LIB_ROOT, PERL_MB_OPT,
+        PERL_MM_OPT; and these two CPAN.pm config variables must be
+        reconfigured: make_install_make_command and
+        mbuild_install_build_command. The five env variables have probably been
+        overwritten in your <span class="Li">$HOME</span>/.bashrc or some
+        equivalent. You either find them there and delete their traces and
+        logout/login or you override them temporarily, depending on your exact
+        desire. The two cpanpm config variables can be set with:</p>
+    <p class="Pp"></p>
+    <pre>  o conf init /install_.*_command/
+    </pre>
+    <p class="Pp">probably followed by</p>
+    <p class="Pp"></p>
+    <pre>  o conf commit
+    </pre>
   </dd>
 </dl>
 </section>
