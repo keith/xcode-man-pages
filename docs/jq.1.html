@@ -1,0 +1,4390 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   generated with Ronn/v0.7.3
+   http://github.com/rtomayko/ronn/tree/0.7.3
+ -->
+<head>
+
+<style>
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #000;
+    color: #d0d0d0;
+  }
+
+  a, a:visited {
+    color: #1899eb;
+  }
+}
+</style>
+
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    .Nd, .Bf, .Op { display: inline; }
+    .Pa, .Ad { font-style: italic; }
+    .Ms { font-weight: bold; }
+    .Bl-diag > dt { font-weight: bold; }
+    code.Nm, .Fl, .Cm, .Ic, code.In, .Fd, .Fn, .Cd { font-weight: bold;
+      font-family: inherit; }
+  </style>
+  <title>JQ(1)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">JQ(1)</td>
+    <td class="head-vol"></td>
+    <td class="head-rtitle">JQ(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><b>jq</b> - Command-line JSON processor</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>jq</b> [<i>options</i>...] <i>filter</i> [<i>files</i>...]</p>
+<p class="Pp"><b>jq</b> can transform JSON in various ways, by selecting,
+    iterating, reducing and otherwise mangling JSON documents. For instance,
+    running the command <b>jq &#x00B4;map(.price) | add&#x00B4;</b> will take an
+    array of JSON objects as input and return the sum of their &quot;price&quot;
+    fields.</p>
+<p class="Pp"><b>jq</b> can accept text input as well, but by default, <b>jq</b>
+    reads a stream of JSON entities (including numbers and other literals) from
+    <b>stdin</b>. Whitespace is only needed to separate entities such as 1 and
+    2, and true and false. One or more <i>files</i> may be specified, in which
+    case <b>jq</b> will read input from those instead.</p>
+<p class="Pp">The <i>options</i> are described in the <i>INVOKING JQ</i>
+    section; they mostly concern input and output formatting. The <i>filter</i>
+    is written in the jq language and specifies how to transform the input file
+    or document.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILTERS"><a class="permalink" href="#FILTERS">FILTERS</a></h1>
+<p class="Pp">A jq program is a &quot;filter&quot;: it takes an input, and
+    produces an output. There are a lot of builtin filters for extracting a
+    particular field of an object, or converting a number to a string, or
+    various other standard tasks.</p>
+<p class="Pp">Filters can be combined in various ways - you can pipe the output
+    of one filter into another filter, or collect the output of a filter into an
+    array.</p>
+<p class="Pp">Some filters produce multiple results, for instance there&#x00B4;s
+    one that produces all the elements of its input array. Piping that filter
+    into a second runs the second filter for each element of the array.
+    Generally, things that would be done with loops and iteration in other
+    languages are just done by gluing filters together in jq.</p>
+<p class="Pp">It&#x00B4;s important to remember that every filter has an input
+    and an output. Even literals like &quot;hello&quot; or 42 are filters - they
+    take an input but always produce the same literal as output. Operations that
+    combine two filters, like addition, generally feed the same input to both
+    and combine the results. So, you can implement an averaging filter as <b>add
+    / length</b> - feeding the input array both to the <b>add</b> filter and the
+    <b>length</b> filter and then performing the division.</p>
+<p class="Pp">But that&#x00B4;s getting ahead of ourselves. :) Let&#x00B4;s
+    start with something simpler:</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INVOKING_JQ"><a class="permalink" href="#INVOKING_JQ">INVOKING
+  JQ</a></h1>
+<p class="Pp">jq filters run on a stream of JSON data. The input to jq is parsed
+    as a sequence of whitespace-separated JSON values which are passed through
+    the provided filter one at a time. The output(s) of the filter are written
+    to standard out, again as a sequence of whitespace-separated JSON data.</p>
+<p class="Pp">Note: it is important to mind the shell&#x00B4;s quoting rules. As
+    a general rule it&#x00B4;s best to always quote (with single-quote
+    characters) the jq program, as too many characters with special meaning to
+    jq are also shell meta-characters. For example, <b>jq &quot;foo&quot;</b>
+    will fail on most Unix shells because that will be the same as <b>jq
+    foo</b>, which will generally fail because <b>foo is not defined</b>. When
+    using the Windows command shell (cmd.exe) it&#x00B4;s best to use double
+    quotes around your jq program when given on the command-line (instead of the
+    <b>-f program-file</b> option), but then double-quotes in the jq program
+    need backslash escaping.</p>
+<p class="Pp">You can affect how jq reads and writes its input and output using
+    some command-line options:</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>--version</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Output the jq version and exit with zero.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>--seq</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Use the <b>application/json-seq</b> MIME type scheme for separating JSON
+      texts in jq&#x00B4;s input and output. This means that an ASCII RS (record
+      separator) character is printed before each value on output and an ASCII
+      LF (line feed) is printed after every output. Input JSON texts that fail
+      to parse are ignored (but warned about), discarding all subsequent input
+      until the next RS. This mode also parses the output of jq without the
+      <b>--seq</b> option.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>--stream</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Parse the input in streaming fashion, outputting arrays of path and leaf
+      values (scalars and empty arrays or empty objects). For example,
+      <b>&quot;a&quot;</b> becomes <b>[[],&quot;a&quot;]</b>, and
+      <b>[[],&quot;a&quot;,[&quot;b&quot;]]</b> becomes <b>[[0],[]]</b>,
+      <b>[[1],&quot;a&quot;]</b>, and <b>[[1,0],&quot;b&quot;]</b>.</dd>
+  <dt></dt>
+  <dd>This is useful for processing very large inputs. Use this in conjunction
+      with filtering and the <b>reduce</b> and <b>foreach</b> syntax to reduce
+      large inputs incrementally.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>--slurp</b>/<b>-s</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Instead of running the filter for each JSON object in the input, read the
+      entire input stream into a large array and run the filter just once.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>--raw-input</b>/<b>-R</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Don&#x00B4;t parse the input as JSON. Instead, each line of text is passed
+      to the filter as a string. If combined with <b>--slurp</b>, then the
+      entire input is passed to the filter as a single long string.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>--null-input</b>/<b>-n</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Don&#x00B4;t read any input at all! Instead, the filter is run once using
+      <b>null</b> as the input. This is useful when using jq as a simple
+      calculator or to construct JSON data from scratch.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>--compact-output</b> / <b>-c</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>By default, jq pretty-prints JSON output. Using this option will result in
+      more compact output by instead putting each JSON object on a single
+    line.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>--tab</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Use a tab for each indentation level instead of two spaces.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>--indent n</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Use the given number of spaces (no more than 7) for indentation.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>--color-output</b> / <b>-C</b> and <b>--monochrome-output</b> /
+      <b>-M</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>By default, jq outputs colored JSON if writing to a terminal. You can
+      force it to produce color even if writing to a pipe or a file using
+      <b>-C</b>, and disable color with <b>-M</b>.</dd>
+  <dt></dt>
+  <dd>Colors can be configured with the <b>JQ_COLORS</b> environment variable
+      (see below).</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>--ascii-output</b> / <b>-a</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>jq usually outputs non-ASCII Unicode codepoints as UTF-8, even if the
+      input specified them as escape sequences (like &quot;\u03bc&quot;). Using
+      this option, you can force jq to produce pure ASCII output with every
+      non-ASCII character replaced with the equivalent escape sequence.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>--unbuffered</b></dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Flush the output after each JSON object is printed (useful if
+      you&#x00B4;re piping a slow data source into jq and piping jq&#x00B4;s
+      output elsewhere).</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>--sort-keys</b> / <b>-S</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Output the fields of each object with the keys in sorted order.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>--raw-output</b> / <b>-r</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>With this option, if the filter&#x00B4;s result is a string then it will
+      be written directly to standard output rather than being formatted as a
+      JSON string with quotes. This can be useful for making jq filters talk to
+      non-JSON-based systems.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>--join-output</b> / <b>-j</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Like <b>-r</b> but jq won&#x00B4;t print a newline after each output.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>-f filename</b> / <b>--from-file filename</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Read filter from the file rather than from a command line, like
+      awk&#x00B4;s -f option. You can also use &#x00B4;#&#x00B4; to make
+      comments.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>-Ldirectory</b> / <b>-L directory</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Prepend <b>directory</b> to the search list for modules. If this option is
+      used then no builtin search list is used. See the section on modules
+      below.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>-e</b> / <b>--exit-status</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Sets the exit status of jq to 0 if the last output values was neither
+      <b>false</b> nor <b>null</b>, 1 if the last output value was either
+      <b>false</b> or <b>null</b>, or 4 if no valid result was ever produced.
+      Normally jq exits with 2 if there was any usage problem or system error, 3
+      if there was a jq program compile error, or 0 if the jq program ran.</dd>
+  <dt></dt>
+  <dd>Another way to set the exit status is with the <b>halt_error</b> builtin
+      function.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>--arg name value</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>This option passes a value to the jq program as a predefined variable. If
+      you run jq with <b>--arg foo bar</b>, then <b>$foo</b> is available in the
+      program and has the value <b>&quot;bar&quot;</b>. Note that <b>value</b>
+      will be treated as a string, so <b>--arg foo 123</b> will bind <b>$foo</b>
+      to <b>&quot;123&quot;</b>.</dd>
+  <dt></dt>
+  <dd>Named arguments are also available to the jq program as
+      <b>$ARGS.named</b>.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>--argjson name JSON-text</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>This option passes a JSON-encoded value to the jq program as a predefined
+      variable. If you run jq with <b>--argjson foo 123</b>, then <b>$foo</b> is
+      available in the program and has the value <b>123</b>.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>--slurpfile variable-name filename</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>This option reads all the JSON texts in the named file and binds an array
+      of the parsed JSON values to the given global variable. If you run jq with
+      <b>--argfile foo bar</b>, then <b>$foo</b> is available in the program and
+      has an array whose elements correspond to the texts in the file named
+      <b>bar</b>.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>--argfile variable-name filename</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Do not use. Use <b>--slurpfile</b> instead.</dd>
+  <dt></dt>
+  <dd>(This option is like <b>--slurpfile</b>, but when the file has just one
+      text, then that is used, else an array of texts is used as in
+      <b>--slurpfile</b>.)</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>--args</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Remaining arguments are positional string arguments. These are available
+      to the jq program as <b>$ARGS.positional[]</b>.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>--jsonargs</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Remaining arguments are positional JSON text arguments. These are
+      available to the jq program as <b>$ARGS.positional[]</b>.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>--run-tests [filename]</b>:</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Runs the tests in the given file or standard input. This must be the last
+      option given and does not honor all preceding options. The input consists
+      of comment lines, empty lines, and program lines followed by one input
+      line, as many lines of output as are expected (one per output), and a
+      terminating empty line. Compilation failure tests start with a line
+      containing only &quot;%%FAIL&quot;, then a line containing the program to
+      compile, then a line containing an error message to compare to the
+    actual.</dd>
+  <dt></dt>
+  <dd>Be warned that this option can change backwards-incompatibly.</dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BASIC_FILTERS"><a class="permalink" href="#BASIC_FILTERS">BASIC
+  FILTERS</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Identity:_"><a class="permalink" href="#Identity:_">Identity:
+  .</a></h2>
+<p class="Pp">The absolute simplest filter is <b>.</b> . This is a filter that
+    takes its input and produces it unchanged as output. That is, this is the
+    identity operator.</p>
+<p class="Pp">Since jq by default pretty-prints all output, this trivial program
+    can be a useful way of formatting JSON output from, say, <b>curl</b>.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;.&#x00B4;
+<br/>
+   &quot;Hello, world!&quot;
+=&gt; &quot;Hello, world!&quot;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Object_Identifier"><a class="permalink" href="#Object_Identifier">Object
+  Identifier-Index: .foo, .foo.bar</a></h2>
+<p class="Pp">The simplest <i>useful</i> filter is <b>.foo</b>. When given a
+    JSON object (aka dictionary or hash) as input, it produces the value at the
+    key &quot;foo&quot;, or null if there&#x00B4;s none present.</p>
+<p class="Pp">A filter of the form <b>.foo.bar</b> is equivalent to
+    <b>.foo|.bar</b>.</p>
+<p class="Pp">This syntax only works for simple, identifier-like keys, that is,
+    keys that are all made of alphanumeric characters and underscore, and which
+    do not start with a digit.</p>
+<p class="Pp">If the key contains special characters, you need to surround it
+    with double quotes like this: <b>.&quot;foo$&quot;</b>, or else
+    <b>.[&quot;foo$&quot;]</b>.</p>
+<p class="Pp">For example <b>.[&quot;foo::bar&quot;]</b> and
+    <b>.[&quot;foo.bar&quot;]</b> work while <b>.foo::bar</b> does not, and
+    <b>.foo.bar</b> means <b>.[&quot;foo&quot;].[&quot;bar&quot;]</b>.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;.foo&#x00B4;
+<br/>
+   {&quot;foo&quot;: 42, &quot;bar&quot;: &quot;less interesting data&quot;}
+=&gt; 42
+jq &#x00B4;.foo&#x00B4;
+<br/>
+   {&quot;notfoo&quot;: true, &quot;alsonotfoo&quot;: false}
+=&gt; null
+jq &#x00B4;.[&quot;foo&quot;]&#x00B4;
+<br/>
+   {&quot;foo&quot;: 42}
+=&gt; 42</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Optional_Object_Identifier"><a class="permalink" href="#Optional_Object_Identifier">Optional
+  Object Identifier-Index: .foo?</a></h2>
+<p class="Pp">Just like <b>.foo</b>, but does not output even an error when
+    <b>.</b> is not an array or an object.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;.foo?&#x00B4;
+<br/>
+   {&quot;foo&quot;: 42, &quot;bar&quot;: &quot;less interesting data&quot;}
+=&gt; 42
+jq &#x00B4;.foo?&#x00B4;
+<br/>
+   {&quot;notfoo&quot;: true, &quot;alsonotfoo&quot;: false}
+=&gt; null
+jq &#x00B4;.[&quot;foo&quot;]?&#x00B4;
+<br/>
+   {&quot;foo&quot;: 42}
+=&gt; 42
+jq &#x00B4;[.foo?]&#x00B4;
+<br/>
+   [1,2]
+=&gt; []</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Generic_Object_Index:_"><a class="permalink" href="#Generic_Object_Index:_">Generic
+  Object Index: .[&lt;string&gt;]</a></h2>
+<p class="Pp">You can also look up fields of an object using syntax like
+    <b>.[&quot;foo&quot;]</b> (.foo above is a shorthand version of this, but
+    only for identifier-like strings).</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Array_Index:_"><a class="permalink" href="#Array_Index:_">Array
+  Index: .[2]</a></h2>
+<p class="Pp">When the index value is an integer, <b>.[&lt;value&gt;]</b> can
+    index arrays. Arrays are zero-based, so <b>.[2]</b> returns the third
+    element.</p>
+<p class="Pp">Negative indices are allowed, with -1 referring to the last
+    element, -2 referring to the next to last element, and so on.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;.[0]&#x00B4;
+<br/>
+   [{&quot;name&quot;:&quot;JSON&quot;, &quot;good&quot;:true}, {&quot;name&quot;:&quot;XML&quot;, &quot;good&quot;:false}]
+=&gt; {&quot;name&quot;:&quot;JSON&quot;, &quot;good&quot;:true}
+jq &#x00B4;.[2]&#x00B4;
+<br/>
+   [{&quot;name&quot;:&quot;JSON&quot;, &quot;good&quot;:true}, {&quot;name&quot;:&quot;XML&quot;, &quot;good&quot;:false}]
+=&gt; null
+jq &#x00B4;.[-2]&#x00B4;
+<br/>
+   [1,2,3]
+=&gt; 2</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Array/String_Slice:_"><a class="permalink" href="#Array/String_Slice:_">Array/String
+  Slice: .[10:15]</a></h2>
+<p class="Pp">The <b>.[10:15]</b> syntax can be used to return a subarray of an
+    array or substring of a string. The array returned by <b>.[10:15]</b> will
+    be of length 5, containing the elements from index 10 (inclusive) to index
+    15 (exclusive). Either index may be negative (in which case it counts
+    backwards from the end of the array), or omitted (in which case it refers to
+    the start or end of the array).</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;.[2:4]&#x00B4;
+<br/>
+   [&quot;a&quot;,&quot;b&quot;,&quot;c&quot;,&quot;d&quot;,&quot;e&quot;]
+=&gt; [&quot;c&quot;, &quot;d&quot;]
+jq &#x00B4;.[2:4]&#x00B4;
+<br/>
+   &quot;abcdefghi&quot;
+=&gt; &quot;cd&quot;
+jq &#x00B4;.[:3]&#x00B4;
+<br/>
+   [&quot;a&quot;,&quot;b&quot;,&quot;c&quot;,&quot;d&quot;,&quot;e&quot;]
+=&gt; [&quot;a&quot;, &quot;b&quot;, &quot;c&quot;]
+jq &#x00B4;.[-2:]&#x00B4;
+<br/>
+   [&quot;a&quot;,&quot;b&quot;,&quot;c&quot;,&quot;d&quot;,&quot;e&quot;]
+=&gt; [&quot;d&quot;, &quot;e&quot;]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Array/Object_Value_Iterator:_"><a class="permalink" href="#Array/Object_Value_Iterator:_">Array/Object
+  Value Iterator: .[]</a></h2>
+<p class="Pp">If you use the <b>.[index]</b> syntax, but omit the index
+    entirely, it will return <i>all</i> of the elements of an array. Running
+    <b>.[]</b> with the input <b>[1,2,3]</b> will produce the numbers as three
+    separate results, rather than as a single array.</p>
+<p class="Pp">You can also use this on an object, and it will return all the
+    values of the object.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;.[]&#x00B4;
+<br/>
+   [{&quot;name&quot;:&quot;JSON&quot;, &quot;good&quot;:true}, {&quot;name&quot;:&quot;XML&quot;, &quot;good&quot;:false}]
+=&gt; {&quot;name&quot;:&quot;JSON&quot;, &quot;good&quot;:true}, {&quot;name&quot;:&quot;XML&quot;, &quot;good&quot;:false}
+jq &#x00B4;.[]&#x00B4;
+<br/>
+   []
+=&gt;
+jq &#x00B4;.[]&#x00B4;
+<br/>
+   {&quot;a&quot;: 1, &quot;b&quot;: 1}
+=&gt; 1, 1</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss">.[]?</h2>
+<p class="Pp">Like <b>.[]</b>, but no errors will be output if . is not an array
+    or object.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Comma:_,"><a class="permalink" href="#Comma:_,">Comma:
+  ,</a></h2>
+<p class="Pp">If two filters are separated by a comma, then the same input will
+    be fed into both and the two filters&#x00B4; output value streams will be
+    concatenated in order: first, all of the outputs produced by the left
+    expression, and then all of the outputs produced by the right. For instance,
+    filter <b>.foo, .bar</b>, produces both the &quot;foo&quot; fields and
+    &quot;bar&quot; fields as separate outputs.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;.foo, .bar&#x00B4;
+<br/>
+   {&quot;foo&quot;: 42, &quot;bar&quot;: &quot;something else&quot;, &quot;baz&quot;: true}
+=&gt; 42, &quot;something else&quot;
+jq &#x00B4;.user, .projects[]&#x00B4;
+<br/>
+   {&quot;user&quot;:&quot;stedolan&quot;, &quot;projects&quot;: [&quot;jq&quot;, &quot;wikiflow&quot;]}
+=&gt; &quot;stedolan&quot;, &quot;jq&quot;, &quot;wikiflow&quot;
+jq &#x00B4;.[4,2]&#x00B4;
+<br/>
+   [&quot;a&quot;,&quot;b&quot;,&quot;c&quot;,&quot;d&quot;,&quot;e&quot;]
+=&gt; &quot;e&quot;, &quot;c&quot;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Pipe:__"><a class="permalink" href="#Pipe:__">Pipe:
+  |</a></h2>
+<p class="Pp">The | operator combines two filters by feeding the output(s) of
+    the one on the left into the input of the one on the right. It&#x00B4;s
+    pretty much the same as the Unix shell&#x00B4;s pipe, if you&#x00B4;re used
+    to that.</p>
+<p class="Pp">If the one on the left produces multiple results, the one on the
+    right will be run for each of those results. So, the expression <b>.[] |
+    .foo</b> retrieves the &quot;foo&quot; field of each element of the input
+    array.</p>
+<p class="Pp">Note that <b>.a.b.c</b> is the same as <b>.a | .b | .c</b>.</p>
+<p class="Pp">Note too that <b>.</b> is the input value at the particular stage
+    in a &quot;pipeline&quot;, specifically: where the <b>.</b> expression
+    appears. Thus <b>.a | . | .b</b> is the same as <b>.a.b</b>, as the <b>.</b>
+    in the middle refers to whatever value <b>.a</b> produced.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;.[] | .name&#x00B4;
+<br/>
+   [{&quot;name&quot;:&quot;JSON&quot;, &quot;good&quot;:true}, {&quot;name&quot;:&quot;XML&quot;, &quot;good&quot;:false}]
+=&gt; &quot;JSON&quot;, &quot;XML&quot;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Parenthesis"><a class="permalink" href="#Parenthesis">Parenthesis</a></h2>
+<p class="Pp">Parenthesis work as a grouping operator just as in any typical
+    programming language.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;(. + 2) * 5&#x00B4;
+<br/>
+   1
+=&gt; 15</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TYPES_AND_VALUES"><a class="permalink" href="#TYPES_AND_VALUES">TYPES
+  AND VALUES</a></h1>
+<p class="Pp">jq supports the same set of datatypes as JSON - numbers, strings,
+    booleans, arrays, objects (which in JSON-speak are hashes with only string
+    keys), and &quot;null&quot;.</p>
+<p class="Pp">Booleans, null, strings and numbers are written the same way as in
+    javascript. Just like everything else in jq, these simple values take an
+    input and produce an output - <b>42</b> is a valid jq expression that takes
+    an input, ignores it, and returns 42 instead.</p>
+<section class="Ss">
+<h2 class="Ss" id="Array_construction:___"><a class="permalink" href="#Array_construction:___">Array
+  construction: []</a></h2>
+<p class="Pp">As in JSON, <b>[]</b> is used to construct arrays, as in
+    <b>[1,2,3]</b>. The elements of the arrays can be any jq expression,
+    including a pipeline. All of the results produced by all of the expressions
+    are collected into one big array. You can use it to construct an array out
+    of a known quantity of values (as in <b>[.foo, .bar, .baz]</b>) or to
+    &quot;collect&quot; all the results of a filter into an array (as in
+    <b>[.items[].name]</b>)</p>
+<p class="Pp">Once you understand the &quot;,&quot; operator, you can look at
+    jq&#x00B4;s array syntax in a different light: the expression <b>[1,2,3]</b>
+    is not using a built-in syntax for comma-separated arrays, but is instead
+    applying the <b>[]</b> operator (collect results) to the expression 1,2,3
+    (which produces three different results).</p>
+<p class="Pp">If you have a filter <b>X</b> that produces four results, then the
+    expression <b>[X]</b> will produce a single result, an array of four
+    elements.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;[.user, .projects[]]&#x00B4;
+<br/>
+   {&quot;user&quot;:&quot;stedolan&quot;, &quot;projects&quot;: [&quot;jq&quot;, &quot;wikiflow&quot;]}
+=&gt; [&quot;stedolan&quot;, &quot;jq&quot;, &quot;wikiflow&quot;]
+jq &#x00B4;[ .[] | . * 2]&#x00B4;
+<br/>
+   [1, 2, 3]
+=&gt; [2, 4, 6]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Object_Construction:___"><a class="permalink" href="#Object_Construction:___">Object
+  Construction: {}</a></h2>
+<p class="Pp">Like JSON, <b>{}</b> is for constructing objects (aka dictionaries
+    or hashes), as in: <b>{&quot;a&quot;: 42, &quot;b&quot;: 17}</b>.</p>
+<p class="Pp">If the keys are &quot;identifier-like&quot;, then the quotes can
+    be left off, as in <b>{a:42, b:17}</b>. Keys generated by expressions need
+    to be parenthesized, e.g., <b>{(&quot;a&quot;+&quot;b&quot;):59}</b>.</p>
+<p class="Pp">The value can be any expression (although you may need to wrap it
+    in parentheses if it&#x00B4;s a complicated one), which gets applied to the
+    {} expression&#x00B4;s input (remember, all filters have an input and an
+    output).</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+{foo: .bar}</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">will produce the JSON object <b>{&quot;foo&quot;: 42}</b> if given
+    the JSON object <b>{&quot;bar&quot;:42, &quot;baz&quot;:43}</b> as its
+    input. You can use this to select particular fields of an object: if the
+    input is an object with &quot;user&quot;, &quot;title&quot;, &quot;id&quot;,
+    and &quot;content&quot; fields and you just want &quot;user&quot; and
+    &quot;title&quot;, you can write</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+{user: .user, title: .title}</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">Because that is so common, there&#x00B4;s a shortcut syntax for
+    it: <b>{user, title}</b>.</p>
+<p class="Pp">If one of the expressions produces multiple results, multiple
+    dictionaries will be produced. If the input&#x00B4;s</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+{&quot;user&quot;:&quot;stedolan&quot;,&quot;titles&quot;:[&quot;JQ Primer&quot;, &quot;More JQ&quot;]}</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">then the expression</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+{user, title: .titles[]}</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">will produce two outputs:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+{&quot;user&quot;:&quot;stedolan&quot;, &quot;title&quot;: &quot;JQ Primer&quot;}
+{&quot;user&quot;:&quot;stedolan&quot;, &quot;title&quot;: &quot;More JQ&quot;}</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">Putting parentheses around the key means it will be evaluated as
+    an expression. With the same input as above,</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+{(.user): .titles}</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">produces</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+{&quot;stedolan&quot;: [&quot;JQ Primer&quot;, &quot;More JQ&quot;]}
+jq &#x00B4;{user, title: .titles[]}&#x00B4;
+<br/>
+   {&quot;user&quot;:&quot;stedolan&quot;,&quot;titles&quot;:[&quot;JQ Primer&quot;, &quot;More JQ&quot;]}
+=&gt; {&quot;user&quot;:&quot;stedolan&quot;, &quot;title&quot;: &quot;JQ Primer&quot;}, {&quot;user&quot;:&quot;stedolan&quot;, &quot;title&quot;: &quot;More JQ&quot;}
+jq &#x00B4;{(.user): .titles}&#x00B4;
+<br/>
+   {&quot;user&quot;:&quot;stedolan&quot;,&quot;titles&quot;:[&quot;JQ Primer&quot;, &quot;More JQ&quot;]}
+=&gt; {&quot;stedolan&quot;: [&quot;JQ Primer&quot;, &quot;More JQ&quot;]}</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Recursive_Descent:_"><a class="permalink" href="#Recursive_Descent:_">Recursive
+  Descent: ..</a></h2>
+<p class="Pp">Recursively descends <b>.</b>, producing every value. This is the
+    same as the zero-argument <b>recurse</b> builtin (see below). This is
+    intended to resemble the XPath <b>//</b> operator. Note that <b>..a</b> does
+    not work; use <b>..|.a</b> instead. In the example below we use
+    <b>..|.a?</b> to find all the values of object keys &quot;a&quot; in any
+    object found &quot;below&quot; <b>.</b>.</p>
+<p class="Pp">This is particularly useful in conjunction with <b>path(EXP)</b>
+    (also see below) and the <b>?</b> operator.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;..|.a?&#x00B4;
+<br/>
+   [[{&quot;a&quot;:1}]]
+=&gt; 1</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUILTIN_OPERATORS_AND_FUNCTIONS"><a class="permalink" href="#BUILTIN_OPERATORS_AND_FUNCTIONS">BUILTIN
+  OPERATORS AND FUNCTIONS</a></h1>
+<p class="Pp">Some jq operator (for instance, <b>+</b>) do different things
+    depending on the type of their arguments (arrays, numbers, etc.). However,
+    jq never does implicit type conversions. If you try to add a string to an
+    object you&#x00B4;ll get an error message and no result.</p>
+<section class="Ss">
+<h2 class="Ss" id="Addition:_+"><a class="permalink" href="#Addition:_+">Addition:
+  +</a></h2>
+<p class="Pp">The operator <b>+</b> takes two filters, applies them both to the
+    same input, and adds the results together. What &quot;adding&quot; means
+    depends on the types involved:</p>
+<ul class="Bl-bullet">
+  <li><b>Numbers</b> are added by normal arithmetic.</li>
+  <li><b>Arrays</b> are added by being concatenated into a larger array.</li>
+  <li><b>Strings</b> are added by being joined into a larger string.</li>
+  <li><b>Objects</b> are added by merging, that is, inserting all the key-value
+      pairs from both objects into a single combined object. If both objects
+      contain a value for the same key, the object on the right of the <b>+</b>
+      wins. (For recursive merge use the <b>*</b> operator.)</li>
+</ul>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp"><b>null</b> can be added to any value, and returns the other value
+    unchanged.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;.a + 1&#x00B4;
+<br/>
+   {&quot;a&quot;: 7}
+=&gt; 8
+jq &#x00B4;.a + .b&#x00B4;
+<br/>
+   {&quot;a&quot;: [1,2], &quot;b&quot;: [3,4]}
+=&gt; [1,2,3,4]
+jq &#x00B4;.a + null&#x00B4;
+<br/>
+   {&quot;a&quot;: 1}
+=&gt; 1
+jq &#x00B4;.a + 1&#x00B4;
+<br/>
+   {}
+=&gt; 1
+jq &#x00B4;{a: 1} + {b: 2} + {c: 3} + {a: 42}&#x00B4;
+<br/>
+   null
+=&gt; {&quot;a&quot;: 42, &quot;b&quot;: 2, &quot;c&quot;: 3}</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Subtraction:_"><a class="permalink" href="#Subtraction:_">Subtraction:
+  -</a></h2>
+<p class="Pp">As well as normal arithmetic subtraction on numbers, the <b>-</b>
+    operator can be used on arrays to remove all occurrences of the second
+    array&#x00B4;s elements from the first array.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;4 - .a&#x00B4;
+<br/>
+   {&quot;a&quot;:3}
+=&gt; 1
+jq &#x00B4;. - [&quot;xml&quot;, &quot;yaml&quot;]&#x00B4;
+<br/>
+   [&quot;xml&quot;, &quot;yaml&quot;, &quot;json&quot;]
+=&gt; [&quot;json&quot;]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Multiplication,_division,_modulo:_*,_/,_and__"><a class="permalink" href="#Multiplication,_division,_modulo:_*,_/,_and__">Multiplication,
+  division, modulo: *, /, and %</a></h2>
+<p class="Pp">These infix operators behave as expected when given two numbers.
+    Division by zero raises an error. <b>x % y</b> computes x modulo y.</p>
+<p class="Pp">Multiplying a string by a number produces the concatenation of
+    that string that many times. <b>&quot;x&quot; * 0</b> produces
+  <b>null</b>.</p>
+<p class="Pp">Dividing a string by another splits the first using the second as
+    separators.</p>
+<p class="Pp">Multiplying two objects will merge them recursively: this works
+    like addition but if both objects contain a value for the same key, and the
+    values are objects, the two are merged with the same strategy.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;10 / . * 3&#x00B4;
+<br/>
+   5
+=&gt; 6
+jq &#x00B4;. / &quot;, &quot;&#x00B4;
+<br/>
+   &quot;a, b,c,d, e&quot;
+=&gt; [&quot;a&quot;,&quot;b,c,d&quot;,&quot;e&quot;]
+jq &#x00B4;{&quot;k&quot;: {&quot;a&quot;: 1, &quot;b&quot;: 2}} * {&quot;k&quot;: {&quot;a&quot;: 0,&quot;c&quot;: 3}}&#x00B4;
+<br/>
+   null
+=&gt; {&quot;k&quot;: {&quot;a&quot;: 0, &quot;b&quot;: 2, &quot;c&quot;: 3}}
+jq &#x00B4;.[] | (1 / .)?&#x00B4;
+<br/>
+   [1,0,-1]
+=&gt; 1, -1</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="length"><a class="permalink" href="#length">length</a></h2>
+<p class="Pp">The builtin function <b>length</b> gets the length of various
+    different types of value:</p>
+<ul class="Bl-bullet">
+  <li>The length of a <b>string</b> is the number of Unicode codepoints it
+      contains (which will be the same as its JSON-encoded length in bytes if
+      it&#x00B4;s pure ASCII).</li>
+  <li>The length of an <b>array</b> is the number of elements.</li>
+  <li>The length of an <b>object</b> is the number of key-value pairs.</li>
+  <li>The length of <b>null</b> is zero.</li>
+</ul>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>jq &#x00B4;.[] | length&#x00B4; [[1,2], &quot;string&quot;,
+      {&quot;a&quot;:2}, null] =&gt; 2, 6, 1, 0</dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="utf8bytelength"><a class="permalink" href="#utf8bytelength">utf8bytelength</a></h2>
+<p class="Pp">The builtin function <b>utf8bytelength</b> outputs the number of
+    bytes used to encode a string in UTF-8.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;utf8bytelength&#x00B4;
+<br/>
+   &quot;\u03bc&quot;
+=&gt; 2</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="keys,_keys_unsorted"><a class="permalink" href="#keys,_keys_unsorted">keys,
+  keys_unsorted</a></h2>
+<p class="Pp">The builtin function <b>keys</b>, when given an object, returns
+    its keys in an array.</p>
+<p class="Pp">The keys are sorted &quot;alphabetically&quot;, by unicode
+    codepoint order. This is not an order that makes particular sense in any
+    particular language, but you can count on it being the same for any two
+    objects with the same set of keys, regardless of locale settings.</p>
+<p class="Pp">When <b>keys</b> is given an array, it returns the valid indices
+    for that array: the integers from 0 to length-1.</p>
+<p class="Pp">The <b>keys_unsorted</b> function is just like <b>keys</b>, but if
+    the input is an object then the keys will not be sorted, instead the keys
+    will roughly be in insertion order.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;keys&#x00B4;
+<br/>
+   {&quot;abc&quot;: 1, &quot;abcd&quot;: 2, &quot;Foo&quot;: 3}
+=&gt; [&quot;Foo&quot;, &quot;abc&quot;, &quot;abcd&quot;]
+jq &#x00B4;keys&#x00B4;
+<br/>
+   [42,3,35]
+=&gt; [0,1,2]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="has(key)"><a class="permalink" href="#has(key)">has(key)</a></h2>
+<p class="Pp">The builtin function <b>has</b> returns whether the input object
+    has the given key, or the input array has an element at the given index.</p>
+<p class="Pp"><b>has($key)</b> has the same effect as checking whether
+    <b>$key</b> is a member of the array returned by <b>keys</b>, although
+    <b>has</b> will be faster.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;map(has(&quot;foo&quot;))&#x00B4;
+<br/>
+   [{&quot;foo&quot;: 42}, {}]
+=&gt; [true, false]
+jq &#x00B4;map(has(2))&#x00B4;
+<br/>
+   [[0,1], [&quot;a&quot;,&quot;b&quot;,&quot;c&quot;]]
+=&gt; [false, true]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="in"><a class="permalink" href="#in">in</a></h2>
+<p class="Pp">The builtin function <b>in</b> returns whether or not the input
+    key is in the given object, or the input index corresponds to an element in
+    the given array. It is, essentially, an inversed version of <b>has</b>.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;.[] | in({&quot;foo&quot;: 42})&#x00B4;
+<br/>
+   [&quot;foo&quot;, &quot;bar&quot;]
+=&gt; true, false
+jq &#x00B4;map(in([0,1]))&#x00B4;
+<br/>
+   [2, 0]
+=&gt; [false, true]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="map(x),_map_values(x)"><a class="permalink" href="#map(x),_map_values(x)">map(x),
+  map_values(x)</a></h2>
+<p class="Pp">For any filter <b>x</b>, <b>map(x)</b> will run that filter for
+    each element of the input array, and return the outputs in a new array.
+    <b>map(.+1)</b> will increment each element of an array of numbers.</p>
+<p class="Pp">Similarly, <b>map_values(x)</b> will run that filter for each
+    element, but it will return an object when an object is passed.</p>
+<p class="Pp"><b>map(x)</b> is equivalent to <b>[.[] | x]</b>. In fact, this is
+    how it&#x00B4;s defined. Similarly, <b>map_values(x)</b> is defined as
+    <b>.[] |= x</b>.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;map(.+1)&#x00B4;
+<br/>
+   [1,2,3]
+=&gt; [2,3,4]
+jq &#x00B4;map_values(.+1)&#x00B4;
+<br/>
+   {&quot;a&quot;: 1, &quot;b&quot;: 2, &quot;c&quot;: 3}
+=&gt; {&quot;a&quot;: 2, &quot;b&quot;: 3, &quot;c&quot;: 4}</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="path(path_expression)"><a class="permalink" href="#path(path_expression)">path(path_expression)</a></h2>
+<p class="Pp">Outputs array representations of the given path expression in
+    <b>.</b>. The outputs are arrays of strings (object keys) and/or numbers
+    (array indices).</p>
+<p class="Pp">Path expressions are jq expressions like <b>.a</b>, but also
+    <b>.[]</b>. There are two types of path expressions: ones that can match
+    exactly, and ones that cannot. For example, <b>.a.b.c</b> is an exact match
+    path expression, while <b>.a[].b</b> is not.</p>
+<p class="Pp"><b>path(exact_path_expression)</b> will produce the array
+    representation of the path expression even if it does not exist in <b>.</b>,
+    if <b>.</b> is <b>null</b> or an array or an object.</p>
+<p class="Pp"><b>path(pattern)</b> will produce array representations of the
+    paths matching <b>pattern</b> if the paths exist in <b>.</b>.</p>
+<p class="Pp">Note that the path expressions are not different from normal
+    expressions. The expression
+    <b>path(..|select(type==&quot;boolean&quot;))</b> outputs all the paths to
+    boolean values in <b>.</b>, and only those paths.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;path(.a[0].b)&#x00B4;
+<br/>
+   null
+=&gt; [&quot;a&quot;,0,&quot;b&quot;]
+jq &#x00B4;[path(..)]&#x00B4;
+<br/>
+   {&quot;a&quot;:[{&quot;b&quot;:1}]}
+=&gt; [[],[&quot;a&quot;],[&quot;a&quot;,0],[&quot;a&quot;,0,&quot;b&quot;]]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="del(path_expression)"><a class="permalink" href="#del(path_expression)">del(path_expression)</a></h2>
+<p class="Pp">The builtin function <b>del</b> removes a key and its
+    corresponding value from an object.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;del(.foo)&#x00B4;
+<br/>
+   {&quot;foo&quot;: 42, &quot;bar&quot;: 9001, &quot;baz&quot;: 42}
+=&gt; {&quot;bar&quot;: 9001, &quot;baz&quot;: 42}
+jq &#x00B4;del(.[1, 2])&#x00B4;
+<br/>
+   [&quot;foo&quot;, &quot;bar&quot;, &quot;baz&quot;]
+=&gt; [&quot;foo&quot;]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="getpath(PATHS)"><a class="permalink" href="#getpath(PATHS)">getpath(PATHS)</a></h2>
+<p class="Pp">The builtin function <b>getpath</b> outputs the values in <b>.</b>
+    found at each path in <b>PATHS</b>.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;getpath([&quot;a&quot;,&quot;b&quot;])&#x00B4;
+<br/>
+   null
+=&gt; null
+jq &#x00B4;[getpath([&quot;a&quot;,&quot;b&quot;], [&quot;a&quot;,&quot;c&quot;])]&#x00B4;
+<br/>
+   {&quot;a&quot;:{&quot;b&quot;:0, &quot;c&quot;:1}}
+=&gt; [0, 1]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="setpath(PATHS;_VALUE)"><a class="permalink" href="#setpath(PATHS;_VALUE)">setpath(PATHS;
+  VALUE)</a></h2>
+<p class="Pp">The builtin function <b>setpath</b> sets the <b>PATHS</b> in
+    <b>.</b> to <b>VALUE</b>.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;setpath([&quot;a&quot;,&quot;b&quot;]; 1)&#x00B4;
+<br/>
+   null
+=&gt; {&quot;a&quot;: {&quot;b&quot;: 1}}
+jq &#x00B4;setpath([&quot;a&quot;,&quot;b&quot;]; 1)&#x00B4;
+<br/>
+   {&quot;a&quot;:{&quot;b&quot;:0}}
+=&gt; {&quot;a&quot;: {&quot;b&quot;: 1}}
+jq &#x00B4;setpath([0,&quot;a&quot;]; 1)&#x00B4;
+<br/>
+   null
+=&gt; [{&quot;a&quot;:1}]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="delpaths(PATHS)"><a class="permalink" href="#delpaths(PATHS)">delpaths(PATHS)</a></h2>
+<p class="Pp">The builtin function <b>delpaths</b> sets the <b>PATHS</b> in
+    <b>.</b>. <b>PATHS</b> must be an array of paths, where each path is an
+    array of strings and numbers.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;delpaths([[&quot;a&quot;,&quot;b&quot;]])&#x00B4;
+<br/>
+   {&quot;a&quot;:{&quot;b&quot;:1},&quot;x&quot;:{&quot;y&quot;:2}}
+=&gt; {&quot;a&quot;:{},&quot;x&quot;:{&quot;y&quot;:2}}</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="to_entries,_from_entries,_with_entries"><a class="permalink" href="#to_entries,_from_entries,_with_entries">to_entries,
+  from_entries, with_entries</a></h2>
+<p class="Pp">These functions convert between an object and an array of
+    key-value pairs. If <b>to_entries</b> is passed an object, then for each
+    <b>k: v</b> entry in the input, the output array includes
+    <b>{&quot;key&quot;: k, &quot;value&quot;: v}</b>.</p>
+<p class="Pp"><b>from_entries</b> does the opposite conversion, and
+    <b>with_entries(foo)</b> is a shorthand for <b>to_entries | map(foo) |
+    from_entries</b>, useful for doing some operation to all keys and values of
+    an object. <b>from_entries</b> accepts key, Key, name, Name, value and Value
+    as keys.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;to_entries&#x00B4;
+<br/>
+   {&quot;a&quot;: 1, &quot;b&quot;: 2}
+=&gt; [{&quot;key&quot;:&quot;a&quot;, &quot;value&quot;:1}, {&quot;key&quot;:&quot;b&quot;, &quot;value&quot;:2}]
+jq &#x00B4;from_entries&#x00B4;
+<br/>
+   [{&quot;key&quot;:&quot;a&quot;, &quot;value&quot;:1}, {&quot;key&quot;:&quot;b&quot;, &quot;value&quot;:2}]
+=&gt; {&quot;a&quot;: 1, &quot;b&quot;: 2}
+jq &#x00B4;with_entries(.key |= &quot;KEY_&quot; + .)&#x00B4;
+<br/>
+   {&quot;a&quot;: 1, &quot;b&quot;: 2}
+=&gt; {&quot;KEY_a&quot;: 1, &quot;KEY_b&quot;: 2}</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="select(boolean_expression)"><a class="permalink" href="#select(boolean_expression)">select(boolean_expression)</a></h2>
+<p class="Pp">The function <b>select(foo)</b> produces its input unchanged if
+    <b>foo</b> returns true for that input, and produces no output
+  otherwise.</p>
+<p class="Pp">It&#x00B4;s useful for filtering lists: <b>[1,2,3] | map(select(.
+    &gt;= 2))</b> will give you <b>[2,3]</b>.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;map(select(. &gt;= 2))&#x00B4;
+<br/>
+   [1,5,3,0,7]
+=&gt; [5,3,7]
+jq &#x00B4;.[] | select(.id == &quot;second&quot;)&#x00B4;
+<br/>
+   [{&quot;id&quot;: &quot;first&quot;, &quot;val&quot;: 1}, {&quot;id&quot;: &quot;second&quot;, &quot;val&quot;: 2}]
+=&gt; {&quot;id&quot;: &quot;second&quot;, &quot;val&quot;: 2}</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="arrays,_objects,_iterables,_booleans,_numbers,_normals,_finites,_strings,_nulls,_values,_scalars"><a class="permalink" href="#arrays,_objects,_iterables,_booleans,_numbers,_normals,_finites,_strings,_nulls,_values,_scalars">arrays,
+  objects, iterables, booleans, numbers, normals, finites, strings, nulls,
+  values, scalars</a></h2>
+<p class="Pp">These built-ins select only inputs that are arrays, objects,
+    iterables (arrays or objects), booleans, numbers, normal numbers, finite
+    numbers, strings, null, non-null values, and non-iterables,
+  respectively.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;.[]|numbers&#x00B4;
+<br/>
+   [[],{},1,&quot;foo&quot;,null,true,false]
+=&gt; 1</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="empty"><a class="permalink" href="#empty">empty</a></h2>
+<p class="Pp"><b>empty</b> returns no results. None at all. Not even
+    <b>null</b>.</p>
+<p class="Pp">It&#x00B4;s useful on occasion. You&#x00B4;ll know if you need it
+    :)</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;1, empty, 2&#x00B4;
+<br/>
+   null
+=&gt; 1, 2
+jq &#x00B4;[1,2,empty,3]&#x00B4;
+<br/>
+   null
+=&gt; [1,2,3]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="error(message)"><a class="permalink" href="#error(message)">error(message)</a></h2>
+<p class="Pp">Produces an error, just like <b>.a</b> applied to values other
+    than null and objects would, but with the given message as the
+    error&#x00B4;s value. Errors can be caught with try/catch; see below.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="halt"><a class="permalink" href="#halt">halt</a></h2>
+<p class="Pp">Stops the jq program with no further outputs. jq will exit with
+    exit status <b>0</b>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="halt_error,_halt_error(exit_code)"><a class="permalink" href="#halt_error,_halt_error(exit_code)">halt_error,
+  halt_error(exit_code)</a></h2>
+<p class="Pp">Stops the jq program with no further outputs. The input will be
+    printed on <b>stderr</b> as raw output (i.e., strings will not have double
+    quotes) with no decoration, not even a newline.</p>
+<p class="Pp">The given <b>exit_code</b> (defaulting to <b>5</b>) will be
+    jq&#x00B4;s exit status.</p>
+<p class="Pp">For example, <b>&quot;Error: something went
+    wrong\n&quot;|halt_error(1)</b>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="$__loc__"><a class="permalink" href="#$__loc__">$__loc__</a></h2>
+<p class="Pp">Produces an object with a &quot;file&quot; key and a
+    &quot;line&quot; key, with the filename and line number where
+    <b>$__loc__</b> occurs, as values.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;try error(&quot;\($__loc__)&quot;) catch .&#x00B4;
+<br/>
+   null
+=&gt; &quot;{\&quot;file\&quot;:\&quot;&lt;top-level&gt;\&quot;,\&quot;line\&quot;:1}&quot;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="paths,_paths(node_filter),_leaf_paths"><a class="permalink" href="#paths,_paths(node_filter),_leaf_paths">paths,
+  paths(node_filter), leaf_paths</a></h2>
+<p class="Pp"><b>paths</b> outputs the paths to all the elements in its input
+    (except it does not output the empty list, representing . itself).</p>
+<p class="Pp"><b>paths(f)</b> outputs the paths to any values for which <b>f</b>
+    is true. That is, <b>paths(numbers)</b> outputs the paths to all numeric
+    values.</p>
+<p class="Pp"><b>leaf_paths</b> is an alias of <b>paths(scalars)</b>;
+    <b>leaf_paths</b> is <i>deprecated</i> and will be removed in the next major
+    release.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;[paths]&#x00B4;
+<br/>
+   [1,[[],{&quot;a&quot;:2}]]
+=&gt; [[0],[1],[1,0],[1,1],[1,1,&quot;a&quot;]]
+jq &#x00B4;[paths(scalars)]&#x00B4;
+<br/>
+   [1,[[],{&quot;a&quot;:2}]]
+=&gt; [[0],[1,1,&quot;a&quot;]]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="add"><a class="permalink" href="#add">add</a></h2>
+<p class="Pp">The filter <b>add</b> takes as input an array, and produces as
+    output the elements of the array added together. This might mean summed,
+    concatenated or merged depending on the types of the elements of the input
+    array - the rules are the same as those for the <b>+</b> operator (described
+    above).</p>
+<p class="Pp">If the input is an empty array, <b>add</b> returns
+  <b>null</b>.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;add&#x00B4;
+<br/>
+   [&quot;a&quot;,&quot;b&quot;,&quot;c&quot;]
+=&gt; &quot;abc&quot;
+jq &#x00B4;add&#x00B4;
+<br/>
+   [1, 2, 3]
+=&gt; 6
+jq &#x00B4;add&#x00B4;
+<br/>
+   []
+=&gt; null</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="any,_any(condition),_any(generator;_condition)"><a class="permalink" href="#any,_any(condition),_any(generator;_condition)">any,
+  any(condition), any(generator; condition)</a></h2>
+<p class="Pp">The filter <b>any</b> takes as input an array of boolean values,
+    and produces <b>true</b> as output if any of the elements of the array are
+    <b>true</b>.</p>
+<p class="Pp">If the input is an empty array, <b>any</b> returns
+  <b>false</b>.</p>
+<p class="Pp">The <b>any(condition)</b> form applies the given condition to the
+    elements of the input array.</p>
+<p class="Pp">The <b>any(generator; condition)</b> form applies the given
+    condition to all the outputs of the given generator.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;any&#x00B4;
+<br/>
+   [true, false]
+=&gt; true
+jq &#x00B4;any&#x00B4;
+<br/>
+   [false, false]
+=&gt; false
+jq &#x00B4;any&#x00B4;
+<br/>
+   []
+=&gt; false</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="all,_all(condition),_all(generator;_condition)"><a class="permalink" href="#all,_all(condition),_all(generator;_condition)">all,
+  all(condition), all(generator; condition)</a></h2>
+<p class="Pp">The filter <b>all</b> takes as input an array of boolean values,
+    and produces <b>true</b> as output if all of the elements of the array are
+    <b>true</b>.</p>
+<p class="Pp">The <b>all(condition)</b> form applies the given condition to the
+    elements of the input array.</p>
+<p class="Pp">The <b>all(generator; condition)</b> form applies the given
+    condition to all the outputs of the given generator.</p>
+<p class="Pp">If the input is an empty array, <b>all</b> returns
+  <b>true</b>.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;all&#x00B4;
+<br/>
+   [true, false]
+=&gt; false
+jq &#x00B4;all&#x00B4;
+<br/>
+   [true, true]
+=&gt; true
+jq &#x00B4;all&#x00B4;
+<br/>
+   []
+=&gt; true</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="flatten,_flatten(depth)"><a class="permalink" href="#flatten,_flatten(depth)">flatten,
+  flatten(depth)</a></h2>
+<p class="Pp">The filter <b>flatten</b> takes as input an array of nested
+    arrays, and produces a flat array in which all arrays inside the original
+    array have been recursively replaced by their values. You can pass an
+    argument to it to specify how many levels of nesting to flatten.</p>
+<p class="Pp"><b>flatten(2)</b> is like <b>flatten</b>, but going only up to two
+    levels deep.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;flatten&#x00B4;
+<br/>
+   [1, [2], [[3]]]
+=&gt; [1, 2, 3]
+jq &#x00B4;flatten(1)&#x00B4;
+<br/>
+   [1, [2], [[3]]]
+=&gt; [1, 2, [3]]
+jq &#x00B4;flatten&#x00B4;
+<br/>
+   [[]]
+=&gt; []
+jq &#x00B4;flatten&#x00B4;
+<br/>
+   [{&quot;foo&quot;: &quot;bar&quot;}, [{&quot;foo&quot;: &quot;baz&quot;}]]
+=&gt; [{&quot;foo&quot;: &quot;bar&quot;}, {&quot;foo&quot;: &quot;baz&quot;}]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="range(upto),_range(from;upto)_range(from;upto;by)"><a class="permalink" href="#range(upto),_range(from;upto)_range(from;upto;by)">range(upto),
+  range(from;upto) range(from;upto;by)</a></h2>
+<p class="Pp">The <b>range</b> function produces a range of numbers.
+    <b>range(4;10)</b> produces 6 numbers, from 4 (inclusive) to 10 (exclusive).
+    The numbers are produced as separate outputs. Use <b>[range(4;10)]</b> to
+    get a range as an array.</p>
+<p class="Pp">The one argument form generates numbers from 0 to the given
+    number, with an increment of 1.</p>
+<p class="Pp">The two argument form generates numbers from <b>from</b> to
+    <b>upto</b> with an increment of 1.</p>
+<p class="Pp">The three argument form generates numbers <b>from</b> to
+    <b>upto</b> with an increment of <b>by</b>.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;range(2;4)&#x00B4;
+<br/>
+   null
+=&gt; 2, 3
+jq &#x00B4;[range(2;4)]&#x00B4;
+<br/>
+   null
+=&gt; [2,3]
+jq &#x00B4;[range(4)]&#x00B4;
+<br/>
+   null
+=&gt; [0,1,2,3]
+jq &#x00B4;[range(0;10;3)]&#x00B4;
+<br/>
+   null
+=&gt; [0,3,6,9]
+jq &#x00B4;[range(0;10;-1)]&#x00B4;
+<br/>
+   null
+=&gt; []
+jq &#x00B4;[range(0;-5;-1)]&#x00B4;
+<br/>
+   null
+=&gt; [0,-1,-2,-3,-4]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="floor"><a class="permalink" href="#floor">floor</a></h2>
+<p class="Pp">The <b>floor</b> function returns the floor of its numeric
+  input.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;floor&#x00B4;
+<br/>
+   3.14159
+=&gt; 3</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="sqrt"><a class="permalink" href="#sqrt">sqrt</a></h2>
+<p class="Pp">The <b>sqrt</b> function returns the square root of its numeric
+    input.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;sqrt&#x00B4;
+<br/>
+   9
+=&gt; 3</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="tonumber"><a class="permalink" href="#tonumber">tonumber</a></h2>
+<p class="Pp">The <b>tonumber</b> function parses its input as a number. It will
+    convert correctly-formatted strings to their numeric equivalent, leave
+    numbers alone, and give an error on all other input.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;.[] | tonumber&#x00B4;
+<br/>
+   [1, &quot;1&quot;]
+=&gt; 1, 1</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="tostring"><a class="permalink" href="#tostring">tostring</a></h2>
+<p class="Pp">The <b>tostring</b> function prints its input as a string. Strings
+    are left unchanged, and all other values are JSON-encoded.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;.[] | tostring&#x00B4;
+<br/>
+   [1, &quot;1&quot;, [1]]
+=&gt; &quot;1&quot;, &quot;1&quot;, &quot;[1]&quot;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="type"><a class="permalink" href="#type">type</a></h2>
+<p class="Pp">The <b>type</b> function returns the type of its argument as a
+    string, which is one of null, boolean, number, string, array or object.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;map(type)&#x00B4;
+<br/>
+   [0, false, [], {}, null, &quot;hello&quot;]
+=&gt; [&quot;number&quot;, &quot;boolean&quot;, &quot;array&quot;, &quot;object&quot;, &quot;null&quot;, &quot;string&quot;]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="infinite,_nan,_isinfinite,_isnan,_isfinite,_isnormal"><a class="permalink" href="#infinite,_nan,_isinfinite,_isnan,_isfinite,_isnormal">infinite,
+  nan, isinfinite, isnan, isfinite, isnormal</a></h2>
+<p class="Pp">Some arithmetic operations can yield infinities and &quot;not a
+    number&quot; (NaN) values. The <b>isinfinite</b> builtin returns <b>true</b>
+    if its input is infinite. The <b>isnan</b> builtin returns <b>true</b> if
+    its input is a NaN. The <b>infinite</b> builtin returns a positive infinite
+    value. The <b>nan</b> builtin returns a NaN. The <b>isnormal</b> builtin
+    returns true if its input is a normal number.</p>
+<p class="Pp">Note that division by zero raises an error.</p>
+<p class="Pp">Currently most arithmetic operations operating on infinities,
+    NaNs, and sub-normals do not raise errors.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;.[] | (infinite * .) &lt; 0&#x00B4;
+<br/>
+   [-1, 1]
+=&gt; true, false
+jq &#x00B4;infinite, nan | type&#x00B4;
+<br/>
+   null
+=&gt; &quot;number&quot;, &quot;number&quot;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="sort,_sort_by(path_expression)"><a class="permalink" href="#sort,_sort_by(path_expression)">sort,
+  sort_by(path_expression)</a></h2>
+<p class="Pp">The <b>sort</b> functions sorts its input, which must be an array.
+    Values are sorted in the following order:</p>
+<ul class="Bl-bullet">
+  <li><b>null</b></li>
+  <li><b>false</b></li>
+  <li><b>true</b></li>
+  <li>numbers</li>
+  <li>strings, in alphabetical order (by unicode codepoint value)</li>
+  <li>arrays, in lexical order</li>
+  <li>objects</li>
+</ul>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">The ordering for objects is a little complex: first they&#x00B4;re
+    compared by comparing their sets of keys (as arrays in sorted order), and if
+    their keys are equal then the values are compared key by key.</p>
+<p class="Pp"><b>sort</b> may be used to sort by a particular field of an
+    object, or by applying any jq filter.</p>
+<p class="Pp"><b>sort_by(foo)</b> compares two elements by comparing the result
+    of <b>foo</b> on each element.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;sort&#x00B4;
+<br/>
+   [8,3,null,6]
+=&gt; [null,3,6,8]
+jq &#x00B4;sort_by(.foo)&#x00B4;
+<br/>
+   [{&quot;foo&quot;:4, &quot;bar&quot;:10}, {&quot;foo&quot;:3, &quot;bar&quot;:100}, {&quot;foo&quot;:2, &quot;bar&quot;:1}]
+=&gt; [{&quot;foo&quot;:2, &quot;bar&quot;:1}, {&quot;foo&quot;:3, &quot;bar&quot;:100}, {&quot;foo&quot;:4, &quot;bar&quot;:10}]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="group_by(path_expression)"><a class="permalink" href="#group_by(path_expression)">group_by(path_expression)</a></h2>
+<p class="Pp"><b>group_by(.foo)</b> takes as input an array, groups the elements
+    having the same <b>.foo</b> field into separate arrays, and produces all of
+    these arrays as elements of a larger array, sorted by the value of the
+    <b>.foo</b> field.</p>
+<p class="Pp">Any jq expression, not just a field access, may be used in place
+    of <b>.foo</b>. The sorting order is the same as described in the
+    <b>sort</b> function above.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;group_by(.foo)&#x00B4;
+<br/>
+   [{&quot;foo&quot;:1, &quot;bar&quot;:10}, {&quot;foo&quot;:3, &quot;bar&quot;:100}, {&quot;foo&quot;:1, &quot;bar&quot;:1}]
+=&gt; [[{&quot;foo&quot;:1, &quot;bar&quot;:10}, {&quot;foo&quot;:1, &quot;bar&quot;:1}], [{&quot;foo&quot;:3, &quot;bar&quot;:100}]]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="min,_max,_min_by(path_exp),_max_by(path_exp)"><a class="permalink" href="#min,_max,_min_by(path_exp),_max_by(path_exp)">min,
+  max, min_by(path_exp), max_by(path_exp)</a></h2>
+<p class="Pp">Find the minimum or maximum element of the input array.</p>
+<p class="Pp">The <b>min_by(path_exp)</b> and <b>max_by(path_exp)</b> functions
+    allow you to specify a particular field or property to examine, e.g.
+    <b>min_by(.foo)</b> finds the object with the smallest <b>foo</b> field.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;min&#x00B4;
+<br/>
+   [5,4,2,7]
+=&gt; 2
+jq &#x00B4;max_by(.foo)&#x00B4;
+<br/>
+   [{&quot;foo&quot;:1, &quot;bar&quot;:14}, {&quot;foo&quot;:2, &quot;bar&quot;:3}]
+=&gt; {&quot;foo&quot;:2, &quot;bar&quot;:3}</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="unique,_unique_by(path_exp)"><a class="permalink" href="#unique,_unique_by(path_exp)">unique,
+  unique_by(path_exp)</a></h2>
+<p class="Pp">The <b>unique</b> function takes as input an array and produces an
+    array of the same elements, in sorted order, with duplicates removed.</p>
+<p class="Pp">The <b>unique_by(path_exp)</b> function will keep only one element
+    for each value obtained by applying the argument. Think of it as making an
+    array by taking one element out of every group produced by <b>group</b>.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;unique&#x00B4;
+<br/>
+   [1,2,5,3,5,3,1,3]
+=&gt; [1,2,3,5]
+jq &#x00B4;unique_by(.foo)&#x00B4;
+<br/>
+   [{&quot;foo&quot;: 1, &quot;bar&quot;: 2}, {&quot;foo&quot;: 1, &quot;bar&quot;: 3}, {&quot;foo&quot;: 4, &quot;bar&quot;: 5}]
+=&gt; [{&quot;foo&quot;: 1, &quot;bar&quot;: 2}, {&quot;foo&quot;: 4, &quot;bar&quot;: 5}]
+jq &#x00B4;unique_by(length)&#x00B4;
+<br/>
+   [&quot;chunky&quot;, &quot;bacon&quot;, &quot;kitten&quot;, &quot;cicada&quot;, &quot;asparagus&quot;]
+=&gt; [&quot;bacon&quot;, &quot;chunky&quot;, &quot;asparagus&quot;]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="reverse"><a class="permalink" href="#reverse">reverse</a></h2>
+<p class="Pp">This function reverses an array.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;reverse&#x00B4;
+<br/>
+   [1,2,3,4]
+=&gt; [4,3,2,1]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="contains(element)"><a class="permalink" href="#contains(element)">contains(element)</a></h2>
+<p class="Pp">The filter <b>contains(b)</b> will produce true if b is completely
+    contained within the input. A string B is contained in a string A if B is a
+    substring of A. An array B is contained in an array A if all elements in B
+    are contained in any element in A. An object B is contained in object A if
+    all of the values in B are contained in the value in A with the same key.
+    All other types are assumed to be contained in each other if they are
+  equal.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;contains(&quot;bar&quot;)&#x00B4;
+<br/>
+   &quot;foobar&quot;
+=&gt; true
+jq &#x00B4;contains([&quot;baz&quot;, &quot;bar&quot;])&#x00B4;
+<br/>
+   [&quot;foobar&quot;, &quot;foobaz&quot;, &quot;blarp&quot;]
+=&gt; true
+jq &#x00B4;contains([&quot;bazzzzz&quot;, &quot;bar&quot;])&#x00B4;
+<br/>
+   [&quot;foobar&quot;, &quot;foobaz&quot;, &quot;blarp&quot;]
+=&gt; false
+jq &#x00B4;contains({foo: 12, bar: [{barp: 12}]})&#x00B4;
+<br/>
+   {&quot;foo&quot;: 12, &quot;bar&quot;:[1,2,{&quot;barp&quot;:12, &quot;blip&quot;:13}]}
+=&gt; true
+jq &#x00B4;contains({foo: 12, bar: [{barp: 15}]})&#x00B4;
+<br/>
+   {&quot;foo&quot;: 12, &quot;bar&quot;:[1,2,{&quot;barp&quot;:12, &quot;blip&quot;:13}]}
+=&gt; false</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="indices(s)"><a class="permalink" href="#indices(s)">indices(s)</a></h2>
+<p class="Pp">Outputs an array containing the indices in <b>.</b> where <b>s</b>
+    occurs. The input may be an array, in which case if <b>s</b> is an array
+    then the indices output will be those where all elements in <b>.</b> match
+    those of <b>s</b>.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;indices(&quot;, &quot;)&#x00B4;
+<br/>
+   &quot;a,b, cd, efg, hijk&quot;
+=&gt; [3,7,12]
+jq &#x00B4;indices(1)&#x00B4;
+<br/>
+   [0,1,2,1,3,1,4]
+=&gt; [1,3,5]
+jq &#x00B4;indices([1,2])&#x00B4;
+<br/>
+   [0,1,2,3,1,4,2,5,1,2,6,7]
+=&gt; [1,8]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="index(s),_rindex(s)"><a class="permalink" href="#index(s),_rindex(s)">index(s),
+  rindex(s)</a></h2>
+<p class="Pp">Outputs the index of the first (<b>index</b>) or last
+    (<b>rindex</b>) occurrence of <b>s</b> in the input.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;index(&quot;, &quot;)&#x00B4;
+<br/>
+   &quot;a,b, cd, efg, hijk&quot;
+=&gt; 3
+jq &#x00B4;rindex(&quot;, &quot;)&#x00B4;
+<br/>
+   &quot;a,b, cd, efg, hijk&quot;
+=&gt; 12</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="inside"><a class="permalink" href="#inside">inside</a></h2>
+<p class="Pp">The filter <b>inside(b)</b> will produce true if the input is
+    completely contained within b. It is, essentially, an inversed version of
+    <b>contains</b>.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;inside(&quot;foobar&quot;)&#x00B4;
+<br/>
+   &quot;bar&quot;
+=&gt; true
+jq &#x00B4;inside([&quot;foobar&quot;, &quot;foobaz&quot;, &quot;blarp&quot;])&#x00B4;
+<br/>
+   [&quot;baz&quot;, &quot;bar&quot;]
+=&gt; true
+jq &#x00B4;inside([&quot;foobar&quot;, &quot;foobaz&quot;, &quot;blarp&quot;])&#x00B4;
+<br/>
+   [&quot;bazzzzz&quot;, &quot;bar&quot;]
+=&gt; false
+jq &#x00B4;inside({&quot;foo&quot;: 12, &quot;bar&quot;:[1,2,{&quot;barp&quot;:12, &quot;blip&quot;:13}]})&#x00B4;
+<br/>
+   {&quot;foo&quot;: 12, &quot;bar&quot;: [{&quot;barp&quot;: 12}]}
+=&gt; true
+jq &#x00B4;inside({&quot;foo&quot;: 12, &quot;bar&quot;:[1,2,{&quot;barp&quot;:12, &quot;blip&quot;:13}]})&#x00B4;
+<br/>
+   {&quot;foo&quot;: 12, &quot;bar&quot;: [{&quot;barp&quot;: 15}]}
+=&gt; false</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="startswith(str)"><a class="permalink" href="#startswith(str)">startswith(str)</a></h2>
+<p class="Pp">Outputs <b>true</b> if . starts with the given string
+  argument.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;[.[]|startswith(&quot;foo&quot;)]&#x00B4;
+<br/>
+   [&quot;fo&quot;, &quot;foo&quot;, &quot;barfoo&quot;, &quot;foobar&quot;, &quot;barfoob&quot;]
+=&gt; [false, true, false, true, false]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="endswith(str)"><a class="permalink" href="#endswith(str)">endswith(str)</a></h2>
+<p class="Pp">Outputs <b>true</b> if . ends with the given string argument.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;[.[]|endswith(&quot;foo&quot;)]&#x00B4;
+<br/>
+   [&quot;foobar&quot;, &quot;barfoo&quot;]
+=&gt; [false, true]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="combinations,_combinations(n)"><a class="permalink" href="#combinations,_combinations(n)">combinations,
+  combinations(n)</a></h2>
+<p class="Pp">Outputs all combinations of the elements of the arrays in the
+    input array. If given an argument <b>n</b>, it outputs all combinations of
+    <b>n</b> repetitions of the input array.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;combinations&#x00B4;
+<br/>
+   [[1,2], [3, 4]]
+=&gt; [1, 3], [1, 4], [2, 3], [2, 4]
+jq &#x00B4;combinations(2)&#x00B4;
+<br/>
+   [0, 1]
+=&gt; [0, 0], [0, 1], [1, 0], [1, 1]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="ltrimstr(str)"><a class="permalink" href="#ltrimstr(str)">ltrimstr(str)</a></h2>
+<p class="Pp">Outputs its input with the given prefix string removed, if it
+    starts with it.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;[.[]|ltrimstr(&quot;foo&quot;)]&#x00B4;
+<br/>
+   [&quot;fo&quot;, &quot;foo&quot;, &quot;barfoo&quot;, &quot;foobar&quot;, &quot;afoo&quot;]
+=&gt; [&quot;fo&quot;,&quot;&quot;,&quot;barfoo&quot;,&quot;bar&quot;,&quot;afoo&quot;]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="rtrimstr(str)"><a class="permalink" href="#rtrimstr(str)">rtrimstr(str)</a></h2>
+<p class="Pp">Outputs its input with the given suffix string removed, if it ends
+    with it.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;[.[]|rtrimstr(&quot;foo&quot;)]&#x00B4;
+<br/>
+   [&quot;fo&quot;, &quot;foo&quot;, &quot;barfoo&quot;, &quot;foobar&quot;, &quot;foob&quot;]
+=&gt; [&quot;fo&quot;,&quot;&quot;,&quot;bar&quot;,&quot;foobar&quot;,&quot;foob&quot;]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="explode"><a class="permalink" href="#explode">explode</a></h2>
+<p class="Pp">Converts an input string into an array of the string&#x00B4;s
+    codepoint numbers.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;explode&#x00B4;
+<br/>
+   &quot;foobar&quot;
+=&gt; [102,111,111,98,97,114]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="implode"><a class="permalink" href="#implode">implode</a></h2>
+<p class="Pp">The inverse of explode.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;implode&#x00B4;
+<br/>
+   [65, 66, 67]
+=&gt; &quot;ABC&quot;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="split(str)"><a class="permalink" href="#split(str)">split(str)</a></h2>
+<p class="Pp">Splits an input string on the separator argument.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;split(&quot;, &quot;)&#x00B4;
+<br/>
+   &quot;a, b,c,d, e, &quot;
+=&gt; [&quot;a&quot;,&quot;b,c,d&quot;,&quot;e&quot;,&quot;&quot;]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="join(str)"><a class="permalink" href="#join(str)">join(str)</a></h2>
+<p class="Pp">Joins the array of elements given as input, using the argument as
+    separator. It is the inverse of <b>split</b>: that is, running
+    <b>split(&quot;foo&quot;) | join(&quot;foo&quot;)</b> over any input string
+    returns said input string.</p>
+<p class="Pp">Numbers and booleans in the input are converted to strings. Null
+    values are treated as empty strings. Arrays and objects in the input are not
+    supported.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;join(&quot;, &quot;)&#x00B4;
+<br/>
+   [&quot;a&quot;,&quot;b,c,d&quot;,&quot;e&quot;]
+=&gt; &quot;a, b,c,d, e&quot;
+jq &#x00B4;join(&quot; &quot;)&#x00B4;
+<br/>
+   [&quot;a&quot;,1,2.3,true,null,false]
+=&gt; &quot;a 1 2.3 true  false&quot;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="ascii_downcase,_ascii_upcase"><a class="permalink" href="#ascii_downcase,_ascii_upcase">ascii_downcase,
+  ascii_upcase</a></h2>
+<p class="Pp">Emit a copy of the input string with its alphabetic characters
+    (a-z and A-Z) converted to the specified case.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="while(cond;_update)"><a class="permalink" href="#while(cond;_update)">while(cond;
+  update)</a></h2>
+<p class="Pp">The <b>while(cond; update)</b> function allows you to repeatedly
+    apply an update to <b>.</b> until <b>cond</b> is false.</p>
+<p class="Pp">Note that <b>while(cond; update)</b> is internally defined as a
+    recursive jq function. Recursive calls within <b>while</b> will not consume
+    additional memory if <b>update</b> produces at most one output for each
+    input. See advanced topics below.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;[while(.&lt;100; .*2)]&#x00B4;
+<br/>
+   1
+=&gt; [1,2,4,8,16,32,64]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="until(cond;_next)"><a class="permalink" href="#until(cond;_next)">until(cond;
+  next)</a></h2>
+<p class="Pp">The <b>until(cond; next)</b> function allows you to repeatedly
+    apply the expression <b>next</b>, initially to <b>.</b> then to its own
+    output, until <b>cond</b> is true. For example, this can be used to
+    implement a factorial function (see below).</p>
+<p class="Pp">Note that <b>until(cond; next)</b> is internally defined as a
+    recursive jq function. Recursive calls within <b>until()</b> will not
+    consume additional memory if <b>next</b> produces at most one output for
+    each input. See advanced topics below.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;[.,1]|until(.[0] &lt; 1; [.[0] - 1, .[1] * .[0]])|.[1]&#x00B4;
+<br/>
+   4
+=&gt; 24</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="recurse(f),_recurse,_recurse(f;_condition),_recurse_down"><a class="permalink" href="#recurse(f),_recurse,_recurse(f;_condition),_recurse_down">recurse(f),
+  recurse, recurse(f; condition), recurse_down</a></h2>
+<p class="Pp">The <b>recurse(f)</b> function allows you to search through a
+    recursive structure, and extract interesting data from all levels. Suppose
+    your input represents a filesystem:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+{&quot;name&quot;: &quot;/&quot;, &quot;children&quot;: [
+<br/>
+  {&quot;name&quot;: &quot;/bin&quot;, &quot;children&quot;: [
+<br/>
+    {&quot;name&quot;: &quot;/bin/ls&quot;, &quot;children&quot;: []},
+<br/>
+    {&quot;name&quot;: &quot;/bin/sh&quot;, &quot;children&quot;: []}]},
+<br/>
+  {&quot;name&quot;: &quot;/home&quot;, &quot;children&quot;: [
+<br/>
+    {&quot;name&quot;: &quot;/home/stephen&quot;, &quot;children&quot;: [
+<br/>
+      {&quot;name&quot;: &quot;/home/stephen/jq&quot;, &quot;children&quot;: []}]}]}]}</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">Now suppose you want to extract all of the filenames present. You
+    need to retrieve <b>.name</b>, <b>.children[].name</b>,
+    <b>.children[].children[].name</b>, and so on. You can do this with:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+recurse(.children[]) | .name</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">When called without an argument, <b>recurse</b> is equivalent to
+    <b>recurse(.[]?)</b>.</p>
+<p class="Pp"><b>recurse(f)</b> is identical to <b>recurse(f; . != null)</b> and
+    can be used without concerns about recursion depth.</p>
+<p class="Pp"><b>recurse(f; condition)</b> is a generator which begins by
+    emitting . and then emits in turn .|f, .|f|f, .|f|f|f, ... so long as the
+    computed value satisfies the condition. For example, to generate all the
+    integers, at least in principle, one could write <b>recurse(.+1;
+  true)</b>.</p>
+<p class="Pp">For legacy reasons, <b>recurse_down</b> exists as an alias to
+    calling <b>recurse</b> without arguments. This alias is considered
+    <i>deprecated</i> and will be removed in the next major release.</p>
+<p class="Pp">The recursive calls in <b>recurse</b> will not consume additional
+    memory whenever <b>f</b> produces at most a single output for each
+  input.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;recurse(.foo[])&#x00B4;
+<br/>
+   {&quot;foo&quot;:[{&quot;foo&quot;: []}, {&quot;foo&quot;:[{&quot;foo&quot;:[]}]}]}
+=&gt; {&quot;foo&quot;:[{&quot;foo&quot;:[]},{&quot;foo&quot;:[{&quot;foo&quot;:[]}]}]}, {&quot;foo&quot;:[]}, {&quot;foo&quot;:[{&quot;foo&quot;:[]}]}, {&quot;foo&quot;:[]}
+jq &#x00B4;recurse&#x00B4;
+<br/>
+   {&quot;a&quot;:0,&quot;b&quot;:[1]}
+=&gt; {&quot;a&quot;:0,&quot;b&quot;:[1]}, 0, [1], 1
+jq &#x00B4;recurse(. * .; . &lt; 20)&#x00B4;
+<br/>
+   2
+=&gt; 2, 4, 16</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="walk(f)"><a class="permalink" href="#walk(f)">walk(f)</a></h2>
+<p class="Pp">The <b>walk(f)</b> function applies f recursively to every
+    component of the input entity. When an array is encountered, f is first
+    applied to its elements and then to the array itself; when an object is
+    encountered, f is first applied to all the values and then to the object. In
+    practice, f will usually test the type of its input, as illustrated in the
+    following examples. The first example highlights the usefulness of
+    processing the elements of an array of arrays before processing the array
+    itself. The second example shows how all the keys of all the objects within
+    the input can be considered for alteration.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;walk(if type == &quot;array&quot; then sort else . end)&#x00B4;
+<br/>
+   [[4, 1, 7], [8, 5, 2], [3, 6, 9]]
+=&gt; [[1,4,7],[2,5,8],[3,6,9]]
+jq &#x00B4;walk( if type == &quot;object&quot; then with_entries( .key |= sub( &quot;^_+&quot;; &quot;&quot;) ) else . end )&#x00B4;
+<br/>
+   [ { &quot;_a&quot;: { &quot;__b&quot;: 2 } } ]
+=&gt; [{&quot;a&quot;:{&quot;b&quot;:2}}]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="$ENV,_env"><a class="permalink" href="#$ENV,_env">$ENV,
+  env</a></h2>
+<p class="Pp"><b>$ENV</b> is an object representing the environment variables as
+    set when the jq program started.</p>
+<p class="Pp"><b>env</b> outputs an object representing jq&#x00B4;s current
+    environment.</p>
+<p class="Pp">At the moment there is no builtin for setting environment
+    variables.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;$ENV.PAGER&#x00B4;
+<br/>
+   null
+=&gt; &quot;less&quot;
+jq &#x00B4;env.PAGER&#x00B4;
+<br/>
+   null
+=&gt; &quot;less&quot;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="transpose"><a class="permalink" href="#transpose">transpose</a></h2>
+<p class="Pp">Transpose a possibly jagged matrix (an array of arrays). Rows are
+    padded with nulls so the result is always rectangular.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;transpose&#x00B4;
+<br/>
+   [[1], [2,3]]
+=&gt; [[1,2],[null,3]]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="bsearch(x)"><a class="permalink" href="#bsearch(x)">bsearch(x)</a></h2>
+<p class="Pp">bsearch(x) conducts a binary search for x in the input array. If
+    the input is sorted and contains x, then bsearch(x) will return its index in
+    the array; otherwise, if the array is sorted, it will return (-1 - ix) where
+    ix is an insertion point such that the array would still be sorted after the
+    insertion of x at ix. If the array is not sorted, bsearch(x) will return an
+    integer that is probably of no interest.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;bsearch(0)&#x00B4;
+<br/>
+   [0,1]
+=&gt; 0
+jq &#x00B4;bsearch(0)&#x00B4;
+<br/>
+   [1,2,3]
+=&gt; -1
+jq &#x00B4;bsearch(4) as $ix | if $ix &lt; 0 then .[-(1+$ix)] = 4 else . end&#x00B4;
+<br/>
+   [1,2,3]
+=&gt; [1,2,3,4]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="String_interpolation_"><a class="permalink" href="#String_interpolation_">String
+  interpolation - \(foo)</a></h2>
+<p class="Pp">Inside a string, you can put an expression inside parens after a
+    backslash. Whatever the expression returns will be interpolated into the
+    string.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;&quot;The input was \(.), which is one less than \(.+1)&quot;&#x00B4;
+<br/>
+   42
+=&gt; &quot;The input was 42, which is one less than 43&quot;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Convert_to/from_JSON"><a class="permalink" href="#Convert_to/from_JSON">Convert
+  to/from JSON</a></h2>
+<p class="Pp">The <b>tojson</b> and <b>fromjson</b> builtins dump values as JSON
+    texts or parse JSON texts into values, respectively. The tojson builtin
+    differs from tostring in that tostring returns strings unmodified, while
+    tojson encodes strings as JSON strings.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;[.[]|tostring]&#x00B4;
+<br/>
+   [1, &quot;foo&quot;, [&quot;foo&quot;]]
+=&gt; [&quot;1&quot;,&quot;foo&quot;,&quot;[\&quot;foo\&quot;]&quot;]
+jq &#x00B4;[.[]|tojson]&#x00B4;
+<br/>
+   [1, &quot;foo&quot;, [&quot;foo&quot;]]
+=&gt; [&quot;1&quot;,&quot;\&quot;foo\&quot;&quot;,&quot;[\&quot;foo\&quot;]&quot;]
+jq &#x00B4;[.[]|tojson|fromjson]&#x00B4;
+<br/>
+   [1, &quot;foo&quot;, [&quot;foo&quot;]]
+=&gt; [1,&quot;foo&quot;,[&quot;foo&quot;]]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Format_strings_and_escaping"><a class="permalink" href="#Format_strings_and_escaping">Format
+  strings and escaping</a></h2>
+<p class="Pp">The <b>@foo</b> syntax is used to format and escape strings, which
+    is useful for building URLs, documents in a language like HTML or XML, and
+    so forth. <b>@foo</b> can be used as a filter on its own, the possible
+    escapings are:</p>
+<dl class="Bl-tag">
+  <dt><b>@text</b>:</dt>
+  <dd></dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Calls <b>tostring</b>, see that function for details.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt><b>@json</b>:</dt>
+  <dd></dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Serializes the input as JSON.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt><b>@html</b>:</dt>
+  <dd></dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Applies HTML/XML escaping, by mapping the characters
+      <b>&lt;&gt;&amp;&#x00B4;&quot;</b> to their entity equivalents
+      <b>&amp;lt;</b>, <b>&amp;gt;</b>, <b>&amp;amp;</b>, <b>&amp;apos;</b>,
+      <b>&amp;quot;</b>.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt><b>@uri</b>:</dt>
+  <dd></dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Applies percent-encoding, by mapping all reserved URI characters to a
+      <b>%XX</b> sequence.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt><b>@csv</b>:</dt>
+  <dd></dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The input must be an array, and it is rendered as CSV with double quotes
+      for strings, and quotes escaped by repetition.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt><b>@tsv</b>:</dt>
+  <dd></dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The input must be an array, and it is rendered as TSV (tab-separated
+      values). Each input array will be printed as a single line. Fields are
+      separated by a single tab (ascii <b>0x09</b>). Input characters line-feed
+      (ascii <b>0x0a</b>), carriage-return (ascii <b>0x0d</b>), tab (ascii
+      <b>0x09</b>) and backslash (ascii <b>0x5c</b>) will be output as escape
+      sequences <b>\n</b>, <b>\r</b>, <b>\t</b>, <b>\\</b> respectively.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt><b>@sh</b>:</dt>
+  <dd></dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The input is escaped suitable for use in a command-line for a POSIX shell.
+      If the input is an array, the output will be a series of space-separated
+      strings.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt><b>@base64</b>:</dt>
+  <dd></dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The input is converted to base64 as specified by RFC 4648.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt><b>@base64d</b>:</dt>
+  <dd></dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The inverse of <b>@base64</b>, input is decoded as specified by RFC 4648.
+      Note: If the decoded string is not UTF-8, the results are undefined.</dd>
+</dl>
+<p class="Pp">This syntax can be combined with string interpolation in a useful
+    way. You can follow a <b>@foo</b> token with a string literal. The contents
+    of the string literal will <i>not</i> be escaped. However, all
+    interpolations made inside that string literal will be escaped. For
+    instance,</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+@uri &quot;https://www.google.com/search?q=\(.search)&quot;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">will produce the following output for the input
+    <b>{&quot;search&quot;:&quot;what is jq?&quot;}</b>:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+&quot;https://www.google.com/search?q=what%20is%20jq%3F&quot;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">Note that the slashes, question mark, etc. in the URL are not
+    escaped, as they were part of the string literal.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;@html&#x00B4;
+<br/>
+   &quot;This works if x &lt; y&quot;
+=&gt; &quot;This works if x &amp;lt; y&quot;
+jq &#x00B4;@sh &quot;echo \(.)&quot;&#x00B4;
+<br/>
+   &quot;O&#x00B4;Hara&#x00B4;s Ale&quot;
+=&gt; &quot;echo &#x00B4;O&#x00B4;\\&#x00B4;&#x00B4;Hara&#x00B4;\\&#x00B4;&#x00B4;s Ale&#x00B4;&quot;
+jq &#x00B4;@base64&#x00B4;
+<br/>
+   &quot;This is a message&quot;
+=&gt; &quot;VGhpcyBpcyBhIG1lc3NhZ2U=&quot;
+jq &#x00B4;@base64d&#x00B4;
+<br/>
+   &quot;VGhpcyBpcyBhIG1lc3NhZ2U=&quot;
+=&gt; &quot;This is a message&quot;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Dates"><a class="permalink" href="#Dates">Dates</a></h2>
+<p class="Pp">jq provides some basic date handling functionality, with some
+    high-level and low-level builtins. In all cases these builtins deal
+    exclusively with time in UTC.</p>
+<p class="Pp">The <b>fromdateiso8601</b> builtin parses datetimes in the ISO
+    8601 format to a number of seconds since the Unix epoch
+    (1970-01-01T00:00:00Z). The <b>todateiso8601</b> builtin does the
+  inverse.</p>
+<p class="Pp">The <b>fromdate</b> builtin parses datetime strings. Currently
+    <b>fromdate</b> only supports ISO 8601 datetime strings, but in the future
+    it will attempt to parse datetime strings in more formats.</p>
+<p class="Pp">The <b>todate</b> builtin is an alias for
+  <b>todateiso8601</b>.</p>
+<p class="Pp">The <b>now</b> builtin outputs the current time, in seconds since
+    the Unix epoch.</p>
+<p class="Pp">Low-level jq interfaces to the C-library time functions are also
+    provided: <b>strptime</b>, <b>strftime</b>, <b>strflocaltime</b>,
+    <b>mktime</b>, <b>gmtime</b>, and <b>localtime</b>. Refer to your host
+    operating system&#x00B4;s documentation for the format strings used by
+    <b>strptime</b> and <b>strftime</b>. Note: these are not necessarily stable
+    interfaces in jq, particularly as to their localization functionality.</p>
+<p class="Pp">The <b>gmtime</b> builtin consumes a number of seconds since the
+    Unix epoch and outputs a &quot;broken down time&quot; representation of
+    Greenwhich Meridian time as an array of numbers representing (in this
+    order): the year, the month (zero-based), the day of the month (one-based),
+    the hour of the day, the minute of the hour, the second of the minute, the
+    day of the week, and the day of the year -- all one-based unless otherwise
+    stated. The day of the week number may be wrong on some systems for dates
+    before March 1st 1900, or after December 31 2099.</p>
+<p class="Pp">The <b>localtime</b> builtin works like the <b>gmtime</b> builtin,
+    but using the local timezone setting.</p>
+<p class="Pp">The <b>mktime</b> builtin consumes &quot;broken down time&quot;
+    representations of time output by <b>gmtime</b> and <b>strptime</b>.</p>
+<p class="Pp">The <b>strptime(fmt)</b> builtin parses input strings matching the
+    <b>fmt</b> argument. The output is in the &quot;broken down time&quot;
+    representation consumed by <b>gmtime</b> and output by <b>mktime</b>.</p>
+<p class="Pp">The <b>strftime(fmt)</b> builtin formats a time (GMT) with the
+    given format. The <b>strflocaltime</b> does the same, but using the local
+    timezone setting.</p>
+<p class="Pp">The format strings for <b>strptime</b> and <b>strftime</b> are
+    described in typical C library documentation. The format string for ISO 8601
+    datetime is <b>&quot;%Y-%m-%dT%H:%M:%SZ&quot;</b>.</p>
+<p class="Pp">jq may not support some or all of this date functionality on some
+    systems. In particular, the <b>%u</b> and <b>%j</b> specifiers for
+    <b>strptime(fmt)</b> are not supported on macOS.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;fromdate&#x00B4;
+<br/>
+   &quot;2015-03-05T23:51:47Z&quot;
+=&gt; 1425599507
+jq &#x00B4;strptime(&quot;%Y-%m-%dT%H:%M:%SZ&quot;)&#x00B4;
+<br/>
+   &quot;2015-03-05T23:51:47Z&quot;
+=&gt; [2015,2,5,23,51,47,4,63]
+jq &#x00B4;strptime(&quot;%Y-%m-%dT%H:%M:%SZ&quot;)|mktime&#x00B4;
+<br/>
+   &quot;2015-03-05T23:51:47Z&quot;
+=&gt; 1425599507</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="SQL"><a class="permalink" href="#SQL">SQL-Style
+  Operators</a></h2>
+<p class="Pp">jq provides a few SQL-style operators.</p>
+<dl class="Bl-tag">
+  <dt id="INDEX(stream;"><a class="permalink" href="#INDEX(stream;">INDEX(stream;
+    index_expression):</a></dt>
+  <dd></dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>This builtin produces an object whose keys are computed by the given index
+      expression applied to each value from the given stream.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt id="JOIN($idx;"><a class="permalink" href="#JOIN($idx;">JOIN($idx; stream;
+    idx_expr; join_expr):</a></dt>
+  <dd></dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>This builtin joins the values from the given stream to the given index.
+      The index&#x00B4;s keys are computed by applying the given index
+      expression to each value from the given stream. An array of the value in
+      the stream and the corresponding value from the index is fed to the given
+      join expression to produce each result.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt id="JOIN($idx;~2"><a class="permalink" href="#JOIN($idx;~2">JOIN($idx;
+    stream; idx_expr):</a></dt>
+  <dd></dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Same as <b>JOIN($idx; stream; idx_expr; .)</b>.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt id="JOIN($idx;~3"><a class="permalink" href="#JOIN($idx;~3">JOIN($idx;
+    idx_expr):</a></dt>
+  <dd></dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>This builtin joins the input <b>.</b> to the given index, applying the
+      given index expression to <b>.</b> to compute the index key. The join
+      operation is as described above.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt id="IN(s):"><a class="permalink" href="#IN(s):">IN(s):</a></dt>
+  <dd></dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>This builtin outputs <b>true</b> if <b>.</b> appears in the given stream,
+      otherwise it outputs <b>false</b>.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt id="IN(source;"><a class="permalink" href="#IN(source;">IN(source;
+    s):</a></dt>
+  <dd></dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>This builtin outputs <b>true</b> if any value in the source stream appears
+      in the second stream, otherwise it outputs <b>false</b>.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="builtins"><a class="permalink" href="#builtins">builtins</a></h2>
+<p class="Pp">Returns a list of all builtin functions in the format
+    <b>name/arity</b>. Since functions with the same name but different arities
+    are considered separate functions, <b>all/0</b>, <b>all/1</b>, and
+    <b>all/2</b> would all be present in the list.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONDITIONALS_AND_COMPARISONS"><a class="permalink" href="#CONDITIONALS_AND_COMPARISONS">CONDITIONALS
+  AND COMPARISONS</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="==,_!="><a class="permalink" href="#==,_!=">==, !=</a></h2>
+<p class="Pp">The expression &#x00B4;a == b&#x00B4; will produce
+    &#x00B4;true&#x00B4; if the result of a and b are equal (that is, if they
+    represent equivalent JSON documents) and &#x00B4;false&#x00B4; otherwise. In
+    particular, strings are never considered equal to numbers. If you&#x00B4;re
+    coming from Javascript, jq&#x00B4;s == is like Javascript&#x00B4;s === -
+    considering values equal only when they have the same type as well as the
+    same value.</p>
+<p class="Pp">!= is &quot;not equal&quot;, and &#x00B4;a != b&#x00B4; returns
+    the opposite value of &#x00B4;a == b&#x00B4;</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;.[] == 1&#x00B4;
+<br/>
+   [1, 1.0, &quot;1&quot;, &quot;banana&quot;]
+=&gt; true, true, false, false</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="if"><a class="permalink" href="#if">if-then-else</a></h2>
+<p class="Pp"><b>if A then B else C end</b> will act the same as <b>B</b> if
+    <b>A</b> produces a value other than false or null, but act the same as
+    <b>C</b> otherwise.</p>
+<p class="Pp">Checking for false or null is a simpler notion of
+    &quot;truthiness&quot; than is found in Javascript or Python, but it means
+    that you&#x00B4;ll sometimes have to be more explicit about the condition
+    you want: you can&#x00B4;t test whether, e.g. a string is empty using <b>if
+    .name then A else B end</b>, you&#x00B4;ll need something more like <b>if
+    (.name | length) &gt; 0 then A else B end</b> instead.</p>
+<p class="Pp">If the condition <b>A</b> produces multiple results, then <b>B</b>
+    is evaluated once for each result that is not false or null, and <b>C</b> is
+    evaluated once for each false or null.</p>
+<p class="Pp">More cases can be added to an if using <b>elif A then B</b>
+    syntax.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;if . == 0 then</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">&quot;zero&quot; elif . == 1 then &quot;one&quot; else
+    &quot;many&quot; end&#x00B4; 2 =&gt; &quot;many&quot;</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_,__=,__=,__"><a class="permalink" href="#_,__=,__=,__">&gt;,
+  &gt;=, &lt;=, &lt;</a></h2>
+<p class="Pp">The comparison operators <b>&gt;</b>, <b>&gt;=</b>, <b>&lt;=</b>,
+    <b>&lt;</b> return whether their left argument is greater than, greater than
+    or equal to, less than or equal to or less than their right argument
+    (respectively).</p>
+<p class="Pp">The ordering is the same as that described for <b>sort</b>,
+  above.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;. &lt; 5&#x00B4;
+<br/>
+   2
+=&gt; true</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="and/or/not"><a class="permalink" href="#and/or/not">and/or/not</a></h2>
+<p class="Pp">jq supports the normal Boolean operators and/or/not. They have the
+    same standard of truth as if expressions - false and null are considered
+    &quot;false values&quot;, and anything else is a &quot;true value&quot;.</p>
+<p class="Pp">If an operand of one of these operators produces multiple results,
+    the operator itself will produce a result for each input.</p>
+<p class="Pp"><b>not</b> is in fact a builtin function rather than an operator,
+    so it is called as a filter to which things can be piped rather than with
+    special syntax, as in <b>.foo and .bar | not</b>.</p>
+<p class="Pp">These three only produce the values &quot;true&quot; and
+    &quot;false&quot;, and so are only useful for genuine Boolean operations,
+    rather than the common Perl/Python/Ruby idiom of
+    &quot;value_that_may_be_null or default&quot;. If you want to use this form
+    of &quot;or&quot;, picking between two values rather than evaluating a
+    condition, see the &quot;//&quot; operator below.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;42 and &quot;a string&quot;&#x00B4;
+<br/>
+   null
+=&gt; true
+jq &#x00B4;(true, false) or false&#x00B4;
+<br/>
+   null
+=&gt; true, false
+jq &#x00B4;(true, true) and (true, false)&#x00B4;
+<br/>
+   null
+=&gt; true, false, true, false
+jq &#x00B4;[true, false | not]&#x00B4;
+<br/>
+   null
+=&gt; [false, true]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Alternative_operator:_//"><a class="permalink" href="#Alternative_operator:_//">Alternative
+  operator: //</a></h2>
+<p class="Pp">A filter of the form <b>a // b</b> produces the same results as
+    <b>a</b>, if <b>a</b> produces results other than <b>false</b> and
+    <b>null</b>. Otherwise, <b>a // b</b> produces the same results as
+  <b>b</b>.</p>
+<p class="Pp">This is useful for providing defaults: <b>.foo // 1</b> will
+    evaluate to <b>1</b> if there&#x00B4;s no <b>.foo</b> element in the input.
+    It&#x00B4;s similar to how <b>or</b> is sometimes used in Python
+    (jq&#x00B4;s <b>or</b> operator is reserved for strictly Boolean
+    operations).</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;.foo // 42&#x00B4;
+<br/>
+   {&quot;foo&quot;: 19}
+=&gt; 19
+jq &#x00B4;.foo // 42&#x00B4;
+<br/>
+   {}
+=&gt; 42</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="try"><a class="permalink" href="#try">try-catch</a></h2>
+<p class="Pp">Errors can be caught by using <b>try EXP catch EXP</b>. The first
+    expression is executed, and if it fails then the second is executed with the
+    error message. The output of the handler, if any, is output as if it had
+    been the output of the expression to try.</p>
+<p class="Pp">The <b>try EXP</b> form uses <b>empty</b> as the exception
+    handler.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;try .a catch &quot;. is not an object&quot;&#x00B4;
+<br/>
+   true
+=&gt; &quot;. is not an object&quot;
+jq &#x00B4;[.[]|try .a]&#x00B4;
+<br/>
+   [{}, true, {&quot;a&quot;:1}]
+=&gt; [null, 1]
+jq &#x00B4;try error(&quot;some exception&quot;) catch .&#x00B4;
+<br/>
+   true
+=&gt; &quot;some exception&quot;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Breaking_out_of_control_structures"><a class="permalink" href="#Breaking_out_of_control_structures">Breaking
+  out of control structures</a></h2>
+<p class="Pp">A convenient use of try/catch is to break out of control
+    structures like <b>reduce</b>, <b>foreach</b>, <b>while</b>, and so on.</p>
+<p class="Pp">For example:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+# Repeat an expression until it raises &quot;break&quot; as an
+# error, then stop repeating without re-raising the error.
+# But if the error caught is not &quot;break&quot; then re-raise it.
+try repeat(exp) catch .==&quot;break&quot; then empty else error;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">jq has a syntax for named lexical labels to &quot;break&quot; or
+    &quot;go (back) to&quot;:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+label $out | ... break $out ...</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">The <b>break $label_name</b> expression will cause the program to
+    to act as though the nearest (to the left) <b>label $label_name</b> produced
+    <b>empty</b>.</p>
+<p class="Pp">The relationship between the <b>break</b> and corresponding
+    <b>label</b> is lexical: the label has to be &quot;visible&quot; from the
+    break.</p>
+<p class="Pp">To break out of a <b>reduce</b>, for example:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+label $out | reduce .[] as $item (null; if .==false then break $out else ... end)</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">The following jq program produces a syntax error:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+break $out</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">because no label <b>$out</b> is visible.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Error_Suppression_/_Optional_Operator:_?"><a class="permalink" href="#Error_Suppression_/_Optional_Operator:_?">Error
+  Suppression / Optional Operator: ?</a></h2>
+<p class="Pp">The <b>?</b> operator, used as <b>EXP?</b>, is shorthand for
+    <b>try EXP</b>.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;[.[]|(.a)?]&#x00B4;
+<br/>
+   [{}, true, {&quot;a&quot;:1}]
+=&gt; [null, 1]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REGULAR_EXPRESSIONS_(PCRE)"><a class="permalink" href="#REGULAR_EXPRESSIONS_(PCRE)">REGULAR
+  EXPRESSIONS (PCRE)</a></h1>
+<p class="Pp">jq uses the Oniguruma regular expression library, as do php, ruby,
+    TextMate, Sublime Text, etc, so the description here will focus on jq
+    specifics.</p>
+<p class="Pp">The jq regex filters are defined so that they can be used using
+    one of these patterns:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+STRING | FILTER( REGEX )
+STRING | FILTER( REGEX; FLAGS )
+STRING | FILTER( [REGEX] )
+STRING | FILTER( [REGEX, FLAGS] )</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">where: * STRING, REGEX and FLAGS are jq strings and subject to jq
+    string interpolation; * REGEX, after string interpolation, should be a valid
+    PCRE regex; * FILTER is one of <b>test</b>, <b>match</b>, or <b>capture</b>,
+    as described below.</p>
+<p class="Pp">FLAGS is a string consisting of one of more of the supported
+    flags:</p>
+<ul class="Bl-bullet">
+  <li><b>g</b> - Global search (find all matches, not just the first)</li>
+  <li><b>i</b> - Case insensitive search</li>
+  <li><b>m</b> - Multi line mode (&#x00B4;.&#x00B4; will match newlines)</li>
+  <li><b>n</b> - Ignore empty matches</li>
+  <li><b>p</b> - Both s and m modes are enabled</li>
+  <li><b>s</b> - Single line mode (&#x00B4;^&#x00B4; -&gt; &#x00B4;\A&#x00B4;,
+      &#x00B4;$&#x00B4; -&gt; &#x00B4;\Z&#x00B4;)</li>
+  <li><b>l</b> - Find longest possible matches</li>
+  <li><b>x</b> - Extended regex format (ignore whitespace and comments)</li>
+</ul>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">To match whitespace in an x pattern use an escape such as \s,
+  e.g.</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>test( &quot;a\sb&quot;, &quot;x&quot; ).</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">Note that certain flags may also be specified within REGEX,
+  e.g.</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>jq -n &#x00B4;(&quot;test&quot;, &quot;TEst&quot;, &quot;teST&quot;,
+      &quot;TEST&quot;) | test( &quot;(?i)te(?-i)st&quot; )&#x00B4;</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">evaluates to: true, true, false, false.</p>
+<section class="Ss">
+<h2 class="Ss" id="test(val),_test(regex;_flags)"><a class="permalink" href="#test(val),_test(regex;_flags)">test(val),
+  test(regex; flags)</a></h2>
+<p class="Pp">Like <b>match</b>, but does not return match objects, only
+    <b>true</b> or <b>false</b> for whether or not the regex matches the
+  input.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;test(&quot;foo&quot;)&#x00B4;
+<br/>
+   &quot;foo&quot;
+=&gt; true
+jq &#x00B4;.[] | test(&quot;a b c # spaces are ignored&quot;; &quot;ix&quot;)&#x00B4;
+<br/>
+   [&quot;xabcd&quot;, &quot;ABC&quot;]
+=&gt; true, true</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="match(val),_match(regex;_flags)"><a class="permalink" href="#match(val),_match(regex;_flags)">match(val),
+  match(regex; flags)</a></h2>
+<p class="Pp"><b>match</b> outputs an object for each match it finds. Matches
+    have the following fields:</p>
+<ul class="Bl-bullet">
+  <li><b>offset</b> - offset in UTF-8 codepoints from the beginning of the
+    input</li>
+  <li><b>length</b> - length in UTF-8 codepoints of the match</li>
+  <li><b>string</b> - the string that it matched</li>
+  <li><b>captures</b> - an array of objects representing capturing groups.</li>
+</ul>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">Capturing group objects have the following fields:</p>
+<ul class="Bl-bullet">
+  <li><b>offset</b> - offset in UTF-8 codepoints from the beginning of the
+    input</li>
+  <li><b>length</b> - length in UTF-8 codepoints of this capturing group</li>
+  <li><b>string</b> - the string that was captured</li>
+  <li><b>name</b> - the name of the capturing group (or <b>null</b> if it was
+      unnamed)</li>
+</ul>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">Capturing groups that did not match anything return an offset of
+    -1</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;match(&quot;(abc)+&quot;; &quot;g&quot;)&#x00B4;
+<br/>
+   &quot;abc abc&quot;
+=&gt; {&quot;offset&quot;: 0, &quot;length&quot;: 3, &quot;string&quot;: &quot;abc&quot;, &quot;captures&quot;: [{&quot;offset&quot;: 0, &quot;length&quot;: 3, &quot;string&quot;: &quot;abc&quot;, &quot;name&quot;: null}]}, {&quot;offset&quot;: 4, &quot;length&quot;: 3, &quot;string&quot;: &quot;abc&quot;, &quot;captures&quot;: [{&quot;offset&quot;: 4, &quot;length&quot;: 3, &quot;string&quot;: &quot;abc&quot;, &quot;name&quot;: null}]}
+jq &#x00B4;match(&quot;foo&quot;)&#x00B4;
+<br/>
+   &quot;foo bar foo&quot;
+=&gt; {&quot;offset&quot;: 0, &quot;length&quot;: 3, &quot;string&quot;: &quot;foo&quot;, &quot;captures&quot;: []}
+jq &#x00B4;match([&quot;foo&quot;, &quot;ig&quot;])&#x00B4;
+<br/>
+   &quot;foo bar FOO&quot;
+=&gt; {&quot;offset&quot;: 0, &quot;length&quot;: 3, &quot;string&quot;: &quot;foo&quot;, &quot;captures&quot;: []}, {&quot;offset&quot;: 8, &quot;length&quot;: 3, &quot;string&quot;: &quot;FOO&quot;, &quot;captures&quot;: []}
+jq &#x00B4;match(&quot;foo (?&lt;bar123&gt;bar)? foo&quot;; &quot;ig&quot;)&#x00B4;
+<br/>
+   &quot;foo bar foo foo  foo&quot;
+=&gt; {&quot;offset&quot;: 0, &quot;length&quot;: 11, &quot;string&quot;: &quot;foo bar foo&quot;, &quot;captures&quot;: [{&quot;offset&quot;: 4, &quot;length&quot;: 3, &quot;string&quot;: &quot;bar&quot;, &quot;name&quot;: &quot;bar123&quot;}]}, {&quot;offset&quot;: 12, &quot;length&quot;: 8, &quot;string&quot;: &quot;foo  foo&quot;, &quot;captures&quot;: [{&quot;offset&quot;: -1, &quot;length&quot;: 0, &quot;string&quot;: null, &quot;name&quot;: &quot;bar123&quot;}]}
+jq &#x00B4;[ match(&quot;.&quot;; &quot;g&quot;)] | length&#x00B4;
+<br/>
+   &quot;abc&quot;
+=&gt; 3</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="capture(val),_capture(regex;_flags)"><a class="permalink" href="#capture(val),_capture(regex;_flags)">capture(val),
+  capture(regex; flags)</a></h2>
+<p class="Pp">Collects the named captures in a JSON object, with the name of
+    each capture as the key, and the matched string as the corresponding
+  value.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;capture(&quot;(?&lt;a&gt;[a-z]+)-(?&lt;n&gt;[0-9]+)&quot;)&#x00B4;
+<br/>
+   &quot;xyzzy-14&quot;
+=&gt; { &quot;a&quot;: &quot;xyzzy&quot;, &quot;n&quot;: &quot;14&quot; }</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="scan(regex),_scan(regex;_flags)"><a class="permalink" href="#scan(regex),_scan(regex;_flags)">scan(regex),
+  scan(regex; flags)</a></h2>
+<p class="Pp">Emit a stream of the non-overlapping substrings of the input that
+    match the regex in accordance with the flags, if any have been specified. If
+    there is no match, the stream is empty. To capture all the matches for each
+    input string, use the idiom <b>[ expr ]</b>, e.g. <b>[ scan(regex)
+  ]</b>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="split(regex;_flags)"><a class="permalink" href="#split(regex;_flags)">split(regex;
+  flags)</a></h2>
+<p class="Pp">For backwards compatibility, <b>split</b> splits on a string, not
+    a regex.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="splits(regex),_splits(regex;_flags)"><a class="permalink" href="#splits(regex),_splits(regex;_flags)">splits(regex),
+  splits(regex; flags)</a></h2>
+<p class="Pp">These provide the same results as their <b>split</b> counterparts,
+    but as a stream instead of an array.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="sub(regex;_tostring)_sub(regex;_string;_flags)"><a class="permalink" href="#sub(regex;_tostring)_sub(regex;_string;_flags)">sub(regex;
+  tostring) sub(regex; string; flags)</a></h2>
+<p class="Pp">Emit the string obtained by replacing the first match of regex in
+    the input string with <b>tostring</b>, after interpolation. <b>tostring</b>
+    should be a jq string, and may contain references to named captures. The
+    named captures are, in effect, presented as a JSON object (as constructed by
+    <b>capture</b>) to <b>tostring</b>, so a reference to a captured variable
+    named &quot;x&quot; would take the form: &quot;(.x)&quot;.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="gsub(regex;_string),_gsub(regex;_string;_flags)"><a class="permalink" href="#gsub(regex;_string),_gsub(regex;_string;_flags)">gsub(regex;
+  string), gsub(regex; string; flags)</a></h2>
+<p class="Pp"><b>gsub</b> is like <b>sub</b> but all the non-overlapping
+    occurrences of the regex are replaced by the string, after
+  interpolation.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ADVANCED_FEATURES"><a class="permalink" href="#ADVANCED_FEATURES">ADVANCED
+  FEATURES</a></h1>
+<p class="Pp">Variables are an absolute necessity in most programming languages,
+    but they&#x00B4;re relegated to an &quot;advanced feature&quot; in jq.</p>
+<p class="Pp">In most languages, variables are the only means of passing around
+    data. If you calculate a value, and you want to use it more than once,
+    you&#x00B4;ll need to store it in a variable. To pass a value to another
+    part of the program, you&#x00B4;ll need that part of the program to define a
+    variable (as a function parameter, object member, or whatever) in which to
+    place the data.</p>
+<p class="Pp">It is also possible to define functions in jq, although this is is
+    a feature whose biggest use is defining jq&#x00B4;s standard library (many
+    jq functions such as <b>map</b> and <b>find</b> are in fact written in
+  jq).</p>
+<p class="Pp">jq has reduction operators, which are very powerful but a bit
+    tricky. Again, these are mostly used internally, to define some useful bits
+    of jq&#x00B4;s standard library.</p>
+<p class="Pp">It may not be obvious at first, but jq is all about generators
+    (yes, as often found in other languages). Some utilities are provided to
+    help deal with generators.</p>
+<p class="Pp">Some minimal I/O support (besides reading JSON from standard
+    input, and writing JSON to standard output) is available.</p>
+<p class="Pp">Finally, there is a module/library system.</p>
+<section class="Ss">
+<h2 class="Ss" id="Variable_/_Symbolic_Binding_Operator:_"><a class="permalink" href="#Variable_/_Symbolic_Binding_Operator:_">Variable
+  / Symbolic Binding Operator: ... as $identifier | ...</a></h2>
+<p class="Pp">In jq, all filters have an input and an output, so manual plumbing
+    is not necessary to pass a value from one part of a program to the next.
+    Many expressions, for instance <b>a + b</b>, pass their input to two
+    distinct subexpressions (here <b>a</b> and <b>b</b> are both passed the same
+    input), so variables aren&#x00B4;t usually necessary in order to use a value
+    twice.</p>
+<p class="Pp">For instance, calculating the average value of an array of numbers
+    requires a few variables in most languages - at least one to hold the array,
+    perhaps one for each element or for a loop counter. In jq, it&#x00B4;s
+    simply <b>add / length</b> - the <b>add</b> expression is given the array
+    and produces its sum, and the <b>length</b> expression is given the array
+    and produces its length.</p>
+<p class="Pp">So, there&#x00B4;s generally a cleaner way to solve most problems
+    in jq than defining variables. Still, sometimes they do make things easier,
+    so jq lets you define variables using <b>expression as $variable</b>. All
+    variable names start with <b>$</b>. Here&#x00B4;s a slightly uglier version
+    of the array-averaging example:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+length as $array_length | add / $array_length</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">We&#x00B4;ll need a more complicated problem to find a situation
+    where using variables actually makes our lives easier.</p>
+<p class="Pp">Suppose we have an array of blog posts, with &quot;author&quot;
+    and &quot;title&quot; fields, and another object which is used to map author
+    usernames to real names. Our input looks like:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+{&quot;posts&quot;: [{&quot;title&quot;: &quot;Frist psot&quot;, &quot;author&quot;: &quot;anon&quot;},
+<br/>
+           {&quot;title&quot;: &quot;A well-written article&quot;, &quot;author&quot;: &quot;person1&quot;}],
+<br/>
+ &quot;realnames&quot;: {&quot;anon&quot;: &quot;Anonymous Coward&quot;,
+<br/>
+               &quot;person1&quot;: &quot;Person McPherson&quot;}}</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">We want to produce the posts with the author field containing a
+    real name, as in:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+{&quot;title&quot;: &quot;Frist psot&quot;, &quot;author&quot;: &quot;Anonymous Coward&quot;}
+{&quot;title&quot;: &quot;A well-written article&quot;, &quot;author&quot;: &quot;Person McPherson&quot;}</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">We use a variable, $names, to store the realnames object, so that
+    we can refer to it later when looking up author usernames:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+.realnames as $names | .posts[] | {title, author: $names[.author]}</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">The expression <b>exp as $x | ...</b> means: for each value of
+    expression <b>exp</b>, run the rest of the pipeline with the entire original
+    input, and with <b>$x</b> set to that value. Thus <b>as</b> functions as
+    something of a foreach loop.</p>
+<p class="Pp">Just as <b>{foo}</b> is a handy way of writing <b>{foo: .foo}</b>,
+    so <b>{$foo}</b> is a handy way of writing <b>{foo:$foo}</b>.</p>
+<p class="Pp">Multiple variables may be declared using a single <b>as</b>
+    expression by providing a pattern that matches the structure of the input
+    (this is known as &quot;destructuring&quot;):</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+. as {realnames: $names, posts: [$first, $second]} | ...</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">The variable declarations in array patterns (e.g., <b>. as
+    [$first, $second]</b>) bind to the elements of the array in from the element
+    at index zero on up, in order. When there is no value at the index for an
+    array pattern element, <b>null</b> is bound to that variable.</p>
+<p class="Pp">Variables are scoped over the rest of the expression that defines
+    them, so</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+.realnames as $names | (.posts[] | {title, author: $names[.author]})</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">will work, but</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+(.realnames as $names | .posts[]) | {title, author: $names[.author]}</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">won&#x00B4;t.</p>
+<p class="Pp">For programming language theorists, it&#x00B4;s more accurate to
+    say that jq variables are lexically-scoped bindings. In particular
+    there&#x00B4;s no way to change the value of a binding; one can only setup a
+    new binding with the same name, but which will not be visible where the old
+    one was.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;.bar as $x | .foo | . + $x&#x00B4;
+<br/>
+   {&quot;foo&quot;:10, &quot;bar&quot;:200}
+=&gt; 210
+jq &#x00B4;. as $i|[(.*2|. as $i| $i), $i]&#x00B4;
+<br/>
+   5
+=&gt; [10,5]
+jq &#x00B4;. as [$a, $b, {c: $c}] | $a + $b + $c&#x00B4;
+<br/>
+   [2, 3, {&quot;c&quot;: 4, &quot;d&quot;: 5}]
+=&gt; 9
+jq &#x00B4;.[] as [$a, $b] | {a: $a, b: $b}&#x00B4;
+<br/>
+   [[0], [0, 1], [2, 1, 0]]
+=&gt; {&quot;a&quot;:0,&quot;b&quot;:null}, {&quot;a&quot;:0,&quot;b&quot;:1}, {&quot;a&quot;:2,&quot;b&quot;:1}</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Defining_Functions"><a class="permalink" href="#Defining_Functions">Defining
+  Functions</a></h2>
+<p class="Pp">You can give a filter a name using &quot;def&quot; syntax:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+def increment: . + 1;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">From then on, <b>increment</b> is usable as a filter just like a
+    builtin function (in fact, this is how many of the builtins are defined). A
+    function may take arguments:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+def map(f): [.[] | f];</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">Arguments are passed as <i>filters</i> (functions with no
+    arguments), <i>not</i> as values. The same argument may be referenced
+    multiple times with different inputs (here <b>f</b> is run for each element
+    of the input array). Arguments to a function work more like callbacks than
+    like value arguments. This is important to understand. Consider:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+def foo(f): f|f;
+5|foo(.*2)</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">The result will be 20 because <b>f</b> is <b>.*2</b>, and during
+    the first invocation of <b>f</b> <b>.</b> will be 5, and the second time it
+    will be 10 (5 * 2), so the result will be 20. Function arguments are
+    filters, and filters expect an input when invoked.</p>
+<p class="Pp">If you want the value-argument behaviour for defining simple
+    functions, you can just use a variable:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+def addvalue(f): f as $f | map(. + $f);</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">Or use the short-hand:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+def addvalue($f): ...;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">With either definition, <b>addvalue(.foo)</b> will add the current
+    input&#x00B4;s <b>.foo</b> field to each element of the array. Do note that
+    calling <b>addvalue(.[])</b> will cause the <b>map(. + $f)</b> part to be
+    evaluated once per value in the value of <b>.</b> at the call site.</p>
+<p class="Pp">Multiple definitions using the same function name are allowed.
+    Each re-definition replaces the previous one for the same number of function
+    arguments, but only for references from functions (or main program)
+    subsequent to the re-definition. See also the section below on scoping.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;def addvalue(f): . + [f]; map(addvalue(.[0]))&#x00B4;
+<br/>
+   [[1,2],[10,20]]
+=&gt; [[1,2,1], [10,20,10]]
+jq &#x00B4;def addvalue(f): f as $x | map(. + $x); addvalue(.[0])&#x00B4;
+<br/>
+   [[1,2],[10,20]]
+=&gt; [[1,2,1,2], [10,20,1,2]]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Scoping"><a class="permalink" href="#Scoping">Scoping</a></h2>
+<p class="Pp">There are two types of symbols in jq: value bindings (a.k.a.,
+    &quot;variables&quot;), and functions. Both are scoped lexically, with
+    expressions being able to refer only to symbols that have been defined
+    &quot;to the left&quot; of them. The only exception to this rule is that
+    functions can refer to themselves so as to be able to create recursive
+    functions.</p>
+<p class="Pp">For example, in the following expression there is a binding which
+    is visible &quot;to the right&quot; of it, <b>... | .*3 as $times_three | [.
+    + $times_three] | ...</b>, but not &quot;to the left&quot;. Consider this
+    expression now, <b>... | (.*3 as $times_three | [.+ $times_three]) |
+    ...</b>: here the binding <b>$times_three</b> is <i>not</i> visible past the
+    closing parenthesis.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Reduce"><a class="permalink" href="#Reduce">Reduce</a></h2>
+<p class="Pp">The <b>reduce</b> syntax in jq allows you to combine all of the
+    results of an expression by accumulating them into a single answer. As an
+    example, we&#x00B4;ll pass <b>[3,2,1]</b> to this expression:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+reduce .[] as $item (0; . + $item)</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">For each result that <b>.[]</b> produces, <b>. + $item</b> is run
+    to accumulate a running total, starting from 0. In this example, <b>.[]</b>
+    produces the results 3, 2, and 1, so the effect is similar to running
+    something like this:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+0 | (3 as $item | . + $item) |
+<br/>
+    (2 as $item | . + $item) |
+<br/>
+    (1 as $item | . + $item)
+jq &#x00B4;reduce .[] as $item (0; . + $item)&#x00B4;
+<br/>
+   [10,2,5,3]
+=&gt; 20</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="isempty(exp)"><a class="permalink" href="#isempty(exp)">isempty(exp)</a></h2>
+<p class="Pp">Returns true if <b>exp</b> produces no outputs, false
+  otherwise.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;isempty(empty)&#x00B4;
+<br/>
+   null
+=&gt; true</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="limit(n;_exp)"><a class="permalink" href="#limit(n;_exp)">limit(n;
+  exp)</a></h2>
+<p class="Pp">The <b>limit</b> function extracts up to <b>n</b> outputs from
+    <b>exp</b>.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;[limit(3;.[])]&#x00B4;
+<br/>
+   [0,1,2,3,4,5,6,7,8,9]
+=&gt; [0,1,2]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="first(expr),_last(expr),_nth(n;_expr)"><a class="permalink" href="#first(expr),_last(expr),_nth(n;_expr)">first(expr),
+  last(expr), nth(n; expr)</a></h2>
+<p class="Pp">The <b>first(expr)</b> and <b>last(expr)</b> functions extract the
+    first and last values from <b>expr</b>, respectively.</p>
+<p class="Pp">The <b>nth(n; expr)</b> function extracts the nth value output by
+    <b>expr</b>. This can be defined as <b>def nth(n; expr): last(limit(n + 1;
+    expr));</b>. Note that <b>nth(n; expr)</b> doesn&#x00B4;t support negative
+    values of <b>n</b>.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;[first(range(.)), last(range(.)), nth(./2; range(.))]&#x00B4;
+<br/>
+   10
+=&gt; [0,9,5]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="first,_last,_nth(n)"><a class="permalink" href="#first,_last,_nth(n)">first,
+  last, nth(n)</a></h2>
+<p class="Pp">The <b>first</b> and <b>last</b> functions extract the first and
+    last values from any array at <b>.</b>.</p>
+<p class="Pp">The <b>nth(n)</b> function extracts the nth value of any array at
+    <b>.</b>.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;[range(.)]|[first, last, nth(5)]&#x00B4;
+<br/>
+   10
+=&gt; [0,9,5]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="foreach"><a class="permalink" href="#foreach">foreach</a></h2>
+<p class="Pp">The <b>foreach</b> syntax is similar to <b>reduce</b>, but
+    intended to allow the construction of <b>limit</b> and reducers that produce
+    intermediate results (see example).</p>
+<p class="Pp">The form is <b>foreach EXP as $var (INIT; UPDATE; EXTRACT)</b>.
+    Like <b>reduce</b>, <b>INIT</b> is evaluated once to produce a state value,
+    then each output of <b>EXP</b> is bound to <b>$var</b>, <b>UPDATE</b> is
+    evaluated for each output of <b>EXP</b> with the current state and with
+    <b>$var</b> visible. Each value output by <b>UPDATE</b> replaces the
+    previous state. Finally, <b>EXTRACT</b> is evaluated for each new state to
+    extract an output of <b>foreach</b>.</p>
+<p class="Pp">This is mostly useful only for constructing <b>reduce</b>- and
+    <b>limit</b>-like functions. But it is much more general, as it allows for
+    partial reductions (see the example below).</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;[foreach .[] as $item ([[],[]]; if $item == null then [[],.[0]] else [(.[0] + [$item]),[]] end; if $item == null then .[1] else empty end)]&#x00B4;
+<br/>
+   [1,2,3,4,null,&quot;a&quot;,&quot;b&quot;,null]
+=&gt; [[1,2,3,4],[&quot;a&quot;,&quot;b&quot;]]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Recursion"><a class="permalink" href="#Recursion">Recursion</a></h2>
+<p class="Pp">As described above, <b>recurse</b> uses recursion, and any jq
+    function can be recursive. The <b>while</b> builtin is also implemented in
+    terms of recursion.</p>
+<p class="Pp">Tail calls are optimized whenever the expression to the left of
+    the recursive call outputs its last value. In practice this means that the
+    expression to the left of the recursive call should not produce more than
+    one output for each input.</p>
+<p class="Pp">For example:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+def recurse(f): def r: ., (f | select(. != null) | r); r;
+def while(cond; update):
+<br/>
+  def _while:
+<br/>
+    if cond then ., (update | _while) else empty end;
+<br/>
+  _while;
+def repeat(exp):
+<br/>
+  def _repeat:
+<br/>
+    exp, _repeat;
+<br/>
+  _repeat;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Generators_and_iterators"><a class="permalink" href="#Generators_and_iterators">Generators
+  and iterators</a></h2>
+<p class="Pp">Some jq operators and functions are actually generators in that
+    they can produce zero, one, or more values for each input, just as one might
+    expect in other programming languages that have generators. For example,
+    <b>.[]</b> generates all the values in its input (which must be an array or
+    an object), <b>range(0; 10)</b> generates the integers between 0 and 10, and
+    so on.</p>
+<p class="Pp">Even the comma operator is a generator, generating first the
+    values generated by the expression to the left of the comma, then for each
+    of those, the values generate by the expression on the right of the
+  comma.</p>
+<p class="Pp">The <b>empty</b> builtin is the generator that produces zero
+    outputs. The <b>empty</b> builtin backtracks to the preceding generator
+    expression.</p>
+<p class="Pp">All jq functions can be generators just by using builtin
+    generators. It is also possible to define new generators using only
+    recursion and the comma operator. If the recursive call(s) is(are) &quot;in
+    tail position&quot; then the generator will be efficient. In the example
+    below the recursive call by <b>_range</b> to itself is in tail position. The
+    example shows off three advanced topics: tail recursion, generator
+    construction, and sub-functions.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;def range(init; upto; by): def _range: if (by &gt; 0 and . &lt; upto) or (by &lt; 0 and . &gt; upto) then ., ((.+by)|_range) else . end; if by == 0 then init else init|_range end | select((by &gt; 0 and . &lt; upto) or (by &lt; 0 and . &gt; upto)); range(0; 10; 3)&#x00B4;
+<br/>
+   null
+=&gt; 0, 3, 6, 9
+jq &#x00B4;def while(cond; update): def _while: if cond then ., (update | _while) else empty end; _while; [while(.&lt;100; .*2)]&#x00B4;
+<br/>
+   1
+=&gt; [1,2,4,8,16,32,64]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MATH"><a class="permalink" href="#MATH">MATH</a></h1>
+<p class="Pp">jq currently only has IEEE754 double-precision (64-bit) floating
+    point number support.</p>
+<p class="Pp">Besides simple arithmetic operators such as <b>+</b>, jq also has
+    most standard math functions from the C math library. C math functions that
+    take a single input argument (e.g., <b>sin()</b>) are available as
+    zero-argument jq functions. C math functions that take two input arguments
+    (e.g., <b>pow()</b>) are available as two-argument jq functions that ignore
+    <b>.</b>. C math functions that take three input arguments are available as
+    three-argument jq functions that ignore <b>.</b>.</p>
+<p class="Pp">Availability of standard math functions depends on the
+    availability of the corresponding math functions in your operating system
+    and C math library. Unavailable math functions will be defined but will
+    raise an error.</p>
+<p class="Pp">One-input C math functions: <b>acos</b> <b>acosh</b> <b>asin</b>
+    <b>asinh</b> <b>atan</b> <b>atanh</b> <b>cbrt</b> <b>ceil</b> <b>cos</b>
+    <b>cosh</b> <b>erf</b> <b>erfc</b> <b>exp</b> <b>exp10</b> <b>exp2</b>
+    <b>expm1</b> <b>fabs</b> <b>floor</b> <b>gamma</b> <b>j0</b> <b>j1</b>
+    <b>lgamma</b> <b>log</b> <b>log10</b> <b>log1p</b> <b>log2</b> <b>logb</b>
+    <b>nearbyint</b> <b>pow10</b> <b>rint</b> <b>round</b> <b>significand</b>
+    <b>sin</b> <b>sinh</b> <b>sqrt</b> <b>tan</b> <b>tanh</b> <b>tgamma</b>
+    <b>trunc</b> <b>y0</b> <b>y1</b>.</p>
+<p class="Pp">Two-input C math functions: <b>atan2</b> <b>copysign</b>
+    <b>drem</b> <b>fdim</b> <b>fmax</b> <b>fmin</b> <b>fmod</b> <b>frexp</b>
+    <b>hypot</b> <b>jn</b> <b>ldexp</b> <b>modf</b> <b>nextafter</b>
+    <b>nexttoward</b> <b>pow</b> <b>remainder</b> <b>scalb</b> <b>scalbln</b>
+    <b>yn</b>.</p>
+<p class="Pp">Three-input C math functions: <b>fma</b>.</p>
+<p class="Pp">See your system&#x00B4;s manual for more information on each of
+    these.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="I/O"><a class="permalink" href="#I/O">I/O</a></h1>
+<p class="Pp">At this time jq has minimal support for I/O, mostly in the form of
+    control over when inputs are read. Two builtins functions are provided for
+    this, <b>input</b> and <b>inputs</b>, that read from the same sources (e.g.,
+    <b>stdin</b>, files named on the command-line) as jq itself. These two
+    builtins, and jq&#x00B4;s own reading actions, can be interleaved with each
+    other.</p>
+<p class="Pp">Two builtins provide minimal output capabilities, <b>debug</b>,
+    and <b>stderr</b>. (Recall that a jq program&#x00B4;s output values are
+    always output as JSON texts on <b>stdout</b>.) The <b>debug</b> builtin can
+    have application-specific behavior, such as for executables that use the
+    libjq C API but aren&#x00B4;t the jq executable itself. The <b>stderr</b>
+    builtin outputs its input in raw mode to stder with no additional
+    decoration, not even a newline.</p>
+<p class="Pp">Most jq builtins are referentially transparent, and yield constant
+    and repeatable value streams when applied to constant inputs. This is not
+    true of I/O builtins.</p>
+<section class="Ss">
+<h2 class="Ss" id="input"><a class="permalink" href="#input">input</a></h2>
+<p class="Pp">Outputs one new input.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="inputs"><a class="permalink" href="#inputs">inputs</a></h2>
+<p class="Pp">Outputs all remaining inputs, one by one.</p>
+<p class="Pp">This is primarily useful for reductions over a program&#x00B4;s
+    inputs.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="debug"><a class="permalink" href="#debug">debug</a></h2>
+<p class="Pp">Causes a debug message based on the input value to be produced.
+    The jq executable wraps the input value with <b>[&quot;DEBUG:&quot;,
+    &lt;input-value&gt;]</b> and prints that and a newline on stderr, compactly.
+    This may change in the future.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="stderr"><a class="permalink" href="#stderr">stderr</a></h2>
+<p class="Pp">Prints its input in raw and compact mode to stderr with no
+    additional decoration, not even a newline.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="input_filename"><a class="permalink" href="#input_filename">input_filename</a></h2>
+<p class="Pp">Returns the name of the file whose input is currently being
+    filtered. Note that this will not work well unless jq is running in a UTF-8
+    locale.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="input_line_number"><a class="permalink" href="#input_line_number">input_line_number</a></h2>
+<p class="Pp">Returns the line number of the input currently being filtered.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STREAMING"><a class="permalink" href="#STREAMING">STREAMING</a></h1>
+<p class="Pp">With the <b>--stream</b> option jq can parse input texts in a
+    streaming fashion, allowing jq programs to start processing large JSON texts
+    immediately rather than after the parse completes. If you have a single JSON
+    text that is 1GB in size, streaming it will allow you to process it much
+    more quickly.</p>
+<p class="Pp">However, streaming isn&#x00B4;t easy to deal with as the jq
+    program will have <b>[&lt;path&gt;, &lt;leaf-value&gt;]</b> (and a few other
+    forms) as inputs.</p>
+<p class="Pp">Several builtins are provided to make handling streams easier.</p>
+<p class="Pp">The examples below use the streamed form of <b>[0,[1]]</b>, which
+    is <b>[[0],0],[[1,0],1],[[1,0]],[[1]]</b>.</p>
+<p class="Pp">Streaming forms include <b>[&lt;path&gt;, &lt;leaf-value&gt;]</b>
+    (to indicate any scalar value, empty array, or empty object), and
+    <b>[&lt;path&gt;]</b> (to indicate the end of an array or object). Future
+    versions of jq run with <b>--stream</b> and <b>-seq</b> may output
+    additional forms such as <b>[&quot;error message&quot;]</b> when an input
+    text fails to parse.</p>
+<section class="Ss">
+<h2 class="Ss" id="truncate_stream(stream_expression)"><a class="permalink" href="#truncate_stream(stream_expression)">truncate_stream(stream_expression)</a></h2>
+<p class="Pp">Consumes a number as input and truncates the corresponding number
+    of path elements from the left of the outputs of the given streaming
+    expression.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;[1|truncate_stream([[0],1],[[1,0],2],[[1,0]],[[1]])]&#x00B4;
+<br/>
+   1
+=&gt; [[[0],2],[[0]]]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="fromstream(stream_expression)"><a class="permalink" href="#fromstream(stream_expression)">fromstream(stream_expression)</a></h2>
+<p class="Pp">Outputs values corresponding to the stream expression&#x00B4;s
+    outputs.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;fromstream(1|truncate_stream([[0],1],[[1,0],2],[[1,0]],[[1]]))&#x00B4;
+<br/>
+   null
+=&gt; [2]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="tostream"><a class="permalink" href="#tostream">tostream</a></h2>
+<p class="Pp">The <b>tostream</b> builtin outputs the streamed form of its
+    input.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;. as $dot|fromstream($dot|tostream)|.==$dot&#x00B4;
+<br/>
+   [0,[1,{&quot;a&quot;:1},{&quot;b&quot;:2}]]
+=&gt; true</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ASSIGNMENT"><a class="permalink" href="#ASSIGNMENT">ASSIGNMENT</a></h1>
+<p class="Pp">Assignment works a little differently in jq than in most
+    programming languages. jq doesn&#x00B4;t distinguish between references to
+    and copies of something - two objects or arrays are either equal or not
+    equal, without any further notion of being &quot;the same object&quot; or
+    &quot;not the same object&quot;.</p>
+<p class="Pp">If an object has two fields which are arrays, <b>.foo</b> and
+    <b>.bar</b>, and you append something to <b>.foo</b>, then <b>.bar</b> will
+    not get bigger, even if you&#x00B4;ve previously set <b>.bar = .foo</b>. If
+    you&#x00B4;re used to programming in languages like Python, Java, Ruby,
+    Javascript, etc. then you can think of it as though jq does a full deep copy
+    of every object before it does the assignment (for performance it
+    doesn&#x00B4;t actually do that, but that&#x00B4;s the general idea).</p>
+<p class="Pp">This means that it&#x00B4;s impossible to build circular values in
+    jq (such as an array whose first element is itself). This is quite
+    intentional, and ensures that anything a jq program can produce can be
+    represented in JSON.</p>
+<p class="Pp">All the assignment operators in jq have path expressions on the
+    left-hand side (LHS). The right-hand side (RHS) provides values to set to
+    the paths named by the LHS path expressions.</p>
+<p class="Pp">Values in jq are always immutable. Internally, assignment works by
+    using a reduction to compute new, replacement values for <b>.</b> that have
+    had all the desired assignments applied to <b>.</b>, then outputting the
+    modified value. This might be made clear by this example: <b>{a:{b:{c:1}}} |
+    (.a.b|=3), .</b>. This will output <b>{&quot;a&quot;:{&quot;b&quot;:3}}</b>
+    and <b>{&quot;a&quot;:{&quot;b&quot;:{&quot;c&quot;:1}}}</b> because the
+    last sub-expression, <b>.</b>, sees the original value, not the modified
+    value.</p>
+<p class="Pp">Most users will want to use modification assignment operators,
+    such as <b>|=</b> or <b>+=</b>, rather than <b>=</b>.</p>
+<p class="Pp">Note that the LHS of assignment operators refers to a value in
+    <b>.</b>. Thus <b>$var.foo = 1</b> won&#x00B4;t work as expected
+    (<b>$var.foo</b> is not a valid or useful path expression in <b>.</b>); use
+    <b>$var | .foo = 1</b> instead.</p>
+<p class="Pp">Note too that <b>.a,.b=0</b> does not set <b>.a</b> and <b>.b</b>,
+    but <b>(.a,.b)=0</b> sets both.</p>
+<section class="Ss">
+<h2 class="Ss" id="Update"><a class="permalink" href="#Update">Update-assignment:
+  |=</a></h2>
+<p class="Pp">This is the &quot;update&quot; operator &#x00B4;|=&#x00B4;. It
+    takes a filter on the right-hand side and works out the new value for the
+    property of <b>.</b> being assigned to by running the old value through this
+    expression. For instance, (.foo, .bar) |= .+1 will build an object with the
+    &quot;foo&quot; field set to the input&#x00B4;s &quot;foo&quot; plus 1, and
+    the &quot;bar&quot; field set to the input&#x00B4;s &quot;bar&quot; plus
+  1.</p>
+<p class="Pp">The left-hand side can be any general path expression; see
+    <b>path()</b>.</p>
+<p class="Pp">Note that the left-hand side of &#x00B4;|=&#x00B4; refers to a
+    value in <b>.</b>. Thus <b>$var.foo |= . + 1</b> won&#x00B4;t work as
+    expected (<b>$var.foo</b> is not a valid or useful path expression in
+    <b>.</b>); use <b>$var | .foo |= . + 1</b> instead.</p>
+<p class="Pp">If the right-hand side outputs no values (i.e., <b>empty</b>),
+    then the left-hand side path will be deleted, as with <b>del(path)</b>.</p>
+<p class="Pp">If the right-hand side outputs multiple values, only the first one
+    will be used (COMPATIBILITY NOTE: in jq 1.5 and earlier releases, it used to
+    be that only the last one was used).</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;(..|select(type==&quot;boolean&quot;)) |= if . then 1 else 0 end&#x00B4;
+<br/>
+   [true,false,[5,true,[true,[false]],false]]
+=&gt; [1,0,[5,1,[1,[0]],0]]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Arithmetic_update"><a class="permalink" href="#Arithmetic_update">Arithmetic
+  update-assignment: +=, -=, *=, /=, %=, //=</a></h2>
+<p class="Pp">jq has a few operators of the form <b>a op= b</b>, which are all
+    equivalent to <b>a |= . op b</b>. So, <b>+= 1</b> can be used to increment
+    values, being the same as <b>|= . + 1</b>.</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+jq &#x00B4;.foo += 1&#x00B4;
+<br/>
+   {&quot;foo&quot;: 42}
+=&gt; {&quot;foo&quot;: 43}</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Plain_assignment:_="><a class="permalink" href="#Plain_assignment:_=">Plain
+  assignment: =</a></h2>
+<p class="Pp">This is the plain assignment operator. Unlike the others, the
+    input to the right-hand-side (RHS) is the same as the input to the
+    left-hand-side (LHS) rather than the value at the LHS path, and all values
+    output by the RHS will be used (as shown below).</p>
+<p class="Pp">If the RHS of &#x00B4;=&#x00B4; produces multiple values, then for
+    each such value jq will set the paths on the left-hand side to the value and
+    then it will output the modified <b>.</b>. For example,
+    <b>(.a,.b)=range(2)</b> outputs <b>{&quot;a&quot;:0,&quot;b&quot;:0}</b>,
+    then <b>{&quot;a&quot;:1,&quot;b&quot;:1}</b>. The &quot;update&quot;
+    assignment forms (see above) do not do this.</p>
+<p class="Pp">This example should show the difference between &#x00B4;=&#x00B4;
+    and &#x00B4;|=&#x00B4;:</p>
+<p class="Pp">Provide input &#x00B4;{&quot;a&quot;: {&quot;b&quot;: 10},
+    &quot;b&quot;: 20}&#x00B4; to the programs:</p>
+<p class="Pp">.a = .b</p>
+<p class="Pp">.a |= .b</p>
+<p class="Pp">The former will set the &quot;a&quot; field of the input to the
+    &quot;b&quot; field of the input, and produce the output {&quot;a&quot;: 20,
+    &quot;b&quot;: 20}. The latter will set the &quot;a&quot; field of the input
+    to the &quot;a&quot; field&#x00B4;s &quot;b&quot; field, producing
+    {&quot;a&quot;: 10, &quot;b&quot;: 20}.</p>
+<p class="Pp">Another example of the difference between &#x00B4;=&#x00B4; and
+    &#x00B4;|=&#x00B4;:</p>
+<p class="Pp">null|(.a,.b)=range(3)</p>
+<p class="Pp">outputs &#x00B4;{&quot;a&quot;:0,&quot;b&quot;:0}&#x00B4;,
+    &#x00B4;{&quot;a&quot;:1,&quot;b&quot;:1}&#x00B4;, and
+    &#x00B4;{&quot;a&quot;:2,&quot;b&quot;:2}&#x00B4;, while</p>
+<p class="Pp">null|(.a,.b)|=range(3)</p>
+<p class="Pp">outputs just
+  &#x00B4;{&quot;a&quot;:0,&quot;b&quot;:0}&#x00B4;.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Complex_assignments"><a class="permalink" href="#Complex_assignments">Complex
+  assignments</a></h2>
+<p class="Pp">Lots more things are allowed on the left-hand side of a jq
+    assignment than in most languages. We&#x00B4;ve already seen simple field
+    accesses on the left hand side, and it&#x00B4;s no surprise that array
+    accesses work just as well:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+.posts[0].title = &quot;JQ Manual&quot;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">What may come as a surprise is that the expression on the left may
+    produce multiple results, referring to different points in the input
+    document:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+.posts[].comments |= . + [&quot;this is great&quot;]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">That example appends the string &quot;this is great&quot; to the
+    &quot;comments&quot; array of each post in the input (where the input is an
+    object with a field &quot;posts&quot; which is an array of posts).</p>
+<p class="Pp">When jq encounters an assignment like &#x00B4;a = b&#x00B4;, it
+    records the &quot;path&quot; taken to select a part of the input document
+    while executing a. This path is then used to find which part of the input to
+    change while executing the assignment. Any filter may be used on the
+    left-hand side of an equals - whichever paths it selects from the input will
+    be where the assignment is performed.</p>
+<p class="Pp">This is a very powerful operation. Suppose we wanted to add a
+    comment to blog posts, using the same &quot;blog&quot; input above. This
+    time, we only want to comment on the posts written by &quot;stedolan&quot;.
+    We can find those posts using the &quot;select&quot; function described
+    earlier:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+.posts[] | select(.author == &quot;stedolan&quot;)</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">The paths provided by this operation point to each of the posts
+    that &quot;stedolan&quot; wrote, and we can comment on each of them in the
+    same way that we did before:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+(.posts[] | select(.author == &quot;stedolan&quot;) | .comments) |=
+<br/>
+    . + [&quot;terrible.&quot;]</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MODULES"><a class="permalink" href="#MODULES">MODULES</a></h1>
+<p class="Pp">jq has a library/module system. Modules are files whose names end
+    in <b>.jq</b>.</p>
+<p class="Pp">Modules imported by a program are searched for in a default search
+    path (see below). The <b>import</b> and <b>include</b> directives allow the
+    importer to alter this path.</p>
+<p class="Pp">Paths in the a search path are subject to various
+  substitutions.</p>
+<p class="Pp">For paths starting with &quot;~/&quot;, the user&#x00B4;s home
+    directory is substituted for &quot;~&quot;.</p>
+<p class="Pp">For paths starting with &quot;$ORIGIN/&quot;, the path of the jq
+    executable is substituted for &quot;$ORIGIN&quot;.</p>
+<p class="Pp">For paths starting with &quot;./&quot; or paths that are
+    &quot;.&quot;, the path of the including file is substituted for
+    &quot;.&quot;. For top-level programs given on the command-line, the current
+    directory is used.</p>
+<p class="Pp">Import directives can optionally specify a search path to which
+    the default is appended.</p>
+<p class="Pp">The default search path is the search path given to the <b>-L</b>
+    command-line option, else <b>[&quot;~/.jq&quot;,
+    &quot;$ORIGIN/../lib/jq&quot;, &quot;$ORIGIN/../lib&quot;]</b>.</p>
+<p class="Pp">Null and empty string path elements terminate search path
+    processing.</p>
+<p class="Pp">A dependency with relative path &quot;foo/bar&quot; would be
+    searched for in &quot;foo/bar.jq&quot; and &quot;foo/bar/bar.jq&quot; in the
+    given search path. This is intended to allow modules to be placed in a
+    directory along with, for example, version control files, README files, and
+    so on, but also to allow for single-file modules.</p>
+<p class="Pp">Consecutive components with the same name are not allowed to avoid
+    ambiguities (e.g., &quot;foo/foo&quot;).</p>
+<p class="Pp">For example, with <b>-L$HOME/.jq</b> a module <b>foo</b> can be
+    found in <b>$HOME/.jq/foo.jq</b> and <b>$HOME/.jq/foo/foo.jq</b>.</p>
+<p class="Pp">If &quot;$HOME/.jq&quot; is a file, it is sourced into the main
+    program.</p>
+<section class="Ss">
+<h2 class="Ss" id="import_RelativePathString_as_NAME___metadata__;"><a class="permalink" href="#import_RelativePathString_as_NAME___metadata__;">import
+  RelativePathString as NAME [&lt;metadata&gt;];</a></h2>
+<p class="Pp">Imports a module found at the given path relative to a directory
+    in a search path. A &quot;.jq&quot; suffix will be added to the relative
+    path string. The module&#x00B4;s symbols are prefixed with
+    &quot;NAME::&quot;.</p>
+<p class="Pp">The optional metadata must be a constant jq expression. It should
+    be an object with keys like &quot;homepage&quot; and so on. At this time jq
+    only uses the &quot;search&quot; key/value of the metadata. The metadata is
+    also made available to users via the <b>modulemeta</b> builtin.</p>
+<p class="Pp">The &quot;search&quot; key in the metadata, if present, should
+    have a string or array value (array of strings); this is the search path to
+    be prefixed to the top-level search path.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="include_RelativePathString___metadata__;"><a class="permalink" href="#include_RelativePathString___metadata__;">include
+  RelativePathString [&lt;metadata&gt;];</a></h2>
+<p class="Pp">Imports a module found at the given path relative to a directory
+    in a search path as if it were included in place. A &quot;.jq&quot; suffix
+    will be added to the relative path string. The module&#x00B4;s symbols are
+    imported into the caller&#x00B4;s namespace as if the module&#x00B4;s
+    content had been included directly.</p>
+<p class="Pp">The optional metadata must be a constant jq expression. It should
+    be an object with keys like &quot;homepage&quot; and so on. At this time jq
+    only uses the &quot;search&quot; key/value of the metadata. The metadata is
+    also made available to users via the <b>modulemeta</b> builtin.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="import_RelativePathString_as_$NAME___metadata__;"><a class="permalink" href="#import_RelativePathString_as_$NAME___metadata__;">import
+  RelativePathString as $NAME [&lt;metadata&gt;];</a></h2>
+<p class="Pp">Imports a JSON file found at the given path relative to a
+    directory in a search path. A &quot;.json&quot; suffix will be added to the
+    relative path string. The file&#x00B4;s data will be available as
+    <b>$NAME::NAME</b>.</p>
+<p class="Pp">The optional metadata must be a constant jq expression. It should
+    be an object with keys like &quot;homepage&quot; and so on. At this time jq
+    only uses the &quot;search&quot; key/value of the metadata. The metadata is
+    also made available to users via the <b>modulemeta</b> builtin.</p>
+<p class="Pp">The &quot;search&quot; key in the metadata, if present, should
+    have a string or array value (array of strings); this is the search path to
+    be prefixed to the top-level search path.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="module__metadata_;"><a class="permalink" href="#module__metadata_;">module
+  &lt;metadata&gt;;</a></h2>
+<p class="Pp">This directive is entirely optional. It&#x00B4;s not required for
+    proper operation. It serves only the purpose of providing metadata that can
+    be read with the <b>modulemeta</b> builtin.</p>
+<p class="Pp">The metadata must be a constant jq expression. It should be an
+    object with keys like &quot;homepage&quot;. At this time jq doesn&#x00B4;t
+    use this metadata, but it is made available to users via the
+    <b>modulemeta</b> builtin.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="modulemeta"><a class="permalink" href="#modulemeta">modulemeta</a></h2>
+<p class="Pp">Takes a module name as input and outputs the module&#x00B4;s
+    metadata as an object, with the module&#x00B4;s imports (including metadata)
+    as an array value for the &quot;deps&quot; key.</p>
+<p class="Pp">Programs can use this to query a module&#x00B4;s metadata, which
+    they could then use to, for example, search for, download, and install
+    missing dependencies.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COLORS"><a class="permalink" href="#COLORS">COLORS</a></h1>
+<p class="Pp">To configure alternative colors just set the <b>JQ_COLORS</b>
+    environment variable to colon-delimited list of partial terminal escape
+    sequences like <b>&quot;1;31&quot;</b>, in this order:</p>
+<ul class="Bl-bullet">
+  <li>color for <b>null</b></li>
+  <li>color for <b>false</b></li>
+  <li>color for <b>true</b></li>
+  <li>color for numbers</li>
+  <li>color for strings</li>
+  <li>color for arrays</li>
+  <li>color for objects</li>
+</ul>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">The default color scheme is the same as setting
+    <b>&quot;JQ_COLORS=1;30:0;39:0;39:0;39:0;32:1;39:1;39&quot;</b>.</p>
+<p class="Pp">This is not a manual for VT100/ANSI escapes. However, each of
+    these color specifications should consist of two numbers separated by a
+    semi-colon, where the first number is one of these:</p>
+<ul class="Bl-bullet">
+  <li>1 (bright)</li>
+  <li>2 (dim)</li>
+  <li>4 (underscore)</li>
+  <li>5 (blink)</li>
+  <li>7 (reverse)</li>
+  <li>8 (hidden)</li>
+</ul>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">and the second is one of these:</p>
+<ul class="Bl-bullet">
+  <li>30 (black)</li>
+  <li>31 (red)</li>
+  <li>32 (green)</li>
+  <li>33 (yellow)</li>
+  <li>34 (blue)</li>
+  <li>35 (magenta)</li>
+  <li>36 (cyan)</li>
+  <li>37 (white)</li>
+</ul>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">Presumably. Report them or discuss them at:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+https://github.com/stedolan/jq/issues</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Stephen Dolan <b>&lt;mu@netsoc.tcd.ie&gt;</b></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">December 2017</td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+</body>
+</html>

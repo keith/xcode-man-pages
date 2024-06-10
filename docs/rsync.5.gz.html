@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   Copyright (c) 2019 Kristaps Dzonsons <kristaps@bsd.lv>
+  
+   Permission to use, copy, modify, and distribute this software for any
+   purpose with or without fee is hereby granted, provided that the above
+   copyright notice and this permission notice appear in all copies.
+  
+   THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+   WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+   MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+   ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+   WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+   ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+   -->
+<head>
+
+<style>
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #000;
+    color: #d0d0d0;
+  }
+
+  a, a:visited {
+    color: #1899eb;
+  }
+}
+</style>
+
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    .Nd, .Bf, .Op { display: inline; }
+    .Pa, .Ad { font-style: italic; }
+    .Ms { font-weight: bold; }
+    .Bl-diag > dt { font-weight: bold; }
+    code.Nm, .Fl, .Cm, .Ic, code.In, .Fd, .Fn, .Cd { font-weight: bold;
+      font-family: inherit; }
+  </style>
+  <title>RSYNC(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">RSYNC(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">RSYNC(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">rsync</code> &#x2014; <span class="Nd">rsync wire
+    protocol</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The <code class="Nm">rsync</code> protocol described in this
+    relates to the BSD-licensed <a class="Xr">openrsync(1)</a>, a
+    re-implementation of the GPL-licensed reference utility
+    <a class="Xr">rsync(1)</a>. It is compatible with version 27 of the
+    reference.</p>
+<p class="Pp">In this document, the &quot;client process&quot; refers to the
+    utility as run on the operator's local computer. The &quot;server
+    process&quot; is run either on the local or remote computer, depending upon
+    the command-line given file locations.</p>
+<p class="Pp">There are a number of options in the protocol that are dictated by
+    command-line flags. These will be noted as <code class="Fl">-D</code> for
+    devices, <code class="Fl">-g</code> for group ids,
+    <code class="Fl">-l</code> for links, <code class="Fl">-n</code> for
+    dry-run, <code class="Fl">-o</code> for user ids, <code class="Fl">-r</code>
+    for recursion, <code class="Fl">-v</code> for verbose, and
+    <code class="Fl">--delete</code> for deletion (before).</p>
+<section class="Ss">
+<h2 class="Ss" id="Data_types"><a class="permalink" href="#Data_types">Data
+  types</a></h2>
+<p class="Pp">The binary protocol encodes all data in little-endian format.
+    Integers are signed 32-bit, shorts are signed 16-bit, bytes are unsigned
+    8-bit. A long is variable-length. For values less than the maximum integer,
+    the value is transmitted and read as a 32-bit integer. For values greater,
+    the value is transmitted first as a maximum integer, then a 64-bit signed
+    integer.</p>
+<p class="Pp">There are three types of checksums: long (slow), short (fast), and
+    whole-file. The fast checksum is a derivative of Adler-32. The slow checksum
+    is MD4, made over the checksum seed first (serialised in little-endian
+    format), then the data. The whole-file applies MD4 to the file first, then
+    the checksum seed at the end (also serialised in little-endian format).</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Multiplexing"><a class="permalink" href="#Multiplexing">Multiplexing</a></h2>
+<p class="Pp">Most <code class="Nm">rsync</code> transmissions are wrapped in a
+    multiplexing envelope protocol. It is composed as follows:</p>
+<p class="Pp"></p>
+<ol class="Bl-enum Bl-compact">
+  <li>envelope header (4 bytes)</li>
+  <li>envelope payload (arbitrary length)</li>
+</ol>
+<p class="Pp">The first byte of the envelope header consists of a tag. If the
+    tag is 7, the payload is normal data. Otherwise, the payload is out-of-band
+    server messages. If the tag is 1, it is an error on the sender's part and
+    must trigger an exit. This limits message payloads to 24 bit integer size,
+    <code class="Li">0x00ffffff</code>.</p>
+<p class="Pp">The only data not using this envelope are the initial handshake
+    between client and server.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="File_list"><a class="permalink" href="#File_list">File
+  list</a></h2>
+<p class="Pp">A central part of the protocol is the file list, which is
+    generated by the sender. It consists of all files that must be sent to the
+    receiver, either explicitly as given or recursively generated.</p>
+<p class="Pp">The file list itself consists of filenames and attributes (mode,
+    time, size, etc.). Filenames must be relative to the destination root and
+    not be absolute or contain backtracking. So if a file is given to the sender
+    as <span class="Pa">../../foo/bar</span>, it must be sent as
+    <span class="Pa">foo/bar</span>.</p>
+<p class="Pp">The file list should be cleaned of inappropriate files prior to
+    sending. For example, if <code class="Fl">-l</code> is not specified,
+    symbolic links may be omitted. Directory entries without
+    <code class="Fl">-r</code> may also be omitted. Duplicates may be
+  omitted.</p>
+<p class="Pp" id="must">The receiver
+    <a class="permalink" href="#must"><i class="Em">must not</i></a> assume that
+    the file list is clean. It should not omit inappropriate files from the file
+    list (which would affect the indexing), but may omit them during
+  processing.</p>
+<p class="Pp">Prior to be sent from sender to receiver, and upon being received,
+    the file list must be lexicographically sorted such as with
+    <a class="Xr">strcmp(3)</a>. Subsequent references to the file are by index
+    in the sorted list.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Client_process"><a class="permalink" href="#Client_process">Client
+  process</a></h2>
+<p class="Pp">The client can operate in sender or receiver mode depending upon
+    the command-line source and destination.</p>
+<p class="Pp">If the destination directory (sink) is remote, the client is in
+    sender mode: the client will push its data to the server. If the source file
+    is remote, it is in receiver mode: the server pushes to the client. If
+    neither are remote, the client operates in sender mode. These are all
+    mutually exclusive.</p>
+<p class="Pp">When the client starts, regardless its mode, it first handshakes
+    the server. This exchange is <i class="Em">not</i> multiplexed.</p>
+<p class="Pp"></p>
+<ol class="Bl-enum Bl-compact">
+  <li>send local version (integer)</li>
+  <li>receive remote version (integer)</li>
+  <li>receive random seed (integer)</li>
+</ol>
+<p class="Pp">Following this, the client multiplexes when reading from the
+    server. Transmissions sent from client to server are not multiplexed. It
+    then enters the <a class="Sx" href="#Update_exchange">Update exchange</a>
+    protocol.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Server_process"><a class="permalink" href="#Server_process">Server
+  process</a></h2>
+<p class="Pp">The server can operate in sender or receiver mode depending upon
+    how the client starts the server. This may be directly from the parent
+    process (when invoked for local files) or indirectly via a remote shell.</p>
+<p class="Pp">When in sender mode, the server pushes data to the client. (This
+    is equivalent to receiver mode for the client.) In receiver, the opposite is
+    true.</p>
+<p class="Pp">When the server starts, regardless the mode, it first handshakes
+    the client. This exchange is <i class="Em">not</i> multiplexed.</p>
+<p class="Pp"></p>
+<ol class="Bl-enum Bl-compact">
+  <li>send local version (integer)</li>
+  <li>receive remote version (integer)</li>
+  <li>send random seed (integer)</li>
+</ol>
+<p class="Pp">Following this, the server multiplexes when writing to the client.
+    (Transmissions received from the client are not multiplexed.) It then enters
+    the <a class="Sx" href="#Update_exchange">Update exchange</a> protocol.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Update_exchange"><a class="permalink" href="#Update_exchange">Update
+  exchange</a></h2>
+<p class="Pp">When the client or server is in sender mode, it begins by
+    conditionally sending the exclusion list. At this time, this is always
+    empty.</p>
+<p class="Pp"></p>
+<ol class="Bl-enum Bl-compact">
+  <li>if <code class="Fl">--delete</code> and the client, exclusion list zero
+      (integer)</li>
+</ol>
+<p class="Pp">It then sends the <a class="Sx" href="#File_list">File list</a>.
+    Prior to being sent, the file list should be lexicographically sorted.</p>
+<p class="Pp"></p>
+<ol class="Bl-enum Bl-compact">
+  <li>status byte (integer)</li>
+  <li>inherited filename length (optional, byte)</li>
+  <li>filename length (integer or byte)</li>
+  <li>file (byte array)</li>
+  <li>file length (long)</li>
+  <li>file modification time (optional, time_t, integer)</li>
+  <li>file mode (optional, mode_t, integer)</li>
+  <li>if <code class="Fl">-o</code>, the user id (integer)</li>
+  <li>if <code class="Fl">-g</code>, the group id (integer)</li>
+  <li>if a special file and <code class="Fl">-D</code>, the device
+      &#x201C;rdev&#x201D; type (integer)</li>
+  <li>if a symbolic link and <code class="Fl">-l</code>, the link target's
+      length (integer)</li>
+  <li>if a symbolic link and <code class="Fl">-l</code>, the link target (byte
+      array)</li>
+</ol>
+<p class="Pp">The status byte may consist of the following bits and determines
+    which of the optional fields are transmitted.</p>
+<p class="Pp"></p>
+<dl class="Bl-tag Bl-compact">
+  <dt>0x01</dt>
+  <dd>A top-level directory. (Only applies to directory files.) If specified,
+      the matching local directory is for deletions.</dd>
+  <dt>0x02</dt>
+  <dd>Do not send the file mode: it is a repeat of the last file's mode.</dd>
+  <dt>0x08</dt>
+  <dd>Like <code class="Li">0x02</code>, but for the user id.</dd>
+  <dt>0x10</dt>
+  <dd>Like <code class="Li">0x02</code>, but for the group id.</dd>
+  <dt>0x20</dt>
+  <dd>Inherit some of the prior file name. Enables the inherited filename length
+      transmission.</dd>
+  <dt>0x40</dt>
+  <dd>Use full integer length for file name. Otherwise, use only the byte
+      length.</dd>
+  <dt>0x80</dt>
+  <dd>Do not send the file modification time: it is a repeat of the last
+    file's.</dd>
+</dl>
+<p class="Pp">If the status byte is zero, the file-list has terminated.</p>
+<p class="Pp">If <code class="Fl">-o</code> has been specified, the sender sends
+    the list of all users encountered in the file list. Identifier zero
+    (&quot;root&quot;) is never transmitted, as it would prematurely end the
+    list. This list may be incomplete or empty: the server is not obligated to
+    properly fill it in with all relevant users.</p>
+<p class="Pp"></p>
+<ol class="Bl-enum Bl-compact">
+  <li>user identifier or zero to indicate end of set (integer)</li>
+  <li>non-zero length of user name (byte)</li>
+  <li>user name (prior length)</li>
+</ol>
+<p class="Pp">The same sequence is then sent for groups if
+    <code class="Fl">-g</code> has been specified.</p>
+<p class="Pp">The sender then sends any IO error values, which for
+    <a class="Xr">openrsync(1)</a> is always zero.</p>
+<p class="Pp"></p>
+<ol class="Bl-enum Bl-compact">
+  <li>constant zero (integer)</li>
+</ol>
+<p class="Pp">The server sender then reads the exclusion list, which is always
+    zero.</p>
+<p class="Pp"></p>
+<ol class="Bl-enum Bl-compact">
+  <li>if server, constant zero (integer)</li>
+</ol>
+<p class="Pp">Following that, the sender receives data regarding the receiver's
+    copy of the file list contents. This data is not ordered in any way. Each of
+    these requests starts as follows:</p>
+<p class="Pp"></p>
+<ol class="Bl-enum Bl-compact">
+  <li>file index or -1 to signal a change of phase (integer)</li>
+</ol>
+<p class="Pp">The phase starts in phase 1, then proceeds to phase 2, and phase 3
+    signals an end of transmission (no subsequent blocks). If a phase change
+    occurs, the sender must write back the -1 constant integer value and
+    increment its phase state.</p>
+<p class="Pp">Blocks are read as follows:</p>
+<p class="Pp"></p>
+<ol class="Bl-enum Bl-compact">
+  <li>block index (integer)</li>
+</ol>
+<p class="Pp">In (<code class="Fl">-n</code>) mode, the sender may immediately
+    write back the index (integer) to skip the following.</p>
+<p class="Pp"></p>
+<ol class="Bl-enum Bl-compact">
+  <li>number of blocks (integer)</li>
+  <li>block length in the file (integer)</li>
+  <li>long checksum length (integer)</li>
+  <li>terminal (remainder) block length (integer)</li>
+</ol>
+<p class="Pp">And for each block:</p>
+<p class="Pp"></p>
+<ol class="Bl-enum Bl-compact">
+  <li>short checksum (integer)</li>
+  <li>long checksum (bytes of checksum length)</li>
+</ol>
+<p class="Pp">The client then compares the two files, block by block, and
+    updates the server with mismatches as follows.</p>
+<p class="Pp"></p>
+<ol class="Bl-enum Bl-compact">
+  <li>file index (integer)</li>
+  <li>number of blocks (integer)</li>
+  <li>block length (integer)</li>
+  <li>long checksum length (integer)</li>
+  <li>remainder block length (integer)</li>
+</ol>
+<p class="Pp">Then for each block:</p>
+<p class="Pp"></p>
+<ol class="Bl-enum Bl-compact">
+  <li>data chunk size (integer)</li>
+  <li>data chunk (bytes)</li>
+  <li>block index subsequent to chunk or zero for finished (integer)</li>
+</ol>
+<p class="Pp">Following this sequence, the sender sends the following:</p>
+<p class="Pp"></p>
+<ol class="Bl-enum Bl-compact">
+  <li>whole-file long checksum (16 bytes)</li>
+</ol>
+<p class="Pp">The sender then either handles the next queued file or, if the
+    receiver has written a phase change, the phase change step.</p>
+<p class="Pp">The receiver may need to request a redo for files that did not
+    match the final whole-file long checksum, which it should do at this time or
+    it will send another phase change.</p>
+<p class="Pp">If the sender is the server, then the sender must send statistics
+    whether <code class="Fl">-v</code> has been specified or not.</p>
+<p class="Pp"></p>
+<ol class="Bl-enum Bl-compact">
+  <li>total bytes read (long)</li>
+  <li>total bytes written (long)</li>
+  <li>total size of files (long)</li>
+</ol>
+<p class="Pp">Finally, the sender must read a final constant-value integer.</p>
+<p class="Pp"></p>
+<ol class="Bl-enum Bl-compact">
+  <li>end-of-sequence -1 value (integer)</li>
+</ol>
+<p class="Pp">If in receiver mode, the inverse above (write instead of read,
+    read instead of write) is performed.</p>
+<p class="Pp">The receiver begins by conditionally writing, then reading, the
+    exclusion list count, which is always zero.</p>
+<p class="Pp"></p>
+<ol class="Bl-enum Bl-compact">
+  <li>if client, send zero (integer)</li>
+  <li>if receiver and <code class="Fl">--delete</code>, read zero (integer)</li>
+</ol>
+<p class="Pp">The receiver then proceeds with reading the
+    <a class="Sx" href="#File_list">File list</a> as already defined. Following
+    the list, the receiver reads the IO error, which must be zero.</p>
+<p class="Pp"></p>
+<ol class="Bl-enum Bl-compact">
+  <li>constant zero (integer)</li>
+</ol>
+<p class="Pp">The receiver must then sort the file names lexicographically.</p>
+<p class="Pp">If there are no files in the file list at this time, the receiver
+    must exit prior to sending per-file data. It then proceeds with the file
+    blocks.</p>
+<p class="Pp">For file blocks, the receiver must look at each file that is not
+    up to date, defined by having the same file size and timestamp, and send it
+    to the server. Symbolic links and directory entries are never sent to the
+    server.</p>
+<p class="Pp">After the second phase has completed, there is an optional redo
+    phase that may follow. This proceeds in an identical fashion to the second
+    phase, but with the checksum length increased to the full MD4 size. This
+    phase is primarily designed to catch files that may have changed while the
+    transfer was in progress, but it also catches incorrectly selected blocks
+    from the second phase. Such blocks may happen due to relatively rare
+    collisions in the short hash and the two-byte version of the long hash that
+    the second phase uses. Regardless of needing to redo any files, the receiver
+    sends one more end of phase marker to signal the end of file transfers.</p>
+<p class="Pp">Following the optional redo phase and prior to writing the
+    end-of-data signal, the client receiver reads statistics. This is performed
+    regardless of (<code class="Fl">-v</code>), but will only be written out if
+    <code class="Fl">-v</code> has been specified.</p>
+<p class="Pp"></p>
+<ol class="Bl-enum Bl-compact">
+  <li>total bytes read (long)</li>
+  <li>total bytes written (long)</li>
+  <li>total size of files (long)</li>
+</ol>
+<p class="Pp">Finally, the receiver must send the constant end-of-sequence
+    marker.</p>
+<p class="Pp"></p>
+<ol class="Bl-enum Bl-compact">
+  <li>end-of-sequence -1 value (integer)</li>
+</ol>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Sender_and_receiver_asynchrony"><a class="permalink" href="#Sender_and_receiver_asynchrony">Sender
+  and receiver asynchrony</a></h2>
+<p class="Pp">The sender and receiver need not work in lockstep. The receiver
+    may send file update requests as quickly as it parses them, and respond to
+    the sender's update notices on demand. Similarly, the sender may read as
+    many update requests as it can, and service them in any order it wishes.</p>
+<p class="Pp">The sender and receiver synchronise state only at the end of
+    phase.</p>
+<p class="Pp">The reference <a class="Xr">rsync(1)</a> takes advantage of this
+    with a two-process receiver, one for sending update requests (the generator)
+    and another for receiving. <a class="Xr">openrsync(1)</a> uses an event-loop
+    model instead.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr">openrsync(1)</a>, <a class="Xr">rsync(1)</a>,
+    <a class="Xr">rsyncd(5)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">Time values are sent as 32-bit integers.</p>
+<p class="Pp" id="and">When in server mode
+    <a class="permalink" href="#and"><i class="Em">and</i></a> when
+    communicating to a client with a newer protocol (&gt;27), the phase change
+    integer (-1) acknowledgement must be sent twice by the sender. The is
+    probably a bug in the reference implementation.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">June 10, 2024</td>
+    <td class="foot-os">Mac OS X 14</td>
+  </tr>
+</table>
+</body>
+</html>

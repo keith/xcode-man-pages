@@ -134,8 +134,13 @@
   <dt id="COPYFILE_ACL"><a class="permalink" href="#COPYFILE_ACL"><code class="Dv">COPYFILE_ACL</code></a></dt>
   <dd>Copy the source file's access control lists.</dd>
   <dt id="COPYFILE_STAT"><a class="permalink" href="#COPYFILE_STAT"><code class="Dv">COPYFILE_STAT</code></a></dt>
-  <dd>Copy the source file's POSIX information (mode, modification time,
-    etc.).</dd>
+  <dd>Copy the source file's POSIX information (mode, modification time, etc.).
+      Note that setuid and setgid bits are by default not copied from source
+      files or to destination files that reside on volumes that are mounted with
+      the <code class="Dv">MNT_NOSUID</code> <a class="Xr">mount(2)</a> flag,
+      but this can be overridden through the use of
+      <code class="Dv">COPYFILE_STATE_PRESERVE_SUID</code> in the
+      <var class="Vt">copyfile_state_t</var> object.</dd>
   <dt id="COPYFILE_XATTR"><a class="permalink" href="#COPYFILE_XATTR"><code class="Dv">COPYFILE_XATTR</code></a></dt>
   <dd>Copy the source file's extended attributes.</dd>
   <dt id="COPYFILE_DATA"><a class="permalink" href="#COPYFILE_DATA"><code class="Dv">COPYFILE_DATA</code></a></dt>
@@ -202,25 +207,29 @@
   <dt id="COPYFILE_CLONE_FORCE"><a class="permalink" href="#COPYFILE_CLONE_FORCE"><code class="Dv">COPYFILE_CLONE_FORCE</code></a></dt>
   <dd>Clone the file instead. This is a force flag i.e. if cloning fails, an
       error is returned. This flag is equivalent to (COPYFILE_EXCL |
-      COPYFILE_ACL | COPYFILE_STAT | COPYFILE_XATTR | COPYFILE_DATA |
-      COPYFILE_NOFOLLOW_SRC). Note that if cloning is successful, progress
-      callbacks will not be invoked. Note also that there is no support for
-      cloning directories: if a directory is provided as the source, an error
-      will be returned. Since this flag implies COPYFILE_NOFOLLOW_SRC, symbolic
-      links themselves will be cloned instead of their targets. (This is only
-      applicable for the <code class="Fn">copyfile</code>() function.)</dd>
+      COPYFILE_STAT | COPYFILE_XATTR | COPYFILE_DATA | COPYFILE_NOFOLLOW_SRC).
+      Note that if cloning is successful, progress callbacks will not be
+      invoked, nor will any setuid or setgid bits be copied to the destination.
+      Note also that there is no support for cloning directories: if a directory
+      is provided as the source, an error will be returned. Since this flag
+      implies COPYFILE_NOFOLLOW_SRC, symbolic links themselves will be cloned
+      instead of their targets. (This is only applicable for the
+      <code class="Fn">copyfile</code>() function.) Finally, note that ACLs will
+      not be cloned unless COPYFILE_ACL is also passed.</dd>
   <dt id="COPYFILE_CLONE"><a class="permalink" href="#COPYFILE_CLONE"><code class="Dv">COPYFILE_CLONE</code></a></dt>
   <dd>Try to clone the file instead. This is a best try flag i.e. if cloning
       fails, fallback to copying the file. This flag is equivalent to
-      (COPYFILE_EXCL | COPYFILE_ACL | COPYFILE_STAT | COPYFILE_XATTR |
-      COPYFILE_DATA | COPYFILE_NOFOLLOW_SRC). Note that if cloning is
-      successful, progress callbacks will not be invoked. Note also that there
-      is no support for cloning directories: if a directory is provided as the
-      source and COPYFILE_CLONE_FORCE is not passed, this will instead copy the
-      directory. Since this flag implies COPYFILE_NOFOLLOW_SRC, symbolic links
-      themselves will be cloned instead of their targets. Recursive copying
-      however is supported, see below for more information. (This is only
-      applicable for the <code class="Fn">copyfile</code>() function.)</dd>
+      (COPYFILE_EXCL | COPYFILE_STAT | COPYFILE_XATTR | COPYFILE_DATA |
+      COPYFILE_NOFOLLOW_SRC). Note that if cloning is successful, progress
+      callbacks will not be invoked, nor will any setuid or setgid bits be
+      copied to the destination. Note also that there is no support for cloning
+      directories: if a directory is provided as the source and
+      COPYFILE_CLONE_FORCE is not passed, this will instead copy the directory.
+      Since this flag implies COPYFILE_NOFOLLOW_SRC, symbolic links themselves
+      will be cloned instead of their targets. Recursive copying however is
+      supported, see below for more information. (This is only applicable for
+      the <code class="Fn">copyfile</code>() function.) Finally, note that ACLs
+      will not be cloned unless COPYFILE_ACL is also passed.</dd>
   <dt id="COPYFILE_DATA_SPARSE"><a class="permalink" href="#COPYFILE_DATA_SPARSE"><code class="Dv">COPYFILE_DATA_SPARSE</code></a></dt>
   <dd>Copy a file sparsely. This requires that the source and destination file
       systems support sparse files with hole sizes at least as large as their
@@ -230,9 +239,8 @@
       this will fall back to a full copy if sparse copying cannot be performed
       for any reason; otherwise, an error is returned.</dd>
   <dt id="COPYFILE_NOFOLLOW"><a class="permalink" href="#COPYFILE_NOFOLLOW"><code class="Dv">COPYFILE_NOFOLLOW</code></a></dt>
-  <dd>This is a convenience macro, equivalent to
-      <code class="Dv">(COPYFILE_NOFOLLOW_DST</code> |
-      <a class="permalink" href="#COPYFILE_NOFOLLOW_SRC)"><code class="Dv" id="COPYFILE_NOFOLLOW_SRC)">COPYFILE_NOFOLLOW_SRC)</code></a>.</dd>
+  <dd>This is a convenience macro, equivalent to (COPYFILE_NOFOLLOW_DST |
+      COPYFILE_NOFOLLOW_SRC).</dd>
   <dt id="COPYFILE_RUN_IN_PLACE"><a class="permalink" href="#COPYFILE_RUN_IN_PLACE"><code class="Dv">COPYFILE_RUN_IN_PLACE</code></a></dt>
   <dd>If the src file has quarantine information, add the
       QTN_FLAG_DO_NOT_TRANSLOCATE flag to the quarantine information of the dst
@@ -286,13 +294,14 @@
       modified or released.</dd>
   <dt id="COPYFILE_STATE_STATUS_CB"><a class="permalink" href="#COPYFILE_STATE_STATUS_CB"><code class="Dv">COPYFILE_STATE_STATUS_CB</code></a></dt>
   <dd>Get or set the callback status function (currently only used for recursive
-      copies; see below for details). The <var class="Va">src</var> parameter is
-      a pointer to a function of type <var class="Vt">copyfile_callback_t</var>
-      (see above).</dd>
+      copies; see below for details). The <var class="Va">src</var> parameter
+      and the <var class="Va">dst</var> parameter are pointers to a function of
+      type <var class="Vt">copyfile_callback_t</var> (see above).</dd>
   <dt id="COPYFILE_STATE_STATUS_CTX"><a class="permalink" href="#COPYFILE_STATE_STATUS_CTX"><code class="Dv">COPYFILE_STATE_STATUS_CTX</code></a></dt>
   <dd>Get or set the context parameter for the status call-back function (see
-      below for details). The <var class="Va">src</var> parameter is a
-      <var class="Vt">void&#x00A0;*</var>.</dd>
+      below for details). The <var class="Va">src</var> parameter and the
+      <var class="Va">dst</var> parameter are opaque pointers (type
+      <var class="Vt">void&#x00A0;*</var> ).</dd>
   <dt id="COPYFILE_STATE_QUARANTINE"><a class="permalink" href="#COPYFILE_STATE_QUARANTINE"><code class="Dv">COPYFILE_STATE_QUARANTINE</code></a></dt>
   <dd>Get or set the quarantine information with the source file. The
       <var class="Va">src</var> parameter is a pointer to an opaque object (type
@@ -335,9 +344,23 @@
       <code class="Dv">COPYFILE_RECURSIVE</code> operation. By default,
       recursive copying descends into directories that have a different device
       number than the directory from which the descent began. The
-      <var class="Va">dst</var> parameter is a pointer to
-      <var class="Vt">bool</var> (type <var class="Vt">bool&#x00A0;*
-    ).</var></dd>
+      <var class="Va">dst</var> parameter and the <var class="Va">src</var>
+      parameter are pointers to <var class="Vt">bool</var> (type
+      <var class="Vt">bool&#x00A0;* ).</var></dd>
+  <dt id="COPYFILE_STATE_NOCPROTECT"><a class="permalink" href="#COPYFILE_STATE_NOCPROTECT"><code class="Dv">COPYFILE_STATE_NOCPROTECT</code></a></dt>
+  <dd>Get or set the current setting for copying content-protection classes from
+      the source to the destination file. The <var class="Va">dst</var>
+      parameter and the <var class="Va">src</var> parameter are pointers to
+      <var class="Vt">uint32_t</var> (type <var class="Vt">uint32_t&#x00A0;*
+      ).</var></dd>
+  <dt id="COPYFILE_STATE_PRESERVE_SUID"><a class="permalink" href="#COPYFILE_STATE_PRESERVE_SUID"><code class="Dv">COPYFILE_STATE_PRESERVE_SUID</code></a></dt>
+  <dd>Get or set the current setting for preserving the setuid and setgid bits
+      on the destination file during a copy. (See the descriptions above for
+      <code class="Dv">COPYFILE_STAT</code> and
+      <code class="Dv">COPYFILE_CLONE</code> for details.) The
+      <var class="Va">dst</var> parameter and the <var class="Va">src</var>
+      parameter are pointers to <var class="Vt">uint32_t</var> (type
+      <var class="Vt">uint32_t&#x00A0;* ).</var></dd>
   <dt id="COPYFILE_STATE_RECURSIVE_SRC_FTSENT"><a class="permalink" href="#COPYFILE_STATE_RECURSIVE_SRC_FTSENT"><code class="Dv">COPYFILE_STATE_RECURSIVE_SRC_FTSENT</code></a></dt>
   <dd>Get any available file entry information during a recursive copy. If none
       is available, the value will be <code class="Dv">NULL</code>. (Only valid
@@ -541,12 +564,6 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="WARNING"><a class="permalink" href="#WARNING">WARNING</a></h1>
-<p class="Pp">Both
-    <a class="permalink" href="#copyfile~6"><code class="Fn" id="copyfile~6">copyfile</code></a>()
-    and <code class="Fn">fcopyfile</code>() can copy symbolic links; there is a
-    gap between when the source link is examined and the actual copy is started,
-    and this can be a potential security risk, especially if the process has
-    elevated privileges.</p>
 <p class="Pp">When performing a recursive copy, if the source hierarchy changes
     while the copy is occurring, the results are undefined; however, an effort
     is made to detect this and return an error to the caller instead of
@@ -555,8 +572,8 @@
     does not reset the seek position for either source or destination. This can
     result in the destination file being a different size than the source
   file.</p>
-<p class="Pp" id="copyfile~7">Both
-    <a class="permalink" href="#copyfile~7"><code class="Fn">copyfile</code></a>()
+<p class="Pp" id="copyfile~6">Both
+    <a class="permalink" href="#copyfile~6"><code class="Fn">copyfile</code></a>()
     and <code class="Fn">fcopyfile</code>() will temporarily mark an unwritable
     destination writable for the duration of the copy. After the copy is
     performed (except when the <code class="Dv">COPYFILE_STAT</code> flag is
