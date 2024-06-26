@@ -35,7 +35,7 @@
    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
    THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   
-   $OpenBSD: sshd_config.5,v 1.350 2023/07/28 05:42:36 jmc Exp $
+   $OpenBSD: sshd_config.5,v 1.355 2024/02/21 06:17:29 djm Exp $
  -->
 <head>
 
@@ -314,15 +314,21 @@ rsa-sha2-512,rsa-sha2-256</pre>
   <dd>Specifies whether and how quickly <a class="Xr">sshd(8)</a> should close
       inactive channels. Timeouts are specified as one or more
       &#x201C;type=interval&#x201D; pairs separated by whitespace, where the
-      &#x201C;type&#x201D; must be a channel type name (as described in the
-      table below), optionally containing wildcard characters.
+      &#x201C;type&#x201D; must be the special keyword &#x201C;global&#x201D; or
+      a channel type name from the list below, optionally containing wildcard
+      characters.
     <p class="Pp">The timeout value &#x201C;interval&#x201D; is specified in
         seconds or may use any of the units documented in the
         <a class="Sx" href="#TIME_FORMATS">TIME FORMATS</a> section. For
-        example, &#x201C;session:*=5m&#x201D; would cause all sessions to
+        example, &#x201C;session=5m&#x201D; would cause interactive sessions to
         terminate after five minutes of inactivity. Specifying a zero value
         disables the inactivity timeout.</p>
-    <p class="Pp">The available channel types include:</p>
+    <p class="Pp">The special timeout &#x201C;global&#x201D; applies to all
+        active channels, taken together. Traffic on any active channel will
+        reset the timeout, but when the timeout expires then all open channels
+        will be closed. Note that this global timeout is not matched by
+        wildcards and must be specified explicitly.</p>
+    <p class="Pp">The available channel type names include:</p>
     <dl class="Bl-tag">
       <dt id="agent-connection"><a class="permalink" href="#agent-connection"><code class="Cm">agent-connection</code></a></dt>
       <dd>Open connections to <a class="Xr">ssh-agent(1)</a>.</dd>
@@ -338,13 +344,12 @@ rsa-sha2-512,rsa-sha2-256</pre>
           established to a <a class="Xr">sshd(8)</a> listening on behalf of a
           <a class="Xr">ssh(1)</a> remote forwarding, i.e.
           <code class="Cm">RemoteForward</code>.</dd>
-      <dt id="session:command"><a class="permalink" href="#session:command"><code class="Cm">session:command</code></a></dt>
-      <dd>Command execution sessions.</dd>
-      <dt id="session:shell"><a class="permalink" href="#session:shell"><code class="Cm">session:shell</code></a></dt>
-      <dd>Interactive shell sessions.</dd>
-      <dt id="session:subsystem:..."><a class="permalink" href="#session:subsystem:..."><code class="Cm">session:subsystem:...</code></a></dt>
-      <dd>Subsystem sessions, e.g. for <a class="Xr">sftp(1)</a>, which could be
-          identified as <code class="Cm">session:subsystem:sftp</code>.</dd>
+      <dt id="session"><a class="permalink" href="#session"><code class="Cm">session</code></a></dt>
+      <dd>The interactive main session, including shell session, command
+          execution, <a class="Xr">scp(1)</a>, <a class="Xr">sftp(1)</a>,
+        etc.</dd>
+      <dt id="tun-connection"><a class="permalink" href="#tun-connection"><code class="Cm">tun-connection</code></a></dt>
+      <dd>Open <code class="Cm">TunnelForward</code> connections.</dd>
       <dt id="x11-connection"><a class="permalink" href="#x11-connection"><code class="Cm">x11-connection</code></a></dt>
       <dd>Open X11 forwarding sessions.</dd>
     </dl>
@@ -356,9 +361,7 @@ rsa-sha2-512,rsa-sha2-256</pre>
         necessarily close the SSH connection, nor does it prevent a client from
         requesting another channel of the same type. In particular, expiring an
         inactive forwarding session does not prevent another identical
-        forwarding from being subsequently created. See also
-        <code class="Cm">UnusedConnectionTimeout</code>, which may be used in
-        conjunction with this option.</p>
+        forwarding from being subsequently created.</p>
     <p class="Pp">The default is not to expire channels of any type for
         inactivity.</p>
   </dd>
@@ -366,7 +369,7 @@ rsa-sha2-512,rsa-sha2-256</pre>
   <dd>Specifies the pathname of a directory to <a class="Xr">chroot(2)</a> to
       after authentication. At session startup <a class="Xr">sshd(8)</a> checks
       that all components of the pathname are root-owned directories which are
-      not writable by any other user or group. After the chroot,
+      not writable by group or others. After the chroot,
       <a class="Xr">sshd(8)</a> changes the working directory to the user's home
       directory. Arguments to <code class="Cm">ChrootDirectory</code> accept the
       tokens described in the <a class="Sx" href="#TOKENS">TOKENS</a> section.
@@ -779,9 +782,10 @@ diffie-hellman-group14-sha256</pre>
       levels of debugging output. Logging with a DEBUG level violates the
       privacy of users and is not recommended.</dd>
   <dt id="LogVerbose"><a class="permalink" href="#LogVerbose"><code class="Cm">LogVerbose</code></a></dt>
-  <dd>Specify one or more overrides to LogLevel. An override consists of a
-      pattern lists that matches the source file, function and line number to
-      force detailed logging for. For example, an override pattern of:
+  <dd>Specify one or more overrides to <code class="Cm">LogLevel</code>. An
+      override consists of a pattern lists that matches the source file,
+      function and line number to force detailed logging for. For example, an
+      override pattern of:
     <div class="Bd Pp Bd-indent Li">
     <pre>kex.c:*:1000,*:kex_exchange_identification():*,packet.c:*</pre>
     </div>
@@ -1216,7 +1220,11 @@ rsa-sha2-512,rsa-sha2-256</pre>
     <p class="Pp">Alternately the name <code class="Cm">internal-sftp</code>
         implements an in-process SFTP server. This may simplify configurations
         using <code class="Cm">ChrootDirectory</code> to force a different
-        filesystem root on clients.</p>
+        filesystem root on clients. It accepts the same command line arguments
+        as <code class="Cm">sftp-server</code> and even though it is in-process,
+        settings such as <code class="Cm">LogLevel</code> or
+        <code class="Cm">SyslogFacility</code> do not apply to it and must be
+        set explicitly via command line arguments.</p>
     <p class="Pp">By default no subsystems are defined.</p>
   </dd>
   <dt id="SyslogFacility"><a class="permalink" href="#SyslogFacility"><code class="Cm">SyslogFacility</code></a></dt>
