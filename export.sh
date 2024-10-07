@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -x
+
 set -euo pipefail
 
 # There are a few issues with the man pages in Xcode that requires special handling
@@ -27,8 +29,10 @@ do
     output_path="$output_dir/$(basename "$file").html"
     (timeout 5 bsdman -Thtml "$file" > "$output_path" \
       || (echo "warning: invalid man page: $file" && exit 1)) && \
-      "$script_root/add_custom_css.py" "$output_path" &
+      "$script_root/add_custom_css.py" "$output_path"
   done
+
+  sleep 1
 done
 
 echo "Exported to $output_dir"
