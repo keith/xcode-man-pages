@@ -26,6 +26,11 @@ do
       continue
     fi
 
+    # Some non manpage that still converts somehow
+    if [[ "$file" == */TextureProcessorMetal.metallib ]]; then
+      continue
+    fi
+
     output_path="$output_dir/$(basename "$file").html"
     (timeout 5 bsdman -Thtml "$file" > "$output_path" \
       || (echo "warning: invalid man page: $file" && exit 1)) && \
