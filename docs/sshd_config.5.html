@@ -35,7 +35,7 @@
    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
    THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   
-   $OpenBSD: sshd_config.5,v 1.365 2024/06/24 06:59:39 jmc Exp $
+   $OpenBSD: sshd_config.5,v 1.374 2024/09/15 08:27:38 jmc Exp $
  -->
 <head>
 
@@ -733,11 +733,14 @@ rsa-sha2-512,rsa-sha2-256</pre>
       <li>ecdh-sha2-nistp256</li>
       <li>ecdh-sha2-nistp384</li>
       <li>ecdh-sha2-nistp521</li>
+      <li>mlkem768x25519-sha256</li>
+      <li>sntrup761x25519-sha512</li>
       <li>sntrup761x25519-sha512@openssh.com</li>
     </ul>
     <p class="Pp">The default is:</p>
     <div class="Bd Pp Bd-indent Li">
-    <pre>sntrup761x25519-sha512@openssh.com,
+    <pre>sntrup761x25519-sha512,sntrup761x25519-sha512@openssh.com,
+mlkem768x25519-sha256,
 curve25519-sha256,curve25519-sha256@libssh.org,
 ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,
 diffie-hellman-group-exchange-sha256,
@@ -787,9 +790,9 @@ diffie-hellman-group14-sha256</pre>
       privacy of users and is not recommended.</dd>
   <dt id="LogVerbose"><a class="permalink" href="#LogVerbose"><code class="Cm">LogVerbose</code></a></dt>
   <dd>Specify one or more overrides to <code class="Cm">LogLevel</code>. An
-      override consists of a pattern lists that matches the source file,
-      function and line number to force detailed logging for. For example, an
-      override pattern of:
+      override consists of one or more pattern lists that matches the source
+      file, function and line number to force detailed logging for. For example,
+      an override pattern of:
     <div class="Bd Pp Bd-indent Li">
     <pre>kex.c:*:1000,*:kex_exchange_identification():*,packet.c:*</pre>
     </div>
@@ -853,8 +856,10 @@ hmac-sha2-256,hmac-sha2-512,hmac-sha1</pre>
       <code class="Cm">Match</code> blocks that are satisfied, only the first
       instance of the keyword is applied.
     <p class="Pp">The arguments to <code class="Cm">Match</code> are one or more
-        criteria-pattern pairs or the single token <code class="Cm">All</code>
-        which matches all criteria. The available criteria are
+        criteria-pattern pairs or one of the single token criteria:
+        <code class="Cm">All</code>, which matches all criteria, or
+        <code class="Cm">Invalid-User</code>, which matches when the requested
+        user-name does not match any known account. The available criteria are
         <code class="Cm">User</code>, <code class="Cm">Group</code>,
         <code class="Cm">Host</code>, <code class="Cm">LocalAddress</code>,
         <code class="Cm">LocalPort</code>, <code class="Cm">RDomain</code>, and
@@ -919,6 +924,7 @@ hmac-sha2-256,hmac-sha2-512,hmac-sha1</pre>
         <code class="Cm">PubkeyAcceptedAlgorithms</code>,
         <code class="Cm">PubkeyAuthentication</code>,
         <code class="Cm">PubkeyAuthOptions</code>,
+        <code class="Cm">RefuseConnection</code>,
         <code class="Cm">RekeyLimit</code>, <code class="Cm">RevokedKeys</code>,
         <code class="Cm">RDomain</code>, <code class="Cm">SetEnv</code>,
         <code class="Cm">StreamLocalBindMask</code>,
@@ -967,7 +973,7 @@ hmac-sha2-256,hmac-sha2-512,hmac-sha1</pre>
       <code class="Cm">sshd</code>.</dd>
   <dt id="PasswordAuthentication"><a class="permalink" href="#PasswordAuthentication"><code class="Cm">PasswordAuthentication</code></a></dt>
   <dd>Specifies whether password authentication is allowed. The default is
-      <code class="Cm">sshd</code>.</dd>
+      <code class="Cm">yes</code>.</dd>
   <dt id="PermitEmptyPasswords"><a class="permalink" href="#PermitEmptyPasswords"><code class="Cm">PermitEmptyPasswords</code></a></dt>
   <dd>When password authentication is allowed, it specifies whether the server
       allows login to accounts with empty password strings. The default is
@@ -1088,7 +1094,7 @@ hmac-sha2-256,hmac-sha2-512,hmac-sha1</pre>
         will accumulate up to a maximum. Conversely, penalties are not applied
         until a minimum threshold time has been accumulated.</p>
     <p class="Pp">Penalties are enabled by default with the default settings
-        listed below but may disabled using the <code class="Cm">off</code>
+        listed below but may disabled using the <code class="Cm">no</code>
         keyword. The defaults may be overridden by specifying one or more of the
         keywords below, separated by whitespace. All keywords accept arguments,
         e.g. &quot;crash:2m&quot;.</p>
@@ -1099,6 +1105,10 @@ hmac-sha2-256,hmac-sha2-512,hmac-sha1</pre>
       <dt id="authfail:duration"><a class="permalink" href="#authfail:duration"><code class="Cm">authfail:duration</code></a></dt>
       <dd>Specifies how long to refuse clients that disconnect after making one
           or more unsuccessful authentication attempts (default: 5s).</dd>
+      <dt id="refuseconnection:duration"><a class="permalink" href="#refuseconnection:duration"><code class="Cm">refuseconnection:duration</code></a></dt>
+      <dd>Specifies how long to refuse clients that were administratively
+          prohibited connection via the <code class="Cm">RefuseConnection</code>
+          option (default: 10s).</dd>
       <dt id="noauth:duration"><a class="permalink" href="#noauth:duration"><code class="Cm">noauth:duration</code></a></dt>
       <dd>Specifies how long to refuse clients that disconnect without
           attempting authentication (default: 1s). This timeout should be used
@@ -1106,7 +1116,7 @@ hmac-sha2-256,hmac-sha2-512,hmac-sha1</pre>
           <a class="Xr">ssh-keyscan(1)</a>.</dd>
       <dt id="grace-exceeded:duration"><a class="permalink" href="#grace-exceeded:duration"><code class="Cm">grace-exceeded:duration</code></a></dt>
       <dd>Specifies how long to refuse clients that fail to authenticate after
-          <code class="Cm">LoginGraceTime</code> (default: 20s).</dd>
+          <code class="Cm">LoginGraceTime</code> (default: 10s).</dd>
       <dt id="max:duration"><a class="permalink" href="#max:duration"><code class="Cm">max:duration</code></a></dt>
       <dd>Specifies the maximum time a particular source address range will be
           refused access for (default: 10m). Repeated penalties will accumulate
@@ -1215,6 +1225,12 @@ rsa-sha2-512,rsa-sha2-256</pre>
   <dt id="PubkeyAuthentication"><a class="permalink" href="#PubkeyAuthentication"><code class="Cm">PubkeyAuthentication</code></a></dt>
   <dd>Specifies whether public key authentication is allowed. The default is
       <code class="Cm">yes</code>.</dd>
+  <dt id="RefuseConnection"><a class="permalink" href="#RefuseConnection"><code class="Cm">RefuseConnection</code></a></dt>
+  <dd>Indicates that <a class="Xr">sshd(8)</a> should unconditionally terminate
+      the connection. Additionally, a <code class="Cm">refuseconnection</code>
+      penalty may be recorded against the source of the connection if
+      <code class="Cm">PerSourcePenalties</code> are enabled. This option is
+      only really useful in a <code class="Cm">Match</code> block.</dd>
   <dt id="RekeyLimit"><a class="permalink" href="#RekeyLimit"><code class="Cm">RekeyLimit</code></a></dt>
   <dd>Specifies the maximum amount of data that may be transmitted or received
       before the session key is renegotiated, optionally followed by a maximum

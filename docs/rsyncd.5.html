@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+  	$OpenBSD$
+  
+   Copyright (c) 2019 Kristaps Dzonsons <kristaps@bsd.lv>
+  
+   Permission to use, copy, modify, and distribute this software for any
+   purpose with or without fee is hereby granted, provided that the above
+   copyright notice and this permission notice appear in all copies.
+  
+   THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+   WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+   MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+   ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+   WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+   ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+   -->
+<head>
+
+<style>
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #000;
+    color: #d0d0d0;
+  }
+
+  a, a:visited {
+    color: #1899eb;
+  }
+}
+</style>
+
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    .Nd, .Bf, .Op { display: inline; }
+    .Pa, .Ad { font-style: italic; }
+    .Ms { font-weight: bold; }
+    .Bl-diag > dt { font-weight: bold; }
+    code.Nm, .Fl, .Cm, .Ic, code.In, .Fd, .Fn, .Cd { font-weight: bold;
+      font-family: inherit; }
+  </style>
+  <title>RSYNCD(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">RSYNCD(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">RSYNCD(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">rsyncd</code> &#x2014; <span class="Nd">rsyncd
+    wire protocol</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The <code class="Nm">rsyncd</code> protocol described in this
+    relates to the BSD-licensed <a class="Xr">openrsync(1)</a>, a
+    re-implementation of the GPL-licensed reference utility
+    <a class="Xr">rsync(1)</a>. It is compatible with version 27 of the
+    reference.</p>
+<p class="Pp">The <code class="Nm">rsyncd</code> protocol is an envelope
+    protocol for <a class="Xr">rsync(5)</a> between a client and an
+    rsync://-capable server. It provides a means to exchange capabilities
+    information prior to file transfer.</p>
+<p class="Pp">In this document, &quot;client&quot; refers to the
+    <a class="Xr">openrsync(1)</a> utility making the request. It follows that
+    &quot;server&quot; refers to the daemon servicing the request.</p>
+<p class="Pp">A connection between a client and server consists of host, a
+    module, and zero or more paths.</p>
+<p class="Pp"></p>
+<div class="Bd Bd-indent"><code class="Li">openrsync rsync://host/module/path1
+  rsync://host/path2... dest</code></div>
+<p class="Pp">At this time, operating in sender mode (with the rsync:// host
+    receiving information) is not described in this document.</p>
+<section class="Ss">
+<h2 class="Ss" id="Data_types"><a class="permalink" href="#Data_types">Data
+  types</a></h2>
+<p class="Pp">These are the same as in <a class="Xr">rsync(5)</a>. A newline is
+    always a standalone \n.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Client_process"><a class="permalink" href="#Client_process">Client
+  process</a></h2>
+<p class="Pp">After initialising a connection, the client and server exchange
+    the following information, in order. This portion of the process is
+    <a class="permalink" href="#not"><i class="Em" id="not">not</i></a>
+    multiplexed.</p>
+<p class="Pp"></p>
+<ol class="Bl-enum Bl-compact">
+  <li>client sends requested module followed by newline</li>
+  <li>server responds with preamble followed by standalone newline</li>
+</ol>
+<p class="Pp">The requested module must have non-zero length. The preamble
+    consists in a sequence of lines. Each line either contains free-form text
+    sent by the server as a &quot;motd&quot; (message of the day) or a
+  command:</p>
+<p class="Pp"></p>
+<div class="Bd Bd-indent"><code class="Li">@RSYNCD: command\n</code></div>
+<p class="Pp">The only supported command is the server protocol
+  specification:</p>
+<p class="Pp"></p>
+<div class="Bd Bd-indent"><code class="Li">@RSYNCD: xx[.yy]\n</code></div>
+<p class="Pp">The optional component is the submodule, which may be discarded.
+    The version may only be specified once. Both the motd and commands end in
+    the special termination command:</p>
+<p class="Pp"></p>
+<div class="Bd Bd-indent"><code class="Li">@RSYNCD: OK\n</code></div>
+<p class="Pp">Following that, the client must send the command-line arguments
+    that would otherwise be used to start a <a class="Xr">openrsync(1)</a>
+    server. Each argument must be specified on its own line, e.g.,</p>
+<p class="Pp"></p>
+<div class="Bd
+  Bd-indent"><code class="Li">--server\n--sender\n-r\n-t\n.\npath1\npath2</code></div>
+<p class="Pp">This must be followed by a standalone newline.</p>
+<p class="Pp">If the server does not understand or accept any of the
+    command-line arguments, it will exit at this point.</p>
+<p class="Pp">Following this, the client must read the integer-length session
+    checksum seed. Multiplexing is subsequently enabled.</p>
+<p class="Pp">The sequence that follows is stipulated in
+    <a class="Xr">rsync(5)</a> following the handshake.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr">openrsync(1)</a>, <a class="Xr">rsync(5)</a></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">February 21, 2025</td>
+    <td class="foot-os">Mac OS X 14</td>
+  </tr>
+</table>
+</body>
+</html>

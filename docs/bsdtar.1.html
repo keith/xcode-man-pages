@@ -25,8 +25,6 @@
    LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
    OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
    SUCH DAMAGE.
-  
-   $FreeBSD$
    -->
 <head>
 
@@ -291,6 +289,11 @@
       option) will be used instead. On create, this sets the group name that
       will be stored in the archive; the name will not be verified against the
       system group database.</dd>
+  <dt id="group"><a class="permalink" href="#group"><code class="Fl">--group</code></a>
+    <var class="Ar">name</var>[:<var class="Ar">gid</var>]</dt>
+  <dd>Use the provided group, if <var class="Ar">gid</var> is not provided,
+      <var class="Ar">name</var> can be either a group name or numeric id. See
+      the <code class="Fl">--gname</code> option for details.</dd>
   <dt id="H"><a class="permalink" href="#H"><code class="Fl">-H</code></a></dt>
   <dd>(c and r modes only) Symbolic links named on the command line will be
       followed; the target of the link will be archived, not the link
@@ -389,8 +392,9 @@
       ACLs and extended file attributes using <a class="Xr">copyfile(3)</a> in
       AppleDouble format. This is the reverse of
       <code class="Fl">--no-mac-metadata</code>. and the default behavior in c,
-      r, and u modes or if <code class="Nm">tar</code> is run in x mode as
-    root.</dd>
+      r, and u modes or if <code class="Nm">tar</code> is run in x mode as root.
+      Currently supported only for pax formats (including &quot;pax
+      restricted&quot;, the default tar format for bsdtar.)</dd>
   <dt id="n"><a class="permalink" href="#n"><code class="Fl">-n</code></a>,
     <code class="Fl">--norecurse</code>,
     <code class="Fl">--no-recursion</code></dt>
@@ -440,6 +444,9 @@
       AppleDouble format. This is the reverse of
       <code class="Fl">--mac-metadata</code>. and the default behavior if
       <code class="Nm">tar</code> is run as non-root in x mode.</dd>
+  <dt id="no-read-sparse"><a class="permalink" href="#no-read-sparse"><code class="Fl">--no-read-sparse</code></a></dt>
+  <dd>(c, r, u modes only) Do not read sparse file information from disk. This
+      is the reverse of <code class="Fl">--read-sparse</code>.</dd>
   <dt id="no-safe-writes"><a class="permalink" href="#no-safe-writes"><code class="Fl">--no-safe-writes</code></a></dt>
   <dd>(x mode only) Do not create temporary files and use
       <a class="Xr">rename(2)</a> to replace the original ones. This is the
@@ -560,16 +567,62 @@
       <dt id="lz4:block-dependence"><a class="permalink" href="#lz4:block-dependence"><code class="Cm">lz4:block-dependence</code></a></dt>
       <dd>Use the previous block of the block being compressed for a compression
           dictionary to improve compression ratio.</dd>
-      <dt id="zstd:compression-level"><a class="permalink" href="#zstd:compression-level"><code class="Cm">zstd:compression-level</code></a></dt>
+      <dt id="zstd:compression-level"><a class="permalink" href="#zstd:compression-level"><code class="Cm">zstd:compression-level</code></a>=<var class="Ar">N</var></dt>
       <dd>A decimal integer specifying the zstd compression level. Supported
           values depend on the library version, common values are from 1 to
         22.</dd>
+      <dt id="zstd:threads"><a class="permalink" href="#zstd:threads"><code class="Cm">zstd:threads</code></a>=<var class="Ar">N</var></dt>
+      <dd>Specify the number of worker threads to use, or 0 to use as many
+          threads as there are CPU cores in the system.</dd>
+      <dt id="zstd:frame-per-file"><a class="permalink" href="#zstd:frame-per-file"><code class="Cm">zstd:frame-per-file</code></a></dt>
+      <dd>Start a new compression frame at the beginning of each file in the
+          archive.</dd>
+      <dt id="zstd:min-frame-in"><a class="permalink" href="#zstd:min-frame-in"><code class="Cm">zstd:min-frame-in</code></a>=<var class="Ar">N</var></dt>
+      <dd>In combination with <code class="Cm">zstd:frame-per-file</code>, do
+          not start a new compression frame unless the uncompressed size of the
+          current frame is at least <var class="Ar">N</var> bytes. The number
+          may be followed by <code class="Li">k /</code>
+          <code class="Li">kB</code>, <code class="Li">M /</code>
+          <code class="Li">MB</code>, or <code class="Li">G /</code>
+          <code class="Li">GB</code> to indicate kilobytes, megabytes or
+          gigabytes respectively.</dd>
+      <dt id="zstd:min-frame-out"><a class="permalink" href="#zstd:min-frame-out"><code class="Cm">zstd:min-frame-out</code></a>=<var class="Ar">N</var>,
+        <code class="Cm">zstd:min-frame-size</code>=<var class="Ar">N</var></dt>
+      <dd>In combination with <code class="Cm">zstd:frame-per-file</code>, do
+          not start a new compression frame unless the compressed size of the
+          current frame is at least <var class="Ar">N</var> bytes. The number
+          may be followed by <code class="Li">k /</code>
+          <code class="Li">kB</code>, <code class="Li">M /</code>
+          <code class="Li">MB</code>, or <code class="Li">G /</code>
+          <code class="Li">GB</code> to indicate kilobytes, megabytes or
+          gigabytes respectively.</dd>
+      <dt id="zstd:max-frame-in"><a class="permalink" href="#zstd:max-frame-in"><code class="Cm">zstd:max-frame-in</code></a>=<var class="Ar">N</var>,
+        <code class="Cm">zstd:max-frame-size</code>=<var class="Ar">N</var></dt>
+      <dd>Start a new compression frame as soon as possible after the
+          uncompressed size of the current frame exceeds <var class="Ar">N</var>
+          bytes. The number may be followed by <code class="Li">k /</code>
+          <code class="Li">kB</code>, <code class="Li">M /</code>
+          <code class="Li">MB</code>, or <code class="Li">G /</code>
+          <code class="Li">GB</code> to indicate kilobytes, megabytes or
+          gigabytes respectively. Values less than 1,024 will be rejected.</dd>
+      <dt id="zstd:max-frame-out"><a class="permalink" href="#zstd:max-frame-out"><code class="Cm">zstd:max-frame-out</code></a>=<var class="Ar">N</var></dt>
+      <dd>Start a new compression frame as soon as possible after the compressed
+          size of the current frame exceeds <var class="Ar">N</var> bytes. The
+          number may be followed by <code class="Li">k /</code>
+          <code class="Li">kB</code>, <code class="Li">M /</code>
+          <code class="Li">MB</code>, or <code class="Li">G /</code>
+          <code class="Li">GB</code> to indicate kilobytes, megabytes or
+          gigabytes respectively. Values less than 1,024 will be rejected.</dd>
       <dt id="lzop:compression-level"><a class="permalink" href="#lzop:compression-level"><code class="Cm">lzop:compression-level</code></a></dt>
       <dd>A decimal integer from 1 to 9 specifying the lzop compression
         level.</dd>
       <dt id="xz:compression-level"><a class="permalink" href="#xz:compression-level"><code class="Cm">xz:compression-level</code></a></dt>
       <dd>A decimal integer from 0 to 9 specifying the xz compression
         level.</dd>
+      <dt id="xz:threads"><a class="permalink" href="#xz:threads"><code class="Cm">xz:threads</code></a></dt>
+      <dd>Specify the number of worker threads to use. Setting threads to a
+          special value 0 makes <a class="Xr">xz(1)</a> use as many threads as
+          there are CPU cores on the system.</dd>
       <dt id="mtree:"><a class="permalink" href="#mtree:"><code class="Cm">mtree:</code></a><var class="Ar">keyword</var></dt>
       <dd>The mtree writer module allows you to specify which mtree keywords
           will be included in the output. Supported keywords include:
@@ -650,6 +703,10 @@
       read to the very end, since there can be multiple entries with the same
       name and, by convention, later entries overwrite earlier entries. This
       option is provided as a performance optimization.</dd>
+  <dt id="read-sparse"><a class="permalink" href="#read-sparse"><code class="Fl">--read-sparse</code></a></dt>
+  <dd>(c, r, u modes only) Read sparse file information from disk. This is the
+      reverse of <code class="Fl">--no-read-sparse</code> and the default
+      behavior.</dd>
   <dt id="S"><a class="permalink" href="#S"><code class="Fl">-S</code></a></dt>
   <dd>(x mode only) Extract files as sparse files. For every block on disk,
       check first if it contains only NULL bytes and seek over it otherwise.
@@ -658,7 +715,7 @@
     <var class="Ar">pattern</var></dt>
   <dd>Modify file or archive member names according to
       <span class="Pa">pattern</span>. The pattern has the format
-      <var class="Ar">/old/new/</var>[ghHprRsS] where <var class="Ar">old</var>
+      <var class="Ar">/old/new/</var>[bghHprRsS] where <var class="Ar">old</var>
       is a basic regular expression, <var class="Ar">new</var> is the
       replacement string of the matched part, and the optional trailing letters
       modify how the replacement is handled. If <var class="Ar">old</var> is not
@@ -669,13 +726,16 @@
       The optional trailing s specifies that the pattern applies to the value of
       symbolic links. The optional trailing p specifies that after a successful
       substitution the original path name and the new path name should be
-      printed to standard error. Optional trailing H, R, or S characters
-      suppress substitutions for hardlink targets, regular filenames, or symlink
-      targets, respectively. Optional trailing h, r, or s characters enable
+      printed to standard error. The optional trailing b specifies that the
+      substitution should be matched from the beginning of the string rather
+      than from right after the position at which the previous matching
+      substitution ended. Optional trailing H, R, or S characters suppress
       substitutions for hardlink targets, regular filenames, or symlink targets,
-      respectively. The default is <var class="Ar">hrs</var> which applies
-      substitutions to all names. In particular, it is never necessary to
-      specify h, r, or s.</dd>
+      respectively. Optional trailing h, r, or s characters enable substitutions
+      for hardlink targets, regular filenames, or symlink targets, respectively.
+      The default is <var class="Ar">hrs</var> which applies substitutions to
+      all names. In particular, it is never necessary to specify h, r, or
+    s.</dd>
   <dt id="safe-writes"><a class="permalink" href="#safe-writes"><code class="Fl">--safe-writes</code></a></dt>
   <dd>(x mode only) Extract files atomically. By default
       <code class="Nm">tar</code> unlinks the original file with the same name
@@ -742,6 +802,11 @@
   <dd>Pipe the input (in x or t mode) or the output (in c mode) through
       <span class="Pa">program</span> instead of using the builtin compression
       support.</dd>
+  <dt id="owner"><a class="permalink" href="#owner"><code class="Fl">--owner</code></a>
+    <var class="Ar">name</var>[:<var class="Ar">uid</var>]</dt>
+  <dd>Use the provided user, if <var class="Ar">uid</var> is not provided,
+      <var class="Ar">name</var> can be either an username or numeric id. See
+      the <code class="Fl">--uname</code> option for details.</dd>
   <dt id="v"><a class="permalink" href="#v"><code class="Fl">-v</code></a>,
     <code class="Fl">--verbose</code></dt>
   <dd>Produce verbose output. In create and extract modes,
