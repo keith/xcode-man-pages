@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <!-- This is an automatically generated file.  Do not edit.
-   $OpenBSD: ssh-agent.1,v 1.79 2023/08/10 14:37:32 naddy Exp $
+   $OpenBSD: ssh-agent.1,v 1.82 2025/02/09 18:24:08 schwarze Exp $
   
    Author: Tatu Ylonen <ylo@cs.hut.fi>
    Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -130,9 +130,8 @@
       <var class="Ar">bind_address</var>. The default is
       <span class="Pa">$TMPDIR/ssh-XXXXXXXXXX/agent.&lt;ppid&gt;</span>.</dd>
   <dt id="c"><a class="permalink" href="#c"><code class="Fl">-c</code></a></dt>
-  <dd>Generate C-shell commands on <code class="Dv">stdout</code>. This is the
-      default if <code class="Ev">SHELL</code> looks like it's a csh style of
-      shell.</dd>
+  <dd>Generate C-shell commands on standard output. This is the default if
+      <code class="Ev">SHELL</code> looks like it's a csh style of shell.</dd>
   <dt id="D"><a class="permalink" href="#D"><code class="Fl">-D</code></a></dt>
   <dd>Foreground mode. When this option is specified,
       <code class="Nm">ssh-agent</code> will not fork.</dd>
@@ -150,10 +149,10 @@
       environment variable).</dd>
   <dt id="O"><a class="permalink" href="#O"><code class="Fl">-O</code></a>
     <var class="Ar">option</var></dt>
-  <dd>Specify an option when starting <code class="Nm">ssh-agent</code>.
-      Currently two options are supported:
-      <code class="Cm">allow-remote-pkcs11</code> and
-      <code class="Cm">no-restrict-websafe</code>.
+  <dd>Specify an option when starting <code class="Nm">ssh-agent</code>. The
+      supported options are: <code class="Cm">allow-remote-pkcs11</code>,
+      <code class="Cm">no-restrict-websafe</code> and
+      <code class="Cm">websafe-allow</code>.
     <p class="Pp">The <code class="Cm">allow-remote-pkcs11</code> option allows
         clients of a forwarded <code class="Nm">ssh-agent</code> to load PKCS#11
         or FIDO provider libraries. By default only local clients may perform
@@ -171,6 +170,12 @@
         <a class="Xr">ssh-keygen(1)</a> signature. The default behaviour
         prevents forwarded access to a FIDO key from also implicitly forwarding
         the ability to authenticate to websites.</p>
+    <p class="Pp">Alternately the <code class="Cm">websafe-allow</code> option
+        allows specifying a pattern-list of key application strings to replace
+        the default application allow-list, for example:
+        &#x201C;websafe-allow=ssh:*,example.org,*.example.com&#x201D;</p>
+    <p class="Pp">See PATTERNS in <a class="Xr">ssh_config(5)</a> for a
+        description of pattern-list syntax.</p>
   </dd>
   <dt id="P"><a class="permalink" href="#P"><code class="Fl">-P</code></a>
     <var class="Ar">allowed_providers</var></dt>
@@ -178,13 +183,15 @@
       authenticator middleware shared libraries that may be used with the
       <code class="Fl">-S</code> or <code class="Fl">-s</code> options to
       <a class="Xr">ssh-add(1)</a>. Libraries that do not match the pattern list
-      will be refused. See PATTERNS in <a class="Xr">ssh_config(5)</a> for a
-      description of pattern-list syntax. The default list is
-      &#x201C;usr/lib*/*,/usr/local/lib*/*&#x201D;.</dd>
+      will be refused. The default list is
+      &#x201C;usr/lib*/*,/usr/local/lib*/*&#x201D;.
+    <p class="Pp">See PATTERNS in <a class="Xr">ssh_config(5)</a> for a
+        description of pattern-list syntax.</p>
+  </dd>
   <dt id="s"><a class="permalink" href="#s"><code class="Fl">-s</code></a></dt>
-  <dd>Generate Bourne shell commands on <code class="Dv">stdout</code>. This is
-      the default if <code class="Ev">SHELL</code> does not look like it's a csh
-      style of shell.</dd>
+  <dd>Generate Bourne shell commands on standard output. This is the default if
+      <code class="Ev">SHELL</code> does not look like it's a csh style of
+      shell.</dd>
   <dt id="t"><a class="permalink" href="#t"><code class="Fl">-t</code></a>
     <var class="Ar">life</var></dt>
   <dd>Set a default value for the maximum lifetime of identities added to the
@@ -197,7 +204,7 @@
       subprocess of the agent. The agent exits automatically when the command
       given on the command line terminates.</dd>
 </dl>
-<p class="Pp">There are two main ways to get an agent set up. The first is at
+<p class="Pp">There are three main ways to get an agent set up. The first is at
     the start of an X session, where all other windows or programs are started
     as children of the <code class="Nm">ssh-agent</code> program. The agent
     starts a command under which its environment variables are exported, for
@@ -208,8 +215,21 @@
     required to set its environment variables, which in turn can be evaluated in
     the calling shell, for example <code class="Cm">eval `ssh-agent
   -s`</code>.</p>
-<p class="Pp">In both cases, <a class="Xr">ssh(1)</a> looks at these environment
-    variables and uses them to establish a connection to the agent.</p>
+<p class="Pp">In both of these cases, <a class="Xr">ssh(1)</a> looks at these
+    environment variables and uses them to establish a connection to the
+  agent.</p>
+<p class="Pp">The third way to run <code class="Nm">ssh-agent</code> is via
+    socket activation from a supervising process, such as systemd. In this mode,
+    the supervising process creates the listening socket and is responsible for
+    starting <code class="Nm">ssh-agent</code> as needed, and also for
+    communicating the location of the socket listener to other programs in the
+    user's session. Socket activation is used when
+    <code class="Nm">ssh-agent</code> is started with either of the
+    <code class="Fl">-d</code> or <code class="Fl">-D</code> flags, no socket
+    listening address specified by the <code class="Fl">-a</code> flag, and both
+    the <code class="Ev">LISTEN_FDS</code> and
+    <code class="Ev">LISTEN_PID</code> environment variables correctly supplied
+    by the supervising process.</p>
 <p class="Pp">The agent initially does not have any private keys. Keys are added
     using <a class="Xr">ssh-add(1)</a> or by <a class="Xr">ssh(1)</a> when
     <code class="Cm">AddKeysToAgent</code> is set in
@@ -226,6 +246,8 @@
     connection to the agent is forwarded over SSH remote connections and the
     result is returned to the requester, allowing the user access to their
     identities anywhere in the network in a secure fashion.</p>
+<p class="Pp"><code class="Nm">ssh-agent</code> will delete all keys it has
+    loaded upon receiving <code class="Dv">SIGUSR1</code>.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>

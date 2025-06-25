@@ -35,7 +35,7 @@
    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
    THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   
-   $OpenBSD: ssh_config.5,v 1.402 2024/09/09 14:41:21 naddy Exp $
+   $OpenBSD: ssh_config.5,v 1.413 2025/03/03 06:53:09 dtucker Exp $
  -->
 <head>
 
@@ -143,8 +143,9 @@
       <code class="Cm">final</code>, <code class="Cm">exec</code>,
       <code class="Cm">localnetwork</code>, <code class="Cm">host</code>,
       <code class="Cm">originalhost</code>, <code class="Cm">tagged</code>,
-      <code class="Cm">user</code>, and <code class="Cm">localuser</code>. The
-      <code class="Cm">all</code> criteria must appear alone or immediately
+      <code class="Cm">command</code>, <code class="Cm">user</code>,
+      <code class="Cm">localuser</code>, and <code class="Cm">version</code>.
+      The <code class="Cm">all</code> criteria must appear alone or immediately
       after <code class="Cm">canonical</code> or <code class="Cm">final</code>.
       Other criteria may be combined arbitrarily. All criteria but
       <code class="Cm">all</code>, <code class="Cm">canonical</code>, and
@@ -178,21 +179,38 @@
         configuration.</p>
     <p class="Pp">The other keywords' criteria must be single entries or
         comma-separated lists and may use the wildcard and negation operators
-        described in the <a class="Sx" href="#PATTERNS">PATTERNS</a> section.
-        The criteria for the <code class="Cm">host</code> keyword are matched
-        against the target hostname, after any substitution by the
+        described in the <a class="Sx" href="#PATTERNS">PATTERNS</a>
+      section.</p>
+    <p class="Pp">The criteria for the <code class="Cm">host</code> keyword are
+        matched against the target hostname, after any substitution by the
         <code class="Cm">Hostname</code> or
         <code class="Cm">CanonicalizeHostname</code> options. The
         <code class="Cm">originalhost</code> keyword matches against the
-        hostname as it was specified on the command-line. The
-        <code class="Cm">tagged</code> keyword matches a tag name specified by a
-        prior <code class="Cm">Tag</code> directive or on the
+        hostname as it was specified on the command-line.</p>
+    <p class="Pp">The <code class="Cm">tagged</code> keyword matches a tag name
+        specified by a prior <code class="Cm">Tag</code> directive or on the
         <a class="Xr">ssh(1)</a> command-line using the
-        <code class="Fl">-P</code> flag. The <code class="Cm">user</code>
-        keyword matches against the target username on the remote host. The
+        <code class="Fl">-P</code> flag. The <code class="Cm">command</code>
+        keyword matches the remote command that has been requested, or the
+        subsystem name that is being invoked (e.g. &quot;sftp&quot; for an SFTP
+        session). The empty string will match the case where a command or tag
+        has not been specified, i.e. &#x2018;Match tag &quot;&quot;&#x2019;. The
+        <code class="Cm">version</code> keyword matches against the version
+        string of <a class="Xr">ssh(1)</a>, for example
+        &#x201C;OpenSSH_10.0&#x201D;.</p>
+    <p class="Pp">The <code class="Cm">user</code> keyword matches against the
+        target username on the remote host. The
         <code class="Cm">localuser</code> keyword matches against the name of
         the local user running <a class="Xr">ssh(1)</a> (this keyword may be
         useful in system-wide <code class="Nm">ssh_config</code> files).</p>
+    <p class="Pp">Finally, the <code class="Cm">sessiontype</code> keyword
+        matches the requested session type, which may be one of
+        <code class="Cm">shell</code> for interactive sessions,
+        <code class="Cm">exec</code> for command execution sessions,
+        <code class="Cm">subsystem</code> for subsystem invocations such as
+        <a class="Xr">sftp(1)</a>, or <code class="Cm">none</code> for
+        transport-only sessions, such as when <a class="Xr">ssh(1)</a> is
+        started with the <code class="Fl">-N</code> flag.</p>
   </dd>
   <dt id="AddKeysToAgent"><a class="permalink" href="#AddKeysToAgent"><code class="Cm">AddKeysToAgent</code></a></dt>
   <dd>Specifies whether keys should be automatically added to a running
@@ -412,8 +430,8 @@ chacha20-poly1305@openssh.com</pre>
     <p class="Pp">The default is:</p>
     <div class="Bd Pp Bd-indent Li">
     <pre>chacha20-poly1305@openssh.com,
-aes128-ctr,aes192-ctr,aes256-ctr,
-aes128-gcm@openssh.com,aes256-gcm@openssh.com</pre>
+aes128-gcm@openssh.com,aes256-gcm@openssh.com,
+aes128-ctr,aes192-ctr,aes256-ctr</pre>
     </div>
     <p class="Pp">The list of available ciphers may also be obtained using
         &quot;ssh -Q cipher&quot;.</p>
@@ -857,8 +875,8 @@ rsa-sha2-512,rsa-sha2-256</pre>
         set.</p>
     <p class="Pp">The default is:</p>
     <div class="Bd Pp Bd-indent Li">
-    <pre>sntrup761x25519-sha512,sntrup761x25519-sha512@openssh.com,
-mlkem768x25519-sha256,
+    <pre>mlkem768x25519-sha256,
+sntrup761x25519-sha512,sntrup761x25519-sha512@openssh.com,
 curve25519-sha256,curve25519-sha256@libssh.org,
 ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,
 diffie-hellman-group-exchange-sha256,
@@ -898,15 +916,20 @@ diffie-hellman-group14-sha256</pre>
         <code class="Cm">PermitLocalCommand</code> has been enabled.</p>
   </dd>
   <dt id="LocalForward"><a class="permalink" href="#LocalForward"><code class="Cm">LocalForward</code></a></dt>
-  <dd>Specifies that a TCP port on the local machine be forwarded over the
-      secure channel to the specified host and port from the remote machine. The
-      first argument specifies the listener and may be
+  <dd>Specifies that a TCP port or Unix-domain socket on the local machine be
+      forwarded over the secure channel to the specified host and port (or
+      Unix-domain socket) from the remote machine. For a TCP port, the first
+      argument must be
       [<var class="Ar">bind_address</var>:]<var class="Ar">port</var> or a Unix
       domain socket path. The second argument is the destination and may be
       <var class="Ar">host</var>:<var class="Ar">hostport</var> or a Unix domain
       socket path if the remote host supports it.
     <p class="Pp">IPv6 addresses can be specified by enclosing addresses in
-        square brackets. Multiple forwardings may be specified, and additional
+        square brackets.</p>
+    <p class="Pp">If either argument contains a '/' in it, that argument will be
+        interpreted as a Unix-domain socket (on the corresponding host) rather
+        than a TCP port.</p>
+    <p class="Pp">Multiple forwardings may be specified, and additional
         forwardings can be given on the command line. Only the superuser can
         forward privileged ports. By default, the local port is bound in
         accordance with the <code class="Cm">GatewayPorts</code> setting.
@@ -1145,11 +1168,12 @@ rsa-sha2-512,rsa-sha2-256</pre>
       <code class="Cm">RemoteCommand</code> accept the tokens described in the
       <a class="Sx" href="#TOKENS">TOKENS</a> section.</dd>
   <dt id="RemoteForward"><a class="permalink" href="#RemoteForward"><code class="Cm">RemoteForward</code></a></dt>
-  <dd>Specifies that a TCP port on the remote machine be forwarded over the
-      secure channel. The remote port may either be forwarded to a specified
-      host and port from the local machine, or may act as a SOCKS 4/5 proxy that
-      allows a remote client to connect to arbitrary destinations from the local
-      machine. The first argument is the listening specification and may be
+  <dd>Specifies that a TCP port or Unix-domain socket on the remote machine be
+      forwarded over the secure channel. The remote port may either be forwarded
+      to a specified host and port or Unix-domain socket from the local machine,
+      or may act as a SOCKS 4/5 proxy that allows a remote client to connect to
+      arbitrary destinations from the local machine. The first argument is the
+      listening specification and may be
       [<var class="Ar">bind_address</var>:]<var class="Ar">port</var> or, if the
       remote host supports it, a Unix domain socket path. If forwarding to a
       specific destination then the second argument must be
@@ -1159,7 +1183,11 @@ rsa-sha2-512,rsa-sha2-256</pre>
       SOCKS proxy, the destination of the connection can be restricted by
       <code class="Cm">PermitRemoteOpen</code>.
     <p class="Pp">IPv6 addresses can be specified by enclosing addresses in
-        square brackets. Multiple forwardings may be specified, and additional
+        square brackets.</p>
+    <p class="Pp">If either argument contains a '/' in it, that argument will be
+        interpreted as a Unix-domain socket (on the corresponding host) rather
+        than a TCP port.</p>
+    <p class="Pp">Multiple forwardings may be specified, and additional
         forwardings can be given on the command line. Privileged ports can be
         forwarded only when logging in as root on the remote machine. Unix
         domain socket paths may use the tokens described in the
@@ -1268,9 +1296,16 @@ rsa-sha2-512,rsa-sha2-256</pre>
       (shell or command execution).</dd>
   <dt id="SetEnv"><a class="permalink" href="#SetEnv"><code class="Cm">SetEnv</code></a></dt>
   <dd>Directly specify one or more environment variables and their contents to
-      be sent to the server. Similarly to <code class="Cm">SendEnv</code>, with
-      the exception of the <code class="Ev">TERM</code> variable, the server
-      must be prepared to accept the environment variable.</dd>
+      be sent to the server in the form &#x201C;NAME=VALUE&#x201D;. Similarly to
+      <code class="Cm">SendEnv</code>, with the exception of the
+      <code class="Ev">TERM</code> variable, the server must be prepared to
+      accept the environment variable.
+    <p class="Pp">The &#x201C;VALUE&#x201D; may use the tokens described in the
+        <a class="Sx" href="#TOKENS">TOKENS</a> section and environment
+        variables as described in the
+        <a class="Sx" href="#ENVIRONMENT_VARIABLES">ENVIRONMENT VARIABLES</a>
+        section.</p>
+  </dd>
   <dt id="StdinNull"><a class="permalink" href="#StdinNull"><code class="Cm">StdinNull</code></a></dt>
   <dd>Redirects stdin from <span class="Pa">/dev/null</span> (actually, prevents
       reading from stdin). Either this or the equivalent
@@ -1402,7 +1437,12 @@ rsa-sha2-512,rsa-sha2-256</pre>
   <dt id="User"><a class="permalink" href="#User"><code class="Cm">User</code></a></dt>
   <dd>Specifies the user to log in as. This can be useful when a different user
       name is used on different machines. This saves the trouble of having to
-      remember to give the user name on the command line.</dd>
+      remember to give the user name on the command line. Arguments to
+      <code class="Cm">User</code> may use the tokens described in the
+      <a class="Sx" href="#TOKENS">TOKENS</a> section (with the exception of %r
+      and %C) and environment variables as described in the
+      <a class="Sx" href="#ENVIRONMENT_VARIABLES">ENVIRONMENT VARIABLES</a>
+      section.</dd>
   <dt id="UserKnownHostsFile"><a class="permalink" href="#UserKnownHostsFile"><code class="Cm">UserKnownHostsFile</code></a></dt>
   <dd>Specifies one or more files to use for the user host key database,
       separated by whitespace. Each filename may use tilde notation to refer to
@@ -1427,6 +1467,10 @@ rsa-sha2-512,rsa-sha2-256</pre>
     <p class="Pp">See also <a class="Sx" href="#VERIFYING_HOST_KEYS">VERIFYING
         HOST KEYS</a> in <a class="Xr">ssh(1)</a>.</p>
   </dd>
+  <dt id="VersionAddendum"><a class="permalink" href="#VersionAddendum"><code class="Cm">VersionAddendum</code></a></dt>
+  <dd>Optionally specifies additional text to append to the SSH protocol banner
+      sent by the client upon connection. The default is
+      <code class="Cm">none</code>.</dd>
   <dt id="VisualHostKey"><a class="permalink" href="#VisualHostKey"><code class="Cm">VisualHostKey</code></a></dt>
   <dd>If this flag is set to <code class="Cm">yes</code>, an ASCII art
       representation of the remote host key fingerprint is printed in addition
@@ -1542,8 +1586,9 @@ rsa-sha2-512,rsa-sha2-256</pre>
     <code class="Cm">LocalForward</code>, <code class="Cm">Match exec</code>,
     <code class="Cm">RemoteCommand</code>,
     <code class="Cm">RemoteForward</code>,
-    <code class="Cm">RevokedHostKeys</code>, and
-    <code class="Cm">UserKnownHostsFile</code> accept the tokens %%, %C, %d, %h,
+    <code class="Cm">RevokedHostKeys</code>,
+    <code class="Cm">UserKnownHostsFile</code> and
+    <code class="Cm">VersionAddendum</code> accept the tokens %%, %C, %d, %h,
     %i, %j, %k, %L, %l, %n, %p, %r, and %u.</p>
 <p class="Pp"><code class="Cm">KnownHostsCommand</code> additionally accepts the
     tokens %f, %H, %I, %K and %t.</p>
