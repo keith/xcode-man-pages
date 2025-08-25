@@ -4,10 +4,10 @@
    t
        Title: git-merge-tree
       Author: [FIXME: author] [see http://www.docbook.org/tdg5/en/html/author]
-   Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-        Date: 06/06/2021
+   Generator: DocBook XSL Stylesheets v1.79.2 <http://docbook.sf.net/>
+        Date: 2025-07-22
       Manual: Git Manual
-      Source: Git 2.32.0
+      Source: Git 2.50.1.428.g0e8243a355
     Language: English
    -->
 <head>
@@ -58,17 +58,16 @@
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
 <pre><i>git merge-tree</i> [--write-tree] [&lt;options&gt;] &lt;branch1&gt; &lt;branch2&gt;
 <i>git merge-tree</i> [--trivial-merge] &lt;base-tree&gt; &lt;branch1&gt; &lt;branch2&gt; (deprecated)</pre>
-<p class="Pp"></p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
 <p class="Pp">This command has a modern <b>--write-tree</b> mode and a
     deprecated <b>--trivial-merge</b> mode. With the exception of the DEPRECATED
-    DESCRIPTION section at the end, the rest of this documentation describes
+    DESCRIPTION section at the end, the rest of this documentation describes the
     modern <b>--write-tree</b> mode.</p>
 <p class="Pp">Performs a merge, but does not make any new commits and does not
     read from or write to either the working tree or index.</p>
-<p class="Pp">The performed merge will use the same feature as the
+<p class="Pp">The performed merge will use the same features as the
     &quot;real&quot; <b>git-merge</b>(1), including:</p>
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;three way content merges of individual
@@ -88,12 +87,15 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp">--stdin</p>
+<div class="Bd-indent">Read the commits to merge from the standard input rather
+  than the command-line. See INPUT FORMAT below for more information. Implies
+  <b>-z</b>.</div>
 <p class="Pp">-z</p>
 <div class="Bd-indent">Do not quote filenames in the &lt;Conflicted file
   info&gt; section, and end each filename with a NUL character rather than
   newline. Also begin the messages section with a NUL character instead of a
-  newline. See the section called &#x201C;OUTPUT&#x201D; below for more
-  information.</div>
+  newline. See OUTPUT below for more information.</div>
 <p class="Pp">--name-only</p>
 <div class="Bd-indent">In the Conflicted file info section, instead of writing a
   list of (mode, oid, stage, path) tuples to output for conflicted files, just
@@ -104,10 +106,26 @@
   &quot;Auto-merging &lt;path&gt;&quot; or CONFLICT notices to the end of
   stdout. If unspecified, the default is to include these messages if there are
   merge conflicts, and to omit them otherwise.</div>
+<p class="Pp">--quiet</p>
+<div class="Bd-indent">Disable all output from the program. Useful when you are
+  only interested in the exit status. Allows merge-tree to exit early when it
+  finds a conflict, and allows it to avoid writing most objects created by
+  merges.</div>
 <p class="Pp">--allow-unrelated-histories</p>
 <div class="Bd-indent">merge-tree will by default error out if the two branches
   specified share no common history. This flag can be given to override that
   check and make the merge proceed anyway.</div>
+<p class="Pp">--merge-base=&lt;tree-ish&gt;</p>
+<div class="Bd-indent">Instead of finding the merge-bases for &lt;branch1&gt;
+  and &lt;branch2&gt;, specify a merge-base for the merge, and specifying
+  multiple bases is currently not supported. This option is incompatible with
+  <b>--stdin</b>.
+<p class="Pp">As the merge-base is provided directly, &lt;branch1&gt; and
+    &lt;branch2&gt; do not need to specify commits; trees are enough.</p>
+</div>
+<p class="Pp">-X&lt;option&gt;, --strategy-option=&lt;option&gt;</p>
+<div class="Bd-indent">Pass the merge strategy-specific option through to the
+  merge strategy. See <b>git-merge</b>(1) for details.</div>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="OUTPUT"><a class="permalink" href="#OUTPUT">OUTPUT</a></h1>
@@ -150,19 +168,17 @@ NUL</pre>
 <p class="Pp"></p>
 <div class="Bd-indent">
 <pre>0: merge had conflicts
-1: merge was clean
-&amp;lt;0: something prevented the merge from running (e.g. access to repository
-<br/>
-    objects denied by filesystem)</pre>
+1: merge was clean</pre>
 </div>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="OID_of_toplevel_tree"><a class="permalink" href="#OID_of_toplevel_tree">OID
   of toplevel tree</a></h2>
 <p class="Pp">This is a tree object that represents what would be checked out in
-    the working tree at the end of <b>git merge</b>. If there were conflicts,
-    then files within this tree may have embedded conflict markers. This section
-    is always followed by a newline (or NUL if <b>-z</b> is passed).</p>
+    the working tree at the end of <b>git</b> <b>merge</b>. If there were
+    conflicts, then files within this tree may have embedded conflict markers.
+    This section is always followed by a newline (or NUL if <b>-z</b> is
+    passed).</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="Conflicted_file_info"><a class="permalink" href="#Conflicted_file_info">Conflicted
@@ -256,9 +272,18 @@ NUL</pre>
     Thus, it can be used as a part of a series of steps such as:</p>
 <p class="Pp"></p>
 <div class="Bd-indent">
-<pre>NEWTREE=$(git merge-tree --write-tree $BRANCH1 $BRANCH2)
-test $? -eq 0 || die &quot;There were conflicts...&quot;
-NEWCOMMIT=$(git commit-tree $NEWTREE -p $BRANCH1 -p $BRANCH2)
+<pre>vi message.txt
+BRANCH1=refs/heads/test
+BRANCH2=main
+NEWTREE=$(git merge-tree --write-tree $BRANCH1 $BRANCH2) || {
+<br/>
+    echo &quot;There were conflicts...&quot; 1&gt;&amp;2
+<br/>
+    exit 1
+}
+NEWCOMMIT=$(git commit-tree $NEWTREE -F message.txt \
+<br/>
+    -p $BRANCH1 -p $BRANCH2)
 git update-ref $BRANCH1 $NEWCOMMIT</pre>
 </div>
 <p class="Pp">Note that when the exit status is non-zero, <b>NEWTREE</b> in this
@@ -274,6 +299,19 @@ git update-ref $BRANCH1 $NEWCOMMIT</pre>
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;any messages that would have been printed to
   stdout (the Informational messages)</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INPUT_FORMAT"><a class="permalink" href="#INPUT_FORMAT">INPUT
+  FORMAT</a></h1>
+<p class="Pp"><i>git merge-tree --stdin</i> input format is fully text based.
+    Each line has this format:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>[&lt;base-commit&gt; -- ]&lt;branch1&gt; &lt;branch2&gt;</pre>
+</div>
+<p class="Pp">If one line is separated by <b>--</b>, the string before the
+    separator is used for specifying a merge-base for the merge and the string
+    after the separator describes the branches to be merged.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="MISTAKES_TO_AVOID"><a class="permalink" href="#MISTAKES_TO_AVOID">MISTAKES
@@ -293,7 +331,7 @@ git update-ref $BRANCH1 $NEWCOMMIT</pre>
 <p class="Pp">Do NOT attempt to guess or make the user guess the conflict types
     from the Conflicted file info list. The information there is insufficient to
     do so. For example: Rename/rename(1to2) conflicts (both sides renamed the
-    same file differently) will result in three different file having higher
+    same file differently) will result in three different files having higher
     order stages (but each only has one higher order stage), with no way (short
     of the Informational messages section) to determine which three files are
     related. File/directory conflicts also result in a file with exactly one
@@ -302,7 +340,7 @@ git update-ref $BRANCH1 $NEWCOMMIT</pre>
     also result in a file with exactly one higher order stage. In all cases, the
     Informational messages section has the necessary info, though it is not
     designed to be machine parseable.</p>
-<p class="Pp">Do NOT assume that each paths from Conflicted file info, and the
+<p class="Pp">Do NOT assume that each path from Conflicted file info, and the
     logical conflicts in the Informational messages have a one-to-one mapping,
     nor that there is a one-to-many mapping, nor a many-to-one mapping.
     Many-to-many mappings exist, meaning that each path can have many logical

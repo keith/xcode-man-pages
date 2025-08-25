@@ -4,10 +4,10 @@
    t
        Title: gitfaq
       Author: [FIXME: author] [see http://www.docbook.org/tdg5/en/html/author]
-   Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-        Date: 06/06/2021
+   Generator: DocBook XSL Stylesheets v1.79.2 <http://docbook.sf.net/>
+        Date: 2025-07-22
       Manual: Git Manual
-      Source: Git 2.32.0
+      Source: Git 2.50.1.428.g0e8243a355
     Language: English
    -->
 <head>
@@ -121,9 +121,9 @@
     invoked, you should specify it with an argument that makes it not do that,
     or else Git will not see any changes. An example of a configuration
     addressing both of these issues on Windows would be the configuration
-    <b>&quot;C:\Program Files\Vim\gvim.exe&quot; --nofork</b>, which quotes the
-    filename with spaces and specifies the <b>--nofork</b> option to avoid
-    backgrounding the process.</p>
+    &quot;C:\Program <b>Files\Vim\gvim.exe</b>&quot; <b>--nofork</b>, which
+    quotes the filename with spaces and specifies the <b>--nofork</b> option to
+    avoid backgrounding the process.</p>
 </div>
 </section>
 <section class="Sh">
@@ -162,7 +162,6 @@
 <br/>
         '!f() { echo username=author; echo &quot;password=$GIT_TOKEN&quot;; };f'</pre>
 </div>
-<p class="Pp"></p>
 </div>
 <p class="Pp">How do I change the password or token I&#x2019;ve saved in my
     credential manager?</p>
@@ -176,7 +175,6 @@
 <div class="Bd-indent">
 <pre>$ echo url=https://author@git.example.org | git credential reject</pre>
 </div>
-<p class="Pp"></p>
 </div>
 <p class="Pp">How do I use multiple accounts with the same hosting provider
     using HTTP?</p>
@@ -187,18 +185,19 @@
   <b>https://committer@git.example.org/org2/project2.git</b>. This way, when you
   use a credential helper, it will automatically try to look up the correct
   credentials for your account. If you already have a remote set up, you can
-  change the URL with something like <b>git remote set-url origin
-  https://author@git.example.org/org1/project1.git</b> (see <b>git-remote</b>(1)
-  for details).</div>
+  change the URL with something like <b>git</b> <b>remote</b> <b>set-url</b>
+  <b>origin</b> <b>https://author@git.example.org/org1/project1.git</b> (see
+  <b>git-remote</b>(1) for details).</div>
 <p class="Pp">How do I use multiple accounts with the same hosting provider
     using SSH?</p>
 <div class="Bd-indent">With most hosting providers that support SSH, a single
   key pair uniquely identifies a user. Therefore, to use multiple accounts,
   it&#x2019;s necessary to create a key pair for each account. If you&#x2019;re
   using a reasonably modern OpenSSH version, you can create a new key pair with
-  something like <b>ssh-keygen -t ed25519 -f ~/.ssh/id_committer</b>. You can
-  then register the public key (in this case, <b>~/.ssh/id_committer.pub</b>;
-  note the <b>.pub</b>) with the hosting provider.
+  something like <b>ssh-keygen</b> <b>-t</b> <b>ed25519</b> <b>-f</b>
+  <b>~/.ssh/id_committer</b>. You can then register the public key (in this
+  case, <b>~/.ssh/id_committer.pub</b>; note the .<b>pub</b>) with the hosting
+  provider.
 <p class="Pp">Most hosting providers use a single SSH account for pushing; that
     is, all users push to the <b>git</b> account (e.g.,
     <b>git@git.example.org</b>). If that&#x2019;s the case for your provider,
@@ -234,8 +233,63 @@ Host example_committer
 </div>
 <p class="Pp">Then, you can adjust your push URL to use
     <b>git@example_author</b> or <b>git@example_committer</b> instead of
-    <b>git@example.org</b> (e.g., <b>git remote set-url
-    git@example_author:org1/project1.git</b>).</p>
+    <b>git@example.org</b> (e.g., <b>git</b> <b>remote</b> <b>set-url</b>
+    <b>git@example_author:org1/project1.git</b>).</p>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TRANSFERS"><a class="permalink" href="#TRANSFERS">TRANSFERS</a></h1>
+<p class="Pp">How do I sync a working tree across systems?</p>
+<div class="Bd-indent">First, decide whether you want to do this at all. Git
+  works best when you push or pull your work using the typical <b>git</b>
+  <b>push</b> and <b>git</b> <b>fetch</b> commands and isn&#x2019;t designed to
+  share a working tree across systems. This is potentially risky and in some
+  cases can cause repository corruption or data loss.
+<p class="Pp">Usually, doing so will cause <b>git</b> <b>status</b> to need to
+    re-read every file in the working tree. Additionally, Git&#x2019;s security
+    model does not permit sharing a working tree across untrusted users, so it
+    is only safe to sync a working tree if it will only be used by a single user
+    across all machines.</p>
+<p class="Pp">It is important not to use a cloud syncing service to sync any
+    portion of a Git repository, since this can cause corruption, such as
+    missing objects, changed or added files, broken refs, and a wide variety of
+    other problems. These services tend to sync file by file on a continuous
+    basis and don&#x2019;t understand the structure of a Git repository. This is
+    especially bad if they sync the repository in the middle of it being
+    updated, since that is very likely to cause incomplete or partial updates
+    and therefore data loss.</p>
+<p class="Pp">An example of the kind of corruption that can occur is conflicts
+    over the state of refs, such that both sides end up with different commits
+    on a branch that the other doesn&#x2019;t have. This can result in important
+    objects becoming unreferenced and possibly pruned by <b>git</b> <b>gc</b>,
+    causing data loss.</p>
+<p class="Pp">Therefore, it&#x2019;s better to push your work to either the
+    other system or a central server using the normal push and pull mechanism.
+    However, this doesn&#x2019;t always preserve important data, like stashes,
+    so some people prefer to share a working tree across systems.</p>
+<p class="Pp">If you do this, the recommended approach is to use <b>rsync</b>
+    <b>-a</b> <b>--delete-after</b> (ideally with an encrypted connection such
+    as with <b>ssh</b>) on the root of repository. You should ensure several
+    things when you do this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;If you have additional worktrees or a separate
+  Git directory, they must be synced at the same time as the main working tree
+  and repository.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;You are comfortable with the destination
+  directory being an exact copy of the source directory, <i>deleting any data
+  that is already there</i>.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;The repository (including all worktrees and the
+  Git directory) is in a quiescent state for the duration of the transfer (that
+  is, no operations of any sort are taking place on it, including background
+  operations like <b>git</b> <b>gc</b> and operations invoked by your editor).
+<p class="Pp">Be aware that even with these recommendations, syncing in this way
+    has some risk since it bypasses Git&#x2019;s normal integrity checking for
+    repositories, so having backups is advised. You may also wish to do a
+    <b>git</b> <b>fsck</b> to verify the integrity of your data on the
+    destination system after syncing.</p>
+</div>
 </div>
 </section>
 <section class="Sh">
@@ -244,17 +298,18 @@ Host example_committer
 <p class="Pp">I&#x2019;ve made a mistake in the last commit. How do I change
   it?</p>
 <div class="Bd-indent">You can make the appropriate change to your working tree,
-  run <b>git add &lt;file&gt;</b> or <b>git rm &lt;file&gt;</b>, as appropriate,
-  to stage it, and then <b>git commit --amend</b>. Your change will be included
-  in the commit, and you&#x2019;ll be prompted to edit the commit message again;
-  if you wish to use the original message verbatim, you can use the
-  <b>--no-edit</b> option to <b>git commit</b> in addition, or just save and
-  quit when your editor opens.</div>
+  run <b>git</b> <b>add</b> <i>&lt;file&gt;</i> or <b>git</b> <b>rm</b>
+  <i>&lt;file&gt;</i>, as appropriate, to stage it, and then <b>git</b>
+  <b>commit</b> <b>--amend</b>. Your change will be included in the commit, and
+  you&#x2019;ll be prompted to edit the commit message again; if you wish to use
+  the original message verbatim, you can use the <b>--no-edit</b> option to
+  <b>git</b> <b>commit</b> in addition, or just save and quit when your editor
+  opens.</div>
 <p class="Pp">I&#x2019;ve made a change with a bug and it&#x2019;s been included
     in the main branch. How should I undo it?</p>
-<div class="Bd-indent">The usual way to deal with this is to use <b>git
-  revert</b>. This preserves the history that the original change was made and
-  was a valuable contribution, but also introduces a new commit that undoes
+<div class="Bd-indent">The usual way to deal with this is to use <b>git</b>
+  <b>revert</b>. This preserves the history that the original change was made
+  and was a valuable contribution, but also introduces a new commit that undoes
   those changes because the original had a problem. The commit message of the
   revert indicates the commit which was reverted and is usually edited to
   include an explanation as to why the revert was made.</div>
@@ -264,8 +319,8 @@ Host example_committer
   doesn&#x2019;t know whether the changes to the file are precious and should be
   kept, or whether they are irrelevant and can safely be destroyed. Therefore,
   it has to take the safe route and always preserve them.
-<p class="Pp">It&#x2019;s tempting to try to use certain features of <b>git
-    update-index</b>, namely the assume-unchanged and skip-worktree bits, but
+<p class="Pp">It&#x2019;s tempting to try to use certain features of <b>git</b>
+    <b>update-index</b>, namely the assume-unchanged and skip-worktree bits, but
     these don&#x2019;t work properly for this purpose and shouldn&#x2019;t be
     used this way.</p>
 <p class="Pp">If your goal is to modify a configuration file, it can often be
@@ -278,10 +333,10 @@ Host example_committer
   tracked</p>
 <div class="Bd-indent">A <b>gitignore</b> file ensures that certain file(s)
   which are not tracked by Git remain untracked. However, sometimes particular
-  file(s) may have been tracked before adding them into the <b>.gitignore</b>,
+  file(s) may have been tracked before adding them into the .<b>gitignore</b>,
   hence they still remain tracked. To untrack and ignore files/patterns, use
-  <b>git rm --cached &lt;file/pattern&gt;</b> and add a pattern to
-  <b>.gitignore</b> that matches the &lt;file&gt;. See <b>gitignore</b>(5) for
+  <b>git</b> <b>rm</b> <b>--cached</b> &lt;file/pattern&gt; and add a pattern to
+  .<b>gitignore</b> that matches the &lt;file&gt;. See <b>gitignore</b>(5) for
   details.</div>
 <p class="Pp">How do I know if I want to do a fetch or a pull?</p>
 <div class="Bd-indent">A fetch stores a copy of the latest changes from the
@@ -289,6 +344,43 @@ Host example_committer
   can then at your leisure inspect, merge, rebase on top of, or ignore the
   upstream changes. A pull consists of a fetch followed immediately by either a
   merge or rebase. See <b>git-pull</b>(1).</div>
+<p class="Pp">Can I use a proxy with Git?</p>
+<div class="Bd-indent">Yes, Git supports the use of proxies. Git honors the
+  standard <b>http_proxy</b>, <b>https_proxy</b>, and <b>no_proxy</b>
+  environment variables commonly used on Unix, and it also can be configured
+  with <b>http.proxy</b> and similar options for HTTPS (see
+  <b>git-config</b>(1)). The <b>http.proxy</b> and related options can be
+  customized on a per-URL pattern basis. In addition, Git can in theory function
+  normally with transparent proxies that exist on the network.
+<p class="Pp">For SSH, Git can support a proxy using OpenSSH&#x2019;s
+    <b>ProxyCommand</b>. Commonly used tools include <b>netcat</b> and
+    <b>socat</b>. However, they must be configured not to exit when seeing EOF
+    on standard input, which usually means that <b>netcat</b> will require
+    <b>-q</b> and <b>socat</b> will require a timeout with something like
+    <b>-t</b> <b>10</b>. This is required because the way the Git SSH server
+    knows that no more requests will be made is an EOF on standard input, but
+    when that happens, the server may not have yet processed the final request,
+    so dropping the connection at that point would interrupt that request.</p>
+<p class="Pp">An example configuration entry in <b>~/.ssh/config</b> with an
+    HTTP proxy might look like this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>Host git.example.org
+<br/>
+    User git
+<br/>
+    ProxyCommand socat -t 10 - PROXY:proxy.example.org:%h:%p,proxyport=8080</pre>
+</div>
+<p class="Pp">Note that in all cases, for Git to work properly, the proxy must
+    be completely transparent. The proxy cannot modify, tamper with, or buffer
+    the connection in any way, or Git will almost certainly fail to work. Note
+    that many proxies, including many TLS middleboxes, Windows antivirus and
+    firewall programs other than Windows Defender and Windows Firewall, and
+    filtering proxies fail to meet this standard, and as a result end up
+    breaking Git. Because of the many reports of problems and their poor
+    security history, we recommend against the use of these classes of software
+    and devices.</p>
+</div>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="MERGING_AND_REBASING"><a class="permalink" href="#MERGING_AND_REBASING">MERGING
@@ -297,9 +389,9 @@ Host example_committer
     with squash merges?</p>
 <div class="Bd-indent">In general, there are a variety of problems that can
   occur when using squash merges to merge two branches multiple times. These can
-  include seeing extra commits in <b>git log</b> output, with a GUI, or when
-  using the <b>...</b> notation to express a range, as well as the possibility
-  of needing to re-resolve conflicts again and again.
+  include seeing extra commits in <b>git</b> <b>log</b> output, with a GUI, or
+  when using the <b>...</b> notation to express a range, as well as the
+  possibility of needing to re-resolve conflicts again and again.
 <p class="Pp">When Git does a normal merge between two branches, it considers
     exactly three points: the two branches and a third commit, called the
     <i>merge base</i>, which is usually the common ancestor of the commits. The
@@ -316,9 +408,9 @@ Host example_committer
     won&#x2019;t have changed, and so when Git goes to perform its next merge,
     it considers all of the changes that it considered the last time plus the
     new changes. That means any conflicts may need to be re-resolved. Similarly,
-    anything using the <b>...</b> notation in <b>git diff</b>, <b>git log</b>,
-    or a GUI will result in showing all of the changes since the original merge
-    base.</p>
+    anything using the <b>...</b> notation in <b>git</b> <b>diff</b>, <b>git</b>
+    <b>log</b>, or a GUI will result in showing all of the changes since the
+    original merge base.</p>
 <p class="Pp">As a consequence, if you want to merge two long-lived branches
     repeatedly, it&#x2019;s best to always use a regular merge commit.</p>
 </div>
@@ -386,12 +478,12 @@ Host example_committer
 <div class="Bd-indent">
 <pre>*.c     working-tree-encoding=UTF-16LE-BOM</pre>
 </div>
-<p class="Pp">You will need to run <b>git add --renormalize</b> to have this
-    take effect. Note that if you are making these changes on a project that is
-    used across platforms, you&#x2019;ll probably want to make it in a per-user
-    configuration file or in the one in <b>$GIT_DIR/info/attributes</b>, since
-    making it in a <b>.gitattributes</b> file in the repository will apply to
-    all users of the repository.</p>
+<p class="Pp">You will need to run <b>git</b> <b>add</b> <b>--renormalize</b> to
+    have this take effect. Note that if you are making these changes on a
+    project that is used across platforms, you&#x2019;ll probably want to make
+    it in a per-user configuration file or in the one in
+    <b>$GIT_DIR/info/attributes</b>, since making it in a .<b>gitattributes</b>
+    file in the repository will apply to all users of the repository.</p>
 <p class="Pp">See the following entry for information about normalizing line
     endings as well, and see <b>gitattributes</b>(5) for more information about
     attribute files.</p>
@@ -405,8 +497,8 @@ Host example_committer
 <p class="Pp">You can store the files in the repository with Unix line endings
     and convert them automatically to your platform&#x2019;s line endings. To do
     that, set the configuration option <b>core.eol</b> to <b>native</b> and see
-    the following entry for information about how to configure files as text or
-    binary.</p>
+    the question on recommended storage settings for information about how to
+    configure files as text or binary.</p>
 <p class="Pp">You can also control this behavior with the <b>core.whitespace</b>
     setting if you don&#x2019;t wish to remove the carriage returns from your
     line endings.</p>
@@ -442,7 +534,6 @@ $ git checkout .</pre>
 <div class="Bd-indent">
 <pre>$ git add --renormalize .</pre>
 </div>
-<p class="Pp"></p>
 </div>
 <p class="Pp">What&#x2019;s the recommended way to store files in Git?</p>
 <div class="Bd-indent">While Git can store and handle any file of any type,
@@ -450,7 +541,7 @@ $ git checkout .</pre>
   that text files be stored in UTF-8 without a byte-order mark (BOM) with LF
   (Unix-style) endings. We also recommend the use of UTF-8 (again, without BOM)
   in commit messages. These are the settings that work best across platforms and
-  with tools such as <b>git diff</b> and <b>git merge</b>.
+  with tools such as <b>git</b> <b>diff</b> and <b>git</b> <b>merge</b>.
 <p class="Pp">Additionally, if you have a choice between storage formats that
     are text based or non-text based, we recommend storing files in the text
     format and, if necessary, transforming them into the other format. For
@@ -464,14 +555,26 @@ $ git checkout .</pre>
     server with only references, URLs, and hashes stored in the repository.</p>
 <p class="Pp">We also recommend setting a <b>gitattributes</b>(5) file to
     explicitly mark which files are text and which are binary. If you want Git
-    to guess, you can set the attribute <b>text=auto</b>. For example, the
-    following might be appropriate in some projects:</p>
+    to guess, you can set the attribute <b>text=auto</b>.</p>
+<p class="Pp">With text files, Git will generally ensure that LF endings are
+    used in the repository. The <b>core.autocrlf</b> and <b>core.eol</b>
+    configuration variables specify what line-ending convention is followed when
+    any text file is checked out. You can also use the <b>eol</b> attribute
+    (e.g., <b>eol=crlf</b>) to override which files get what line-ending
+    treatment.</p>
+<p class="Pp">For example, generally shell files must have LF endings and batch
+    files must have CRLF endings, so the following might be appropriate in some
+    projects:</p>
 <p class="Pp"></p>
 <div class="Bd-indent">
 <pre># By default, guess.
 *       text=auto
 # Mark all C files as text.
 *.c     text
+# Ensure all shell files have LF endings and all batch files have CRLF
+# endings in the working tree and both have LF in the repo.
+*.sh text eol=lf
+*.bat text eol=crlf
 # Mark all JPEG files as binary.
 *.jpg   binary</pre>
 </div>
