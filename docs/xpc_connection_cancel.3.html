@@ -116,7 +116,7 @@
     connection</var>);</p>
 <p class="Pp"><var class="Ft">gid_t</var>
   <br/>
-  <code class="Fn">xpc_connection_get_guid</code>(<var class="Fa">xpc_connection_t
+  <code class="Fn">xpc_connection_get_egid</code>(<var class="Fa">xpc_connection_t
     connection</var>);</p>
 <p class="Pp"><var class="Ft">pid_t</var>
   <br/>
@@ -255,6 +255,17 @@
     MachService advertised by <a class="Xr">launchd(8)</a>, then the listener
     connection for the named service will receive the new connection in its
     event handler.</p>
+<p class="Pp" id="xpc_connection_create_mach_service">Peer connections must
+    either be accepted by setting an event handler with
+    <a class="Xr">xpc_connection_set_event_handler(3)</a> and calling
+    <a class="Xr">xpc_connection_resume(3)</a>, or rejected by calling
+    <a class="Xr">xpc_connection_cancel(3)</a>. Failure to take one of these
+    actions will result in the connection remaining in an undefined state,
+    potentially causing resource leaks or preventing proper transaction cleanup.
+    This requirement applies to all listener connections, including those
+    created with
+    <a class="permalink" href="#xpc_connection_create_mach_service"><code class="Fn">xpc_connection_create_mach_service</code></a>()
+    and those managed automatically by <a class="Xr">xpc_main(3)</a>.</p>
 <p class="Pp">Even if the same process creates multiple connections to the same
     service, each connection will be distinct. The peer connection received by
     the service will deliver <var class="Ft">XPC_ERROR_CONNECTION_INVALID</var>
@@ -345,8 +356,8 @@ xpc_connection_set_finalizer_f(connection, free);</pre>
 <h2 class="Ss" id="Execution_Ordering"><a class="permalink" href="#Execution_Ordering">Execution
   Ordering</a></h2>
 <p class="Pp">Send barriers are NOT immediately enqueued on the connection's
-    target queue and therefore has no guaranteed execution order with respect to
-    other blocks scheduled on that queue. The following code illustrates this
+    target queue and therefore have no guaranteed execution order with respect
+    to other blocks scheduled on that queue. The following code illustrates this
     anti-pattern:</p>
 <div class="Bd Pp Bd-indent Li">
 <pre>xpc_connection_set_target_queue(connection, queue);
@@ -371,7 +382,7 @@ static bool aboolean = false;
 
 dispatch_group_t group = dispatch_group_create();
 
-dispatch_group_enter(group)
+dispatch_group_enter(group);
 xpc_connection_send_barrier(connection, ^{
 	aboolean = true;
 	dispatch_group_leave(group);
@@ -462,8 +473,8 @@ handle_message(xpc_object_t message)
     may return errors indicating that the remote end of the connection will
     never deliver a reply.</p>
 <p class="Pp"><i class="Em">Important</i>: This API is primarily intended for
-    allowing existing synchronous API to be re- implemented in terms of XPC. But
-    in cases where the you are designing a new API that calls out to a service
+    allowing existing synchronous APIs to be re- implemented in terms of XPC.
+    But in cases where you are designing a new API that calls out to a service
     to retrieve a value, we strongly encourage you to have the API return the
     value asynchronously using a queue/block pair rather than blocking the
     caller until the service returns the requested value:</p>
@@ -501,17 +512,48 @@ retrieve_uint64(dispatch_queue_t q, void (^handler)(uint64_t value))
 </section>
 <section class="Sh">
 <h1 class="Sh" id="CREDENTIALS"><a class="permalink" href="#CREDENTIALS">CREDENTIALS</a></h1>
-<p class="Pp">Identifying information about the sending processs can be obtained
-    from a connection. Available credential information includes the sending
-    process identifer (PID), effective user identifier (EUID), effective group
+<p class="Pp">Modern XPC applications should use peer requirement APIs for
+    secure validation of connecting processes. These APIs provide automatic,
+    continuous validation of every incoming message and prevent connection
+    sharing attacks. Available peer requirement functions include
+    <a class="permalink" href="#xpc_connection_set_peer_lightweight_code_requirement"><code class="Fn" id="xpc_connection_set_peer_lightweight_code_requirement">xpc_connection_set_peer_lightweight_code_requirement</code></a>()
+    for complex code signing requirements using dictionary format,
+    <a class="permalink" href="#xpc_connection_set_peer_code_signing_requirement"><code class="Fn" id="xpc_connection_set_peer_code_signing_requirement">xpc_connection_set_peer_code_signing_requirement</code></a>()
+    for full code signing requirement strings,
+    <a class="permalink" href="#xpc_connection_set_peer_entitlement_exists_requirement"><code class="Fn" id="xpc_connection_set_peer_entitlement_exists_requirement">xpc_connection_set_peer_entitlement_exists_requirement</code></a>()
+    and
+    <a class="permalink" href="#xpc_connection_set_peer_entitlement_matches_value_requirement"><code class="Fn" id="xpc_connection_set_peer_entitlement_matches_value_requirement">xpc_connection_set_peer_entitlement_matches_value_requirement</code></a>()
+    for entitlement-based validation,
+    <a class="permalink" href="#xpc_connection_set_peer_team_identity_requirement"><code class="Fn" id="xpc_connection_set_peer_team_identity_requirement">xpc_connection_set_peer_team_identity_requirement</code></a>()
+    for team identifier validation, and
+    <a class="permalink" href="#xpc_connection_set_peer_platform_identity_requirement"><code class="Fn" id="xpc_connection_set_peer_platform_identity_requirement">xpc_connection_set_peer_platform_identity_requirement</code></a>()
+    for validating Apple-signed platform binaries. These APIs deliver
+    <var class="Ft">XPC_ERROR_PEER_CODE_SIGNING_REQUIREMENT</var> when
+    validation fails.</p>
+<p class="Pp">For services bundled with an application, the security
+    implications are somewhat reduced because the application is the only
+    process capable of looking up its services. However, MachServices advertised
+    through launchd have much higher visibility and are particularly vulnerable
+    to attacks where connections are shared between processes with different
+    privilege levels.</p>
+<p class="Pp" id="xpc_connection_get_pid">Legacy credential information about
+    the sending process can be obtained from a connection, including the process
+    identifier (PID), effective user identifier (EUID), effective group
     identifier (EGID) and audit session identifier (ASID). These values can be
     obtained with the functions
-    <a class="permalink" href="#xpc_connection_get_pid"><code class="Fn" id="xpc_connection_get_pid">xpc_connection_get_pid</code></a>(),
+    <a class="permalink" href="#xpc_connection_get_pid"><code class="Fn">xpc_connection_get_pid</code></a>(),
     <a class="permalink" href="#xpc_connection_get_euid"><code class="Fn" id="xpc_connection_get_euid">xpc_connection_get_euid</code></a>(),
     <a class="permalink" href="#xpc_connection_get_egid"><code class="Fn" id="xpc_connection_get_egid">xpc_connection_get_egid</code></a>()
     and
     <a class="permalink" href="#xpc_connection_get_asid"><code class="Fn" id="xpc_connection_get_asid">xpc_connection_get_asid</code></a>()
-    respectively.</p>
+    respectively. However, credential checking using these APIs is inherently
+    insecure and should be avoided. A malicious client can send its connection
+    mach port to another process with different credentials, bypassing
+    credential checks performed only at connection establishment time.
+    Additionally, PIDs on macOS roll over when they reach a relatively small
+    value, and a given PID cannot be assumed to be unique for a given boot
+    session, making PID-based validation unreliable. These functions return
+    information about the process that sent the most recent message.</p>
 <p class="Pp" id="xpc_connection_create">Credentials for a connection may not be
     immediately available. For example, when creating a new connection with
     <a class="permalink" href="#xpc_connection_create"><code class="Fn">xpc_connection_create</code></a>(),
@@ -523,24 +565,14 @@ retrieve_uint64(dispatch_queue_t q, void (^handler)(uint64_t value))
     <code class="Fn">xpc_connection_get_euid</code>() and
     <code class="Fn">xpc_connection_get_egid</code>() will return -1 and
     <code class="Fn">xpc_connection_get_asid</code>() will return AU_ASSIGN_ASID
-    (see <a class="Xr">setaudit_addr(2))</a>.</p>
-<p class="Pp">For peer connections received through a listener's event handler
-    or through the handler given to <a class="Xr">xpc_main(3)</a>, credentials
-    will be immediately available.</p>
+    (see <a class="Xr">setaudit_addr(2))</a>. For peer connections received
+    through a listener's event handler or through the handler given to
+    <a class="Xr">xpc_main(3)</a>, credentials will be immediately
+  available.</p>
 <p class="Pp">Connection credentials have similar semantics to file descriptor
     credentials. That is, the credentials that the connection was created with
     are &quot;baked in&quot; to it and do not change as a result of calls to
-    <a class="Xr">setuid(3)</a> and friends. Use of these APIs is heavily
-    discouraged in IPC protocols due to the inherently racy nature of credential
-    checking.</p>
-<p class="Pp"><i class="Em">Important</i>: PIDs on OS X roll over when they
-    reach a relatively small value, and a given PID cannot be assumed to be
-    unique for a given boot session. For services bundled with an application,
-    this is not a practical concern because the application is the only process
-    capable of looking up its services. But MachServices advertised through
-    launchd have a much higher visibility, so extra care should be taken when
-    checking credentials to mitigate <a class="Xr">fork(2)</a> bomb-style
-    attacks.</p>
+    <a class="Xr">setuid(3)</a> and friends.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="CANCELLATION"><a class="permalink" href="#CANCELLATION">CANCELLATION</a></h1>
@@ -598,7 +630,7 @@ retrieve_uint64(dispatch_queue_t q, void (^handler)(uint64_t value))
 <p class="Pp">If a caller wishes to connect to a MachService advertised in a
     <a class="Xr">launchd.plist(5)</a>, it should pass the MachService name to
     which it wishes to connect with
-    <a class="permalink" href="#xpc_connection_create_mach_service"><code class="Fn" id="xpc_connection_create_mach_service">xpc_connection_create_mach_service</code></a>().
+    <a class="permalink" href="#xpc_connection_create_mach_service~2"><code class="Fn" id="xpc_connection_create_mach_service~2">xpc_connection_create_mach_service</code></a>().
     If the destination service is advertised in the root Mach bootstrap (i.e.
     the <a class="Xr">launchd.plist(5)</a> lives in /Library/LaunchDaemons), the
     caller may ensure that the service that it connects to is privileged and not
@@ -609,9 +641,9 @@ retrieve_uint64(dispatch_queue_t q, void (^handler)(uint64_t value))
     handler if the service name was not found in the root Mach bootstrap. If the
     <a class="Xr">launchd.plist(5)</a> lives in /Library/LaunchAgents or
     ~/Library/LaunchAgents, then this flag should not be passed.</p>
-<p class="Pp" id="xpc_connection_create_mach_service~2">The launchd job using
+<p class="Pp" id="xpc_connection_create_mach_service~3">The launchd job using
     XPC is required to create a listener connection manually by calling
-    <a class="permalink" href="#xpc_connection_create_mach_service~2"><code class="Fn">xpc_connection_create_mach_service</code></a>()
+    <a class="permalink" href="#xpc_connection_create_mach_service~3"><code class="Fn">xpc_connection_create_mach_service</code></a>()
     with the <var class="Ft">XPC_CONNECTION_MACH_SERVICE_LISTENER</var> flag
     OR'ed into the <var class="Fa">flags</var> argument. The
     <var class="Fa">XPC_CONNECTION_MACH_SERVICE_PRIVILEGED</var> flag has no
@@ -621,11 +653,24 @@ retrieve_uint64(dispatch_queue_t q, void (^handler)(uint64_t value))
     error, as XPC disallows ad-hoc service name registrations. However, assuming
     your configuration is correct, the listener connection will only ever
     deliver new peer connections to its event handler. The connections received
-    by the event handler must have an event hander set on them and resumed along
-    with an optional target queue, just like the peer connections delivered to
-    the handler given to <a class="Xr">xpc_main(3)</a>. Note connections
-    received through listener connection's event handler do not inherit the
-    target queue of the listener.</p>
+    by the event handler must have an event handler set on them and resumed
+    along with an optional target queue, just like the peer connections
+    delivered to the handler given to <a class="Xr">xpc_main(3)</a>. Note
+    connections received through listener connection's event handler do not
+    inherit the target queue of the listener.</p>
+<p class="Pp" id="must">Peer connections received through a listener
+    connection's event handler
+    <a class="permalink" href="#must"><i class="Em">must</i></a> either be
+    accepted by setting an event handler with
+    <a class="Xr">xpc_connection_set_event_handler(3)</a> and calling
+    <a class="Xr">xpc_connection_resume(3)</a>, or rejected by calling
+    <a class="Xr">xpc_connection_cancel(3)</a>. Failure to take one of these
+    actions will result in the connection remaining in an undefined state,
+    potentially causing resource leaks or preventing proper transaction cleanup.
+    This requirement applies to all listener connections, including those
+    created with
+    <a class="permalink" href="#xpc_connection_create_mach_service~4"><code class="Fn" id="xpc_connection_create_mach_service~4">xpc_connection_create_mach_service</code></a>()
+    and those managed automatically by <a class="Xr">xpc_main(3)</a>.</p>
 <div class="Bd Pp Bd-indent Li">
 <pre>int
 main(void)
@@ -645,9 +690,9 @@ main(void)
 	exit(EXIT_FAILURE);
 }</pre>
 </div>
-<p class="Pp" id="xpc_connection_create_mach_service~3"><i class="Em">Important</i>:
+<p class="Pp" id="xpc_connection_create_mach_service~5"><i class="Em">Important</i>:
     New service names may <i class="Em">NOT</i> be dynamically registered using
-    <a class="permalink" href="#xpc_connection_create_mach_service~3"><code class="Fn">xpc_connection_create_mach_service</code></a>().
+    <a class="permalink" href="#xpc_connection_create_mach_service~5"><code class="Fn">xpc_connection_create_mach_service</code></a>().
     Only launchd jobs may listen on certain service names, and any service name
     that the job wishes to listen on must be declared in its
     <a class="Xr">launchd.plist(5)</a>. XPC may make allowances for dynamic name
@@ -678,8 +723,8 @@ main(void)
 <p class="Pp" id="xpc_connection_create~3">The resulting connection will behave
     like a connection to a named service created using
     <a class="permalink" href="#xpc_connection_create~3"><code class="Fn">xpc_connection_create</code></a>().
-    The fundamental difference is that an anonymous connection is not backed a
-    name that can be looked up. Therefore, if an connection created from an
+    The fundamental difference is that an anonymous connection is not backed by
+    a name that can be looked up. Therefore, if an connection created from an
     endpoint is closed, there is no guarantee that it can be re-established. So
     anonymous connections' event handlers must always handle
     <a class="permalink" href="#both"><i class="Em" id="both">both</i></a> the
