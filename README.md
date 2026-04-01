@@ -8,7 +8,7 @@ Xcode releases, and for having an updated version of them online.
 ## Usage
 
 ```sh
-brew install groff mandoc coreutils
+brew install bash groff mandoc coreutils
 brew link --overwrite mandoc
 ./export.sh /path/to/Xcode.app
 ```
