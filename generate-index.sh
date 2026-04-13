@@ -15,7 +15,7 @@ header="<!DOCTYPE html>
   </style>
 </head>
 <body>
-<h1>Xcode $version</h1>
+<h1>$version</h1>
 "
 
 footer="</body>"
