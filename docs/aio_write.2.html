@@ -68,8 +68,9 @@
 <div class="manual-text">
 <section class="Sh">
 <h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
-<p class="Pp"><code class="Nm">aio_write</code> &#x2014;
-    <span class="Nd">asynchronous write to a file (REALTIME)</span></p>
+<p class="Pp"><code class="Nm">aio_write</code>,
+    <code class="Nm">aio_writev</code> &#x2014; <span class="Nd">asynchronous
+    write to a file (REALTIME)</span></p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
@@ -83,6 +84,12 @@
   <br/>
   <code class="Fn">aio_write</code>(<var class="Fa">struct aiocb
   *aiocbp</var>);</p>
+<p class="Pp"><code class="In">#include
+    &lt;<a class="In">sys/uio.h</a>&gt;</code></p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">aio_writev</code>(<var class="Fa">struct aiocb
+    *aiocbp</var>);</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
@@ -91,18 +98,36 @@
     system call allows the calling process to write
     <var class="Fa">aiocbp-&gt;aio_nbytes</var> from the buffer pointed to by
     <var class="Fa">aiocbp-&gt;aio_buf</var> to the descriptor
-    <var class="Fa">aiocbp-&gt;aio_fildes</var>. The call returns immediately
-    after the write request has been enqueued to the descriptor; the write may
-    or may not have completed at the time the call returns. If the request could
-    not be enqueued, generally due to invalid arguments, the call returns
-    without having enqueued the request.</p>
+    <var class="Fa">aiocbp-&gt;aio_fildes</var>.</p>
+<p class="Pp" id="aio_writev">The
+    <a class="permalink" href="#aio_writev"><code class="Fn">aio_writev</code></a>()
+    system call allows the calling process to write data from multiple buffers
+    (vectored I/O) to the descriptor
+    <var class="Fa">aiocbp-&gt;aio_fildes</var>. For
+    <code class="Fn">aio_writev</code>(), the
+    <var class="Fa">aiocbp-&gt;aio_iov</var> field points to an array of
+    <var class="Vt">struct iovec</var> structures, and
+    <var class="Fa">aiocbp-&gt;aio_iovcnt</var> specifies the number of elements
+    in this array. Each <var class="Vt">iovec</var> structure specifies a buffer
+    and its length for the write operation.</p>
+<p class="Pp" id="aio_writev~2">The
+    <a class="permalink" href="#aio_writev~2"><code class="Fn">aio_writev</code></a>()
+    function can also be used with <a class="Xr">lio_listio(2)</a> by setting
+    the <var class="Fa">aio_lio_opcode</var> field to
+    <code class="Dv">LIO_WRITEV</code>.</p>
+<p class="Pp">Both calls return immediately after the write request has been
+    enqueued to the descriptor; the write may or may not have completed at the
+    time the call returns. If the request could not be enqueued, generally due
+    to invalid arguments, the call returns without having enqueued the
+  request.</p>
 <p class="Pp" id="aio_write~2">If <code class="Dv">O_APPEND</code> is set for
     <var class="Fa">aiocbp-&gt;aio_fildes</var>,
     <a class="permalink" href="#aio_write~2"><code class="Fn">aio_write</code></a>()
-    operations append to the file in the same order as the calls were made. If
-    <code class="Dv">O_APPEND</code> is not set for the file descriptor, the
-    write operation will occur at the absolute position from the beginning of
-    the file plus <var class="Fa">aiocbp-&gt;aio_offset</var>.</p>
+    and <code class="Fn">aio_writev</code>() operations append to the file in
+    the same order as the calls were made. If <code class="Dv">O_APPEND</code>
+    is not set for the file descriptor, the write operation will occur at the
+    absolute position from the beginning of the file plus
+    <var class="Fa">aiocbp-&gt;aio_offset</var>.</p>
 <p class="Pp">If <code class="Dv">_POSIX_PRIORITIZED_IO</code> is defined, and
     the descriptor supports it, then the enqueued operation is submitted at a
     priority equal to that of the calling process minus
@@ -118,6 +143,35 @@
     <var class="Fa">aiocbp-&gt;aio_offset</var> can be modified during the
     request as context, so this value must not be referenced after the request
     is enqueued.</p>
+<p class="Pp">All asynchronous I/O control buffers contain a
+    <var class="Vt">sigevent</var> structure in the
+    <var class="Va">aio_sigevent</var> field which can be used to request
+    notification when an operation completes.</p>
+<p class="Pp">For <code class="Dv">SIGEV_KEVENT</code> notifications, the
+    <var class="Va">sigev_notify</var> field should be set to
+    <code class="Dv">SIGEV_KEVENT,</code> and its
+    <var class="Va">sigevent</var>'s <var class="Va">sigev_signo</var> field
+    should contain the descriptor of the kqueue that the event should be
+    attached to. The posted kevent will contain:</p>
+<table class="Bl-column">
+  <tr id="Member">
+    <td><a class="permalink" href="#Member"><b class="Sy">Member</b></a></td>
+    <td><a class="permalink" href="#Value"><b class="Sy" id="Value">Value</b></a></td>
+  </tr>
+  <tr id="ident">
+    <td><var class="Va">ident</var></td>
+    <td>asynchronous I/O control buffer pointer</td>
+  </tr>
+  <tr id="filter">
+    <td><var class="Va">filter</var></td>
+    <td><a class="permalink" href="#EVFILT_AIO"><code class="Dv" id="EVFILT_AIO">EVFILT_AIO</code></a></td>
+  </tr>
+  <tr id="udata">
+    <td><var class="Va">udata</var></td>
+    <td>value stored in
+      <var class="Fa">aiocbp-&gt;aio_sigevent.sigev_value</var></td>
+  </tr>
+</table>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="RESTRICTIONS"><a class="permalink" href="#RESTRICTIONS">RESTRICTIONS</a></h1>
@@ -126,10 +180,17 @@
     <var class="Fa">aiocbp-&gt;aio_buf</var> member of that structure references
     must remain valid until the operation has completed. For this reason, use of
     auto (stack) variables for these objects is discouraged.</p>
+<p class="Pp" id="aio_writev~3">For
+    <a class="permalink" href="#aio_writev~3"><code class="Fn">aio_writev</code></a>(),
+    the array of <var class="Vt">struct iovec</var> structures pointed to by
+    <var class="Fa">aiocbp-&gt;aio_buf</var> and all buffers referenced by the
+    <var class="Fa">iov_base</var> members of those structures must remain valid
+    until the operation completes.</p>
 <p class="Pp" id="aio_write~3">The asynchronous I/O control buffer
     <var class="Fa">aiocbp</var> should be zeroed before the
     <a class="permalink" href="#aio_write~3"><code class="Fn">aio_write</code></a>()
-    system call to avoid passing bogus context information to the kernel.</p>
+    or <code class="Fn">aio_writev</code>() system call to avoid passing bogus
+    context information to the kernel.</p>
 <p class="Pp">Modifications of the Asynchronous I/O Control Block structure or
     the buffer contents after the request has been enqueued, but before the
     request has completed, are not allowed.</p>
@@ -140,25 +201,27 @@
 <section class="Sh">
 <h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
   VALUES</a></h1>
-<p class="Pp">The <code class="Fn">aio_write</code>() function returns the
-    value&#x00A0;0 if successful; otherwise the value&#x00A0;-1 is returned and
-    the global variable <var class="Va">errno</var> is set to indicate the
-    error.</p>
+<p class="Pp">The <code class="Fn">aio_write</code>() and
+    <code class="Fn">aio_writev</code>() functions return the value&#x00A0;0 if
+    successful; otherwise the value&#x00A0;-1 is returned and the global
+    variable <var class="Va">errno</var> is set to indicate the error.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="ERRORS"><a class="permalink" href="#ERRORS">ERRORS</a></h1>
-<p class="Pp">The <code class="Fn">aio_write</code>() system call will fail
-  if:</p>
+<p class="Pp">The <code class="Fn">aio_write</code>() and
+    <code class="Fn">aio_writev</code>() system calls will fail if:</p>
 <dl class="Bl-tag">
   <dt id="EAGAIN">[<a class="permalink" href="#EAGAIN"><code class="Er">EAGAIN</code></a>]</dt>
   <dd>Due to system resource limitations, the request was not queued.</dd>
   <dt id="ENOSYS">[<a class="permalink" href="#ENOSYS"><code class="Er">ENOSYS</code></a>]</dt>
-  <dd>The <code class="Fn">aio_write</code>() system call is not supported.</dd>
+  <dd>The <code class="Fn">aio_write</code>() or
+      <code class="Fn">aio_writev</code>() system call is not supported.</dd>
 </dl>
 <p class="Pp">The following conditions may be synchronously detected when the
-    <code class="Fn">aio_write</code>() system call is made, or asynchronously,
-    at any time thereafter. If they are detected at call time,
-    <code class="Fn">aio_write</code>() returns -1 and sets
+    <code class="Fn">aio_write</code>() or <code class="Fn">aio_writev</code>()
+    system call is made, or asynchronously, at any time thereafter. If they are
+    detected at call time, <code class="Fn">aio_write</code>() or
+    <code class="Fn">aio_writev</code>() returns -1 and sets
     <var class="Va">errno</var> appropriately; otherwise the
     <code class="Fn">aio_return</code>() system call must be called, and will
     return -1, and <code class="Fn">aio_error</code>() must be called to
@@ -180,7 +243,23 @@
   <dt id="EINVAL~3">[<a class="permalink" href="#EINVAL~3"><code class="Er">EINVAL</code></a>]</dt>
   <dd>The number of bytes specified by
       <var class="Fa">aiocbp-&gt;aio_nbytes</var> is not valid.</dd>
+</dl>
+<p class="Pp">The <code class="Fn">aio_writev</code>() calls may also return one
+    of the following errors:</p>
+<dl class="Bl-tag">
+  <dt id="EFAULT~2">[<a class="permalink" href="#EFAULT~2"><code class="Er">EFAULT</code></a>]</dt>
+  <dd>Part of the <var class="Fa">aio_iov</var> points outside the process's
+      allocated address space.</dd>
   <dt id="EINVAL~4">[<a class="permalink" href="#EINVAL~4"><code class="Er">EINVAL</code></a>]</dt>
+  <dd><var class="Fa">aio_iovcnt</var> was less than or equal to 0, or greater
+      than <code class="Dv">AIO_UIO_MAXIOV</code>.</dd>
+  <dt id="EINVAL~5">[<a class="permalink" href="#EINVAL~5"><code class="Er">EINVAL</code></a>]</dt>
+  <dd>One of the <var class="Fa">iov_len</var> values in the
+      <var class="Fa">aio_iov</var> array was negative.</dd>
+  <dt id="EINVAL~6">[<a class="permalink" href="#EINVAL~6"><code class="Er">EINVAL</code></a>]</dt>
+  <dd>The sum of the <var class="Fa">iov_len</var> values in the
+      <var class="Fa">aio_iov</var> array overflowed a 32-bit integer.</dd>
+  <dt id="EINVAL~7">[<a class="permalink" href="#EINVAL~7"><code class="Er">EINVAL</code></a>]</dt>
   <dd>The constant in <var class="Fa">aiocbp-&gt;aio_sigevent.sigev_notify</var>
       is set to SIGEV_THREAD (SIGEV_THREAD is not supported).</dd>
 </dl>
@@ -210,12 +289,17 @@
 <h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
 <p class="Pp">The <code class="Fn">aio_write</code>() system call is expected to
     conform to the <span class="St">IEEE Std 1003.1
-    (&#x201C;POSIX.1&#x201D;)</span> standard.</p>
+    (&#x201C;POSIX.1&#x201D;)</span> standard. The
+    <code class="Fn">aio_writev</code>() system call is an extension to the
+    <span class="St">IEEE Std 1003.1 (&#x201C;POSIX.1&#x201D;)</span>
+  standard.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
 <p class="Pp">The <code class="Fn">aio_write</code>() system call first appeared
-    in <span class="Ux">FreeBSD 3.0</span>.</p>
+    in <span class="Ux">FreeBSD 3.0</span>. The
+    <code class="Fn">aio_writev</code>() system call first appeared in Mac OS X
+    27.0.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>

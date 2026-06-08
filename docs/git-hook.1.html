@@ -55,25 +55,139 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
-<pre><i>git hook</i> run [--ignore-missing] [--to-stdin=&lt;path&gt;] &lt;hook-name&gt; [-- &lt;hook-args&gt;]</pre>
+<pre><i>git hook</i> run [--allow-unknown-hook-name] [--ignore-missing] [--to-stdin=&lt;path&gt;] &lt;hook-name&gt; [-- &lt;hook-args&gt;]
+<i>git hook</i> list [--allow-unknown-hook-name] [-z] [--show-scope] &lt;hook-name&gt;</pre>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
 <p class="Pp">A command interface for running git hooks (see
     <b>githooks</b>(5)), for use by other scripted git commands.</p>
+<p class="Pp">This command parses the default configuration files for sets of
+    configs like so:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>[hook &quot;linter&quot;]
+<br/>
+  event = pre-commit
+<br/>
+  command = ~/bin/linter --cpp20</pre>
+</div>
+<p class="Pp">In this example, [<b>hook</b> &quot;linter&quot;] represents one
+    script - <b>~/bin/linter</b> <b>--cpp20</b> - which can be shared by many
+    repos, and even by many hook events, if appropriate.</p>
+<p class="Pp">To add an unrelated hook which runs on a different event, for
+    example a spell-checker for your commit messages, you would write a
+    configuration like so:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>[hook &quot;linter&quot;]
+<br/>
+  event = pre-commit
+<br/>
+  command = ~/bin/linter --cpp20
+[hook &quot;spellcheck&quot;]
+<br/>
+  event = commit-msg
+<br/>
+  command = ~/bin/spellchecker</pre>
+</div>
+<p class="Pp">With this config, when you run <i>git commit</i>, first
+    <b>~/bin/linter</b> <b>--cpp20</b> will have a chance to check your files to
+    be committed (during the <b>pre-commit</b> hook event`), and then
+    <b>~/bin/spellchecker</b> will have a chance to check your commit message
+    (during the <b>commit-msg</b> hook event).</p>
+<p class="Pp">Commands are run in the order Git encounters their associated
+    <b>hook.</b><i>&lt;friendly-name&gt;</i><b>.event</b> configs during the
+    configuration parse (see <b>git-config</b>(1)). Although multiple
+    <b>hook.linter.event</b> configs can be added, only one
+    <b>hook.linter.command</b> event is valid - Git uses
+    &quot;last-one-wins&quot; to determine which command to run.</p>
+<p class="Pp">So if you wanted your linter to run when you commit as well as
+    when you push, you would configure it like so:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>[hook &quot;linter&quot;]
+<br/>
+  event = pre-commit
+<br/>
+  event = pre-push
+<br/>
+  command = ~/bin/linter --cpp20</pre>
+</div>
+<p class="Pp">With this config, <b>~/bin/linter</b> <b>--cpp20</b> would be run
+    by Git before a commit is generated (during <b>pre-commit</b>) as well as
+    before a push is performed (during <b>pre-push</b>).</p>
+<p class="Pp">And if you wanted to run your linter as well as a secret-leak
+    detector during only the &quot;pre-commit&quot; hook event, you would
+    configure it instead like so:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>[hook &quot;linter&quot;]
+<br/>
+  event = pre-commit
+<br/>
+  command = ~/bin/linter --cpp20
+[hook &quot;no-leaks&quot;]
+<br/>
+  event = pre-commit
+<br/>
+  command = ~/bin/leak-detector</pre>
+</div>
+<p class="Pp">With this config, before a commit is generated (during
+    <b>pre-commit</b>), Git would first start <b>~/bin/linter</b> <b>--cpp20</b>
+    and second start <b>~/bin/leak-detector</b>. It would evaluate the output of
+    each when deciding whether to proceed with the commit.</p>
+<p class="Pp">For a full list of hook events which you can set your
+    <b>hook.</b><i>&lt;friendly-name&gt;</i><b>.event</b> to, and how hooks are
+    invoked during those events, see <b>githooks</b>(5).</p>
+<p class="Pp">Git will ignore any
+    <b>hook.</b><i>&lt;friendly-name&gt;</i><b>.event</b> that specifies an
+    event it doesn&#x2019;t recognize. This is intended so that tools which wrap
+    Git can use the hook infrastructure to run their own hooks; see
+    &quot;WRAPPERS&quot; for more guidance.</p>
+<p class="Pp">In general, when instructions suggest adding a script to
+    .<b>git/hooks/</b><i>&lt;hook-event&gt;</i>, you can specify it in the
+    config instead by running:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>git config set hook.&lt;some-name&gt;.command &lt;path-to-script&gt;
+git config set --append hook.&lt;some-name&gt;.event &lt;hook-event&gt;</pre>
+</div>
+<p class="Pp">This way you can share the script between multiple repos. That is,
+    <b>cp</b> <b>~/my-script.sh</b> <b>~/project/.git/hooks/pre-commit</b> would
+    become:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>git config set hook.my-script.command ~/my-script.sh
+git config set --append hook.my-script.event pre-commit</pre>
+</div>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SUBCOMMANDS"><a class="permalink" href="#SUBCOMMANDS">SUBCOMMANDS</a></h1>
 <p class="Pp">run</p>
-<div class="Bd-indent">Run the <i>&lt;hook-name&gt;</i> hook. See
-  <b>githooks</b>(5) for supported hook names.
+<div class="Bd-indent">Runs hooks configured for <i>&lt;hook-name&gt;</i>, in
+  the order they are discovered during the config parse. The default
+  <i>&lt;hook-name&gt;</i> from the hookdir is run last. See <b>githooks</b>(5)
+  for supported hook names.
 <p class="Pp">Any positional arguments to the hook should be passed after a
     mandatory <b>--</b> (or <b>--end-of-options</b>, see <b>gitcli</b>(7)). See
     <b>githooks</b>(5) for arguments hooks might expect (if any).</p>
 </div>
+<p class="Pp">list [-z] [--show-scope]</p>
+<div class="Bd-indent">Print a list of hooks which will be run on
+  <i>&lt;hook-name&gt;</i> event. If no hooks are configured for that event,
+  print a warning and return 1. Use <b>-z</b> to terminate output lines with NUL
+  instead of newlines.</div>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp">--allow-unknown-hook-name</p>
+<div class="Bd-indent">By default <b>git</b> <b>hook</b> <b>run</b> and
+  <b>git</b> <b>hook</b> <b>list</b> will bail out when <i>&lt;hook-name&gt;</i>
+  is not a hook event known to Git (see <b>githooks</b>(5) for the list of known
+  hooks). This is meant to help catch typos such as <b>prereceive</b> when
+  <b>pre-receive</b> was intended. Pass this flag to allow unknown hook
+  names.</div>
 <p class="Pp">--to-stdin</p>
 <div class="Bd-indent">For &quot;run&quot;; specify a file which will be
   streamed into the hook&#x2019;s stdin. The hook will receive the entire file
@@ -82,6 +196,90 @@
 <div class="Bd-indent">Ignore any missing hook by quietly returning zero. Used
   for tools that want to do a blind one-shot run of a hook that may or may not
   be present.</div>
+<p class="Pp">-z</p>
+<div class="Bd-indent">Terminate &quot;list&quot; output lines with NUL instead
+  of newlines.</div>
+<p class="Pp">--show-scope</p>
+<div class="Bd-indent">For &quot;list&quot;; prefix each configured
+  hook&#x2019;s friendly name with a tab-separated config scope (e.g.
+  <b>local</b>, <b>global</b>, <b>system</b>), mirroring the output style of
+  <b>git</b> <b>config</b> <b>--show-scope</b>. Traditional hooks from the
+  hookdir are unaffected.</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="WRAPPERS"><a class="permalink" href="#WRAPPERS">WRAPPERS</a></h1>
+<p class="Pp"><b>git</b> <b>hook</b> <b>run</b> has been designed to make it
+    easy for tools which wrap Git to configure and execute hooks using the Git
+    hook infrastructure. It is possible to provide arguments and stdin via the
+    command line, as well as specifying parallel or series execution if the user
+    has provided multiple hooks.</p>
+<p class="Pp">Assuming your wrapper wants to support a hook named
+    &quot;mywrapper-start-tests&quot;, you can have your users specify their
+    hooks like so:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>[hook &quot;setup-test-dashboard&quot;]
+<br/>
+  event = mywrapper-start-tests
+<br/>
+  command = ~/mywrapper/setup-dashboard.py --tap</pre>
+</div>
+<p class="Pp">Then, in your <i>mywrapper</i> tool, you can invoke any users'
+    configured hooks by running:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>git hook run --allow-unknown-hook-name mywrapper-start-tests \
+<br/>
+  # providing something to stdin
+<br/>
+  --stdin some-tempfile-123 \
+<br/>
+  # execute hooks in serial
+<br/>
+  # plus some arguments of your own...
+<br/>
+  -- \
+<br/>
+  --testname bar \
+<br/>
+  baz</pre>
+</div>
+<p class="Pp">Take care to name your wrapper&#x2019;s hook events in a way which
+    is unlikely to overlap with Git&#x2019;s native hooks (see
+    <b>githooks</b>(5)) - a hook event named
+    <b>mywrappertool-validate-commit</b> is much less likely to be added to
+    native Git than a hook event named <b>validate-commit</b>. If Git begins to
+    use a hook event named the same thing as your wrapper hook, it may invoke
+    your users' hooks in unintended and unsupported ways.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION"><a class="permalink" href="#CONFIGURATION">CONFIGURATION</a></h1>
+<p class="Pp">hook.&lt;friendly-name&gt;.command</p>
+<div class="Bd-indent">The command to execute for
+  <b>hook.</b><i>&lt;friendly-name&gt;</i>. <i>&lt;friendly-name&gt;</i> is a
+  unique name that identifies this hook. The hook events that trigger the
+  command are configured with
+  <b>hook.</b><i>&lt;friendly-name&gt;</i><b>.event</b>. The value can be an
+  executable path or a shell oneliner. If more than one value is specified for
+  the same <i>&lt;friendly-name&gt;</i>, only the last value parsed is used. See
+  <b>git-hook</b>(1).</div>
+<p class="Pp">hook.&lt;friendly-name&gt;.event</p>
+<div class="Bd-indent">The hook events that trigger
+  <b>hook.</b><i>&lt;friendly-name&gt;</i>. The value is the name of a hook
+  event, like &quot;pre-commit&quot; or &quot;update&quot;. (See
+  <b>githooks</b>(5) for a complete list of hook events.) On the specified
+  event, the associated <b>hook.</b><i>&lt;friendly-name&gt;</i><b>.command</b>
+  is executed. This is a multi-valued key. To run
+  <b>hook.</b><i>&lt;friendly-name&gt;</i> on multiple events, specify the key
+  more than once. An empty value resets the list of events, clearing any
+  previously defined events for <b>hook.</b><i>&lt;friendly-name&gt;</i>. See
+  <b>git-hook</b>(1).</div>
+<p class="Pp">hook.&lt;friendly-name&gt;.enabled</p>
+<div class="Bd-indent">Whether the hook <b>hook.</b><i>&lt;friendly-name&gt;</i>
+  is enabled. Defaults to <b>true</b>. Set to <b>false</b> to disable the hook
+  without removing its configuration. This is particularly useful when a hook is
+  defined in a system or global config file and needs to be disabled for a
+  specific repository. See <b>git-hook</b>(1).</div>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE

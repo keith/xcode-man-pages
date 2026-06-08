@@ -56,42 +56,91 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
-<pre>(EXPERIMENTAL!) <i>git replay</i> ([--contained] --onto &lt;newbase&gt; | --advance &lt;branch&gt;) &lt;revision-range&gt;...</pre>
+<pre>(EXPERIMENTAL!) <i>git replay</i> ([--contained] --onto=&lt;newbase&gt; | --advance=&lt;branch&gt; | --revert=&lt;branch&gt;)
+<br/>
+                             [--ref=&lt;ref&gt;] [--ref-action=&lt;mode&gt;] &lt;revision-range&gt;</pre>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
-<p class="Pp">Takes ranges of commits and replays them onto a new location.
-    Leaves the working tree and the index untouched, and updates no references.
-    The output of this command is meant to be used as input to <b>git</b>
-    <b>update-ref</b> <b>--stdin</b>, which would update the relevant branches
-    (see the OUTPUT section below).</p>
+<p class="Pp">Takes a range of commits and replays them onto a new location.
+    Leaves the working tree and the index untouched. By default, updates the
+    relevant references using an atomic transaction (all refs update or none).
+    Use <b>--ref-action=print</b> to avoid automatic ref updates and instead get
+    update commands that can be piped to <b>git</b> <b>update-ref</b>
+    <b>--stdin</b> (see the OUTPUT section below).</p>
 <p class="Pp">THIS COMMAND IS EXPERIMENTAL. THE BEHAVIOR MAY CHANGE.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
-<p class="Pp">--onto &lt;newbase&gt;</p>
+<p class="Pp">--onto=&lt;newbase&gt;</p>
 <div class="Bd-indent">Starting point at which to create the new commits. May be
   any valid commit, and not just an existing branch name.
-<p class="Pp">When <b>--onto</b> is specified, the update-ref command(s) in the
-    output will update the branch(es) in the revision range to point at the new
-    commits, similar to the way how <b>git</b> <b>rebase</b>
-    <b>--update-refs</b> updates multiple branches in the affected range.</p>
+<p class="Pp">When <b>--onto</b> is specified, the branch(es) in the revision
+    range will be updated to point at the new commits, similar to the way
+    <b>git</b> <b>rebase</b> <b>--update-refs</b> updates multiple branches in
+    the affected range.</p>
 </div>
-<p class="Pp">--advance &lt;branch&gt;</p>
+<p class="Pp">--advance=&lt;branch&gt;</p>
 <div class="Bd-indent">Starting point at which to create the new commits; must
   be a branch name.
-<p class="Pp">When <b>--advance</b> is specified, the update-ref command(s) in
-    the output will update the branch passed as an argument to <b>--advance</b>
-    to point at the new commits (in other words, this mimics a cherry-pick
-    operation).</p>
+<p class="Pp">The history is replayed on top of the &lt;branch&gt; and
+    &lt;branch&gt; is updated to point at the tip of the resulting history. This
+    is different from <b>--onto</b>, which uses the target only as a starting
+    point without updating it.</p>
+</div>
+<p class="Pp">--revert=&lt;branch&gt;</p>
+<div class="Bd-indent">Starting point at which to create the reverted commits;
+  must be a branch name.
+<p class="Pp">When <b>--revert</b> is specified, the commits in the revision
+    range are reverted (their changes are undone) and the reverted commits are
+    created on top of &lt;branch&gt;. The &lt;branch&gt; is then updated to
+    point at the new commits. This is the same as running <b>git</b>
+    <b>revert</b> <i>&lt;revision-range&gt;</i> but does not update the working
+    tree.</p>
+<p class="Pp">The commit messages follow <b>git</b> <b>revert</b> conventions:
+    they are prefixed with &quot;Revert&quot; and include &quot;This reverts
+    commit &lt;hash&gt;.&quot; When reverting a commit whose message starts with
+    &quot;Revert&quot;, the new message uses &quot;Reapply&quot; instead. Unlike
+    cherry-pick which preserves the original author, revert commits use the
+    current user as the author, matching the behavior of <b>git</b>
+    <b>revert</b>.</p>
+<p class="Pp">This option is mutually exclusive with <b>--onto</b> and
+    <b>--advance</b>. It is also incompatible with <b>--contained</b> (which is
+    a modifier for <b>--onto</b> only).</p>
+</div>
+<p class="Pp">--contained</p>
+<div class="Bd-indent">Update all branches that point at commits in
+  &lt;revision-range&gt;. Requires <b>--onto</b>.</div>
+<p class="Pp">--ref=&lt;ref&gt;</p>
+<div class="Bd-indent">Override which reference is updated with the result of
+  the replay. The ref must be fully qualified. When used with <b>--onto</b>, the
+  <i>&lt;revision-range&gt;</i> should have a single tip and only the specified
+  reference is updated instead of inferring refs from the revision range. When
+  used with <b>--advance</b> or <b>--revert</b>, the specified reference is
+  updated instead of the branch given to those options. This option is
+  incompatible with <b>--contained</b>.</div>
+<p class="Pp">--ref-action[=&lt;mode&gt;]</p>
+<div class="Bd-indent">Control how references are updated. The mode can be:
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>update</b> (default): Update refs directly
+  using an atomic transaction. All refs are updated or none are (all-or-nothing
+  behavior).</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>print</b>: Output update-ref commands for
+  pipeline use. This is the traditional behavior where output can be piped to
+  <b>git</b> <b>update-ref</b> <b>--stdin</b>.</div>
+<p class="Pp">The default mode can be configured via the <b>replay.refAction</b>
+    configuration variable.</p>
 </div>
 <p class="Pp">&lt;revision-range&gt;</p>
-<div class="Bd-indent">Range of commits to replay. More than one
-  &lt;revision-range&gt; can be passed, but in <b>--advance</b>
-  <i>&lt;branch&gt;</i> mode, they should have a single tip, so that it&#x2019;s
-  clear where &lt;branch&gt; should point to. See &quot;Specifying Ranges&quot;
-  in <b>git-rev-parse</b>(1) and the &quot;Commit Limiting&quot; options
-  below.</div>
+<div class="Bd-indent">Range of commits to replay; see &quot;Specifying
+  Ranges&quot; in <b>git-rev-parse</b>(1). In
+  <b>--advance=</b><i>&lt;branch&gt;</i> or
+  <b>--revert=</b><i>&lt;branch&gt;</i> mode, the range should have a single
+  tip, so that it&#x2019;s clear to which tip the advanced or reverted
+  &lt;branch&gt; should point. Any commits in the range whose changes are
+  already present in the branch the commits are being replayed onto will be
+  dropped.</div>
 <section class="Ss">
 <h2 class="Ss" id="Commit_Limiting"><a class="permalink" href="#Commit_Limiting">Commit
   Limiting</a></h2>
@@ -202,6 +251,9 @@
   find the set of changes in a topic branch from the point where it diverged
   from the remote branch, given that arbitrary merges can be valid topic branch
   changes.</div>
+<p class="Pp"><b>--maximal-only</b></p>
+<div class="Bd-indent">Restrict the output commits to be those that are not
+  reachable from any other commits in the revision range.</div>
 <p class="Pp"><b>--not</b></p>
 <div class="Bd-indent">Reverses the meaning of the <i>^</i> prefix (or lack
   thereof) for all following revision specifiers, up to the next <b>--not</b>.
@@ -886,237 +938,14 @@
 <p class="Pp"><b>--do-walk</b></p>
 <div class="Bd-indent">Overrides a previous <b>--no-walk</b>.</div>
 </section>
-<section class="Ss">
-<h2 class="Ss" id="Commit_Formatting"><a class="permalink" href="#Commit_Formatting">Commit
-  Formatting</a></h2>
-<p class="Pp"><b>--pretty</b>[<b>=</b><i>&lt;format&gt;</i>],
-    <b>--format=</b><i>&lt;format&gt;</i></p>
-<div class="Bd-indent">Pretty-print the contents of the commit logs in a given
-  format, where <i>&lt;format&gt;</i> can be one of <b>oneline</b>,
-  <b>short</b>, <b>medium</b>, <b>full</b>, <b>fuller</b>, <b>reference</b>,
-  <b>email</b>, <b>raw</b>, <b>format:</b><i>&lt;string&gt;</i> and
-  <b>tformat:</b><i>&lt;string&gt;</i>. When <i>&lt;format&gt;</i> is none of
-  the above, and has <b>%</b><i>&lt;placeholder&gt;</i> in it, it acts as if
-  <b>--pretty=tformat:</b><i>&lt;format&gt;</i> were given.
-<p class="Pp">See the &quot;PRETTY FORMATS&quot; section for some additional
-    details for each format. When <b>=</b><i>&lt;format&gt;</i> part is omitted,
-    it defaults to <b>medium</b>.</p>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<br/>
-<b>Note</b>
-<br/>
-you can specify the default pretty format in the repository configuration (see
-  <b>git-config</b>(1)).
-<p class="Pp"></p>
-</div>
-</div>
-<p class="Pp"><b>--abbrev-commit</b></p>
-<div class="Bd-indent">Instead of showing the full 40-byte hexadecimal commit
-  object name, show a prefix that names the object uniquely.
-  <b>--abbrev=</b><i>&lt;n&gt;</i> (which also modifies diff output, if it is
-  displayed) option can be used to specify the minimum length of the prefix.
-<p class="Pp">This should make <b>--pretty=oneline</b> a whole lot more readable
-    for people using 80-column terminals.</p>
-</div>
-<p class="Pp"><b>--no-abbrev-commit</b></p>
-<div class="Bd-indent">Show the full 40-byte hexadecimal commit object name.
-  This negates <b>--abbrev-commit</b>, either explicit or implied by other
-  options such as <b>--oneline</b>. It also overrides the
-  <b>log.abbrevCommit</b> variable.</div>
-<p class="Pp"><b>--oneline</b></p>
-<div class="Bd-indent">This is a shorthand for <b>--pretty=oneline</b>
-  <b>--abbrev-commit</b> used together.</div>
-<p class="Pp"><b>--encoding=</b><i>&lt;encoding&gt;</i></p>
-<div class="Bd-indent">Commit objects record the character encoding used for the
-  log message in their encoding header; this option can be used to tell the
-  command to re-code the commit log message in the encoding preferred by the
-  user. For non plumbing commands this defaults to UTF-8. Note that if an object
-  claims to be encoded in <b>X</b> and we are outputting in <b>X</b>, we will
-  output the object verbatim; this means that invalid sequences in the original
-  commit may be copied to the output. Likewise, if iconv(3) fails to convert the
-  commit, we will quietly output the original object verbatim.</div>
-<p class="Pp"><b>--expand-tabs=</b><i>&lt;n&gt;</i>, <b>--expand-tabs</b>,
-    <b>--no-expand-tabs</b></p>
-<div class="Bd-indent">Perform a tab expansion (replace each tab with enough
-  spaces to fill to the next display column that is a multiple of
-  <i>&lt;n&gt;</i>) in the log message before showing it in the output.
-  <b>--expand-tabs</b> is a short-hand for <b>--expand-tabs=8</b>, and
-  <b>--no-expand-tabs</b> is a short-hand for <b>--expand-tabs=0</b>, which
-  disables tab expansion.
-<p class="Pp">By default, tabs are expanded in pretty formats that indent the
-    log message by 4 spaces (i.e. <b>medium</b>, which is the default,
-    <b>full</b>, and <b>fuller</b>).</p>
-</div>
-<p class="Pp"><b>--notes</b>[<b>=</b><i>&lt;ref&gt;</i>]</p>
-<div class="Bd-indent">Show the notes (see <b>git-notes</b>(1)) that annotate
-  the commit, when showing the commit log message. This is the default for
-  <b>git</b> <b>log</b>, <b>git</b> <b>show</b> and <b>git</b>
-  <b>whatchanged</b> commands when there is no <b>--pretty</b>, <b>--format</b>,
-  or <b>--oneline</b> option given on the command line.
-<p class="Pp">By default, the notes shown are from the notes refs listed in the
-    <b>core.notesRef</b> and <b>notes.displayRef</b> variables (or corresponding
-    environment overrides). See <b>git-config</b>(1) for more details.</p>
-<p class="Pp">With an optional <i>&lt;ref&gt;</i> argument, use the ref to find
-    the notes to display. The ref can specify the full refname when it begins
-    with <b>refs/notes/</b>; when it begins with <b>notes/</b>, <b>refs/</b> and
-    otherwise <b>refs/notes/</b> is prefixed to form the full name of the
-  ref.</p>
-<p class="Pp">Multiple <b>--notes</b> options can be combined to control which
-    notes are being displayed. Examples: &quot;<b>--notes=foo</b>&quot; will
-    show only notes from <b>refs/notes/foo</b>; &quot;<b>--notes=foo</b>
-    <b>--notes</b>&quot; will show both notes from &quot;refs/notes/foo&quot;
-    and from the default notes ref(s).</p>
-</div>
-<p class="Pp"><b>--no-notes</b></p>
-<div class="Bd-indent">Do not show notes. This negates the above <b>--notes</b>
-  option, by resetting the list of notes refs from which notes are shown.
-  Options are parsed in the order given on the command line, so e.g.
-  &quot;<b>--notes</b> <b>--notes=foo</b> <b>--no-notes</b>
-  <b>--notes=bar</b>&quot; will only show notes from
-  <b>refs/notes/bar</b>.</div>
-<p class="Pp"><b>--show-notes-by-default</b></p>
-<div class="Bd-indent">Show the default notes unless options for displaying
-  specific notes are given.</div>
-<p class="Pp"><b>--show-notes</b>[<b>=</b><i>&lt;ref&gt;</i>],
-    <b>--standard-notes</b>, <b>--no-standard-notes</b></p>
-<div class="Bd-indent">These options are deprecated. Use the above
-  <b>--notes</b>/<b>--no-notes</b> options instead.</div>
-<p class="Pp"><b>--show-signature</b></p>
-<div class="Bd-indent">Check the validity of a signed commit object by passing
-  the signature to <b>gpg</b> <b>--verify</b> and show the output.</div>
-<p class="Pp"><b>--relative-date</b></p>
-<div class="Bd-indent">Synonym for <b>--date=relative</b>.</div>
-<p class="Pp"><b>--date=</b><i>&lt;format&gt;</i></p>
-<div class="Bd-indent">Only takes effect for dates shown in human-readable
-  format, such as when using <b>--pretty</b>. <b>log.date</b> config variable
-  sets a default value for the log command&#x2019;s <b>--date</b> option. By
-  default, dates are shown in the original time zone (either committer&#x2019;s
-  or author&#x2019;s). If <b>-local</b> is appended to the format (e.g.,
-  <b>iso-local</b>), the user&#x2019;s local time zone is used instead.
-<p class="Pp"><b>--date=relative</b> shows dates relative to the current time,
-    e.g. &#x201C;2 hours ago&#x201D;. The <b>-local</b> option has no effect for
-    <b>--date=relative</b>.</p>
-<p class="Pp"><b>--date=local</b> is an alias for
-  <b>--date=default-local</b>.</p>
-<p class="Pp"><b>--date=iso</b> (or <b>--date=iso8601</b>) shows timestamps in a
-    ISO 8601-like format. The differences to the strict ISO 8601 format are:</p>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;a space instead of the <b>T</b> date/time
-  delimiter</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;a space between time and time zone</div>
-<p class="Pp"></p>
-<div class="Bd-indent">&#x2022;no colon between hours and minutes of the time
-  zone</div>
-<p class="Pp"><b>--date=iso-strict</b> (or <b>--date=iso8601-strict</b>) shows
-    timestamps in strict ISO 8601 format.</p>
-<p class="Pp"><b>--date=rfc</b> (or <b>--date=rfc2822</b>) shows timestamps in
-    RFC 2822 format, often found in email messages.</p>
-<p class="Pp"><b>--date=short</b> shows only the date, but not the time, in
-    <b>YYYY-MM-DD</b> format.</p>
-<p class="Pp"><b>--date=raw</b> shows the date as seconds since the epoch
-    (1970-01-01 00:00:00 UTC), followed by a space, and then the timezone as an
-    offset from UTC (a <b>+</b> or <b>-</b> with four digits; the first two are
-    hours, and the second two are minutes). I.e., as if the timestamp were
-    formatted with <b>strftime</b>(&quot;%s <b>%z</b>&quot;)). Note that the
-    <b>-local</b> option does not affect the seconds-since-epoch value (which is
-    always measured in UTC), but does switch the accompanying timezone
-  value.</p>
-<p class="Pp"><b>--date=human</b> shows the timezone if the timezone does not
-    match the current time-zone, and doesn&#x2019;t print the whole date if that
-    matches (ie skip printing year for dates that are &quot;this year&quot;, but
-    also skip the whole date itself if it&#x2019;s in the last few days and we
-    can just say what weekday it was). For older dates the hour and minute is
-    also omitted.</p>
-<p class="Pp"><b>--date=unix</b> shows the date as a Unix epoch timestamp
-    (seconds since 1970). As with <b>--raw</b>, this is always in UTC and
-    therefore <b>-local</b> has no effect.</p>
-<p class="Pp"><b>--date=format:</b><i>&lt;format&gt;</i> feeds the
-    <i>&lt;format&gt;</i> to your system <b>strftime</b>, except for <b>%s</b>,
-    <b>%z</b>, and <b>%Z</b>, which are handled internally. Use
-    <b>--date=format:%c</b> to show the date in your system locale&#x2019;s
-    preferred format. See the <b>strftime</b>(3) manual for a complete list of
-    format placeholders. When using <b>-local</b>, the correct syntax is
-    <b>--date=format-local:</b><i>&lt;format&gt;</i>.</p>
-<p class="Pp"><b>--date=default</b> is the default format, and is based on
-    ctime(3) output. It shows a single line with three-letter day of the week,
-    three-letter month, day-of-month, hour-minute-seconds in
-    &quot;HH:MM:SS&quot; format, followed by 4-digit year, plus timezone
-    information, unless the local time zone is used, e.g. <b>Thu</b> <b>Jan</b>
-    <b>1</b> <b>00:00:00</b> <b>1970</b> <b>+0000</b>.</p>
-</div>
-<p class="Pp"><b>--parents</b></p>
-<div class="Bd-indent">Print also the parents of the commit (in the form
-  &quot;commit parent...&quot;). Also enables parent rewriting, see <i>History
-  Simplification</i> above.</div>
-<p class="Pp"><b>--children</b></p>
-<div class="Bd-indent">Print also the children of the commit (in the form
-  &quot;commit child...&quot;). Also enables parent rewriting, see <i>History
-  Simplification</i> above.</div>
-<p class="Pp"><b>--left-right</b></p>
-<div class="Bd-indent">Mark which side of a symmetric difference a commit is
-  reachable from. Commits from the left side are prefixed with &lt; and those
-  from the right with &gt;. If combined with <b>--boundary</b>, those commits
-  are prefixed with <b>-</b>.
-<p class="Pp">For example, if you have this topology:</p>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre>
-<br/>
-             y---b---b  branch B
-<br/>
-            / \ /
-<br/>
-           /   .
-<br/>
-          /   / \
-<br/>
-         o---x---a---a  branch A</pre>
-</div>
-<p class="Pp">you would get an output like this:</p>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre>
-<br/>
-        $ git rev-list --left-right --boundary --pretty=oneline A...B
-<br/>
-        &gt;bbbbbbb... 3rd on b
-<br/>
-        &gt;bbbbbbb... 2nd on b
-<br/>
-        &lt;aaaaaaa... 3rd on a
-<br/>
-        &lt;aaaaaaa... 2nd on a
-<br/>
-        -yyyyyyy... 1st on b
-<br/>
-        -xxxxxxx... 1st on a</pre>
-</div>
-</div>
-<p class="Pp"><b>--graph</b></p>
-<div class="Bd-indent">Draw a text-based graphical representation of the commit
-  history on the left hand side of the output. This may cause extra lines to be
-  printed in between commits, in order for the graph history to be drawn
-  properly. Cannot be combined with <b>--no-walk</b>.
-<p class="Pp">This enables parent rewriting, see <i>History Simplification</i>
-    above.</p>
-<p class="Pp">This implies the <b>--topo-order</b> option by default, but the
-    <b>--date-order</b> option may also be specified.</p>
-</div>
-<p class="Pp"><b>--show-linear-break</b>[<b>=</b><i>&lt;barrier&gt;</i>]</p>
-<div class="Bd-indent">When <b>--graph</b> is not used, all history branches are
-  flattened which can make it hard to see that the two consecutive commits do
-  not belong to a linear branch. This option puts a barrier in between them in
-  that case. If <i>&lt;barrier&gt;</i> is specified, it is the string that will
-  be shown instead of the default one.</div>
-</section>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="OUTPUT"><a class="permalink" href="#OUTPUT">OUTPUT</a></h1>
-<p class="Pp">When there are no conflicts, the output of this command is usable
-    as input to <b>git</b> <b>update-ref</b> <b>--stdin</b>. It is of the
-  form:</p>
+<p class="Pp">By default, or with <b>--ref-action=update</b>, this command
+    produces no output on success, as refs are updated directly using an atomic
+    transaction.</p>
+<p class="Pp">When using <b>--ref-action=print</b>, the output is usable as
+    input to <b>git</b> <b>update-ref</b> <b>--stdin</b>. It is of the form:</p>
 <p class="Pp"></p>
 <div class="Bd-indent">
 <pre>update refs/heads/branch1 ${NEW_branch1_HASH} ${OLD_branch1_HASH}
@@ -1124,9 +953,12 @@ update refs/heads/branch2 ${NEW_branch2_HASH} ${OLD_branch2_HASH}
 update refs/heads/branch3 ${NEW_branch3_HASH} ${OLD_branch3_HASH}</pre>
 </div>
 <p class="Pp">where the number of refs updated depends on the arguments passed
-    and the shape of the history being replayed. When using <b>--advance</b>,
-    the number of refs updated is always one, but for <b>--onto</b>, it can be
-    one or more (rebasing multiple branches simultaneously is supported).</p>
+    and the shape of the history being replayed. When using <b>--advance</b> or
+    <b>--revert</b>, the number of refs updated is always one, but for
+    <b>--onto</b>, it can be one or more (rebasing multiple branches
+    simultaneously is supported).</p>
+<p class="Pp">There is no stderr output on conflicts; see the EXIT STATUS
+    section below.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT
@@ -1141,43 +973,74 @@ update refs/heads/branch3 ${NEW_branch3_HASH} ${OLD_branch3_HASH}</pre>
 <p class="Pp">To simply rebase <b>mybranch</b> onto <b>target</b>:</p>
 <p class="Pp"></p>
 <div class="Bd-indent">
-<pre>$ git replay --onto target origin/main..mybranch
+<pre>$ git replay --onto=target origin/main..mybranch</pre>
+</div>
+<p class="Pp">The refs are updated atomically and no output is produced on
+    success.</p>
+<p class="Pp">To see what would be updated without actually updating:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ git replay --ref-action=print --onto=target origin/main..mybranch
 update refs/heads/mybranch ${NEW_mybranch_HASH} ${OLD_mybranch_HASH}</pre>
 </div>
 <p class="Pp">To cherry-pick the commits from mybranch onto target:</p>
 <p class="Pp"></p>
 <div class="Bd-indent">
-<pre>$ git replay --advance target origin/main..mybranch
-update refs/heads/target ${NEW_target_HASH} ${OLD_target_HASH}</pre>
+<pre>$ git replay --advance=target origin/main..mybranch</pre>
 </div>
 <p class="Pp">Note that the first two examples replay the exact same commits and
     on top of the exact same new base, they only differ in that the first
-    provides instructions to make mybranch point at the new commits and the
-    second provides instructions to make target point at them.</p>
+    updates mybranch to point at the new commits and the second updates target
+    to point at them.</p>
 <p class="Pp">What if you have a stack of branches, one depending upon another,
     and you&#x2019;d really like to rebase the whole set?</p>
 <p class="Pp"></p>
 <div class="Bd-indent">
-<pre>$ git replay --contained --onto origin/main origin/main..tipbranch
-update refs/heads/branch1 ${NEW_branch1_HASH} ${OLD_branch1_HASH}
-update refs/heads/branch2 ${NEW_branch2_HASH} ${OLD_branch2_HASH}
-update refs/heads/tipbranch ${NEW_tipbranch_HASH} ${OLD_tipbranch_HASH}</pre>
+<pre>$ git replay --contained --onto=origin/main origin/main..tipbranch</pre>
 </div>
+<p class="Pp">All three branches (<b>branch1</b>, <b>branch2</b>, and
+    <b>tipbranch</b>) are updated atomically.</p>
 <p class="Pp">When calling <b>git</b> <b>replay</b>, one does not need to
     specify a range of commits to replay using the syntax
     <b>A</b><b>..</b><b>B</b>; any range expression will do:</p>
 <p class="Pp"></p>
 <div class="Bd-indent">
-<pre>$ git replay --onto origin/main ^base branch1 branch2 branch3
-update refs/heads/branch1 ${NEW_branch1_HASH} ${OLD_branch1_HASH}
-update refs/heads/branch2 ${NEW_branch2_HASH} ${OLD_branch2_HASH}
-update refs/heads/branch3 ${NEW_branch3_HASH} ${OLD_branch3_HASH}</pre>
+<pre>$ git replay --onto=origin/main ^base branch1 branch2 branch3</pre>
 </div>
 <p class="Pp">This will simultaneously rebase <b>branch1</b>, <b>branch2</b>,
     and <b>branch3</b>, all commits they have since <b>base</b>, playing them on
     top of <b>origin/main</b>. These three branches may have commits on top of
     <b>base</b> that they have in common, but that does not need to be the
   case.</p>
+<p class="Pp">To revert commits on a branch:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ git replay --revert=main topic~2..topic</pre>
+</div>
+<p class="Pp">This reverts the last two commits from <b>topic</b>, creating
+    revert commits on top of <b>main</b>, and updates <b>main</b> to point at
+    the result. This is useful when commits from <b>topic</b> were previously
+    merged or cherry-picked into <b>main</b> and need to be undone.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp">For reverting an entire merge request as a single commit (rather
+    than commit-by-commit), consider using <b>git</b> <b>merge-tree</b>
+    <b>--merge-base</b> <b>$TIP</b> <b>HEAD</b> <b>$BASE</b> which can avoid
+    unnecessary merge conflicts.</p>
+<p class="Pp"></p>
+</div>
+<p class="Pp">To replay onto a specific commit while updating a different
+    reference:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ git replay --onto=112233 --ref=refs/heads/mybranch aabbcc..ddeeff</pre>
+</div>
+<p class="Pp">This replays the range <b>aabbcc</b><b>..</b><b>ddeeff</b> onto
+    commit <b>112233</b> and updates <b>refs/heads/mybranch</b> to point at the
+    result. This can be useful when you want to use bare commit IDs instead of
+    branch names.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="GIT"><a class="permalink" href="#GIT">GIT</a></h1>

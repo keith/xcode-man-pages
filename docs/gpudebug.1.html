@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<style>
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #000;
+    color: #d0d0d0;
+  }
+
+  a, a:visited {
+    color: #1899eb;
+  }
+}
+</style>
+
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    .Nd, .Bf, .Op { display: inline; }
+    .Pa, .Ad { font-style: italic; }
+    .Ms { font-weight: bold; }
+    .Bl-diag > dt { font-weight: bold; }
+    code.Nm, .Fl, .Cm, .Ic, code.In, .Fd, .Fn, .Cd { font-weight: bold;
+      font-family: inherit; }
+  </style>
+  <title>gpudebug(1)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">gpudebug(1)</td>
+    <td class="head-vol">General Commands Manual</td>
+    <td class="head-rtitle">gpudebug(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><b>gpudebug</b> - interactive GPU trace debugger</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<br/>
+<p class="Pp"> gpudebug -t &lt;path&gt; [-o &lt;dir&gt;] [-d &lt;device&gt;]
+    [-q] [--timeout &lt;sec&gt;] [-h]
+  <br/>
+   gpudebug -s &lt;id&gt; [-c &lt;command&gt;]...
+  <br/>
+   gpudebug -l | --list-sessions
+  <br/>
+   gpudebug --list-devices
+  <br/>
+   gpudebug --terminate &lt;id|all&gt;
+  <br/>
+   gpudebug --oneshot -t &lt;path&gt; [-c &lt;command&gt;]...</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>gpudebug</b> is an interactive CLI debugger for Metal GPU
+    traces. It opens a <b>.gputrace</b> file and provides a REPL for navigating
+    the captured API call hierarchy, inspecting resources and pipeline state,
+    fetching textures and buffers to disk, browsing shader source code, and
+    analyzing GPU performance.</p>
+<p class="Pp">gpudebug runs as a client/server pair. When you open a trace, a
+    backend session is created that persists independently of the REPL. You can
+    disconnect with <b>exit</b> and reconnect later with <b>-s &lt;id&gt;</b>,
+    or send individual commands with <b>-c</b> without entering the REPL. Use
+    <b>exit --terminate</b> to end the session.</p>
+<p class="Pp">A <b>.gputrace</b> file is produced by <b>gpucapture</b>(1) or
+    Xcode's Metal Debugger. It contains a recorded sequence of Metal API calls
+    along with all associated resources (buffers, textures, pipeline states,
+    shader libraries) needed to replay the captured GPU workloads.</p>
+<p class="Pp">On startup, gpudebug loads the trace index for immediate browsing.
+    A background replayer connects to the local GPU and begins preparing
+    resources. Static browsing (navigation, listing, info) is available
+    immediately; <b>fetch</b> requires the replayer to be ready (check with
+    <b>status</b>).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp"><b>-t, --gputrace &lt;path&gt;</b></p>
+<div class="Bd-indent">Path to a <b>.gputrace</b> file or bundle directory.
+  Required unless using <b>-s</b>, <b>-l</b>, or <b>--terminate</b>.</div>
+<p class="Pp"><b>-o, --output &lt;dir&gt;</b></p>
+<div class="Bd-indent">Output directory for resources saved by the <b>fetch</b>
+  command. If not specified, defaults to
+  <b>$TMPDIR/gpudebug_out/&lt;trace_name&gt;/</b> where
+  <b>&lt;trace_name&gt;</b> is the trace filename without the <b>.gputrace</b>
+  extension. Created automatically if it does not exist.</div>
+<p class="Pp"><b>-d, --device &lt;device&gt;</b></p>
+<div class="Bd-indent">Target device for replay. Accepts a product name,
+  marketing name, or numeric ID from <b>--list-devices</b> &#x2014; matching is
+  case-insensitive substring. If the match is ambiguous, all candidates are
+  printed. If no match is found, the full device table is shown. By default the
+  local device is used.</div>
+<p class="Pp"><b>--list-devices</b></p>
+<div class="Bd-indent">List all replay-capable devices on the network and exit.
+  Does not require a trace file. The local machine is always listed first. Each
+  device shows an ID, name, model, OS version, and UDID.</div>
+<p class="Pp"><b>-s, --session &lt;id&gt;</b></p>
+<div class="Bd-indent">Connect to an existing debug session by its ID (shown in
+  <b>-l</b> output and printed when a session is created). Use with <b>-c</b> to
+  send commands without entering the REPL.</div>
+<p class="Pp"><b>-c &lt;command&gt;</b></p>
+<div class="Bd-indent">Execute a command and exit. Can be repeated to chain
+  multiple commands: <b>-c &quot;go cb0&quot; -c &quot;info&quot;</b>. Requires
+  either <b>-t</b> (creates a new session) or <b>-s</b> (connects to an existing
+  one). Sessions persist after commands finish, allowing fast reuse with
+  <b>-s</b>. Use <b>--terminate</b> when done.</div>
+<p class="Pp"><b>-l, --list-sessions</b></p>
+<div class="Bd-indent">List all active debug sessions and exit. Shows session
+  ID, trace name, device, replayer state, and lifetime status.</div>
+<p class="Pp"><b>--terminate &lt;id|all&gt;</b></p>
+<div class="Bd-indent">Terminate a debug session by its ID, or use <b>all</b> to
+  terminate every active session.</div>
+<p class="Pp"><b>--timeout &lt;seconds&gt;</b></p>
+<div class="Bd-indent">Set the idle timeout for the session in seconds. After
+  this period with no commands, the session terminates automatically. Default is
+  7200 (2 hours). Use <b>--timeout 0</b> to disable the timeout.</div>
+<p class="Pp"><b>--oneshot</b></p>
+<div class="Bd-indent">Run as a one-shot operation: create a session, execute
+  commands (via <b>-c</b> or pipe), then terminate the session automatically.
+  Forces pipe-mode semantics (blocking fetch, no interactive prompt) regardless
+  of whether stdin is a terminal. <b>Note:</b> each invocation loads the trace
+  and spawns a replayer from scratch, which can take seconds to minutes for
+  large traces. For repeated operations against the same trace, create a session
+  once with <b>-t</b> and reuse it with <b>-s</b>.</div>
+<p class="Pp"><b>-q, --quiet</b></p>
+<div class="Bd-indent">Suppress the startup banner. Useful for scripting and
+  piped input.</div>
+<p class="Pp"><b>--json</b></p>
+<div class="Bd-indent">Output in JSON format. Affects all commands that produce
+  structured output. Useful for machine consumption and AI agent
+  integration.</div>
+<p class="Pp"><b>--version</b></p>
+<div class="Bd-indent">Print the version and exit.</div>
+<p class="Pp"><b>-h, --help</b></p>
+<div class="Bd-indent">Print usage summary and exit.</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TRACE_HIERARCHY"><a class="permalink" href="#TRACE_HIERARCHY">TRACE
+  HIERARCHY</a></h1>
+<p class="Pp">A trace is a tree. The root has four children:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>root
+&#x251C; commands                command buffers
+&#x2502;  &#x251C; cb0, cb1, ...
+&#x2502;  &#x2502;  &#x251C; grpN              debug group (can nest at any level)
+&#x2502;  &#x2502;  &#x251C; reN               render encoder
+&#x2502;  &#x2502;  &#x2502;  &#x251C; color0..N      color attachments
+&#x2502;  &#x2502;  &#x2502;  &#x251C; depth          depth attachment
+&#x2502;  &#x2502;  &#x2502;  &#x251C; stencil        stencil attachment
+&#x2502;  &#x2502;  &#x2502;  &#x251C; drawN          draw call
+&#x2502;  &#x2502;  &#x2502;  &#x2502;  &#x251C; pipeline     render pipeline state
+&#x2502;  &#x2502;  &#x2502;  &#x2502;  &#x251C; vertex       vertex-stage bindings
+&#x2502;  &#x2502;  &#x2502;  &#x2502;  &#x2502;  &#x251C; buf[0..N]  bound buffers
+&#x2502;  &#x2502;  &#x2502;  &#x2502;  &#x2502;  &#x251C; tex[0..N]  bound textures
+&#x2502;  &#x2502;  &#x2502;  &#x2502;  &#x2502;  &#x2514; sources    shader source files
+&#x2502;  &#x2502;  &#x2502;  &#x2502;  &#x251C; fragment     fragment-stage bindings
+&#x2502;  &#x2502;  &#x2502;  &#x2502;  &#x251C; color0..N    per-draw attachments
+&#x2502;  &#x2502;  &#x2502;  &#x2502;  &#x2514; indexBuffer  index buffer (if indexed draw)
+&#x2502;  &#x2502;  &#x251C; ceN               compute encoder
+&#x2502;  &#x2502;  &#x2502;  &#x2514; dispN          dispatch call
+&#x2502;  &#x2502;  &#x2514; beN               blit encoder
+&#x2502;  &#x2502;     &#x2514; blitN          blit operation
+&#x251C; performance             GPU profiling data (requires profile load)
+&#x2502;  &#x251C; timeline           GPU execution timeline
+&#x2502;  &#x2502;  &#x251C; encoders        per-encoder timeline
+&#x2502;  &#x2502;  &#x251C; shaders         per-shader timeline
+&#x2502;  &#x2502;  &#x2514; counters        GPU counter time-series
+&#x2502;  &#x251C; encoders           encoder cost ranking
+&#x2502;  &#x251C; commands           draw/dispatch cost ranking
+&#x2502;  &#x2514; shaders            shader cost ranking
+&#x251C; api_calls               flat list of all Metal API calls
+&#x2514; resources               resource catalog
+<br/>
+   &#x251C; buffers                   bufN
+<br/>
+   &#x251C; command_queues            cqN
+<br/>
+   &#x251C; compute_pipelines         cpsN
+<br/>
+   &#x251C; depth_stencil             dssN
+<br/>
+   &#x251C; libraries                 libN (entry points + source files)
+<br/>
+   &#x251C; render_pipelines          rpsN
+<br/>
+   &#x251C; samplers                  samN
+<br/>
+   &#x2514; textures                  texN</pre>
+</div>
+<p class="Pp">Every node in the tree has a short name (its URL segment) and
+    lists available <b>actions</b> when shown by <b>list</b>. The actions tell
+    you what commands work on that node: <b>go</b> (navigable), <b>info</b>
+    (inspectable), <b>fetch</b> (downloadable).</p>
+<p class="Pp">Debug groups (<b>grpN</b>) can appear at any level: inside command
+    buffers, inside other groups, or inside encoders.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CROSS-TREE_LINKS"><a class="permalink" href="#CROSS-TREE_LINKS">CROSS-TREE
+  LINKS</a></h1>
+<p class="Pp">Some nodes are connected across different parts of the tree. When
+    you navigate to such a node, its links are shown below the child list:</p>
+<p class="Pp"></p>
+<pre>Links:
+<br/>
+  :a   /api_calls/api277
+<br/>
+  :pt  /performance/timeline/shaders/frag1</pre>
+<p class="Pp">Link shortcuts can be used with the <b>go</b> command (e.g. <b>go
+    :a</b>). Available link types:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>Shortcut  Meaning
+--------  -------
+:d        debug tree node (command, draw, dispatch)
+:a        api_calls entry
+:ps       profile shader (cost-ranked)
+:pt       profile timeline entry
+:pe       profile encoder
+:pc       profile command
+:l        library entry point</pre>
+</div>
+<p class="Pp">Links are bidirectional. Navigating from a draw call via <b>:a</b>
+    reaches the API call, which has a <b>:d</b> link back. Library entry points
+    link to profile shaders (<b>:ps</b>) and timeline entries (<b>:pt</b>) when
+    profiling data is loaded.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NODE_NAMING"><a class="permalink" href="#NODE_NAMING">NODE
+  NAMING</a></h1>
+<p class="Pp">Node names are stable identifiers formed from a type prefix and a
+    zero-based index:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>Type                   Prefix   Example
+----                   ------   -------
+Command buffer         cb       cb0
+Debug group            grp      grp0
+Render encoder         re       re0
+Compute encoder        ce       ce0
+Blit encoder           be       be0
+Draw call              draw     draw0
+Dispatch call          disp     disp0
+Blit operation         blit     blit0
+Buffer (resource)      buf      buf0
+Texture (resource)     tex      tex0
+Library                lib      lib0
+Heap                   heap     heap0
+Render pipeline        rps      rps0
+Compute pipeline       cps      cps0
+Depth/stencil state    dss      dss0
+Event                  evt      evt0
+Command queue          cq       cq0
+Sampler                sam      sam0</pre>
+</div>
+<p class="Pp">Inside shader-stage bindings (<b>vertex</b>, <b>fragment</b>,
+    <b>compute</b>), bound resources use bracket notation with the Metal bind
+    index: <b>buf[0]</b>, <b>tex[3]</b>, <b>sam[0]</b>. Inline data from
+    <b>setBytes:</b> calls appears as <b>buf[N]</b> with an &quot;(inline)&quot;
+    summary and is fetchable.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMMANDS"><a class="permalink" href="#COMMANDS">COMMANDS</a></h1>
+<p class="Pp">Type <b>&lt;command&gt; ?</b> for built-in help on any command
+    (e.g. <b>list ?</b>, <b>go ?</b>).</p>
+<p class="Pp"><b>list</b></p>
+<div class="Bd-indent">Show children of the current node.
+<p class="Pp"></p>
+<pre>list              show first 20 items
+list N-M          show items N through M (e.g. list 20-40)
+list --all        show all items</pre>
+<p class="Pp">Each row shows the node name, typed value columns, and available
+    actions.</p>
+</div>
+<p class="Pp"><b>go</b></p>
+<div class="Bd-indent">Navigate to a node. After navigating, <b>go</b>
+  automatically lists the children of the destination.
+<p class="Pp"></p>
+<pre>go &lt;name&gt;         navigate to a child (e.g. go cb0)
+go &lt;url&gt;          navigate to a path (e.g. go cb0/re0/draw3)
+go @&lt;resource&gt;    navigate to a resource (e.g. go @tex0)
+go :shortcut      follow a cross-tree link (e.g. go :a)
+go ..             navigate to parent
+go /              navigate to root
+go -              go back to previous location</pre>
+</div>
+<p class="Pp"><b>info</b></p>
+<div class="Bd-indent">Show detailed properties of a node.
+<p class="Pp"></p>
+<pre>info              show details of the current node
+info &lt;name&gt;       show details of a child (without navigating)
+info @&lt;resource&gt;  show details of a resource (e.g. info @rps1)
+info --all        show all properties (default: curated summary)</pre>
+<p class="Pp">On a <b>draw/dispatch</b> call, shows the API selector with
+    arguments and the encoder state at that point (cull mode, winding, depth
+    bias, stencil refs, depth-stencil state). On an <b>attachment</b>, shows
+    load/store actions and resource properties. On a <b>pipeline</b>, shows
+    entry points, color attachments, depth/stencil, vertex layout, and
+    rasterization. On a <b>library entry point</b>, shows shader stage, parent
+    library, and referencing pipelines.</p>
+</div>
+<p class="Pp"><b>fetch</b></p>
+<div class="Bd-indent">Download a resource to the output directory (<b>-o</b>).
+  Requires the replayer to be ready.
+<p class="Pp"></p>
+<pre>fetch                     fetch the current node
+fetch &lt;name&gt;              fetch a child by name
+fetch @&lt;resource&gt;         fetch a resource (e.g. fetch @tex0)
+fetch &lt;name&gt; --out &lt;path&gt; save to explicit path</pre>
+<p class="Pp">Textures are saved as <b>.png</b>, buffers as <b>.bin</b>, shader
+    sources as their original filename. Inline bytes from <b>setBytes:</b> calls
+    are also fetchable as <b>.bin</b>. Heatmap cost types under
+    <b>performance/commands</b> are fetchable as PNG. Counter time-series under
+    <b>performance/timeline/counters</b> are fetchable as JSON.</p>
+</div>
+<p class="Pp"><b>find</b></p>
+<div class="Bd-indent">Search labels, names, and summaries across the entire
+  trace.
+<p class="Pp"></p>
+<pre>find &lt;text&gt;       case-insensitive substring match</pre>
+<p class="Pp">Results are shown as absolute URL paths, navigable with
+  <b>go</b>.</p>
+</div>
+<p class="Pp"><b>next / prev</b></p>
+<div class="Bd-indent">Move to the next or previous sibling at the current
+  level.</div>
+<p class="Pp"><b>profile</b></p>
+<div class="Bd-indent">Manage GPU profiling sessions.
+<p class="Pp"></p>
+<pre>profile                show profile status
+profile list           list embedded profiling sessions in the trace
+profile load [N]       load session N (default: latest)
+profile run [options]  collect profiling data from device (M3/A17+ required)
+profile embed          embed session into trace</pre>
+<p class="Pp">Run options: <b>--gpu-state default|low|medium|high</b>, <b>--exec
+    overlapping|serial</b>, <b>--embed</b>. After loading, the
+    <b>performance</b> subtree is populated with cost breakdowns, timelines,
+    counters, and heatmaps.</p>
+</div>
+<p class="Pp"><b>wait</b></p>
+<div class="Bd-indent">Reattach to a backgrounded async operation.
+<p class="Pp"></p>
+<pre>wait              list active operations
+wait &lt;opN&gt;        wait for a specific operation to complete</pre>
+<p class="Pp">Long operations (profile load, trace loading) show a spinner.
+    Press <b>Ctrl+B</b> to send the operation to the background and continue
+    using the REPL. Use <b>wait</b> to reattach when ready.</p>
+</div>
+<p class="Pp"><b>status</b></p>
+<div class="Bd-indent">Show current session state: trace file, device, replayer
+  readiness, active operations, and session lifetime.</div>
+<p class="Pp"><b>help</b></p>
+<div class="Bd-indent">Show a summary of all commands. For per-command help, use
+  <b>&lt;command&gt; ?</b>.</div>
+<p class="Pp"><b>exit</b></p>
+<div class="Bd-indent"><b>exit</b> (or <b>quit</b>, <b>q</b>) disconnects from
+  the session but keeps it alive. Reconnect with <b>gpudebug -s &lt;id&gt;</b>.
+  Use <b>exit -t</b> or <b>exit --terminate</b> to end the session and free all
+  resources.</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RESOURCE_REFERENCES"><a class="permalink" href="#RESOURCE_REFERENCES">RESOURCE
+  REFERENCES</a></h1>
+<p class="Pp">Resources are identified by <b>@</b>-prefixed short names
+    throughout gpudebug: <b>@buf4</b>, <b>@tex12</b>, <b>@rps0</b>. These
+    references appear in info output, API call summaries, and encoder state.
+    They can be used with <b>go</b>, <b>info</b>, and <b>fetch</b> to access the
+    resource directly from anywhere in the tree.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SCRIPTING"><a class="permalink" href="#SCRIPTING">SCRIPTING</a></h1>
+<p class="Pp">Trace loading and replayer startup can take seconds to minutes.
+    For any investigation beyond a single command, create a session once and
+    reuse it:</p>
+<p class="Pp"></p>
+<pre>gpudebug -t trace.gputrace -c &quot;list&quot;    # creates session 268
+gpudebug -s 268 -c &quot;go commands/cb0/re0/draw0&quot; -c &quot;fetch color0&quot;
+gpudebug -s 268 -c &quot;next&quot; -c &quot;fetch color0&quot;
+gpudebug --terminate 268                # done</pre>
+<p class="Pp">Each <b>-s</b> invocation reuses the loaded trace and replayer
+    instantly.</p>
+<p class="Pp"><b>Pipe mode</b> reads commands from standard input:</p>
+<p class="Pp"></p>
+<pre>echo -e &quot;go commands/cb0/re0/draw0\nfetch color0\nexit&quot; | gpudebug -q -t trace.gputrace</pre>
+<p class="Pp"><b>Oneshot mode</b> (<b>--oneshot</b>) creates and terminates a
+    session in one invocation:</p>
+<p class="Pp"></p>
+<pre>gpudebug --oneshot -t trace.gputrace -c &quot;go commands/cb0/re0/draw0&quot; -c &quot;info pipeline&quot;</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REPLAYER"><a class="permalink" href="#REPLAYER">REPLAYER</a></h1>
+<p class="Pp">The replayer loads in the background and prepares resources for
+    <b>fetch</b>. Check readiness with <b>status</b>.</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>TTY mode</b>: the REPL is usable immediately. A notification prints
+      when the replayer is ready.</dd>
+  <dt>&#x2022;</dt>
+  <dd><b>Pipe mode</b>: <b>fetch</b> blocks until the replayer is ready.</dd>
+</dl>
+<p class="Pp">If the replay device is incompatible, <b>status</b> shows specific
+    reasons. Navigation, listing, and info remain functional; only <b>fetch</b>
+    is affected.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SESSIONS"><a class="permalink" href="#SESSIONS">SESSIONS</a></h1>
+<p class="Pp">Sessions are persistent backend processes. They survive
+    disconnection and retain navigation position and replayer state. Reconnect
+    with <b>gpudebug -s &lt;id&gt;</b>.</p>
+<p class="Pp">Sessions are tied to the terminal's session leader (typically your
+    shell). They terminate when that process exits or after an idle timeout
+    (default 2 hours). Use <b>gpudebug -l</b> to list sessions and <b>gpudebug
+    --terminate &lt;id&gt;</b> to end them.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<br/>
+<p class="Pp"> Open a trace and browse.</p>
+<div class="Bd-indent">
+<pre>$ gpudebug -t Scene.gputrace
+gpudebug&gt; go commands/cb0/re0
+gpudebug commands/cb0/re0&gt; info draw0
+gpudebug commands/cb0/re0&gt; fetch depth</pre>
+</div>
+<p class="Pp">
+  <br/>
+   Browse API calls with inline argument values.</p>
+<div class="Bd-indent">
+<pre>gpudebug&gt; go api_calls
+gpudebug api_calls&gt; list 0-10
+gpudebug api_calls&gt; go api15
+gpudebug api_calls/api15&gt; go :d</pre>
+</div>
+<p class="Pp">
+  <br/>
+   Load profiling data and inspect shader costs.</p>
+<div class="Bd-indent">
+<pre>gpudebug&gt; profile load
+gpudebug&gt; go performance/shaders
+gpudebug performance/shaders&gt; info frag0
+gpudebug performance/shaders&gt; go :l</pre>
+</div>
+<p class="Pp">
+  <br/>
+   Fetch a GPU heatmap for a draw call.</p>
+<div class="Bd-indent">
+<pre>gpudebug&gt; go performance/commands/draw0/heatmap/fragment
+gpudebug .../fragment&gt; fetch cost</pre>
+</div>
+<p class="Pp">
+  <br/>
+   Inspect a library's entry points and shader sources.</p>
+<div class="Bd-indent">
+<pre>gpudebug&gt; go resources/libraries/lib0
+gpudebug resources/libraries/lib0&gt; info vertexShader
+gpudebug resources/libraries/lib0&gt; fetch AAPLShaders.metal</pre>
+</div>
+<p class="Pp">
+  <br/>
+   List devices and replay on a remote device.</p>
+<div class="Bd-indent">
+<pre>$ gpudebug --list-devices
+$ gpudebug -t trace.gputrace -d 0</pre>
+</div>
+<p class="Pp">
+  <br/>
+   Reuse a session for scripted operations.</p>
+<div class="Bd-indent">
+<pre>$ gpudebug -t trace.gputrace -c &quot;list&quot;    # session 42
+$ gpudebug -s 42 -c &quot;go commands/cb0/re0/draw0&quot; -c &quot;fetch color0&quot;
+$ gpudebug -s 42 -c &quot;next&quot; -c &quot;fetch color0&quot;
+$ gpudebug --terminate 42</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TIPS"><a class="permalink" href="#TIPS">TIPS</a></h1>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>go</b> automatically lists children after navigating &#x2014; you
+      rarely need to type <b>list</b> separately.</dd>
+  <dt>&#x2022;</dt>
+  <dd><b>info &lt;name&gt;</b> inspects a child from the parent without
+      navigating. Useful for checking multiple items.</dd>
+  <dt>&#x2022;</dt>
+  <dd><b>go -</b> works like <b>cd -</b> in a shell. Useful after jumping to a
+      resource and wanting to return.</dd>
+  <dt>&#x2022;</dt>
+  <dd>Attachments appear both on encoders (final state) and on individual draws
+      (per-draw state). Info on either shows load/store actions.</dd>
+  <dt>&#x2022;</dt>
+  <dd>Use <b>profile load</b> to load embedded profiling data from a trace
+      captured with GPU profiling enabled. The <b>performance</b> subtree
+      becomes navigable after loading.</dd>
+  <dt>&#x2022;</dt>
+  <dd>In the <b>api_calls</b> list, receivers show as <b>@ref</b> when
+      resolvable (e.g. <b>[@heap5 setPurgeableState:Volatile]</b>) and return
+      values appear in the Result column.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">gpucapture(1)</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date"></td>
+    <td class="foot-os">1.0</td>
+  </tr>
+</table>
+</body>
+</html>

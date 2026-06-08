@@ -70,7 +70,7 @@
 <table class="Nm">
   <tr>
     <td><code class="Nm">footprint</code></td>
-    <td><code class="Fl">--sample</code> <var class="Ar">interval</var>
+    <td><code class="Fl">--sample</code> <var class="Ar">secs</var>
       <var class="Ar">...</var></td>
   </tr>
 </table>
@@ -93,10 +93,12 @@
     If multiple processes are specified, <code class="Nm">footprint</code> will
     de-duplicate multiply-mapped objects and will display shared objects
     separately from private ones. It will also print a summary of total
-    de-duplicated footprint. Currently, <code class="Nm">footprint</code> does
-    not de-duplicate wired memory shared between the
-    <var class="Ar">kernel_task</var> address space and user space
-  processes.</p>
+    de-duplicated footprint. <code class="Nm">footprint</code> also
+    de-duplicates certain wired memory between the
+    <var class="Ar">kernel_task</var> address space and user space processes,
+    such as page tables, memory locked via <a class="Xr">mlock(2)</a>, and
+    tagged wired memory including most kernel extensions and non-zone wired
+    memory.</p>
 <p class="Pp"><code class="Nm">footprint</code> must be run as root when
     inspecting processes that are not owned by the current user.</p>
 <p class="Pp">Processes are specified using a PID, exact process name, or
@@ -183,13 +185,16 @@
       <a class="Sx" href="#MEMORY_ACCOUNTING">MEMORY ACCOUNTING</a> for more
       details)</dd>
   <dt id="sample"><a class="permalink" href="#sample"><code class="Fl">--sample</code></a>
-    <var class="Ar">interval</var></dt>
+    <var class="Ar">secs</var></dt>
   <dd>Start <code class="Nm">footprint</code> in sampling mode, gathering data
-      every <var class="Ar">interval</var> seconds (which can be fractional like
-      0.5). Text output will be a concatenation of usual text output with added
-      timestamps. JSON output will contain a &#x2018;samples&#x2019; array with
-      many of the same key/values that would normally be at the top level. All
-      other command line options are also supported in sampling mode.</dd>
+      every <var class="Ar">secs</var> seconds (which can be fractional like
+      0.5). The interval is best effort; if <code class="Nm">footprint</code>
+      cannot keep up with the requested interval, it will automatically increase
+      the interval and print a warning. Text output will be a concatenation of
+      usual text output with added timestamps. JSON output will contain a
+      &#x2018;samples&#x2019; array with many of the same key/values that would
+      normally be at the top level. All other command line options are also
+      supported in sampling mode.</dd>
   <dt id="sample-duration"><a class="permalink" href="#sample-duration"><code class="Fl">--sample-duration</code></a>
     <var class="Ar">duration</var></dt>
   <dd>Time limit on the number of seconds to sample when combined with
@@ -406,27 +411,20 @@
   Memory</a></h2>
 <p class="Pp"><code class="Nm">footprint</code> approximates
     <var class="Ar">kernel_task</var> memory by reporting system wired memory
-    broken down by kernel VM tag. This is the same information provided by
-    <a class="Xr">zprint(1)</a>, except that <code class="Nm">footprint</code>
-    does not count &#x2018;VM_KERN_MEMORY_MLOCK&#x2019; memory towards
-    <var class="Ar">kernel_task</var>'s estimated footprint. The first
-    limitation of this approach is that <code class="Nm">footprint</code> does
-    not report any unwired memory private to
-  <var class="Ar">kernel_task</var>.</p>
-<p class="Pp">When non-<a class="Xr">mlock(2)</a> wired memory is included in a
-    process's footprint, <code class="Nm">footprint</code> will report it as
-    dirty in both that process and <var class="Ar">kernel_task</var>. This
-    results in the second limitation: if <code class="Nm">footprint</code> is
-    reporting on a user space process and <var class="Ar">kernel_task</var> at
-    the same time, the reported Summary value will incorrectly count
-    non-VM_KERN_MEMORY_MLOCK wired memory twice: once for the process and once
-    as part of the wired memory breakdown associated with
-    <var class="Ar">kernel_task</var>.</p>
-<p class="Pp">Together, these two limitations make the Summary TOTAL reported
-    with <code class="Nm">footprint</code> <code class="Fl">--all</code> very
-    unreliable compared to true total dirty memory. The &quot;System auxiliary
-    data&quot; described below is a better measure of total system
-  footprint.</p>
+    broken down by wired VM tag and kernel zone. This is the same information
+    provided by <a class="Xr">zprint(1)</a>.</p>
+<p class="Pp">If <code class="Nm">footprint</code> is reporting on a user space
+    process and <var class="Ar">kernel_task</var> at the same time, the reported
+    Summary value will correctly count any wired memory only once, rather than
+    twice for the process and as part of the wired memory breakdown associated
+    with <var class="Ar">kernel_task</var>.</p>
+<p class="Pp">One limitation of this approach is that
+    <code class="Nm">footprint</code> does not report unwired memory private to
+    <var class="Ar">kernel_task</var>. This means that the Summary TOTAL
+    reported with <code class="Nm">footprint</code>
+    <code class="Fl">--all</code> may not represent the true total system dirty
+    memory. The &quot;System auxiliary data&quot; described below is a better
+    measure of total system footprint.</p>
 </section>
 </section>
 <section class="Sh">

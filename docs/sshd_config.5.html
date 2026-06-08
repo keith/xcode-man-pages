@@ -35,7 +35,7 @@
    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
    THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   
-   $OpenBSD: sshd_config.5,v 1.385 2025/10/04 21:41:35 naddy Exp $
+   $OpenBSD: sshd_config.5,v 1.397 2026/03/28 05:07:12 djm Exp $
  -->
 <head>
 
@@ -124,9 +124,8 @@
       by spaces. If specified, login is allowed only for users whose primary
       group or supplementary group list matches one of the patterns. Only group
       names are valid; a numerical group ID is not recognized. By default, login
-      is allowed for all groups. The allow/deny groups directives are processed
-      in the following order: <code class="Cm">DenyGroups</code>,
-      <code class="Cm">AllowGroups</code>.
+      is allowed for all groups. <code class="Cm">AllowGroups</code> is not
+      consulted for groups matched by <code class="Cm">DenyGroups</code>.
     <p class="Pp">See PATTERNS in <a class="Xr">ssh_config(5)</a> for more
         information on patterns. This keyword may appear multiple times in
         <code class="Nm">sshd_config</code> with each instance appending to the
@@ -160,9 +159,8 @@
       takes the form USER@HOST then USER and HOST are separately checked,
       restricting logins to particular users from particular hosts. HOST
       criteria may additionally contain addresses to match in CIDR
-      address/masklen format. The allow/deny users directives are processed in
-      the following order: <code class="Cm">DenyUsers</code>,
-      <code class="Cm">AllowUsers</code>.
+      address/masklen format. <code class="Cm">AllowUsers</code> is not
+      consulted for users matched by <code class="Cm">DenyUsers</code>.
     <p class="Pp">See PATTERNS in <a class="Xr">ssh_config(5)</a> for more
         information on patterns. This keyword may appear multiple times in
         <code class="Nm">sshd_config</code> with each instance appending to the
@@ -216,7 +214,8 @@
         <code class="Cm">AuthorizedKeysCommand</code> is tried after the usual
         <code class="Cm">AuthorizedKeysFile</code> files and will not be
         executed if a matching key is found there. By default, no
-        <code class="Cm">AuthorizedKeysCommand</code> is run.</p>
+        <code class="Cm">AuthorizedKeysCommand</code> is run. This command is
+        only executed for valid users.</p>
   </dd>
   <dt id="AuthorizedKeysCommandUser"><a class="permalink" href="#AuthorizedKeysCommandUser"><code class="Cm">AuthorizedKeysCommandUser</code></a></dt>
   <dd>Specifies the user under whose account the
@@ -236,7 +235,8 @@
       Multiple files may be listed, separated by whitespace. Alternately this
       option may be set to <code class="Cm">none</code> to skip checking for
       user keys in files. The default is &quot;.ssh/authorized_keys
-      .ssh/authorized_keys2&quot;.</dd>
+      .ssh/authorized_keys2&quot;. These files are only checked for valid
+    users.</dd>
   <dt id="AuthorizedPrincipalsCommand"><a class="permalink" href="#AuthorizedPrincipalsCommand"><code class="Cm">AuthorizedPrincipalsCommand</code></a></dt>
   <dd>Specifies a program to be used to generate the list of allowed certificate
       principals as per <code class="Cm">AuthorizedPrincipalsFile</code>. The
@@ -251,7 +251,8 @@
         <code class="Cm">AuthorizedPrincipalsFile</code> is specified, then
         certificates offered by the client for authentication must contain a
         principal that is listed. By default, no
-        <code class="Cm">AuthorizedPrincipalsCommand</code> is run.</p>
+        <code class="Cm">AuthorizedPrincipalsCommand</code> is run. This command
+        is only executed for valid users.</p>
   </dd>
   <dt id="AuthorizedPrincipalsCommandUser"><a class="permalink" href="#AuthorizedPrincipalsCommandUser"><code class="Cm">AuthorizedPrincipalsCommandUser</code></a></dt>
   <dd>Specifies the user under whose account the
@@ -277,7 +278,8 @@
         absolute path or one relative to the user's home directory. The default
         is <code class="Cm">none</code>, i.e. not to use a principals file
         &#x2013; in this case, the username of the user must appear in a
-        certificate's principals list for it to be accepted.</p>
+        certificate's principals list for it to be accepted. This file is only
+        checked for valid users.</p>
     <p class="Pp">Note that <code class="Cm">AuthorizedPrincipalsFile</code> is
         only used when authentication proceeds using a CA listed in
         <code class="Cm">TrustedUserCAKeys</code> and is not consulted for
@@ -458,9 +460,8 @@ aes128-ctr,aes192-ctr,aes256-ctr</pre>
       by spaces. Login is disallowed for users whose primary group or
       supplementary group list matches one of the patterns. Only group names are
       valid; a numerical group ID is not recognized. By default, login is
-      allowed for all groups. The allow/deny groups directives are processed in
-      the following order: <code class="Cm">DenyGroups</code>,
-      <code class="Cm">AllowGroups</code>.
+      allowed for all groups. <code class="Cm">AllowGroups</code> is not
+      consulted for groups matched by <code class="Cm">DenyGroups</code>.
     <p class="Pp">See PATTERNS in <a class="Xr">ssh_config(5)</a> for more
         information on patterns. This keyword may appear multiple times in
         <code class="Nm">sshd_config</code> with each instance appending to the
@@ -473,9 +474,9 @@ aes128-ctr,aes192-ctr,aes256-ctr</pre>
       default, login is allowed for all users. If the pattern takes the form
       USER@HOST then USER and HOST are separately checked, restricting logins to
       particular users from particular hosts. HOST criteria may additionally
-      contain addresses to match in CIDR address/masklen format. The allow/deny
-      users directives are processed in the following order:
-      <code class="Cm">DenyUsers</code>, <code class="Cm">AllowUsers</code>.
+      contain addresses to match in CIDR address/masklen format.
+      <code class="Cm">AllowUsers</code> is not consulted for users matched by
+      <code class="Cm">DenyUsers</code>.
     <p class="Pp">See PATTERNS in <a class="Xr">ssh_config(5)</a> for more
         information on patterns. This keyword may appear multiple times in
         <code class="Nm">sshd_config</code> with each instance appending to the
@@ -509,7 +510,13 @@ aes128-ctr,aes192-ctr,aes256-ctr</pre>
       Specifying a command of <code class="Cm">internal-sftp</code> will force
       the use of an in-process SFTP server that requires no support files when
       used with <code class="Cm">ChrootDirectory</code>. The default is
-      <code class="Cm">none</code>.</dd>
+      <code class="Cm">none</code>.
+    <p class="Pp">This directive does not limit other kinds of access that a
+        client may request via their connection, such as TCP, agent, socket or
+        X11 forwarding. If these are not desired, then they must be explicitly
+        disabled, either individually via their respective options or all
+        together using the <code class="Cm">DisableForwarding</code> option.</p>
+  </dd>
   <dt id="GatewayPorts"><a class="permalink" href="#GatewayPorts"><code class="Cm">GatewayPorts</code></a></dt>
   <dd>Specifies whether remote hosts are allowed to connect to ports forwarded
       for the client. By default, <a class="Xr">sshd(8)</a> binds remote port
@@ -529,6 +536,9 @@ aes128-ctr,aes192-ctr,aes256-ctr</pre>
   <dt id="GSSAPICleanupCredentials"><a class="permalink" href="#GSSAPICleanupCredentials"><code class="Cm">GSSAPICleanupCredentials</code></a></dt>
   <dd>Specifies whether to automatically destroy the user's credentials cache on
       logout. The default is <code class="Cm">yes</code>.</dd>
+  <dt id="GSSAPIDelegateCredentials"><a class="permalink" href="#GSSAPIDelegateCredentials"><code class="Cm">GSSAPIDelegateCredentials</code></a></dt>
+  <dd>Accept delegated credentials on the server side. The default is
+      <code class="Cm">yes</code>.</dd>
   <dt id="GSSAPIStrictAcceptorCheck"><a class="permalink" href="#GSSAPIStrictAcceptorCheck"><code class="Cm">GSSAPIStrictAcceptorCheck</code></a></dt>
   <dd>Determines whether to be strict about the identity of the GSSAPI acceptor
       a client authenticates against. If set to <code class="Cm">yes</code> then
@@ -555,12 +565,14 @@ ecdsa-sha2-nistp384-cert-v01@openssh.com,
 ecdsa-sha2-nistp521-cert-v01@openssh.com,
 sk-ssh-ed25519-cert-v01@openssh.com,
 sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
+webauthn-sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
 rsa-sha2-512-cert-v01@openssh.com,
 rsa-sha2-256-cert-v01@openssh.com,
 ssh-ed25519,
 ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
 sk-ssh-ed25519@openssh.com,
 sk-ecdsa-sha2-nistp256@openssh.com,
+webauthn-sk-ecdsa-sha2-nistp256@openssh.com,
 rsa-sha2-512,rsa-sha2-256</pre>
     </div>
     <p class="Pp">The list of available signature algorithms may also be
@@ -616,12 +628,14 @@ ecdsa-sha2-nistp384-cert-v01@openssh.com,
 ecdsa-sha2-nistp521-cert-v01@openssh.com,
 sk-ssh-ed25519-cert-v01@openssh.com,
 sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
+webauthn-sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
 rsa-sha2-512-cert-v01@openssh.com,
 rsa-sha2-256-cert-v01@openssh.com,
 ssh-ed25519,
 ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
 sk-ssh-ed25519@openssh.com,
 sk-ecdsa-sha2-nistp256@openssh.com,
+webauthn-sk-ecdsa-sha2-nistp256@openssh.com,
 rsa-sha2-512,rsa-sha2-256</pre>
     </div>
     <p class="Pp">The list of available signature algorithms may also be
@@ -950,14 +964,15 @@ hmac-sha2-256,hmac-sha2-512,hmac-sha1</pre>
   <dd>Specifies the maximum number of concurrent unauthenticated connections to
       the SSH daemon. Additional connections will be dropped until
       authentication succeeds or the <code class="Cm">LoginGraceTime</code>
-      expires for a connection. The default is 10:30:100.
+      expires for a connection.
     <p class="Pp">Alternatively, random early drop can be enabled by specifying
         the three colon separated values start:rate:full (e.g.
-        &quot;10:30:60&quot;). <a class="Xr">sshd(8)</a> will refuse connection
-        attempts with a probability of rate/100 (30%) if there are currently
-        start (10) unauthenticated connections. The probability increases
-        linearly and all connection attempts are refused if the number of
-        unauthenticated connections reaches full (60).</p>
+        &quot;10:30:60&quot;). The default is 10:30:100.
+        <a class="Xr">sshd(8)</a> will refuse connection attempts with a
+        probability of rate/100 (30%) if there are currently start (10)
+        unauthenticated connections. The probability increases linearly and all
+        connection attempts are refused if the number of unauthenticated
+        connections reaches full (60).</p>
   </dd>
   <dt id="ModuliFile"><a class="permalink" href="#ModuliFile"><code class="Cm">ModuliFile</code></a></dt>
   <dd>Specifies the <a class="Xr">moduli(5)</a> file that contains the
@@ -1104,6 +1119,9 @@ hmac-sha2-256,hmac-sha2-512,hmac-sha1</pre>
       <dt id="authfail:duration"><a class="permalink" href="#authfail:duration"><code class="Cm">authfail:duration</code></a></dt>
       <dd>Specifies how long to refuse clients that disconnect after making one
           or more unsuccessful authentication attempts (default: 5s).</dd>
+      <dt id="invaliduser:duration"><a class="permalink" href="#invaliduser:duration"><code class="Cm">invaliduser:duration</code></a></dt>
+      <dd>Specifies how long to refuse clients that attempt to log in with an
+          invalid user (default: 5s).</dd>
       <dt id="refuseconnection:duration"><a class="permalink" href="#refuseconnection:duration"><code class="Cm">refuseconnection:duration</code></a></dt>
       <dd>Specifies how long to refuse clients that were administratively
           prohibited connection via the <code class="Cm">RefuseConnection</code>
@@ -1190,12 +1208,14 @@ ecdsa-sha2-nistp384-cert-v01@openssh.com,
 ecdsa-sha2-nistp521-cert-v01@openssh.com,
 sk-ssh-ed25519-cert-v01@openssh.com,
 sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
+webauthn-sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
 rsa-sha2-512-cert-v01@openssh.com,
 rsa-sha2-256-cert-v01@openssh.com,
 ssh-ed25519,
 ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
 sk-ssh-ed25519@openssh.com,
 sk-ecdsa-sha2-nistp256@openssh.com,
+webauthn-sk-ecdsa-sha2-nistp256@openssh.com,
 rsa-sha2-512,rsa-sha2-256</pre>
     </div>
     <p class="Pp">The list of available signature algorithms may also be
@@ -1256,8 +1276,12 @@ rsa-sha2-512,rsa-sha2-256</pre>
       authentication. Note that if this file is not readable, then public key
       authentication will be refused for all users. Keys may be specified as a
       text file, listing one public key per line, or as an OpenSSH Key
-      Revocation List (KRL) as generated by <a class="Xr">ssh-keygen(1)</a>. For
-      more information on KRLs, see the KEY REVOCATION LISTS section in
+      Revocation List (KRL) as generated by <a class="Xr">ssh-keygen(1)</a>.
+      This file may be consulted for each public key authentication attempt
+      received by <a class="Xr">sshd(8)</a> and its contents must be consistent
+      at all times, therefore it should only be atomically replaced and never
+      modified in place while the server is running. For more information on
+      KRLs, see the KEY REVOCATION LISTS section in
       <a class="Xr">ssh-keygen(1)</a>.</dd>
   <dt id="RDomain"><a class="permalink" href="#RDomain"><code class="Cm">RDomain</code></a></dt>
   <dd>Specifies an explicit routing domain that is applied after authentication
@@ -1500,7 +1524,11 @@ rsa-sha2-512,rsa-sha2-256</pre>
 <section class="Sh">
 <h1 class="Sh" id="TOKENS"><a class="permalink" href="#TOKENS">TOKENS</a></h1>
 <p class="Pp">Arguments to some keywords can make use of tokens, which are
-    expanded at runtime:</p>
+    expanded at runtime. Tokens are expanded without quoting or escaping of
+    shell characters. It is the administrator's responsibility to ensure they
+    are safe in the context of their use.</p>
+<p class="Pp">The supported tokens in <code class="Nm">sshd_config</code>
+  are:</p>
 <p class="Pp"></p>
 <div class="Bd-indent">
 <dl class="Bl-tag Bl-compact">

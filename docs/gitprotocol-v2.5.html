@@ -881,7 +881,7 @@ information for.</pre>
     with standard &quot;-&quot; prefixes, and MUST indicate their
     &quot;object-format&quot;, if applicable.</p>
 <p class="Pp">The advertised URI may alternatively contain a plaintext file that
-    <b>git</b> <b>config</b> <b>--list</b> would accept (with the <b>--file</b>
+    <b>git</b> <b>config</b> <b>list</b> would accept (with the <b>--file</b>
     option). The key-value pairs in this list are in the <b>bundle.*</b>
     namespace (see <b>git-config</b>(1)).</p>
 </div>
@@ -1003,23 +1003,59 @@ information for.</pre>
 </div>
 </section>
 <section class="Ss">
-<h2 class="Ss" id="promisor"><a class="permalink" href="#promisor">promisor-remote=&lt;pr-infos&gt;</a></h2>
+<h2 class="Ss" id="promisor"><a class="permalink" href="#promisor">promisor-remote=&lt;pr-info&gt;</a></h2>
 <p class="Pp">The server may advertise some promisor remotes it is using or
     knows about to a client which may want to use them as its promisor remotes,
-    instead of this repository. In this case &lt;pr-infos&gt; should be of the
+    instead of this repository. In this case &lt;pr-info&gt; should be of the
     form:</p>
 <p class="Pp"></p>
 <div class="Bd-indent">
-<pre>pr-infos = pr-info | pr-infos &quot;;&quot; pr-info</pre>
+<pre>pr-info = pr-fields | pr-info &quot;;&quot; pr-fields</pre>
 </div>
 <p class="Pp"></p>
 <div class="Bd-indent">
-<pre>pr-info = &quot;name=&quot; pr-name | &quot;name=&quot; pr-name &quot;,&quot; &quot;url=&quot; pr-url</pre>
+<pre>pr-fields = pr-field | pr-fields &quot;,&quot; pr-field</pre>
 </div>
-<p class="Pp">where <b>pr-name</b> is the urlencoded name of a promisor remote,
-    and <b>pr-url</b> the urlencoded URL of that promisor remote.</p>
-<p class="Pp">In this case, if the client decides to use one or more promisor
-    remotes the server advertised, it can reply with
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>pr-field = field-name &quot;=&quot; field-value</pre>
+</div>
+<p class="Pp">where all the <b>field-name</b> and <b>field-value</b> in a given
+    <b>pr-fields</b> are field names and values related to a single promisor
+    remote. A given <b>field-name</b> MUST NOT appear more than once in given
+    <b>pr-fields</b>.</p>
+<p class="Pp">The server MUST advertise at least the &quot;name&quot; and
+    &quot;url&quot; field names along with the associated field values, which
+    are the name of a valid remote and its URL, in each <b>pr-fields</b>. The
+    &quot;name&quot; and &quot;url&quot; fields MUST appear first in each
+    pr-fields, in that order.</p>
+<p class="Pp">After these mandatory fields, the server MAY advertise the
+    following optional fields in any order:</p>
+<p class="Pp"><b>partialCloneFilter</b></p>
+<div class="Bd-indent">The filter specification for the remote. It corresponds
+  to the &quot;remote.&lt;name&gt;.partialCloneFilter&quot; config setting.
+  Clients can use this to determine if the remote&#x2019;s filtering strategy is
+  compatible with their needs (e.g., checking if both use
+  &quot;blob:none&quot;). Additionally they can use this through the
+  <b>--filter=auto</b> option in <b>git-clone</b>(1). With that option, the
+  filter specification of the clone will be automatically computed by combining
+  the filter specifications of the promisor remotes the client accepts.</div>
+<p class="Pp"><b>token</b></p>
+<div class="Bd-indent">An authentication token that clients can use when
+  connecting to the remote. It corresponds to the
+  &quot;remote.&lt;name&gt;.token&quot; config setting.</div>
+<p class="Pp">No other fields are defined by the protocol at this time. Field
+    names are case-sensitive and MUST be transmitted exactly as specified above.
+    Clients MUST ignore fields they don&#x2019;t recognize to allow for future
+    protocol extensions.</p>
+<p class="Pp">The client can use information transmitted through these fields to
+    decide if it accepts the advertised promisor remote. Also, the client can be
+    configured to store the values of these fields or use them to automatically
+    configure the repository (see &quot;promisor.storeFields&quot; in
+    <b>git-config</b>(1) and <b>--filter=auto</b> in <b>git-clone</b>(1)).</p>
+<p class="Pp">Field values MUST be urlencoded.</p>
+<p class="Pp">If the client decides to use one or more promisor remotes the
+    server advertised, it can reply with
     &quot;promisor-remote=&lt;pr-names&gt;&quot; where &lt;pr-names&gt; should
     be of the form:</p>
 <p class="Pp"></p>
@@ -1028,9 +1064,9 @@ information for.</pre>
 </div>
 <p class="Pp">where <b>pr-name</b> is the urlencoded name of a promisor remote
     the server advertised and the client accepts.</p>
-<p class="Pp">Note that, everywhere in this document, <b>pr-name</b> MUST be a
-    valid remote name, and the <i>;</i> and <i>,</i> characters MUST be encoded
-    if they appear in <b>pr-name</b> or <b>pr-url</b>.</p>
+<p class="Pp">Note that, everywhere in this document, the <i>;</i> and <i>,</i>
+    characters MUST be encoded if they appear in <b>pr-name</b> or
+    <b>field-value</b>.</p>
 <p class="Pp">If the server doesn&#x2019;t know any promisor remote that could
     be good for a client to use, or prefers a client not to use any promisor
     remote it uses or knows about, it shouldn&#x2019;t advertise the
@@ -1038,11 +1074,13 @@ information for.</pre>
 <p class="Pp">In this case, or if the client doesn&#x2019;t want to use any
     promisor remote the server advertised, the client shouldn&#x2019;t advertise
     the &quot;promisor-remote&quot; capability at all in its reply.</p>
-<p class="Pp">The &quot;promisor.advertise&quot; and
-    &quot;promisor.acceptFromServer&quot; configuration options can be used on
-    the server and client side to control what they advertise or accept
-    respectively. See the documentation of these configuration options for more
-    information.</p>
+<p class="Pp">On the server side, the &quot;promisor.advertise&quot; and
+    &quot;promisor.sendFields&quot; configuration options can be used to control
+    what it advertises. On the client side, the
+    &quot;promisor.acceptFromServer&quot; configuration option can be used to
+    control what it accepts, and the &quot;promisor.storeFields&quot; option, to
+    control what it stores. See the documentation of these configuration options
+    in <b>git-config</b>(1) for more information.</p>
 <p class="Pp">Note that in the future it would be nice if the
     &quot;promisor-remote&quot; protocol capability could be used by the server,
     when responding to <b>git</b> <b>fetch</b> or <b>git</b> <b>clone</b>, to

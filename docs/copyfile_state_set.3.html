@@ -205,31 +205,37 @@
   <dd>Unlink the <var class="Va">to</var> file before starting. (This is only
       applicable for the <code class="Fn">copyfile</code>() function.)</dd>
   <dt id="COPYFILE_CLONE_FORCE"><a class="permalink" href="#COPYFILE_CLONE_FORCE"><code class="Dv">COPYFILE_CLONE_FORCE</code></a></dt>
-  <dd>Clone the file instead. This is a force flag i.e. if cloning fails, an
-      error is returned. This flag is equivalent to (COPYFILE_EXCL |
-      COPYFILE_STAT | COPYFILE_XATTR | COPYFILE_DATA | COPYFILE_NOFOLLOW_SRC).
-      Note that if cloning is successful, progress callbacks will not be
-      invoked, nor will any setuid or setgid bits be copied to the destination.
-      Note also that there is no support for cloning directories: if a directory
-      is provided as the source, an error will be returned. Since this flag
-      implies COPYFILE_NOFOLLOW_SRC, symbolic links themselves will be cloned
-      instead of their targets. (This is only applicable for the
-      <code class="Fn">copyfile</code>() function.) Finally, note that ACLs will
-      not be cloned unless COPYFILE_ACL is also passed.</dd>
+  <dd>Clone the file instead. Not supported by the
+      <code class="Fn">fcopyfile</code>() function. This is a force flag i.e. if
+      cloning fails, an error is returned. This flag is equivalent to
+      (COPYFILE_EXCL | COPYFILE_STAT | COPYFILE_XATTR | COPYFILE_DATA |
+      COPYFILE_NOFOLLOW_SRC). Note that if cloning is successful, progress
+      callbacks will not be invoked, nor will any setuid or setgid bits be
+      copied to the destination. Note also that there is no support for cloning
+      directories: if a directory is provided as the source, an error will be
+      returned. Since this flag implies COPYFILE_NOFOLLOW_SRC, symbolic links
+      themselves will be cloned instead of their targets. Finally, note that
+      ACLs will not be cloned unless COPYFILE_ACL is also passed.</dd>
   <dt id="COPYFILE_CLONE"><a class="permalink" href="#COPYFILE_CLONE"><code class="Dv">COPYFILE_CLONE</code></a></dt>
   <dd>Try to clone the file instead. This is a best try flag i.e. if cloning
       fails, fallback to copying the file. This flag is equivalent to
       (COPYFILE_EXCL | COPYFILE_STAT | COPYFILE_XATTR | COPYFILE_DATA |
       COPYFILE_NOFOLLOW_SRC). Note that if cloning is successful, progress
       callbacks will not be invoked, nor will any setuid or setgid bits be
-      copied to the destination. Note also that there is no support for cloning
-      directories: if a directory is provided as the source and
-      COPYFILE_CLONE_FORCE is not passed, this will instead copy the directory.
-      Since this flag implies COPYFILE_NOFOLLOW_SRC, symbolic links themselves
-      will be cloned instead of their targets. Recursive copying however is
-      supported, see below for more information. (This is only applicable for
-      the <code class="Fn">copyfile</code>() function.) Finally, note that ACLs
-      will not be cloned unless COPYFILE_ACL is also passed.</dd>
+      copied to the destination. This can't be overridden through the use of
+      <code class="Dv">COPYFILE_STATE_PRESERVE_SUID</code> in the
+      <var class="Vt">copyfile_state_t</var> object. If a directory is provided
+      as the source and COPYFILE_CLONE_FORCE is not passed, this will instead
+      copy the directory. If COPYFILE_RECURSIVE is passed, a recursive clone
+      operation invokes <code class="Fn">copyfile</code>() with
+      <code class="Dv">COPYFILE_CLONE</code> on every entry found in the source
+      file-system object. When called from <code class="Fn">fcopyfile</code>()
+      function, always fallbacks to regular copy. Since this flag implies
+      COPYFILE_NOFOLLOW_SRC, symbolic links themselves will be cloned instead of
+      their targets. Recursive copying however is supported, see below for more
+      information. (This is only applicable for the
+      <code class="Fn">copyfile</code>() function.) Finally, note that ACLs will
+      not be cloned unless COPYFILE_ACL is also passed.</dd>
   <dt id="COPYFILE_DATA_SPARSE"><a class="permalink" href="#COPYFILE_DATA_SPARSE"><code class="Dv">COPYFILE_DATA_SPARSE</code></a></dt>
   <dd>Copy a file sparsely. This requires that the source and destination file
       systems support sparse files with hole sizes at least as large as their
@@ -482,11 +488,11 @@
     operation invokes
     <a class="permalink" href="#copyfile~4"><code class="Fn">copyfile</code></a>()
     with <code class="Dv">COPYFILE_CLONE</code> on every entry found in the
-    source file-system object. Because <code class="Fn">copyfile</code>() does
-    not allow the cloning of directories, a recursive clone will instead copy
-    any directory it finds (while cloning its contents). As symbolic links may
-    point to directories, they are not followed during recursive clones even if
-    the source is a symbolic link. Additionally, because the
+    source file-system object. <code class="Fn">copyfile</code>() does not clone
+    directories atomically. If the source hierarchy changes during the
+    traversal, the results are undefined. As symbolic links may point to
+    directories, they are not followed during recursive clones even if the
+    source is a symbolic link. Additionally, because the
     <code class="Dv">COPYFILE_CLONE</code> flag implies the
     <code class="Dv">COPYFILE_EXCL</code> flag, recursive clones require a
     nonexistent destination.</p>
@@ -633,8 +639,11 @@ copyfile(&quot;/dev/null&quot;, &quot;/tmp/bar&quot;, NULL, COPYFILE_XATTR);</pr
   <dt id="ENOTSUP">[<a class="permalink" href="#ENOTSUP"><code class="Er">ENOTSUP</code></a>]</dt>
   <dd>The source file was not a directory, symbolic link, or regular file.</dd>
   <dt id="ENOTSUP~2">[<a class="permalink" href="#ENOTSUP~2"><code class="Er">ENOTSUP</code></a>]</dt>
-  <dd>COPYFILE_CLONE_FORCE was specified and file cloning is not supported.</dd>
+  <dd>COPYFILE_CLONE_FORCE was passed to the <code class="Fn">fcopyfile</code>()
+      function</dd>
   <dt id="ENOTSUP~3">[<a class="permalink" href="#ENOTSUP~3"><code class="Er">ENOTSUP</code></a>]</dt>
+  <dd>COPYFILE_CLONE_FORCE was specified and file cloning is not supported.</dd>
+  <dt id="ENOTSUP~4">[<a class="permalink" href="#ENOTSUP~4"><code class="Er">ENOTSUP</code></a>]</dt>
   <dd>COPYFILE_DATA_SPARSE was specified, sparse copying is not supported, and
       COPYFILE_DATA was not specified.</dd>
   <dt id="ECANCELED">[<a class="permalink" href="#ECANCELED"><code class="Er">ECANCELED</code></a>]</dt>

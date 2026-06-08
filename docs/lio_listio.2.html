@@ -75,8 +75,9 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
-<p class="Pp"><code class="In">#include
-  &lt;<a class="In">aio.h</a>&gt;</code></p>
+<p class="Pp"><code class="In">#include &lt;<a class="In">aio.h</a>&gt;</code>
+  <br/>
+  <code class="In">#include &lt;<a class="In">sys/uio.h</a>&gt;</code></p>
 <p class="Pp"><var class="Ft">int</var>
   <br/>
   <code class="Fn">lio_listio</code>(<var class="Fa">int mode</var>,
@@ -98,10 +99,16 @@
 <dl class="Bl-tag">
   <dt id="LIO_READ"><a class="permalink" href="#LIO_READ"><code class="Dv">LIO_READ</code></a></dt>
   <dd>Read data as if by a call to <a class="Xr">aio_read(2)</a>.</dd>
+  <dt id="LIO_READV"><a class="permalink" href="#LIO_READV"><code class="Dv">LIO_READV</code></a></dt>
+  <dd>Read data from multiple buffers as if by a call to
+      <a class="Xr">aio_read(2)</a>.</dd>
   <dt id="LIO_NOP"><a class="permalink" href="#LIO_NOP"><code class="Dv">LIO_NOP</code></a></dt>
   <dd>No operation.</dd>
   <dt id="LIO_WRITE"><a class="permalink" href="#LIO_WRITE"><code class="Dv">LIO_WRITE</code></a></dt>
   <dd>Write data as if by a call to <a class="Xr">aio_write(2)</a>.</dd>
+  <dt id="LIO_WRITEV"><a class="permalink" href="#LIO_WRITEV"><code class="Dv">LIO_WRITEV</code></a></dt>
+  <dd>Write data from multiple buffers as if by a call to
+      <a class="Xr">aio_write(2)</a>.</dd>
 </dl>
 <p class="Pp" id="lio_listio~2">If the <var class="Fa">mode</var> argument is
     <code class="Dv">LIO_WAIT</code>,
@@ -111,6 +118,49 @@
     <var class="Fa">sig</var> can be used to request asynchronous notification
     when all operations have completed. If <var class="Fa">sig</var> is
     <code class="Dv">NULL</code>, no notification is sent.</p>
+<p class="Pp">For <code class="Dv">SIGEV_KEVENT</code> notifications, the
+    <var class="Va">sigev_notify</var> field should be set to
+    <code class="Dv">SIGEV_KEVENT,</code> and its
+    <var class="Va">sigevent</var>'s <var class="Va">sigev_signo</var> field
+    should contain the descriptor of the kqueue that the event should be
+    attached to.</p>
+<p class="Pp">Individual <var class="Vt">aiocb</var> entries in the list that
+    have their own <code class="Dv">SIGEV_KEVENT</code> notifications configured
+    will receive <code class="Dv">EVFILT_AIO</code> events upon completion with
+    I/O results (error status and return value).</p>
+<p class="Pp">When <var class="Fa">sig</var> is configured for
+    <code class="Dv">SIGEV_KEVENT</code> notifications, when all I/O operations
+    in the list have completed, <code class="Dv">EVFILT_LIO</code> kevents will
+    be posted for all entries in the list. The I/O results (error status and
+    return value) will be delivered with these
+    <code class="Dv">EVFILT_LIO</code> events.</p>
+<p class="Pp">Each posted kevent will contain:</p>
+<table class="Bl-column">
+  <tr id="Member">
+    <td><a class="permalink" href="#Member"><b class="Sy">Member</b></a></td>
+    <td><a class="permalink" href="#Value"><b class="Sy" id="Value">Value</b></a></td>
+  </tr>
+  <tr id="ident">
+    <td><var class="Va">ident</var></td>
+    <td><var class="Fa">aiocb entry</var></td>
+  </tr>
+  <tr id="filter">
+    <td><var class="Va">filter</var></td>
+    <td><a class="permalink" href="#EVFILT_AIO"><code class="Dv" id="EVFILT_AIO">EVFILT_AIO</code></a>
+      <span class="No">or</span> <code class="Dv">EVFILT_LIO</code></td>
+  </tr>
+  <tr id="udata">
+    <td><var class="Va">udata</var></td>
+    <td>value stored in <var class="Fa">sig-&gt;sigev_value</var></td>
+  </tr>
+</table>
+<p class="Pp" id="lio_listio~3">When using <code class="Dv">SIGEV_KEVENT</code>
+    notifications, if
+    <a class="permalink" href="#lio_listio~3"><code class="Fn">lio_listio</code></a>()
+    returns 0, all operations will generate kevent notifications, even if some
+    operations encounter enqueue failures. If
+    <code class="Fn">lio_listio</code>() returns an error, no operations were
+    successfully enqueued and no kevent notifications will be generated.</p>
 <p class="Pp">The order in which the requests are carried out is not specified;
     in particular, there is no guarantee that they will be executed in the order
     0, 1, ..., <var class="Fa">nent</var>-1.</p>
@@ -147,13 +197,17 @@
   <dd>The asynchronous notification method in
       <var class="Fa">sig-&gt;sigev_notify</var> is invalid or not
     supported.</dd>
+  <dt id="EINVAL~3">[<a class="permalink" href="#EINVAL~3"><code class="Er">EINVAL</code></a>]</dt>
+  <dd>An attempt was made to register both <code class="Dv">EVFILT_AIO</code>
+      and <code class="Dv">EVFILT_LIO</code> kevent notifications on the same
+      <var class="Vt">aiocb</var>.</dd>
   <dt id="EINTR">[<a class="permalink" href="#EINTR"><code class="Er">EINTR</code></a>]</dt>
   <dd>A signal interrupted the system call before it could be completed.</dd>
   <dt id="EIO">[<a class="permalink" href="#EIO"><code class="Er">EIO</code></a>]</dt>
   <dd>One or more requests failed.</dd>
 </dl>
 <p class="Pp">In addition, the <code class="Fn">lio_listio</code>() function may
-    fail for any of the reasons listed for <a class="Xr">aio_read(2)</a> and
+    fail for any of the reasons listed for <a class="Xr">aio_read(2)</a>, and
     <a class="Xr">aio_write(2)</a>.</p>
 <p class="Pp">If <code class="Fn">lio_listio</code>() succeeds, or fails with an
     error code of <code class="Er">EAGAIN</code>, <code class="Er">EINTR</code>,

@@ -77,6 +77,10 @@ $GIT_DIR/objects/pack/multi-pack-index</pre>
     checksums, and object IDs (object names) mentioned below are all computed
     using SHA-1. Similarly, in SHA-256 repositories, these values are computed
     using SHA-256.</p>
+<p class="Pp">CRC32 checksums are always computed over the entire packed object,
+    including the header (n-byte type and length); the base object name or
+    offset, if any; and the entire compressed object. The CRC32 algorithm used
+    is that of zlib.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh">PACK-*.PACK FILES HAVE THE FOLLOWING FORMAT:</h1>
@@ -158,6 +162,16 @@ length format and is not constrained to 32-bit or anything.</pre>
 <p class="Pp">Type 5 is reserved for future expansion. Type 0 is invalid.</p>
 </section>
 <section class="Ss">
+<h2 class="Ss" id="Object_encoding"><a class="permalink" href="#Object_encoding">Object
+  encoding</a></h2>
+<p class="Pp">Unlike loose objects, packed objects do not have a prefix
+    containing the type, size, and a NUL byte. These are not necessary because
+    they can be determined by the n-byte type and length that prefixes the data
+    and so they are omitted from the compressed and deltified data.</p>
+<p class="Pp">The computation of the object ID still uses this prefix by
+    reconstructing it from the type and length as needed.</p>
+</section>
+<section class="Ss">
 <h2 class="Ss" id="Size_encoding"><a class="permalink" href="#Size_encoding">Size
   encoding</a></h2>
 <p class="Pp">This document uses the following &quot;size encoding&quot; of
@@ -168,6 +182,10 @@ length format and is not constrained to 32-bit or anything.</pre>
   significant.</p>
 <p class="Pp">This size encoding should not be confused with the &quot;offset
     encoding&quot;, which is also used in this document.</p>
+<p class="Pp">When encoding the size of an undeltified object in a pack, the
+    size is that of the uncompressed raw object. For deltified objects, it is
+    the size of the uncompressed delta. The base object name or offset is not
+    included in the size computation.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="Deltified_representation"><a class="permalink" href="#Deltified_representation">Deltified
@@ -488,7 +506,11 @@ corresponding packfile.</pre>
 <div class="Bd-indent">
 <pre>1-byte version number:
 <br/>
-    Git only writes or recognizes version 1.</pre>
+    Git writes the version specified by the &quot;midx.version&quot;
+<br/>
+    configuration option, which defaults to 2. It recognizes
+<br/>
+    both versions 1 and 2.</pre>
 </div>
 <p class="Pp"></p>
 <div class="Bd-indent">
@@ -555,7 +577,11 @@ otherwise specified.</pre>
 <br/>
     is padded at the end with between 0 and 3 NUL bytes to make the
 <br/>
-    chunk size a multiple of 4 bytes.</pre>
+    chunk size a multiple of 4 bytes. Version 1 MIDXs are required to
+<br/>
+    list their packs in lexicographic order, but version 2 MIDXs may
+<br/>
+    list their packs in any arbitrary order.</pre>
 </div>
 <p class="Pp"></p>
 <div class="Bd-indent">

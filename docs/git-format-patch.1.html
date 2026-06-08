@@ -85,6 +85,8 @@
 <br/>
                    [--[no-]cover-letter] [--quiet]
 <br/>
+                   [--commit-list-format=&lt;format-spec&gt;]
+<br/>
                    [--[no-]encode-email-headers]
 <br/>
                    [--no-notes | --notes[=&lt;ref&gt;]]
@@ -169,8 +171,11 @@
 <p class="Pp">-p, --no-stat</p>
 <div class="Bd-indent">Generate plain patches without any diffstats.</div>
 <p class="Pp"><b>-U</b><i>&lt;n&gt;</i>, <b>--unified=</b><i>&lt;n&gt;</i></p>
-<div class="Bd-indent">Generate diffs with <i>&lt;n&gt;</i> lines of context
-  instead of the usual three.</div>
+<div class="Bd-indent">Generate diffs with <i>&lt;n&gt;</i> lines of context.
+  The number of context lines defaults to <b>diff.context</b> or 3 if the
+  configuration variable is unset. (<b>-U</b> without <i>&lt;n&gt;</i> is
+  silently accepted as a synonym for <b>-p</b> due to a historical
+  accident).</div>
 <p class="Pp"><b>--output=</b><i>&lt;file&gt;</i></p>
 <div class="Bd-indent">Output to a specific file instead of stdout.</div>
 <p class="Pp"><b>--output-indicator-new=</b><i>&lt;char&gt;</i>,
@@ -308,7 +313,7 @@
 <p class="Pp"><b>--no-renames</b></p>
 <div class="Bd-indent">Turn off rename detection, even when the configuration
   file gives the default to do so.</div>
-<p class="Pp"><b>--</b>[<b>no-</b>]<b>rename-empty</b></p>
+<p class="Pp"><b>--rename-empty</b>, <b>--no-rename-empty</b></p>
 <div class="Bd-indent">Whether to use empty blobs as rename source.</div>
 <p class="Pp"><b>--full-index</b></p>
 <div class="Bd-indent">Instead of the first handful of characters, show the full
@@ -505,7 +510,7 @@
 <p class="Pp"><b>--default-prefix</b></p>
 <div class="Bd-indent">Use the default source and destination prefixes
   (&quot;a/&quot; and &quot;b/&quot;). This overrides configuration variables
-  such as <b>diff.noprefix</b>, <b>diff.srcPrefix</b>, <b>diff.dstPrefix</b>,
+  such as <b>format.noprefix</b>, <b>diff.srcPrefix</b>, <b>diff.dstPrefix</b>,
   and <b>diff.mnemonicPrefix</b> (see <b>git-config</b>(1)).</div>
 <p class="Pp"><b>--line-prefix=</b><i>&lt;prefix&gt;</i></p>
 <div class="Bd-indent">Prepend an additional <i>&lt;prefix&gt;</i> to every line
@@ -518,6 +523,35 @@
   <b>diff</b> <b>--cached</b>. This option could be reverted with
   <b>--ita-visible-in-index</b>. Both options are experimental and could be
   removed in future.</div>
+<p class="Pp">--max-depth=&lt;depth&gt;</p>
+<div class="Bd-indent">For each pathspec given on command line, descend at most
+  <i>&lt;depth&gt;</i> levels of directories. A value of <b>-1</b> means no
+  limit. Cannot be combined with wildcards in the pathspec. Given a tree
+  containing <b>foo/bar/baz</b>, the following list shows the matches generated
+  by each set of options:
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>--max-depth=0</b> <b>--</b> <b>foo</b>:
+  <b>foo</b></div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>--max-depth=1</b> <b>--</b> <b>foo</b>:
+  <b>foo/bar</b></div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>--max-depth=1</b> <b>--</b> <b>foo/bar</b>:
+  <b>foo/bar/baz</b></div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>--max-depth=1</b> <b>--</b> <b>foo</b>
+  <b>foo/bar</b>: <b>foo/bar/baz</b></div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>--max-depth=2</b> <b>--</b> <b>foo</b>:
+  <b>foo/bar/baz</b></div>
+<p class="Pp">If no pathspec is given, the depth is measured as if all top-level
+    entries were specified. Note that this is different than measuring from the
+    root, in that <b>--max-depth=0</b> would still return <b>foo</b>. This
+    allows you to still limit depth while asking for a subset of the top-level
+    entries.</p>
+<p class="Pp">Note that this option is only supported for diffs between tree
+    objects, not against the index or working tree.</p>
+</div>
 <p class="Pp">For more detailed explanation on these common options, see also
     <b>gitdiffcore</b>(7).</p>
 <p class="Pp">-&lt;n&gt;</p>
@@ -663,10 +697,11 @@
   config or command line).</div>
 <p class="Pp">--from, --from=&lt;ident&gt;</p>
 <div class="Bd-indent">Use <b>ident</b> in the <b>From:</b> header of each
-  commit email. If the author ident of the commit is not textually identical to
-  the provided <b>ident</b>, place a <b>From:</b> header in the body of the
-  message with the original author. If no <b>ident</b> is given, use the
-  committer ident.
+  email. In case of a commit email, if the author ident of the commit is not
+  textually identical to the provided <b>ident</b>, place a <b>From:</b> header
+  in the body of the message with the original author. If no <b>ident</b> is
+  given, or if the option is not passed at all, use the ident of the current
+  committer.
 <p class="Pp">Note that this option is only useful if you are actually sending
     the emails and want to identify yourself as the sender, but retain the
     original author (and <b>git</b> <b>am</b> will correctly pick up the in-body
@@ -674,7 +709,7 @@
     transformation for you, and this option should not be used if you are
     feeding the result to <b>git</b> <b>send-email</b>.</p>
 </div>
-<p class="Pp">--[no-]force-in-body-from</p>
+<p class="Pp">--force-in-body-from, --no-force-in-body-from</p>
 <div class="Bd-indent">With the e-mail sender specified via the <b>--from</b>
   option, by default, an in-body &quot;From:&quot; to identify the real author
   of the commit is added at the top of the commit log message if the sender is
@@ -690,10 +725,22 @@
   negated form <b>--no-add-header</b> discards <b>all</b> (<b>To:</b>,
   <b>Cc:</b>, and custom) headers added so far from config or command
   line.</div>
-<p class="Pp">--[no-]cover-letter</p>
+<p class="Pp">--cover-letter, --no-cover-letter</p>
 <div class="Bd-indent">In addition to the patches, generate a cover letter file
-  containing the branch description, shortlog and the overall diffstat. You can
-  fill in a description in the file before sending it out.</div>
+  containing the branch description, commit list and the overall diffstat. You
+  can fill in a description in the file before sending it out.</div>
+<p class="Pp">--commit-list-format=&lt;format-spec&gt;</p>
+<div class="Bd-indent">Specify the format in which to generate the commit list
+  of the patch series. The accepted values for format-spec are <b>shortlog</b>,
+  <b>modern</b> or a format-string prefixed with <b>log:</b>. E.g. <b>log:</b>
+  <b>%s</b> (<b>%an</b>). <b>modern</b> is the same as
+  <b>log:%w</b>(<b>72</b>)[<b>%</b>(<b>count</b>)<b>/%</b>(<b>total</b>)]
+  <b>%s</b>. The <b>log:</b> prefix can be omitted if the format-string has a
+  <b>%</b> in it (expecting that it is part of
+  <b>%</b><i>&lt;placeholder&gt;</i>). Defaults to the
+  <b>format.commitListFormat</b> configuration variable, if set, or
+  <b>shortlog</b>. This option given from the command-line implies the use of
+  <b>--cover-letter</b> unless <b>--no-cover-letter</b> is given.</div>
 <p class="Pp">--encode-email-headers, --no-encode-email-headers</p>
 <div class="Bd-indent">Encode email headers that have non-ASCII characters with
   &quot;Q-encoding&quot; (described in RFC 2047), instead of outputting the
@@ -747,7 +794,7 @@
 <p class="Pp">The default is <b>--no-notes</b>, unless the <b>format.notes</b>
     configuration is set.</p>
 </div>
-<p class="Pp">--[no-]signature=&lt;signature&gt;</p>
+<p class="Pp">--signature=&lt;signature&gt;, --no-signature</p>
 <div class="Bd-indent">Add a signature to each message produced. Per RFC 3676
   the signature is separated from the body by a line with '-- ' on it. If the
   signature option is omitted the signature defaults to the Git version
@@ -774,7 +821,7 @@
 <p class="Pp">--zero-commit</p>
 <div class="Bd-indent">Output an all-zero hash in each patch&#x2019;s From
   header instead of the hash of the commit.</div>
-<p class="Pp">--[no-]base[=&lt;commit&gt;]</p>
+<p class="Pp">--no-base, --base[=&lt;commit&gt;]</p>
 <div class="Bd-indent">Record the base tree information to identify the state
   the patch series applies to. See the BASE TREE INFORMATION section below for
   details. If &lt;commit&gt; is &quot;auto&quot;, a base commit is automatically
@@ -819,6 +866,8 @@
         outputDirectory = &lt;directory&gt;
 <br/>
         coverLetter = auto
+<br/>
+        commitListFormat = shortlog
 <br/>
         coverFromDescription = auto</pre>
 </div>
@@ -953,13 +1002,16 @@ $ git am a.patch</pre>
   <br/>
 </p>
 <div class="Bd-indent">
-<p class="Pp">Install the Toggle Word Wrap add-on that is available from
-    <b>https://addons.mozilla.org/thunderbird/addon/toggle-word-wrap/</b> It
-    adds a menu entry &quot;Enable Word Wrap&quot; in the composer&#x2019;s
-    &quot;Options&quot; menu that you can tick off. Now you can compose the
-    message as you otherwise do (cut + paste, <i>git format-patch</i> | <i>git
-    imap-send</i>, etc), but you have to insert line breaks manually in any text
-    that you type.</p>
+<p class="Pp">Install the Toggle Line Wrap add-on that is available from
+    <b>https://addons.thunderbird.net/thunderbird/addon/toggle-line-wrap</b> It
+    adds a button &quot;Line Wrap&quot; to the composer&#x2019;s toolbar that
+    you can tick off. Now you can compose the message as you otherwise do (cut +
+    paste, <i>git format-patch</i> | <i>git imap-send</i>, etc), but you have to
+    insert line breaks manually in any text that you type.</p>
+<p class="Pp">As a bonus feature, the add-on can detect patch text in the
+    composer and warns when line wrapping has not yet been turned off.</p>
+<p class="Pp">The add-on requires a few tweaks of the advanced configuration
+    (about:config). These are listed on the download page.</p>
 </div>
 <p class="Pp"><b>Approach #2 (configuration)</b>
   <br/>
@@ -1167,6 +1219,42 @@ prerequisite-patch-id: Z</pre>
     output, even if they are part of the requested range. A simple
     &quot;patch&quot; does not include enough information for the receiving end
     to reproduce the same merge commit.</p>
+<section class="Ss">
+<h2 class="Ss" id="PATCH_APPLICATION"><a class="permalink" href="#PATCH_APPLICATION">PATCH
+  APPLICATION</a></h2>
+<p class="Pp">The output from <b>git-format-patch</b>(1) can lead to a different
+    commit message when applied with <b>git-am</b>(1). The patch that is applied
+    may also be different from the one that was generated, or patch application
+    may fail outright.</p>
+<p class="Pp">Any line that is of the form:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;three-dashes and end-of-line, or</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;a line that begins with &quot;diff -&quot;,
+  or</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;a line that begins with &quot;Index: &quot;</div>
+<p class="Pp">is taken as the beginning of a patch, and the commit log message
+    is terminated before the first occurrence of such a line.</p>
+<p class="Pp">Note that this is especially problematic for unindented diffs that
+    occur in the commit message; the diff in the commit message might get
+    applied along with the patch section, or the patch application machinery
+    might trip up because the patch target doesn&#x2019;t apply. This could for
+    example be caused by a diff in a Markdown code block.</p>
+<p class="Pp">The solution for this is to indent the diff or other text that
+    could cause problems.</p>
+<p class="Pp">This loss of fidelity might be simple to notice if you are
+    applying patches directly from a mailbox. However, changes originating from
+    Git could be applied in bulk, in which case this would be much harder to
+    notice. This could for example be a Linux distribution which uses patch
+    files to apply changes on top of the commits from the upstream repositories.
+    This goes to show that this behavior does not only impact email
+  workflows.</p>
+<p class="Pp">Given these limitations, one might be tempted to use a
+    general-purpose utility like patch(1) instead. However, patch(1) will not
+    only look for unindented diffs (like <b>git-am</b>(1)) but will try to apply
+    indented diffs as well.</p>
+</section>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE

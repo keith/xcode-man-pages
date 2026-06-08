@@ -68,8 +68,9 @@
 <div class="manual-text">
 <section class="Sh">
 <h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
-<p class="Pp"><code class="Nm">aio_read</code> &#x2014;
-    <span class="Nd">asynchronous read from a file (REALTIME)</span></p>
+<p class="Pp"><code class="Nm">aio_read</code>,
+    <code class="Nm">aio_readv</code> &#x2014; <span class="Nd">asynchronous
+    read from a file (REALTIME)</span></p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
@@ -83,6 +84,12 @@
   <br/>
   <code class="Fn">aio_read</code>(<var class="Fa">struct aiocb
   *aiocbp</var>);</p>
+<p class="Pp"><code class="In">#include
+    &lt;<a class="In">sys/uio.h</a>&gt;</code></p>
+<p class="Pp"><var class="Ft">int</var>
+  <br/>
+  <code class="Fn">aio_readv</code>(<var class="Fa">struct aiocb
+  *aiocbp</var>);</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
@@ -92,6 +99,23 @@
     <var class="Fa">aiocbp-&gt;aio_nbytes</var> from the descriptor
     <var class="Fa">aiocbp-&gt;aio_fildes</var>, beginning at the offset
     <var class="Fa">aiocbp-&gt;aio_offset</var>, into the buffer pointed to by
+    <var class="Fa">aiocbp-&gt;aio_buf</var>.</p>
+<p class="Pp" id="aio_readv">The
+    <a class="permalink" href="#aio_readv"><code class="Fn">aio_readv</code></a>()
+    system call allows the calling process to read data from multiple buffers in
+    a single operation, performing vectored I/O similar to
+    <a class="Xr">readv(2)</a>. For <code class="Fn">aio_readv</code>(), the
+    <var class="Fa">aiocbp-&gt;aio_iov</var> field points to an array of
+    <var class="Vt">struct iovec</var> structures, and
+    <var class="Fa">aiocbp-&gt;aio_iovcnt</var> specifies the number of elements
+    in the array.</p>
+<p class="Pp" id="aio_readv~2">The
+    <a class="permalink" href="#aio_readv~2"><code class="Fn">aio_readv</code></a>()
+    function can also be used with
+    <a class="permalink" href="#lio_listio"><code class="Fn" id="lio_listio">lio_listio</code></a>()
+    by setting the <var class="Fa">aio_lio_opcode</var> field to
+    <code class="Dv">LIO_READV</code>.</p>
+<p class="Pp">For both functions, the calling process must ensure that the
     <var class="Fa">aiocbp-&gt;aio_buf</var>. The call returns immediately after
     the read request has been enqueued to the descriptor; the read may or may
     not have completed at the time the call returns.</p>
@@ -101,7 +125,7 @@
 <p class="Pp" id="aio_read~2">The
     <var class="Fa">aiocbp-&gt;aio_lio_opcode</var> argument is ignored by the
     <a class="permalink" href="#aio_read~2"><code class="Fn">aio_read</code></a>()
-    system call.</p>
+    and <code class="Fn">aio_readv</code>() system calls.</p>
 <p class="Pp" id="aio_return">The <var class="Fa">aiocbp</var> pointer may be
     subsequently used as an argument to
     <a class="permalink" href="#aio_return"><code class="Fn">aio_return</code></a>()
@@ -115,6 +139,35 @@
     <var class="Fa">aiocbp-&gt;aio_offset</var> can be modified during the
     request as context, so this value must not be referenced after the request
     is enqueued.</p>
+<p class="Pp">All asynchronous I/O control buffers contain a
+    <var class="Vt">sigevent</var> structure in the
+    <var class="Va">aio_sigevent</var> field which can be used to request
+    notification when an operation completes.</p>
+<p class="Pp">For <code class="Dv">SIGEV_KEVENT</code> notifications, the
+    <var class="Va">sigev_notify</var> field should be set to
+    <code class="Dv">SIGEV_KEVENT,</code> and its
+    <var class="Va">sigevent</var>'s <var class="Va">sigev_signo</var> field
+    should contain the descriptor of the kqueue that the event should be
+    attached to. The posted kevent will contain:</p>
+<table class="Bl-column">
+  <tr id="Member">
+    <td><a class="permalink" href="#Member"><b class="Sy">Member</b></a></td>
+    <td><a class="permalink" href="#Value"><b class="Sy" id="Value">Value</b></a></td>
+  </tr>
+  <tr id="ident">
+    <td><var class="Va">ident</var></td>
+    <td>asynchronous I/O control buffer pointer</td>
+  </tr>
+  <tr id="filter">
+    <td><var class="Va">filter</var></td>
+    <td><a class="permalink" href="#EVFILT_AIO"><code class="Dv" id="EVFILT_AIO">EVFILT_AIO</code></a></td>
+  </tr>
+  <tr id="udata">
+    <td><var class="Va">udata</var></td>
+    <td>value stored in
+      <var class="Fa">aiocbp-&gt;aio_sigevent.sigev_value</var></td>
+  </tr>
+</table>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="RESTRICTIONS"><a class="permalink" href="#RESTRICTIONS">RESTRICTIONS</a></h1>
@@ -126,7 +179,8 @@
 <p class="Pp" id="aio_read~3">The asynchronous I/O control buffer
     <var class="Fa">aiocbp</var> should be zeroed before the
     <a class="permalink" href="#aio_read~3"><code class="Fn">aio_read</code></a>()
-    call to avoid passing bogus context information to the kernel.</p>
+    or <code class="Fn">aio_readv</code>() call to avoid passing bogus context
+    information to the kernel.</p>
 <p class="Pp">Modifications of the Asynchronous I/O Control Block structure or
     the buffer contents after the request has been enqueued, but before the
     request has completed, are not allowed.</p>
@@ -137,10 +191,10 @@
 <section class="Sh">
 <h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
   VALUES</a></h1>
-<p class="Pp">The <code class="Fn">aio_read</code>() function returns the
-    value&#x00A0;0 if successful; otherwise the value&#x00A0;-1 is returned and
-    the global variable <var class="Va">errno</var> is set to indicate the
-    error.</p>
+<p class="Pp">The <code class="Fn">aio_read</code>() and
+    <code class="Fn">aio_readv</code>() functions return the value&#x00A0;0 if
+    successful; otherwise the value&#x00A0;-1 is returned and the global
+    variable <var class="Va">errno</var> is set to indicate the error.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DIAGNOSTICS"><a class="permalink" href="#DIAGNOSTICS">DIAGNOSTICS</a></h1>
@@ -148,19 +202,20 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="ERRORS"><a class="permalink" href="#ERRORS">ERRORS</a></h1>
-<p class="Pp">The <code class="Fn">aio_read</code>() system call will fail
-  if:</p>
+<p class="Pp">The <code class="Fn">aio_read</code>() and
+    <code class="Fn">aio_readv</code>() system calls will fail if:</p>
 <dl class="Bl-tag">
   <dt id="EAGAIN">[<a class="permalink" href="#EAGAIN"><code class="Er">EAGAIN</code></a>]</dt>
   <dd>Because of system resource limitations, the request was not queued.</dd>
   <dt id="ENOSYS">[<a class="permalink" href="#ENOSYS"><code class="Er">ENOSYS</code></a>]</dt>
-  <dd>The <code class="Fn">aio_read</code>() system call is not supported.</dd>
+  <dd>The <code class="Fn">aio_read</code>() and
+      <code class="Fn">aio_readv</code>() system calls are not supported.</dd>
 </dl>
 <p class="Pp">The following conditions may be synchronously detected when the
-    <code class="Fn">aio_read</code>() system call is made, or asynchronously,
-    at any time thereafter. If they are detected at call time,
-    <code class="Fn">aio_read</code>() returns -1 and sets
-    <var class="Va">errno</var> appropriately. Otherwise, the
+    <code class="Fn">aio_read</code>() or <code class="Fn">aio_readv</code>()
+    system call is made, or asynchronously, at any time thereafter. If they are
+    detected at call time, <code class="Fn">aio_read</code>() returns -1 and
+    sets <var class="Va">errno</var> appropriately. Otherwise, the
     <code class="Fn">aio_return</code>() system call must be called. It will
     return -1; <code class="Fn">aio_error</code>() must then be called to
     determine the actual value that would have been returned in
@@ -177,6 +232,22 @@
       priority specified by <var class="Fa">aiocbp-&gt;aio_reqprio</var> is not
       a valid priority, or the number of bytes specified by
       <var class="Fa">aiocbp-&gt;aio_nbytes</var> is not valid.</dd>
+</dl>
+<p class="Pp">The <code class="Fn">aio_readv</code>() calls may also return one
+    of the following errors:</p>
+<dl class="Bl-tag">
+  <dt id="EFAULT~2">[<a class="permalink" href="#EFAULT~2"><code class="Er">EFAULT</code></a>]</dt>
+  <dd>Part of the <var class="Fa">aio_iov</var> points outside the process's
+      allocated address space.</dd>
+  <dt id="EINVAL~2">[<a class="permalink" href="#EINVAL~2"><code class="Er">EINVAL</code></a>]</dt>
+  <dd><var class="Fa">aio_iovcnt</var> was less than or equal to 0, or greater
+      than <code class="Dv">AIO_UIO_MAXIOV</code>.</dd>
+  <dt id="EINVAL~3">[<a class="permalink" href="#EINVAL~3"><code class="Er">EINVAL</code></a>]</dt>
+  <dd>One of the <var class="Fa">iov_len</var> values in the
+      <var class="Fa">aio_iov</var> array was negative.</dd>
+  <dt id="EINVAL~4">[<a class="permalink" href="#EINVAL~4"><code class="Er">EINVAL</code></a>]</dt>
+  <dd>The sum of the <var class="Fa">iov_len</var> values in the
+      <var class="Fa">aio_iov</var> array overflowed a 32-bit integer.</dd>
   <dt id="EOVERFLOW">[<a class="permalink" href="#EOVERFLOW"><code class="Er">EOVERFLOW</code></a>]</dt>
   <dd>The file is a regular file, <var class="Fa">aiocbp-&gt;aio_nbytes</var> is
       greater than zero, the starting offset in
@@ -197,7 +268,7 @@
   <dt id="ECANCELED">[<a class="permalink" href="#ECANCELED"><code class="Er">ECANCELED</code></a>]</dt>
   <dd>The request was explicitly cancelled via a call to
       <code class="Fn">aio_cancel</code>().</dd>
-  <dt id="EINVAL~2">[<a class="permalink" href="#EINVAL~2"><code class="Er">EINVAL</code></a>]</dt>
+  <dt id="EINVAL~5">[<a class="permalink" href="#EINVAL~5"><code class="Er">EINVAL</code></a>]</dt>
   <dd>The offset <var class="Fa">aiocbp-&gt;aio_offset</var> would be
     invalid.</dd>
 </dl>
@@ -213,12 +284,17 @@
 <h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
 <p class="Pp">The <code class="Fn">aio_read</code>() system call is expected to
     conform to the <span class="St">IEEE Std 1003.1
-    (&#x201C;POSIX.1&#x201D;)</span> standard.</p>
+    (&#x201C;POSIX.1&#x201D;)</span> standard. The
+    <code class="Fn">aio_readv</code>() system call is an extension to the
+    <span class="St">IEEE Std 1003.1 (&#x201C;POSIX.1&#x201D;)</span>
+  standard.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
 <p class="Pp">The <code class="Fn">aio_read</code>() system call first appeared
-    in <span class="Ux">FreeBSD 3.0</span>.</p>
+    in <span class="Ux">FreeBSD 3.0</span>. The
+    <code class="Fn">aio_readv</code>() system call first appeared in Mac OS X
+    27.0.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>

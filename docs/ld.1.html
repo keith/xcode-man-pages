@@ -505,11 +505,21 @@
   <dt id="verbose_branch_islands"><a class="permalink" href="#verbose_branch_islands"><code class="Fl">-verbose_branch_islands</code></a></dt>
   <dd>Prints size information about the inserted branch islands and their code
       size overhead.</dd>
-  <dt id="O0"><a class="permalink" href="#O0"><code class="Fl">-O0</code></a></dt>
-  <dd>Disables certain optimizations and layout algorithms to optimize build
-      time. This option should be used with debug builds to speed up incremental
-      development. The exact implementation might change to match the
-    intent.</dd>
+  <dt id="O"><a class="permalink" href="#O"><code class="Fl">-O</code></a><var class="Ar">level</var></dt>
+  <dd>Controls the linker optimization level. <code class="Fl">-O0</code>
+      disables linker optimizations to reduce link time, and is intended for
+      debug builds where fast iteration is the priority. Any other level (e.g.
+      <code class="Fl">-O1</code>, <code class="Fl">-O2</code>,
+      <code class="Fl">-O3</code>, <code class="Fl">-Os</code>,
+      <code class="Fl">-Oz</code>) enables the full set of linker optimizations
+      targeted for release builds. Currently all non-zero levels are equivalent
+      and enable the same optimizations. The specific optimizations enabled are
+      an implementation detail and may change between releases.
+    <p class="Pp">When no <code class="Fl">-O</code> option is specified, the
+        linker applies a default set of essential optimizations but not all of
+        them. This is faster than a fully optimized link but slower than
+        <code class="Fl">-O0</code>.</p>
+  </dd>
   <dt id="reproducible"><a class="permalink" href="#reproducible"><code class="Fl">-reproducible</code></a></dt>
   <dd>By default output content will be deterministic, but small changes in
       input files such as a compilation time might affect certain data
@@ -853,6 +863,23 @@
       built and run on the same OS version.</dd>
   <dt id="no_deduplicate"><a class="permalink" href="#no_deduplicate"><code class="Fl">-no_deduplicate</code></a></dt>
   <dd>Don't run deduplication pass in linker</dd>
+  <dt id="keep_duplicates_list"><a class="permalink" href="#keep_duplicates_list"><code class="Fl">-keep_duplicates_list</code></a>
+    <var class="Ar">filename</var></dt>
+  <dd>The specified <var class="Ar">filename</var> contains a list of symbol
+      names that will be excluded from the code deduplication pass. The symbol
+      names listed in filename must be one per line. Leading and trailing white
+      space are not part of the symbol name. Lines starting with # are ignored,
+      as are lines with only white space. Some wildcards (similar to shell file
+      matching) are supported. The * matches zero or more characters. The ?
+      matches one character. [abc] matches one character which must be an 'a',
+      'b', or 'c'. [a-z] matches any single lower case letter from 'a' to
+    'z'.</dd>
+  <dt id="keep_duplicate"><a class="permalink" href="#keep_duplicate"><code class="Fl">-keep_duplicate</code></a>
+    <var class="Ar">symbol</var></dt>
+  <dd>The specified <var class="Ar">symbol</var> is added to the list of symbol
+      names that will be excluded from the code deduplication pass. This option
+      can be used multiple times. For short lists, this can be more convenient
+      than creating a file and using -keep_duplicates_list.</dd>
   <dt id="verbose_deduplicate"><a class="permalink" href="#verbose_deduplicate"><code class="Fl">-verbose_deduplicate</code></a></dt>
   <dd>Prints names of functions that are eliminated by deduplication and total
       code savings size.</dd>
@@ -1141,6 +1168,12 @@
   <dd>Specifies what to do if linking an object file with a deployment target
       lower than the target specified using -platform_version. The valid
       treatments are: error, warning, suppress. The default is warning.</dd>
+  <dt id="arch_variant_lto_cache_mismatch"><a class="permalink" href="#arch_variant_lto_cache_mismatch"><code class="Fl">-arch_variant_lto_cache_mismatch</code></a>
+    <var class="Ar">treatment</var></dt>
+  <dd>Specifies what to do if linking with -arch_variant, but some LTO object
+      files require separate compilations for the main and variant
+      architectures. The valid treatments are: error, warning, suppress. The
+      default is warning.</dd>
   <dt id="read_only_relocs"><a class="permalink" href="#read_only_relocs"><code class="Fl">-read_only_relocs</code></a>
     <var class="Ar">treatment</var></dt>
   <dd>Enables the use of relocations in read-only segments. Options are:
@@ -1252,6 +1285,20 @@
       libLTO.dylib relative to the linker binary (../lib/libLTO.dylib). This
       option allows the user to specify the path to a specific libLTO.dylib to
       load instead.</dd>
+  <dt id="use_lto_filenames_in_order_file_matching"><a class="permalink" href="#use_lto_filenames_in_order_file_matching"><code class="Fl">-use_lto_filenames_in_order_file_matching</code></a></dt>
+  <dd>When using the -order_file option, the symbol name entries can be prefixed
+      with their object file leaf names. When performing the Link Time
+      Optimization (LTO), symbols will originate from the final object files
+      built by the optimization. This option enables the use of a heuristic that
+      matches symbol names with their original LTO object file locations when
+      matching filenames specified in the order files. That makes the file leaf
+      name matching consistent with the filenames listed in the -map file. Note
+      that static symbols with identical names built by LTO may not be matched
+      by the heuristic. Refer to the -map file output if unsure.</dd>
+  <dt id="no_use_lto_filenames_in_order_file_matching"><a class="permalink" href="#no_use_lto_filenames_in_order_file_matching"><code class="Fl">-no_use_lto_filenames_in_order_file_matching</code></a></dt>
+  <dd>This disables the use of the heuristic matching original filenames of
+      symbols built by the Link Time Optimization (LTO) when comparing against
+      file leaf names specified in the -order_file entries.</dd>
   <dt id="cache_path_lto"><a class="permalink" href="#cache_path_lto"><code class="Fl">-cache_path_lto</code></a>
     <var class="Ar">path</var></dt>
   <dd>When performing Incremental Link Time Optimization (LTO), use this
@@ -1302,6 +1349,10 @@
       will follow Foo.framework/Foo if it is a symbolic link, append _suffix and
       search for a file with that path. When this option is used, the linker
       will also search for Foo.framework/Versions/Current/Foo_suffix.</dd>
+  <dt id="memory_layout_file"><a class="permalink" href="#memory_layout_file"><code class="Fl">-memory_layout_file</code></a>
+    <var class="Ar">layout_file_path</var></dt>
+  <dd>Specifies a file that describes how the linker should lay out the memory.
+      See <a class="Xr">ld-layout-file(1)</a> for format reference.</dd>
   <dt id="ld_classic"><a class="permalink" href="#ld_classic"><code class="Fl">-ld_classic</code></a></dt>
   <dd>Override the choice of linker, and force the use of
       <code class="Nm">ld-classic</code> to link the binary. This is

@@ -57,7 +57,8 @@
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
 <pre><i>git maintenance</i> run [&lt;options&gt;]
 <i>git maintenance</i> start [--scheduler=&lt;scheduler&gt;]
-<i>git maintenance</i> (stop|register|unregister) [&lt;options&gt;]</pre>
+<i>git maintenance</i> (stop|register|unregister) [&lt;options&gt;]
+<i>git maintenance</i> is-needed [&lt;options&gt;]</pre>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
@@ -123,6 +124,15 @@
 <p class="Pp">The <b>unregister</b> subcommand will report an error if the
     current repository is not already registered. Use the <b>--force</b> option
     to return success even when the current repository is not registered.</p>
+</div>
+<p class="Pp">is-needed</p>
+<div class="Bd-indent">Check whether maintenance needs to be run without
+  actually running it. Exits with a 0 status code if maintenance needs to be
+  run, 1 otherwise. Ideally used with the <i>--auto</i> flag.
+<p class="Pp">If one or more <b>--task</b> options are specified, then those
+    tasks are checked in that order. Otherwise, the tasks are determined by
+    which <b>maintenance.</b><i>&lt;task&gt;</i><b>.enabled</b> config options
+    are true. By default, only <b>maintenance.gc.enabled</b> is true.</p>
 </div>
 </section>
 <section class="Sh">
@@ -215,7 +225,9 @@
   <b>gc</b> task runs when the number of loose objects exceeds the number stored
   in the <b>gc.auto</b> config setting, or when the number of pack-files exceeds
   the <b>gc.autoPackLimit</b> config setting. Not compatible with the
-  <b>--schedule</b> option.</div>
+  <b>--schedule</b> option. When combined with the <b>is-needed</b> subcommand,
+  check if the required thresholds are met without actually running
+  maintenance.</div>
 <p class="Pp">--schedule</p>
 <div class="Bd-indent">When combined with the <b>run</b> subcommand, run
   maintenance tasks only if certain time conditions are met, as specified by the
@@ -462,23 +474,42 @@ org.git-scm.git.weekly.plist</pre>
 </div>
 <p class="Pp">maintenance.strategy</p>
 <div class="Bd-indent">This string config option provides a way to specify one
-  of a few recommended schedules for background maintenance. This only affects
-  which tasks are run during <b>git</b> <b>maintenance</b> <b>run</b>
-  <b>--schedule=X</b> commands, provided no <b>--task=</b><i>&lt;task&gt;</i>
-  arguments are provided. Further, if a
-  <b>maintenance.</b><i>&lt;task&gt;</i><b>.schedule</b> config value is set,
-  then that value is used instead of the one provided by
-  <b>maintenance.strategy</b>. The possible strategy strings are:
+  of a few recommended strategies for repository maintenance. This affects which
+  tasks are run during <b>git</b> <b>maintenance</b> <b>run</b>, provided no
+  <b>--task=</b><i>&lt;task&gt;</i> arguments are provided. This setting impacts
+  manual maintenance, auto-maintenance as well as scheduled maintenance. The
+  tasks that run may be different depending on the maintenance type.
+<p class="Pp">The maintenance strategy can be further tweaked by setting
+    <b>maintenance.</b><i>&lt;task&gt;</i><b>.enabled</b> and
+    <b>maintenance.</b><i>&lt;task&gt;</i><b>.schedule</b>. If set, these values
+    are used instead of the defaults provided by
+  <b>maintenance.strategy</b>.</p>
+<p class="Pp">The possible strategies are:</p>
 <p class="Pp"></p>
-<div class="Bd-indent">&#x2022;<b>none</b>: This default setting implies no
-  tasks are run at any schedule.</div>
+<div class="Bd-indent">&#x2022;<b>none</b>: This strategy implies no tasks are
+  run at all. This is the default strategy for scheduled maintenance.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>gc</b>: This strategy runs the <b>gc</b>
+  task.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>geometric</b>: This strategy performs
+  geometric repacking of packfiles and keeps auxiliary data structures
+  up-to-date. The strategy expires data in the reflog and removes worktrees that
+  cannot be located anymore. When the geometric repacking strategy would decide
+  to do an all-into-one repack, then the strategy generates a cruft pack for all
+  unreachable objects. Objects that are already part of a cruft pack will be
+  expired.
+<p class="Pp">This repacking strategy is a full replacement for the <b>gc</b>
+    strategy and is recommended for large repositories. This is the default
+    strategy for manual maintenance.</p>
+</div>
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;<b>incremental</b>: This setting optimizes for
   performing small maintenance activities that do not delete any data. This does
   not schedule the <b>gc</b> task, but runs the <b>prefetch</b> and
   <b>commit-graph</b> tasks hourly, the <b>loose-objects</b> and
-  <b>incremental-repack</b> tasks daily, and the <b>pack-refs</b> task
-  weekly.</div>
+  <b>incremental-repack</b> tasks daily, and the <b>pack-refs</b> task weekly.
+  Manual repository maintenance uses the <b>gc</b> task.</div>
 </div>
 <p class="Pp">maintenance.&lt;task&gt;.enabled</p>
 <div class="Bd-indent">This boolean config option controls whether the
@@ -522,6 +553,20 @@ org.git-scm.git.weekly.plist</pre>
   value implies the command should run when the number of pack-files not in the
   multi-pack-index is at least the value of
   <b>maintenance.incremental-repack.auto</b>. The default value is 10.</div>
+<p class="Pp">maintenance.geometric-repack.auto</p>
+<div class="Bd-indent">This integer config option controls how often the
+  <b>geometric-repack</b> task should be run as part of <b>git</b>
+  <b>maintenance</b> <b>run</b> <b>--auto</b>. If zero, then the
+  <b>geometric-repack</b> task will not run with the <b>--auto</b> option. A
+  negative value will force the task to run every time. Otherwise, a positive
+  value implies the command should run either when there are packfiles that need
+  to be merged together to retain the geometric progression, or when there are
+  at least this many loose objects that would be written into a new packfile.
+  The default value is 100.</div>
+<p class="Pp">maintenance.geometric-repack.splitFactor</p>
+<div class="Bd-indent">This integer config option controls the factor used for
+  the geometric sequence. See the <b>--geometric=</b> option in
+  <b>git-repack</b>(1) for more details. Defaults to <b>2</b>.</div>
 <p class="Pp">maintenance.reflog-expire.auto</p>
 <div class="Bd-indent">This integer config option controls how often the
   <b>reflog-expire</b> task should be run as part of <b>git</b>

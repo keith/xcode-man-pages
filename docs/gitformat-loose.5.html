@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<!-- This is an automatically generated file.  Do not edit.
+   t
+       Title: gitformat-loose
+      Author: [FIXME: author] [see http://www.docbook.org/tdg5/en/html/author]
+   Generator: DocBook XSL Stylesheets v1.79.2 <http://docbook.sf.net/>
+        Date: 2026-04-19
+      Manual: Git Manual
+      Source: Git 2.54.0
+    Language: English
+   -->
+<head>
+
+<style>
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #000;
+    color: #d0d0d0;
+  }
+
+  a, a:visited {
+    color: #1899eb;
+  }
+}
+</style>
+
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    .Nd, .Bf, .Op { display: inline; }
+    .Pa, .Ad { font-style: italic; }
+    .Ms { font-weight: bold; }
+    .Bl-diag > dt { font-weight: bold; }
+    code.Nm, .Fl, .Cm, .Ic, code.In, .Fd, .Fn, .Cd { font-weight: bold;
+      font-family: inherit; }
+  </style>
+  <title>GITFORMAT-LOOSE(5)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">GITFORMAT-LOOSE(5)</td>
+    <td class="head-vol">Git Manual</td>
+    <td class="head-rtitle">GITFORMAT-LOOSE(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">gitformat-loose - Git loose object format</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>$GIT_DIR/objects/[0-9a-f][0-9a-f]/*
+$GIT_DIR/objects/object-map/map-*.map</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Loose objects are how Git stores individual objects, where every
+    object is written as a separate file.</p>
+<p class="Pp">Over the lifetime of a repository, objects are usually written as
+    loose objects initially. Eventually, these loose objects will be compacted
+    into packfiles via repository maintenance to improve disk space usage and
+    speed up the lookup of these objects.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LOOSE_OBJECTS"><a class="permalink" href="#LOOSE_OBJECTS">LOOSE
+  OBJECTS</a></h1>
+<p class="Pp">Each loose object contains a prefix, followed immediately by the
+    data of the object. The prefix contains <i>&lt;type&gt;</i>
+    <i>&lt;size&gt;</i><b>\0</b>. <i>&lt;type&gt;</i> is one of <b>blob</b>,
+    <b>tree</b>, <b>commit</b>, or <b>tag</b> and <b>size</b> is the size of the
+    data (without the prefix) as a decimal integer expressed in ASCII.</p>
+<p class="Pp">The entire contents, prefix and data concatenated, is then
+    compressed with zlib and the compressed data is stored in the file. The
+    object ID of the object is the SHA-1 or SHA-256 (as appropriate) hash of the
+    uncompressed data.</p>
+<p class="Pp">The file for the loose object is stored under the <b>objects</b>
+    directory, with the first two hex characters of the object ID being the
+    directory and the remaining characters being the file name. This is done to
+    shard the data and avoid too many files being in one directory, since some
+    file systems perform poorly with many items in a directory.</p>
+<p class="Pp">As an example, the empty tree contains the data (when
+    uncompressed) <b>tree</b> <b>0\0</b> and, in a SHA-256 repository, would
+    have the object ID
+    <b>6ef19b41225c5369f1c104d45d8d85efa9b057b53b14b4b9b939dd74decc5321</b> and
+    would be stored under
+    <b>$GIT_DIR/objects/6e/f19b41225c5369f1c104d45d8d85efa9b057b53b14b4b9b939dd74decc5321</b>.</p>
+<p class="Pp">Similarly, a blob containing the contents <b>abc</b> would have
+    the uncompressed data of <b>blob</b> <b>3\0abc</b>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LOOSE_OBJECT_MAPPING"><a class="permalink" href="#LOOSE_OBJECT_MAPPING">LOOSE
+  OBJECT MAPPING</a></h1>
+<p class="Pp">When the <b>compatObjectFormat</b> option is used, Git needs to
+    store a mapping between the repository&#x2019;s main algorithm and the
+    compatibility algorithm for loose objects as well as some auxiliary
+    information.</p>
+<p class="Pp">The mapping consists of a set of files under
+    <b>$GIT_DIR/objects/object-map</b> ending in .<b>map</b>. The portion of the
+    filename before the extension is that of the main hash checksum (that is,
+    the one specified in <b>extensions.objectformat</b>) in hex format.</p>
+<p class="Pp"><b>git</b> <b>gc</b> will repack existing entries into one file,
+    removing any unnecessary objects, such as obsolete shallow entries or loose
+    objects that have been packed.</p>
+<p class="Pp">The file format is as follows. All values are in network byte
+    order and all 4-byte and 8-byte values must be 4-byte aligned in the file,
+    so the NUL padding may be required in some cases. Git always uses the
+    smallest number of NUL bytes (including zero) that is required for the
+    padding in order to make writing files deterministic.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;A header appears at the beginning and consists of
+  the following:
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;A 4-byte mapping signature: <b>LMAP</b></div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;4-byte version number: 1</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;4-byte length of the header section (including
+  reserved entries but excluding any NUL padding).</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;4-byte number of objects declared in this map
+  file.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;4-byte number of object formats declared in this
+  map file.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;For each object format:
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;4-byte format identifier (e.g., <b>sha1</b> for
+  SHA-1)</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;4-byte length in bytes of shortened object names
+  (that is, prefixes of the full object names). This is the shortest possible
+  length needed to make names in the shortened object name table
+  unambiguous.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;8-byte integer, recording where tables relating
+  to this format are stored in this index file, as an offset from the
+  beginning.</div>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;8-byte offset to the trailer from the beginning
+  of this file.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;The remainder of the header section is reserved
+  for future use. Readers must ignore unrecognized data here.</div>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Zero or more NUL bytes. These are used to improve
+  the alignment of the 4-byte quantities below.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Tables for the first object format:
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;A sorted table of shortened object names. These
+  are prefixes of the names of all objects in this file, packed together to
+  reduce the cache footprint of the binary search for a specific object
+  name.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;A sorted table of full object names.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;A table of 4-byte metadata values.</div>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Zero or more NUL bytes.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Tables for subsequent object formats:
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;A sorted table of shortened object names. These
+  are prefixes of the names of all objects in this file, packed together without
+  offset values to reduce the cache footprint of the binary search for a
+  specific object name.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;A table of full object names in the order
+  specified by the first object format.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;A table of 4-byte values mapping object name
+  order to the order of the first object format. For an object in the table of
+  sorted shortened object names, the value at the corresponding index in this
+  table is the index in the previous table for that same object.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Zero or more NUL bytes.</div>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;The trailer consists of the following:
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Hash checksum of all of the above using the main
+  hash.</div>
+</div>
+<p class="Pp">The lower six bits of each metadata table contain a type field
+    indicating the reason that this object is stored:</p>
+<p class="Pp">0</p>
+<div class="Bd-indent">Reserved.</div>
+<p class="Pp">1</p>
+<div class="Bd-indent">This object is stored as a loose object in the
+  repository.</div>
+<p class="Pp">2</p>
+<div class="Bd-indent">This object is a shallow entry. The mapping refers to a
+  shallow value returned by a remote server.</div>
+<p class="Pp">3</p>
+<div class="Bd-indent">This object is a submodule entry. The mapping refers to
+  the commit stored representing a submodule.</div>
+<p class="Pp">Other data may be stored in this field in the future. Bits that
+    are not used must be zero.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="GIT"><a class="permalink" href="#GIT">GIT</a></h1>
+<p class="Pp">Part of the <b>git</b>(1) suite</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2026-04-19</td>
+    <td class="foot-os">Git 2.54.0</td>
+  </tr>
+</table>
+</body>
+</html>

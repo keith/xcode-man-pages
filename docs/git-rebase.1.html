@@ -65,53 +65,12 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
-<p class="Pp">If <i>&lt;branch&gt;</i> is specified, <b>git</b> <b>rebase</b>
-    will perform an automatic <b>git</b> <b>switch</b> <i>&lt;branch&gt;</i>
-    before doing anything else. Otherwise it remains on the current branch.</p>
-<p class="Pp">If <i>&lt;upstream&gt;</i> is not specified, the upstream
-    configured in <b>branch.</b><i>&lt;name&gt;</i><b>.remote</b> and
-    <b>branch.</b><i>&lt;name&gt;</i><b>.merge</b> options will be used (see
-    <b>git-config</b>(1) for details) and the <b>--fork-point</b> option is
-    assumed. If you are currently not on any branch or if the current branch
-    does not have a configured upstream, the rebase will abort.</p>
-<p class="Pp">All changes made by commits in the current branch but that are not
-    in <i>&lt;upstream&gt;</i> are saved to a temporary area. This is the same
-    set of commits that would be shown by <b>git</b> <b>log</b>
-    <i>&lt;upstream&gt;</i><b>..</b><b>HEAD</b>; or by <b>git</b> <b>log</b>
-    'fork_point'<b>..</b><b>HEAD</b>, if <b>--fork-point</b> is active (see the
-    description on <b>--fork-point</b> below); or by <b>git</b> <b>log</b>
-    <b>HEAD</b>, if the <b>--root</b> option is specified.</p>
-<p class="Pp">The current branch is reset to <i>&lt;upstream&gt;</i> or
-    <i>&lt;newbase&gt;</i> if the <b>--onto</b> option was supplied. This has
-    the exact same effect as <b>git</b> <b>reset</b> <b>--hard</b>
-    <i>&lt;upstream&gt;</i> (or <i>&lt;newbase&gt;</i>). <b>ORIG_HEAD</b> is set
-    to point at the tip of the branch before the reset.</p>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<br/>
-<b>Note</b>
-<p class="Pp"><b>ORIG_HEAD</b> is not guaranteed to still point to the previous
-    branch tip at the end of the rebase if other commands that write that
-    pseudo-ref (e.g. <b>git</b> <b>reset</b>) are used during the rebase. The
-    previous branch tip, however, is accessible using the reflog of the current
-    branch (i.e. <b>@</b>{1}, see <b>gitrevisions</b>(7)).</p>
-<p class="Pp"></p>
-</div>
-<p class="Pp">The commits that were previously saved into the temporary area are
-    then reapplied to the current branch, one by one, in order. Note that any
-    commits in <b>HEAD</b> which introduce the same textual changes as a commit
-    in <b>HEAD</b><b>..</b><i>&lt;upstream&gt;</i> are omitted (i.e., a patch
-    already accepted upstream with a different commit message or timestamp will
-    be skipped).</p>
-<p class="Pp">It is possible that a merge failure will prevent this process from
-    being completely automatic. You will have to resolve any such merge failure
-    and run <b>git</b> <b>rebase</b> <b>--continue</b>. Another option is to
-    bypass the commit that caused the merge failure with <b>git</b>
-    <b>rebase</b> <b>--skip</b>. To check out the original <i>&lt;branch&gt;</i>
-    and remove the .<b>git/rebase-apply</b> working files, use the command
-    <b>git</b> <b>rebase</b> <b>--abort</b> instead.</p>
-<p class="Pp">Assume the following history exists and the current branch is
-    &quot;topic&quot;:</p>
+<p class="Pp">Transplant a series of commits onto a different starting point.
+    You can also use <b>git</b> <b>rebase</b> to reorder or combine commits: see
+    INTERACTIVE MODE below for how to do that.</p>
+<p class="Pp">For example, imagine that you have been working on the
+    <b>topic</b> branch in this history, and you want to &quot;catch up&quot; to
+    the work done on the <b>master</b> branch.</p>
 <p class="Pp"></p>
 <div class="Bd-indent">
 <pre>
@@ -122,14 +81,13 @@
 <br/>
     D---E---F---G master</pre>
 </div>
-<p class="Pp">From this point, the result of either of the following
-  commands:</p>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre>git rebase master
-git rebase master topic</pre>
-</div>
-<p class="Pp">would be:</p>
+<p class="Pp">You want to transplant the commits you made on <b>topic</b> since
+    it diverged from <b>master</b> (i.e. A, B, and C), on top of the current
+    <b>master</b>. You can do this by running <b>git</b> <b>rebase</b>
+    <b>master</b> while the <b>topic</b> branch is checked out. If you want to
+    rebase <b>topic</b> while on another branch, <b>git</b> <b>rebase</b>
+    <b>master</b> <b>topic</b> is a shortcut for <b>git</b> <b>checkout</b>
+    <b>topic</b> &amp;&amp; <b>git</b> <b>rebase</b> <b>master</b>.</p>
 <p class="Pp"></p>
 <div class="Bd-indent">
 <pre>
@@ -140,38 +98,77 @@ git rebase master topic</pre>
 <br/>
     D---E---F---G master</pre>
 </div>
-<p class="Pp"><b>NOTE:</b> The latter form is just a short-hand of <b>git</b>
-    <b>checkout</b> <b>topic</b> followed by <b>git</b> <b>rebase</b>
-    <b>master</b>. When rebase exits <b>topic</b> will remain the checked-out
-    branch.</p>
-<p class="Pp">If the upstream branch already contains a change you have made
-    (e.g., because you mailed a patch which was applied upstream), then that
-    commit will be skipped and warnings will be issued (if the <i>merge</i>
-    backend is used). For example, running <b>git</b> <b>rebase</b>
-    <b>master</b> on the following history (in which <b>A</b>' and <b>A</b>
-    introduce the same set of changes, but have different committer
-    information):</p>
+<p class="Pp">If there is a merge conflict during this process, <b>git</b>
+    <b>rebase</b> will stop at the first problematic commit and leave conflict
+    markers. If this happens, you can do one of these things:</p>
+<p class="Pp"></p>
+<div class="Bd-indent"> 1.Resolve the conflict. You can use <b>git</b>
+  <b>diff</b> to find the markers (&lt;&lt;&lt;&lt;&lt;&lt;) and make edits to
+  resolve the conflict. For each file you edit, you need to tell Git that the
+  conflict has been resolved. You can mark the conflict as resolved with
+  <b>git</b> <b>add</b> <i>&lt;filename&gt;</i>. After resolving all of the
+  conflicts, you can continue the rebasing process with
 <p class="Pp"></p>
 <div class="Bd-indent">
-<pre>
-<br/>
-          A---B---C topic
-<br/>
-         /
-<br/>
-    D---E---A'---F master</pre>
+<pre>git rebase --continue</pre>
 </div>
-<p class="Pp">will result in:</p>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 2.Stop the <b>git</b> <b>rebase</b> and return your
+  branch to its original state with
 <p class="Pp"></p>
 <div class="Bd-indent">
-<pre>
-<br/>
-                   B'---C' topic
-<br/>
-                  /
-<br/>
-    D---E---A'---F master</pre>
+<pre>git rebase --abort</pre>
 </div>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 3.Skip the commit that caused the merge conflict with
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>git rebase --skip</pre>
+</div>
+</div>
+<p class="Pp">If you don&#x2019;t specify an <i>&lt;upstream&gt;</i> to rebase
+    onto, the upstream configured in
+    <b>branch.</b><i>&lt;name&gt;</i><b>.remote</b> and
+    <b>branch.</b><i>&lt;name&gt;</i><b>.merge</b> options will be used (see
+    <b>git-config</b>(1) for details) and the <b>--fork-point</b> option is
+    assumed. If you are currently not on any branch or if the current branch
+    does not have a configured upstream, the rebase will abort.</p>
+<p class="Pp">Here is a simplified description of what <b>git</b> <b>rebase</b>
+    <i>&lt;upstream&gt;</i> does:</p>
+<p class="Pp"></p>
+<div class="Bd-indent"> 1.Make a list of all commits on your current branch
+  since it branched off from <i>&lt;upstream&gt;</i> that do not have an
+  equivalent commit in <i>&lt;upstream&gt;</i>.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 2.Check out <i>&lt;upstream&gt;</i> with the equivalent
+  of <b>git</b> <b>checkout</b> <b>--detach</b> <i>&lt;upstream&gt;</i>.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 3.Replay the commits, one by one, in order. This is
+  similar to running <b>git</b> <b>cherry-pick</b> <i>&lt;commit&gt;</i> for
+  each commit. See REBASING MERGES for how merges are handled.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 4.Update your branch to point to the final commit with
+  the equivalent of <b>git</b> <b>checkout</b> <b>-B</b>
+  <i>&lt;branch&gt;</i>.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp">When starting the rebase, <b>ORIG_HEAD</b> is set to point to the
+    commit at the tip of the to-be-rebased branch. However, <b>ORIG_HEAD</b> is
+    not guaranteed to still point to that commit at the end of the rebase if
+    other commands that change <b>ORIG_HEAD</b> (like <b>git</b> <b>reset</b>)
+    are used during the rebase. The previous branch tip, however, is accessible
+    using the reflog of the current branch (i.e. <b>@</b>{1}, see
+    <b>gitrevisions</b>(7)).</p>
+<p class="Pp"></p>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TRANSPLANTING_A_TOPIC_BRANCH_WITH_"><a class="permalink" href="#TRANSPLANTING_A_TOPIC_BRANCH_WITH_">TRANSPLANTING
+  A TOPIC BRANCH WITH --ONTO</a></h1>
 <p class="Pp">Here is how you would transplant a topic branch based on one
     branch to another, to pretend that you forked the topic branch from the
     latter branch, using <b>rebase</b> <b>--onto</b>.</p>
@@ -275,27 +272,6 @@ git rebase master topic</pre>
 <p class="Pp">This is useful if F and G were flawed in some way, or should not
     be part of topicA. Note that the argument to <b>--onto</b> and the
     <i>&lt;upstream&gt;</i> parameter can be any valid commit-ish.</p>
-<p class="Pp">In case of conflict, <b>git</b> <b>rebase</b> will stop at the
-    first problematic commit and leave conflict markers in the tree. You can use
-    <b>git</b> <b>diff</b> to locate the markers (&lt;&lt;&lt;&lt;&lt;&lt;) and
-    make edits to resolve the conflict. For each file you edit, you need to tell
-    Git that the conflict has been resolved, typically this would be done
-  with</p>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre>git add &lt;filename&gt;</pre>
-</div>
-<p class="Pp">After resolving the conflict manually and updating the index with
-    the desired resolution, you can continue the rebasing process with</p>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre>git rebase --continue</pre>
-</div>
-<p class="Pp">Alternatively, you can undo the <i>git rebase</i> with</p>
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre>git rebase --abort</pre>
-</div>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="MODE_OPTIONS"><a class="permalink" href="#MODE_OPTIONS">MODE
@@ -337,6 +313,8 @@ git rebase master topic</pre>
     the merge base of A and B if there is exactly one merge base. You can leave
     out at most one of A and B, in which case it defaults to HEAD.</p>
 </div>
+<p class="Pp">See TRANSPLANTING A TOPIC BRANCH WITH --ONTO above for
+  examples.</p>
 <p class="Pp">--keep-base</p>
 <div class="Bd-indent">Set the starting point at which to create the new commits
   to the merge base of <i>&lt;upstream&gt;</i> and <i>&lt;branch&gt;</i>.
@@ -464,9 +442,9 @@ git rebase master topic</pre>
 <div class="Bd-indent">After the rerere mechanism reuses a recorded resolution
   on the current conflict to update the files in the working tree, allow it to
   also update the index with the result of resolution.
-  <b>--no-rerere-autoupdate</b> is a good way to double-check what <b>rerere</b>
-  did and catch potential mismerges, before committing the result to the index
-  with a separate <b>git</b> <b>add</b>.</div>
+  <b>--no-rerere-autoupdate</b> is a good way to double-check what
+  <b>git-rerere</b>(1) did and catch potential mismerges, before committing the
+  result to the index with a separate <b>git-add</b>(1).</div>
 <p class="Pp">-S[&lt;keyid&gt;], --gpg-sign[=&lt;keyid&gt;], --no-gpg-sign</p>
 <div class="Bd-indent">GPG-sign commits. The <b>keyid</b> argument is optional
   and defaults to the committer identity; if specified, it must be stuck to the
@@ -552,7 +530,20 @@ git rebase master topic</pre>
 <p class="Pp">--committer-date-is-author-date</p>
 <div class="Bd-indent">Instead of using the current time as the committer date,
   use the author date of the commit being rebased as the committer date. This
-  option implies <b>--force-rebase</b>.</div>
+  option implies <b>--force-rebase</b>.
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Warning</b>
+<br/>
+The history walking machinery assumes that commits have non-decreasing commit
+  timestamps. You should consider if you really need to use this option. Then
+  you should only use this option to override the committer date when rebasing
+  commits on top of a base which commit is older (in terms of the commit date)
+  than the oldest commit you are applying (in terms of the author date).
+<p class="Pp"></p>
+</div>
+</div>
 <p class="Pp">--ignore-date, --reset-author-date</p>
 <div class="Bd-indent">Instead of using the author date of the original commit,
   use the current time as the author date of the rebased commit. This option
@@ -563,6 +554,12 @@ git rebase master topic</pre>
 <div class="Bd-indent">Add a <b>Signed-off-by</b> trailer to all the rebased
   commits. Note that if <b>--interactive</b> is given then only commits marked
   to be picked, edited or reworded will have the trailer added.
+<p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
+</div>
+<p class="Pp">--trailer=&lt;trailer&gt;</p>
+<div class="Bd-indent">Append the given trailer to every rebased commit message,
+  processed via <b>git-interpret-trailers</b>(1). This option implies
+  <b>--force-rebase</b>.
 <p class="Pp">See also INCOMPATIBLE OPTIONS below.</p>
 </div>
 <p class="Pp">-i, --interactive</p>
@@ -719,6 +716,8 @@ git rebase master topic</pre>
 <div class="Bd-indent">&#x2022;--update-refs</div>
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;--root when used without --onto</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;--trailer</div>
 <p class="Pp">In addition, the following pairs of options are incompatible:</p>
 <p class="Pp"></p>
 <div class="Bd-indent">&#x2022;--keep-base and --onto</div>

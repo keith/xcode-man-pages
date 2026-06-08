@@ -129,13 +129,17 @@
       <li>Same access mode (read, write or read/write).</li>
       <li>Same file status flags (i.e., both file descriptors share the same
           file status flags).</li>
-      <li>The close-on-exec flag associated with the new file descriptor is
-          cleared so that the descriptor remains open across an
-          <a class="Xr">execv(2)</a> system call.</li>
+      <li>The close-on-exec and close-on-fork flags associated with the new file
+          descriptor are cleared so that the descriptor remains open across an
+          <a class="Xr">fork(2)</a> or <a class="Xr">execv(2)</a> system
+        call.</li>
     </ul>
   </dd>
   <dt id="F_DUPFD_CLOEXEC"><a class="permalink" href="#F_DUPFD_CLOEXEC"><code class="Dv">F_DUPFD_CLOEXEC</code></a></dt>
   <dd>Like <code class="Dv">F_DUPFD</code>, except that the close-on-exec flag
+      associated with the new file descriptor is set.</dd>
+  <dt id="F_DUPFD_CLOFORK"><a class="permalink" href="#F_DUPFD_CLOFORK"><code class="Dv">F_DUPFD_CLOFORK</code></a></dt>
+  <dd>Like <code class="Dv">F_DUPFD</code>, except that the close-on-fork flag
       associated with the new file descriptor is set.</dd>
   <dt id="F_GETFD"><a class="permalink" href="#F_GETFD"><code class="Dv">F_GETFD</code></a></dt>
   <dd>Get the flags associated with the file descriptor
@@ -184,6 +188,8 @@
       in the same manner as <a class="Xr">truncate(2)</a>.</dd>
   <dt id="F_RDADVISE"><a class="permalink" href="#F_RDADVISE"><code class="Dv">F_RDADVISE</code></a></dt>
   <dd>Issue an advisory read async with no copy to user.</dd>
+  <dt id="F_RDADVISEV"><a class="permalink" href="#F_RDADVISEV"><code class="Dv">F_RDADVISEV</code></a></dt>
+  <dd>Issue multiple advisory reads async with no copy to user.</dd>
   <dt id="F_RDAHEAD"><a class="permalink" href="#F_RDAHEAD"><code class="Dv">F_RDAHEAD</code></a></dt>
   <dd>Turn read ahead off/on. A zero value in <var class="Fa">arg</var> disables
       read ahead. A non-zero value in <var class="Fa">arg</var> turns read ahead
@@ -253,6 +259,10 @@
   <dd>Close-on-exec; the given file descriptor will be automatically closed in
       the successor process image when one of the <a class="Xr">execv(2)</a> or
       <a class="Xr">posix_spawn(2)</a> family of system calls is invoked.</dd>
+  <dt id="FD_CLOFORK"><a class="permalink" href="#FD_CLOFORK"><code class="Dv">FD_CLOFORK</code></a></dt>
+  <dd>Close-on-fork; the given file descriptor will be automatically closed in
+      any child process created from a process that has the descriptor
+    open.</dd>
 </dl>
 </div>
 <p class="Pp">The flags for the <code class="Dv">F_GETFL</code> and
@@ -506,6 +516,16 @@
            int     ra_count;   /* size of the read     */
         };</pre>
 </div>
+<p class="Pp">The <code class="Dv">F_RDADVISEV</code> command operates on the
+    following structure which holds information passed from the user to the
+    system:</p>
+<div class="Bd Pp Li">
+<pre>        struct radvisoryv {
+           unsigned int rav_flags;         /* flags word */
+           unsigned int rav_count;         /* number of ranges to read */
+           struct radvisory *rav_ranges;   /* array of ranges to read */
+        };</pre>
+</div>
 <p class="Pp">The <code class="Dv">F_LOG2PHYS</code> command operates on the
     following structure:</p>
 <div class="Bd Pp Li">
@@ -592,6 +612,10 @@
         <code class="Dv">F_PREALLOCATE</code> and the calling process does not
         have file write permission.</p>
     <p class="Pp">The argument <var class="Fa">cmd</var> is
+        <code class="Dv">F_RDADVISE</code> or
+        <code class="Dv">F_RDADVISEV</code> and <var class="Fa">fildes</var>
+        does not correspond to a valid regular file.</p>
+    <p class="Pp">The argument <var class="Fa">cmd</var> is
         <code class="Dv">F_LOG2PHYS</code> or
         <code class="Dv">F_LOG2PHYS_EXT</code> and <var class="Fa">fildes</var>
         is not a valid file descriptor open for reading.</p>
@@ -599,6 +623,10 @@
         <code class="Dv">F_TRANSFEREXTENTS</code> and either file descriptor
         does not correspond to a valid regular file, or either file is not open
         for writing.</p>
+    <p class="Pp">The argument <var class="Fa">cmd</var> is
+        <code class="Dv">F_GETPATH</code> or
+        <code class="Dv">F_GETPATH_NOFIRMLINK</code> and the file descriptor
+        refers to a vnode that has been revoked.</p>
   </dd>
   <dt id="EDEADLK">[<a class="permalink" href="#EDEADLK"><code class="Er">EDEADLK</code></a>]</dt>
   <dd>The argument <var class="Fa">cmd</var> is
@@ -609,7 +637,15 @@
       <code class="Dv">F_PREALLOCATE</code>,
       <code class="Dv">F_PEOFPOSMODE</code> is set and preallocating
       <var class="Fa">fst_length</var> bytes on <var class="Fa">fildes</var>
-      would exceed the maximum file size.</dd>
+      would exceed the maximum file size.
+    <p class="Pp">The argument <var class="Fa">cmd</var> is
+        <code class="Dv">F_RDADVISE</code> and <var class="Fa">ra_offset</var>
+        exceeds the size of the file.</p>
+    <p class="Pp">The argument <var class="Fa">cmd</var> is
+        <code class="Dv">F_RDADVISEV</code> and the
+        <var class="Fa">ra_offset</var> of any of the supplied ranges exceeds
+        the size of the file.</p>
+  </dd>
   <dt id="EINTR">[<a class="permalink" href="#EINTR"><code class="Er">EINTR</code></a>]</dt>
   <dd>The argument <var class="Fa">cmd</var> is <code class="Dv">F_SETLKW</code>
       or <code class="Dv">F_OFD_SETLKW</code>, and the function was interrupted
@@ -640,6 +676,14 @@
         <var class="Fa">fp_length</var> are not multiples of the file system
         block size, or when either <var class="Fa">fp_flags</var> or
         <var class="Fa">reserved</var> is non-zero value.</p>
+    <p class="Pp">The argument <var class="Fa">cmd</var> is
+        <code class="Dv">F_RDADVISE</code> and <var class="Fa">ra_offset</var>
+        or <var class="Fa">ra_count</var> is negative.</p>
+    <p class="Pp">The argument <var class="Fa">cmd</var> is
+        <code class="Dv">F_RDADVISEV</code> and <var class="Fa">rav_count</var>
+        is equal to 0 or greater than 64, or when the
+        <var class="Fa">ra_offset</var> or <var class="Fa">ra_count</var> of any
+        of the supplied ranges is negative.</p>
     <p class="Pp">The argument <var class="Fa">cmd</var> is
         <code class="Dv">F_TRANSFEREXTENTS</code> and the additional file
         descriptor is negative or both file descriptors reference the same

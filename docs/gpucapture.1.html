@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<style>
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #000;
+    color: #d0d0d0;
+  }
+
+  a, a:visited {
+    color: #1899eb;
+  }
+}
+</style>
+
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    table.head, table.foot { width: 100%; }
+    td.head-rtitle, td.foot-os { text-align: right; }
+    td.head-vol { text-align: center; }
+    .Nd, .Bf, .Op { display: inline; }
+    .Pa, .Ad { font-style: italic; }
+    .Ms { font-weight: bold; }
+    .Bl-diag > dt { font-weight: bold; }
+    code.Nm, .Fl, .Cm, .Ic, code.In, .Fd, .Fn, .Cd { font-weight: bold;
+      font-family: inherit; }
+  </style>
+  <title>gpucapture(1)</title>
+</head>
+<body>
+<table class="head">
+  <tr>
+    <td class="head-ltitle">gpucapture(1)</td>
+    <td class="head-vol">General Commands Manual</td>
+    <td class="head-rtitle">gpucapture(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><b>gpucapture</b> - CLI tool to produce GPU trace captures</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<br/>
+<p class="Pp"> gpucapture [--help] [--version] [--list-devices]
+  <br/>
+   gpucapture boundary [--pid &lt;PID&gt;] [--device &lt;ID&gt;] [--help]
+  <br/>
+   gpucapture start [--pid &lt;PID&gt;] [--boundary &lt;BOUNDARY_ID&gt;]
+    [--label &lt;BOUNDARY_LABEL&gt;]
+  <br/>
+   [--count &lt;BOUNDARY_COUNT&gt;] [--output &lt;FILEPATH&gt;] [--device
+    &lt;ID&gt;] [--until-exit] [--help]
+  <br/>
+   gpucapture stop [--pid &lt;PID&gt;] [--device &lt;ID&gt;] [--all] [--help]
+  <br/>
+   gpucapture list [--help]</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>gpucapture</b> is a command line tool for creating GPU Trace
+    files for any App, process or service that can connect to GPU Tools
+    agent/daemon <b>gputoolsserviced</b>. A GPU Trace file contains <b>Metal
+    </b>(<i>https://developer.apple.com/metal/</i>) API calls (or other APIs
+    such as <b>MetalFX
+    </b>(<i>https://developer.apple.com/documentation/metalfx</i>)) as well as
+    the necessary data to reconstruct any GPU workloads for further analysis via
+    <b>Metal Debugger
+    </b>(<i>https://developer.apple.com/documentation/xcode/metal-debugger</i>).</p>
+<p class="Pp">In order to establish a connection the user is responsible to
+    launch their target process with <b>MTL_CAPTURE_ENABLED=1</b> environment
+    variable within. This environment variable is responsible for loading
+    <b>GPUToolsCapture.framework</b> into the process and will attempt to
+    connect to <b>gputoolsserviced</b> if a <b>MTLDevice
+    </b>(<i>https://developer.apple.com/documentation/metal/mtldevice</i>) is
+    ever created within the process.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMMANDS"><a class="permalink" href="#COMMANDS">COMMANDS</a></h1>
+<p class="Pp"><b>list</b></p>
+<div class="Bd-indent">
+<p class="Pp">List all capturable processes. When Xcode 15 or higher is running
+    on the system, it will also display capturable processes of any remote
+    device visible to Xcode.</p>
+</div>
+<p class="Pp"><b>boundary</b></p>
+<div class="Bd-indent">
+<p class="Pp">List all capturable boundaries for a given <i>PID</i>. A boundary
+    is an API call that is used by <b>gpucapture</b> as a trigger to begin/end a
+    GPU Trace. Available boundary types:</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>Device</b> - begins as soon as the next <b>MTLCommandBuffer
+      </b>(<i>https://developer.apple.com/documentation/metal/mtlcommandbuffer</i>)
+      creation is traced. It ends once the created command buffer is
+    scheduled.</dd>
+  <dt>&#x2022;</dt>
+  <dd><b>Queue</b> - begins as soon as the next <b>MTLCommandBuffer
+      </b>(<i>https://developer.apple.com/documentation/metal/mtlcommandbuffer</i>)
+      creation is traced on the target <b>MTLCommandQueue
+      </b>(<i>https://developer.apple.com/documentation/metal/mtlcommandqueue</i>).
+      It ends once the created command buffer is scheduled.</dd>
+  <dt>&#x2022;</dt>
+  <dd><b>Layer</b> - begins when we hit the next <b>[CAMetalDrawable present]
+      </b>(<i>https://developer.apple.com/documentation/metal/mtldrawable</i>)
+      (or derivative present APIs) on the target <b>CAMetalLayer
+      </b>(<i>https://developer.apple.com/documentation/quartzcore/cametallayer</i>).
+      It ends on the next present call in the target layer.</dd>
+  <dt>&#x2022;</dt>
+  <dd><b>Scope</b> - begins as soon as we trace <b>[MTLCaptureScope beginScope]
+      </b>(<i>https://developer.apple.com/documentation/metal/mtlcapturescope/2869571-beginscope</i>).
+      It ends once we hit <b>[MTLCaptureScope endScope]
+      </b>(<i>https://developer.apple.com/documentation/metal/mtlcapturescope/2869574-endscope</i>)
+      on the same scope.</dd>
+</dl>
+</div>
+<p class="Pp"><b>start</b></p>
+<div class="Bd-indent">
+<p class="Pp">Begins a GPU trace capture. If no arguments are provided this
+    command will try a default behavior equivalent to <b>gpucapture start
+    --boundary DEFAULT_BOUNDARY_ID --count 1</b>.</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>if there are more than 1 capturable processes, it will require <b>--pid
+      PID</b> and/or <b>--device ID</b> for disambiguation.</dd>
+  <dt>&#x2022;</dt>
+  <dd><i>DEFAULT_BOUNDARY_ID</i> value will depend on the available boundaries
+      in the target process. If there is a valid <b>CAMetalLayer
+      </b>(<i>https://developer.apple.com/documentation/quartzcore/cametallayer</i>)
+      it will attempt a <b>Layer</b> boundary capture unless there are multiple
+      available layers. If multiple layers are available it will fail and ask
+      for boundary disambiguation. If no layer is available,
+      <i>DEFAULT_BOUNDARY_ID</i> will do a <b>Device</b> boundary capture.</dd>
+  <dt>&#x2022;</dt>
+  <dd>a gpucapture will end and produce a GPU Trace if either the
+      <i>BOUNDARY_COUNT</i> is reached, there is a <b>gpucapture stop</b> or if
+      the process exits.</dd>
+</dl>
+<p class="Pp">Produced GPU Trace is always stored in the local device
+    filesystem.</p>
+</div>
+<p class="Pp"><b>stop</b></p>
+<div class="Bd-indent">
+<p class="Pp">Ends a GPU trace capture. Options are used to help decide the
+    scope for applying the stop command.</p>
+<p class="Pp">Any <b>gpucapture</b> in progress can also be stopped at any point
+    in time via <b>Ctrl+C</b></p>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp"><b>-h, --help</b></p>
+<div class="Bd-indent">
+<p class="Pp">Show contextual help</p>
+</div>
+<p class="Pp"><b>-p, --pid &lt;PID&gt;</b></p>
+<div class="Bd-indent">
+<p class="Pp">Capturable process <i>PID</i> for command to execute, if there are
+    multiple <i>PID</i> available <b>--device ID</b> is required for
+    disambiguation</p>
+</div>
+<p class="Pp"><b>-d, --device &lt;ID&gt;</b></p>
+<div class="Bd-indent">
+<p class="Pp">Target device <i>ID</i> for command to execute at.</p>
+</div>
+<p class="Pp"><b>-b, --boundary &lt;BOUNDARY_ID&gt;</b></p>
+<div class="Bd-indent">
+<p class="Pp"><i>BOUNDARY_ID</i> is the identifier of the trigger to use to
+    begin/end a GPU Trace capture.</p>
+</div>
+<p class="Pp"><b>-l, --label &lt;BOUNDARY_LABEL&gt;</b></p>
+<div class="Bd-indent">
+<p class="Pp"><i>BOUNDARY_LABEL</i> is used to identify a boundary API object
+    instead of <i>BOUNDARY_ID</i>. If multiple objects share the same
+    <i>BOUNDARY_LABEL</i>, <b>gpucapture</b> will be unable to define the target
+    and will request the user to use <b>--boundary BOUNDARY_ID</b> instead. This
+    option is especially useful for apps that do not have deterministic resource
+    creation (random <i>BOUNDARY_ID</i>) but do label their objects. Only
+    available for <b>Queue</b>, <b>Layer</b> or <b>Scope</b>.</p>
+</div>
+<p class="Pp"><b>-c, --count &lt;BOUNDARY_COUNT&gt;</b></p>
+<div class="Bd-indent">
+<p class="Pp"><i>BOUNDARY_COUNT</i> is the amount of trigger ends that should be
+    hit by the GPU trace capture before actually stopping it.</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>when applied to a <b>Device</b> or <b>Queue</b> this count is the number
+      of complete <b>MTLCommandBuffers
+      </b>(<i>https://developer.apple.com/documentation/metal/mtlcommandbuffer</i>)
+      captured.</dd>
+  <dt>&#x2022;</dt>
+  <dd>when applied to a <b>Layer</b> this count is equivalent to the number of
+      frames.</dd>
+  <dt>&#x2022;</dt>
+  <dd>when applied to a <b>Scope</b> this count is equivalent to the number of
+      <b>[MTLCaptureScope endScope]
+      </b>(<i>https://developer.apple.com/documentation/metal/mtlcapturescope/2869574-endscope</i>)
+      seen after the begin trigger was reached.</dd>
+</dl>
+</div>
+<p class="Pp"><b>-u, --until-exit</b></p>
+<div class="Bd-indent">
+<p class="Pp">This option is equivalent to <b>--count UINT_MAX</b>. Useful for
+    capturing CLI workloads where the amount of CommandBuffers is not known as
+    this allows the capture to progress until the process exits. Additionally,
+    if you aim to control the <b>gpucapture start</b> of the process you should
+    launch your target with <b>MTLCAPTURE_WAIT_FOR_SIGNAL=1</b>, this
+    environment variable will halt the process on <b>MTLDevice
+    </b>(<i>https://developer.apple.com/documentation/metal/mtldevice</i>)
+    creation until a <b>gpucapture start</b> signal is registered.</p>
+</div>
+<p class="Pp"><b>-o, --output &lt;FILEPATH&gt;</b></p>
+<div class="Bd-indent">
+<p class="Pp"><i>FILEPATH</i> on the host machine's file system, to where the
+    recorded <b>.gputrace</b> will be stored.</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>must be a directory, or a filepath ending in <b>.gputrace</b></dd>
+  <dt>&#x2022;</dt>
+  <dd>if no <b>--output</b> is provided, <b>gpucapture</b> will default to
+      saving the <b>.gputrace</b> archive in the current working directory it
+      was launched in</dd>
+</dl>
+</div>
+<p class="Pp"><b>, --version</b></p>
+<div class="Bd-indent">
+<p class="Pp">Show tool version</p>
+</div>
+<p class="Pp"><b>, --list-devices</b></p>
+<div class="Bd-indent">
+<p class="Pp">List available devices and exit. Shows an <i>ID</i> column that
+    can be passed to <b>--device</b>, along with the device name, model, and OS
+    version.</p>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<br/>
+<p class="Pp"> Retrieve a list of potential targets to capture.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">$ gpucapture list</div>
+<p class="Pp">
+  <br/>
+   Retrieve a list of boundaries available for the PID 12345.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">$ gpucapture boundary --pid 12345</div>
+<p class="Pp">
+  <br/>
+   Quick command to produce single frame/MTLCommandBuffer capture if there is a
+    single process available in `gpucapture list`.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">$ gpucapture start</div>
+<p class="Pp">
+  <br/>
+   Capture 5 times the boundary ID 3 in the process 12345</p>
+<p class="Pp"></p>
+<div class="Bd-indent">$ gpucapture start --pid 12345 --boundary 3 --count
+  5</div>
+<p class="Pp">
+  <br/>
+   Captures 100000 times the default boundary ID in the process 12345. Default
+    boundary ID will be either a Layer or a Device.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">$ gpucapture start --pid 12345 --count 100000</div>
+<p class="Pp">
+  <br/>
+   Stops any active capture in the process 12345.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">$ gpucapture stop --pid 12345</div>
+<p class="Pp">
+  <br/>
+   Stops any active capture in any capturable process visible by `gpucapture
+    list`.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">$ gpucapture stop --all</div>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date"></td>
+    <td class="foot-os">300.20</td>
+  </tr>
+</table>
+</body>
+</html>

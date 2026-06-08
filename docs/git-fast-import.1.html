@@ -98,13 +98,47 @@
   are disabled by default, but can be allowed by providing this option on the
   command line. This currently impacts only the <b>export-marks</b>,
   <b>import-marks</b>, and <b>import-marks-if-exists</b> feature commands.
-<p class="Pp"></p>
-<div class="Bd-indent">
-<pre>Only enable this option if you trust the program generating the
-fast-import stream! This option is enabled automatically for
-remote-helpers that use the `import` capability, as they are
-already trusted to run their own code.</pre>
+<p class="Pp">Only enable this option if you trust the program generating the
+    fast-import stream! This option is enabled automatically for remote-helpers
+    that use the <b>import</b> capability, as they are already trusted to run
+    their own code.</p>
 </div>
+<p class="Pp"><b>--signed-tags=</b><i>&lt;mode&gt;</i></p>
+<div class="Bd-indent">Specify how to handle signed tags. Behaves in the same
+  way as the <b>--signed-commits=</b><i>&lt;mode&gt;</i> below. Like for signed
+  commits, the default mode is <b>verbatim</b>.</div>
+<p class="Pp"><b>--signed-commits=</b><i>&lt;mode&gt;</i></p>
+<div class="Bd-indent">Specify how to handle signed commits. The following
+  &lt;mode&gt;s are supported:
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>verbatim</b>, which is the default, will
+  silently import commit signatures.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>warn-verbatim</b> will import them, but will
+  display a warning.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>abort</b> will make this program die when
+  encountering a signed commit.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>strip</b> will silently make the commits
+  unsigned.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>warn-strip</b> will make them unsigned, but
+  will display a warning.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>strip-if-invalid</b> will check signatures
+  and, if they are invalid, will strip them and display a warning. The
+  validation is performed in the same way as <b>git-verify-commit</b>(1) does
+  it.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>sign-if-invalid</b>[<b>=</b><i>&lt;keyid&gt;</i>],
+  similar to <b>strip-if-invalid</b>, verifies commit signatures and replaces
+  invalid signatures with newly created ones. Valid signatures are left
+  unchanged. If <i>&lt;keyid&gt;</i> is provided, that key is used for signing;
+  otherwise the configured default signing key is used.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>abort-if-invalid</b> will make this program
+  die when encountering a signed commit that is unable to be verified.</div>
 </div>
 <section class="Ss">
 <h2 class="Ss" id="Options_for_Frontends"><a class="permalink" href="#Options_for_Frontends">Options
@@ -144,7 +178,7 @@ already trusted to run their own code.</pre>
 <p class="Pp">--import-marks-if-exists=&lt;file&gt;</p>
 <div class="Bd-indent">Like --import-marks but instead of erroring out, silently
   skips the file if it does not exist.</div>
-<p class="Pp">--[no-]relative-marks</p>
+<p class="Pp">--relative-marks, --no-relative-marks</p>
 <div class="Bd-indent">After specifying --relative-marks the paths specified
   with --import-marks= and --export-marks= are relative to an internal directory
   in the current repository. In git-fast-import this means that the paths are
@@ -209,7 +243,7 @@ already trusted to run their own code.</pre>
     able to keep up with fast-import and feed it a constant stream of data,
     import times for projects holding 10+ years of history and containing
     100,000+ individual commits are generally completed in just 1-2 hours on
-    quite modest (~$2,000 USD) hardware.</p>
+    quite modest hardware (~$2,000 USD in 2007).</p>
 <p class="Pp">Most bottlenecks appear to be in foreign source data access (the
     source just cannot extract revisions fast enough) or disk IO (fast-import
     writes as fast as the disk will take the data). Imports will run faster if
@@ -438,7 +472,7 @@ already trusted to run their own code.</pre>
 <br/>
         'committer' (SP &lt;name&gt;)? SP LT &lt;email&gt; GT SP &lt;when&gt; LF
 <br/>
-        ('gpgsig' SP &lt;alg&gt; LF data)?
+        ('gpgsig' SP &lt;algo&gt; SP &lt;format&gt; LF data)?
 <br/>
         ('encoding' SP &lt;encoding&gt; LF)?
 <br/>
@@ -517,15 +551,41 @@ already trusted to run their own code.</pre>
 </p>
 <div class="Bd-indent">
 <p class="Pp">The optional <b>gpgsig</b> command is used to include a PGP/GPG
-    signature that signs the commit data.</p>
-<p class="Pp">Here &lt;alg&gt; specifies which hashing algorithm is used for
-    this signature, either <b>sha1</b> or <b>sha256</b>.</p>
+    signature or other cryptographic signature that signs the commit data.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+        'gpgsig' SP &lt;git-hash-algo&gt; SP &lt;signature-format&gt; LF data</pre>
+</div>
+<p class="Pp">The <b>gpgsig</b> command takes two arguments:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<i>&lt;git-hash-algo&gt;</i> specifies which Git
+  object format this signature applies to, either <b>sha1</b> or <b>sha256</b>.
+  This allows to know which representation of the commit was signed (the SHA-1
+  or the SHA-256 version) which helps with both signature verification and
+  interoperability between repos with different hash functions.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<i>&lt;signature-format&gt;</i> specifies the
+  type of signature, such as <b>openpgp</b>, <b>x509</b>, <b>ssh</b>, or
+  <b>unknown</b>. This is a convenience for tools that process the stream, so
+  they don&#x2019;t have to parse the ASCII armor to identify the signature
+  type.</div>
+<p class="Pp">A commit may have at most one signature for the SHA-1 object
+    format (stored in the &quot;gpgsig&quot; header) and one for the SHA-256
+    object format (stored in the &quot;gpgsig-sha256&quot; header).</p>
+<p class="Pp">See below for a detailed description of the <b>data</b> command
+    which contains the raw signature data.</p>
+<p class="Pp">Signatures are not yet checked in the current implementation
+    though. (Already setting the <b>extensions.compatObjectFormat</b>
+    configuration option might help with verifying both SHA-1 and SHA-256 object
+    format signatures when it will be implemented.)</p>
 <p class="Pp"></p>
 <div class="Bd-indent">
 <br/>
 <b>Note</b>
-<p class="Pp">This is highly experimental and the format of the data stream may
-    change in the future without compatibility guarantees.</p>
+<p class="Pp">This is highly experimental and the format of the <b>gpgsig</b>
+    command may change in the future without compatibility guarantees.</p>
 <p class="Pp"></p>
 </div>
 </div>
@@ -631,9 +691,9 @@ already trusted to run their own code.</pre>
 <p class="Pp">Here usually <i>&lt;dataref&gt;</i> must be either a mark
     reference (<b>:</b><i>&lt;idnum&gt;</i>) set by a prior <b>blob</b> command,
     or a full 40-byte SHA-1 of an existing Git blob object. If
-    <i>&lt;mode&gt;</i> is <b>040000</b>` then <i>&lt;dataref&gt;</i> must be
-    the full 40-byte SHA-1 of an existing Git tree object or a mark reference
-    set with <b>--import-marks</b>.</p>
+    <i>&lt;mode&gt;</i> is <b>040000</b> then <i>&lt;dataref&gt;</i> must be the
+    full 40-byte SHA-1 of an existing Git tree object or a mark reference set
+    with <b>--import-marks</b>.</p>
 </div>
 <p class="Pp">Inline data format</p>
 <div class="Bd-indent">The data content for the file has not been supplied yet.
