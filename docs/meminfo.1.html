@@ -52,7 +52,7 @@
 <table class="Nm">
   <tr>
     <td><code class="Nm">meminfo</code></td>
-    <td>[<code class="Fl">--wired</code>] [<code class="Fl">--carveouts</code>]
+    <td>[<code class="Fl">--summary</code>] [<code class="Fl">--zones</code>]
       [<code class="Fl">--raw</code>] [<code class="Fl">--all</code>]
       [<code class="Fl">--quiet</code>] [<code class="Fl">--csv</code>
       <var class="Ar">path</var>] [<code class="Fl">--perfdata</code>
@@ -65,35 +65,35 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
-<p class="Pp"><code class="Nm">meminfo</code> displays a summary of physical
-    memory usage, broken down by category. By default, a human-readable table is
-    printed with page counts, megabyte values, percentage bars, and percentages
-    for each category.</p>
+<p class="Pp"><code class="Nm">meminfo</code> displays a breakdown of physical
+    memory usage by category. By default each category is printed as its own
+    section: a header line with the category's page count and size, followed by
+    indented subcategory rows whose percentage bars are relative to that
+    category's total. Any portion of a category not covered by its subcategories
+    is shown as an <i class="Em">Unaccounted</i> row. A final
+    <i class="Em">Physical Memory</i> summary breaks the total down into the
+    main categories, and a <i class="Em">Swap</i> section follows.</p>
 <p class="Pp">The following options are available:</p>
 <dl class="Bl-tag">
-  <dt id="wired"><a class="permalink" href="#wired"><code class="Fl">--wired</code></a></dt>
-  <dd>Show a breakdown of wired memory by kernel allocation site. Only sites
-      using at least 1&#x00A0;MB are shown in the formatted output. The
-      <code class="Fl">--wired</code> option requires root privileges or the
-      <code class="Li">com.apple.private.memoryinfo</code> entitlement; without
-      them, the wired breakdown is omitted and a diagnostic is printed to
-      standard error.</dd>
-  <dt id="carveouts"><a class="permalink" href="#carveouts"><code class="Fl">--carveouts</code></a></dt>
-  <dd>Show a breakdown of static carveouts from the device tree. Individual
-      carveout regions are listed as indented subcategories under
-      <a class="permalink" href="#Static"><i class="Em" id="Static">Static
-      carveouts</i></a>. Regions that fall within the Kernel carveout are
-      excluded.</dd>
+  <dt id="summary"><a class="permalink" href="#summary"><code class="Fl">--summary</code></a></dt>
+  <dd>Show only the <i class="Em">Physical Memory</i> summary and the
+      <i class="Em">Swap</i> section, omitting the per-category detail
+    sections.</dd>
+  <dt id="zones"><a class="permalink" href="#zones"><code class="Fl">--zones</code></a></dt>
+  <dd>Expand the aggregate wired <i class="Em">Zones</i> row into one row per
+      kernel zone. This requires root privileges; without them,
+      <code class="Nm">meminfo</code> prints a warning and shows the aggregate
+      <i class="Em">Zones</i> total instead.</dd>
   <dt id="raw"><a class="permalink" href="#raw"><code class="Fl">--raw</code></a></dt>
   <dd>Show raw metric names (e.g. <code class="Li">anonymous_purgeable</code>)
       instead of human-readable display names (e.g.
       <code class="Li">Purgeable</code>).</dd>
   <dt id="all"><a class="permalink" href="#all"><code class="Fl">--all</code></a></dt>
   <dd>Show all metrics, including those that are normally hidden when their
-      value is zero (e.g. Secluded) or below 1&#x00A0;MB (wired sites).
-      MTE-related metrics are also included regardless of hardware capability.
-      Implies <code class="Fl">--wired</code> and
-      <code class="Fl">--carveouts</code>.</dd>
+      value is zero (e.g. Secluded) or below 1&#x00A0;MB (wired sites), and
+      overlapping subtotals that are normally excluded from the breakdown (e.g.
+      Purgeable, Shared cache). MTE-related metrics are also included regardless
+      of hardware capability.</dd>
   <dt id="quiet"><a class="permalink" href="#quiet"><code class="Fl">--quiet</code></a></dt>
   <dd>Suppress summary output to stdout. Useful when only CSV or perfdata output
       is desired.</dd>
@@ -123,14 +123,11 @@
   <dt id="perfdata"><a class="permalink" href="#perfdata"><code class="Fl">--perfdata</code></a>
     <var class="Ar">path</var></dt>
   <dd>Write output to a perfdata file at <var class="Ar">path</var>. Each memory
-      category is recorded as a separate metric in bytes. When combined with
-      <code class="Fl">--wired</code>, individual wired sites are included as
-      additional metrics with a <code class="Li">category=wired</code> variable.
-      When combined with <code class="Fl">--carveouts</code>, individual
-      carveout regions are included with a
-      <code class="Li">category=static_carveouts</code> variable. When combined
-      with <code class="Fl">--interval</code>, each sample is written as a
-      separate group in the same perfdata file.</dd>
+      category is recorded as a separate metric in bytes. Individual wired sites
+      (<code class="Li">category=wired</code>) and carveout regions
+      (<code class="Li">category=static_carveouts</code>) are included as
+      additional metrics. When combined with <code class="Fl">--interval</code>,
+      each sample is written as a separate group in the same perfdata file.</dd>
 </dl>
 <p class="Pp">When <code class="Fl">--interval</code> is active,
     <code class="Nm">meminfo</code> installs signal handlers for
@@ -142,9 +139,7 @@
 <h1 class="Sh" id="MEMORY_CATEGORIES"><a class="permalink" href="#MEMORY_CATEGORIES">MEMORY
   CATEGORIES</a></h1>
 <p class="Pp">The following categories are displayed in the formatted output.
-    Together they sum to the
-    <a class="permalink" href="#Total"><i class="Em" id="Total">Total</i></a>
-    row.</p>
+    Together they make up the <i class="Em">Physical Memory</i> summary.</p>
 <dl class="Bl-tag">
   <dt>Anonymous</dt>
   <dd>Pageable memory allocated by applications that are not backed by a file.
@@ -187,15 +182,9 @@
       <dt>Compressed data</dt>
       <dd>The subset of compressor pages holding compressed page data (excluding
           tag storage).</dd>
-      <dt>Uncompressed data</dt>
-      <dd>The uncompressed size of data held in the compressor.</dd>
       <dt>Compressed tags</dt>
       <dd>The bytes consumed by compressed tag storage in the compressor. Only
           shown on MTE-capable systems.</dd>
-      <dt>Uncompressed tags</dt>
-      <dd>The uncompressed size of tags held in the compressor (derived from
-          compressed tagged pages divided by 32). Only shown on MTE-capable
-          systems.</dd>
     </dl>
   </dd>
   <dt>Free</dt>
@@ -209,19 +198,21 @@
   </dd>
   <dt>Wired</dt>
   <dd>Memory that cannot be paged out or compressed (kernel data structures,
-      IOSurfaces, etc.). With <code class="Fl">--wired</code>, individual kernel
-      allocation sites are listed as indented subcategories, sorted
-      alphabetically.</dd>
-  <dt>Static carveouts</dt>
-  <dd>Memory reserved at boot time by the kernel. With
-      <code class="Fl">--carveouts</code>, individual carveout regions from the
-      device tree are listed as indented subcategories, sorted by base address.
-      Overlapping regions are shown individually but do not double-count in the
-      parent total.</dd>
+      IOSurfaces, etc.). Individual kernel allocation sites are listed as
+      indented subcategories. Gathering them requires root privileges or the
+      <code class="Li">com.apple.private.memoryinfo</code> entitlement; without
+      them only the category total is shown.</dd>
+  <dt id="Unmapped">Static carveouts</dt>
+  <dd>Memory reserved at boot time by the kernel. Individual carveout regions
+      from the device tree are listed as indented subcategories. Nested or
+      overlapping regions are clipped so each physical page is counted once, and
+      any unnamed remainder is aggregated into an
+      <a class="permalink" href="#Unmapped"><i class="Em">Unmapped</i></a>
+    row.</dd>
 </dl>
-<p class="Pp" id="Swap">The
-    <a class="permalink" href="#Swap"><i class="Em">Swap</i></a> category is
-    displayed below Total and is not part of the physical memory total.</p>
+<p class="Pp">The <i class="Em">Swap</i> category is displayed below the
+    <i class="Em">Physical Memory</i> summary and is not part of the physical
+    memory total.</p>
 <dl class="Bl-tag">
   <dt>Swap</dt>
   <dd>Compressor pages currently stored in the on-disk swapfile.
@@ -229,8 +220,6 @@
     <dl class="Bl-tag Bl-compact">
       <dt>Swapped data</dt>
       <dd>The subset of swap pages holding compressed page data.</dd>
-      <dt>Uncompressed swapped data</dt>
-      <dd>The uncompressed size of data held in swap.</dd>
     </dl>
   </dd>
 </dl>
@@ -241,10 +230,13 @@
 <section class="Ss">
 <h2 class="Ss" id="Default_human-readable"><a class="permalink" href="#Default_human-readable">Default
   (human-readable)</a></h2>
-<p class="Pp">Each row shows a label, page count, size in megabytes, a
-    fixed-width visual bar, and a percentage of total physical memory. Detail
-    rows (e.g. Uncompressed data) omit the bar and percentage and are displayed
-    in dim text.</p>
+<p class="Pp">Each category is printed as a section headed by its page count and
+    size. Indented subcategory rows show a label, page count, size in megabytes,
+    a fixed-width visual bar, and a percentage relative to the enclosing
+    category; they are sorted largest first, and any remainder appears as an
+    <i class="Em">Unaccounted</i> row. A trailing <i class="Em">Physical
+    Memory</i> section breaks the total down into the main categories, with bars
+    and percentages relative to physical memory.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="CSV"><a class="permalink" href="#CSV">CSV</a></h2>
@@ -268,13 +260,13 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
-<p class="Pp">Display a one-shot summary:</p>
-<div class="Bd Bd-indent"><code class="Li">$ meminfo</code></div>
-<p class="Pp">Include wired memory breakdown (requires root):</p>
-<div class="Bd Bd-indent"><code class="Li"># meminfo --wired</code></div>
-<p class="Pp">Include static carveout breakdown:</p>
-<div class="Bd Bd-indent"><code class="Li">$ meminfo --carveouts</code></div>
-<p class="Pp">Show everything (implies --wired and --carveouts):</p>
+<p class="Pp">Display a one-shot breakdown (wired sites require root):</p>
+<div class="Bd Bd-indent"><code class="Li"># meminfo</code></div>
+<p class="Pp">Show only the physical-memory summary and swap:</p>
+<div class="Bd Bd-indent"><code class="Li">$ meminfo --summary</code></div>
+<p class="Pp">Expand wired zones into individual rows:</p>
+<div class="Bd Bd-indent"><code class="Li"># meminfo --zones</code></div>
+<p class="Pp">Show everything, including hidden and overlapping subtotals:</p>
 <div class="Bd Bd-indent"><code class="Li"># meminfo --all</code></div>
 <p class="Pp">Sample every 2 seconds, stop after 10 samples, output as CSV:</p>
 <div class="Bd Bd-indent"><code class="Li">$ meminfo --csv /tmp/mem.csv
