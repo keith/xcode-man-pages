@@ -81,6 +81,11 @@
     idiom, subtype and graphics class are given in one set, the same parameters
     must all be present in the subsequent set of parmeters. (IE the count must
     match)</p>
+<p class="Pp"><code class="Nm">assetutil</code> always thins in application
+    mode, that is, to a single scale/idiom/performance/memory class. It has no
+    framework mode. Use <a class="Xr">carutil(1)</a> if framework mode thinning,
+    image or layer stack extraction, or the lower level storage inspection
+    options are needed.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="THINNING_PARAMETERS"><a class="permalink" href="#THINNING_PARAMETERS">THINNING
@@ -90,7 +95,9 @@
   <dt id="i"><a class="permalink" href="#i"><code class="Fl">-i</code></a>,
     <code class="Fl">--idiom</code> <var class="Ar">idiom</var></dt>
   <dd>Keep all assets that have idiom that is given on the command line. Can be
-      one of universal/phone/pad/tv/car/watch/vision.</dd>
+      one of universal/phone/pad/tv/car/watch/marketing/mac/vision, matched case
+      insensitively. <var class="Ar">reality</var> is accepted as a deprecated
+      alias for <var class="Ar">vision</var>.</dd>
   <dt id="t"><a class="permalink" href="#t"><code class="Fl">-t</code></a>,
     <code class="Fl">--subtype</code> <var class="Ar">integer</var></dt>
   <dd>Subtype to keep (integer).</dd>
@@ -107,7 +114,9 @@
     <code class="Fl">--display-gamut</code> <var class="Ar">gamut</var></dt>
   <dd>Keep all assets that have the display gamut that is given on the command
       line, present display gamuts will not be removed if there is no fall back
-      available. Can be one of srgb/p3/all.</dd>
+      available. Can be one of srgb/p3/rec2020/all, matched case insensitively.
+      <var class="Ar">all</var> keeps every display gamut present in the
+    file.</dd>
   <dt id="h"><a class="permalink" href="#h"><code class="Fl">-h</code></a>,
     <code class="Fl">--hostedidioms</code> <var class="Ar">idiomlist</var></dt>
   <dd>Process the hosted idioms list, this is a list of the idioms that must
@@ -139,23 +148,39 @@
   PARAMETERS</a></h1>
 <p class="Pp">No thinning is performed when these parameters are given. The
     thinning parameters can be passed here to narrow down the output.</p>
+<p class="Pp">The <var class="Ar">name</var> argument of
+    <code class="Fl">-I</code> is optional, and so must be attached to the
+    option rather than separated from it by a space:</p>
+<div class="Bd Bd-indent"><code class="Li">assetutil -IAppIcon
+  Assets.car</code></div>
+<div class="Bd Bd-indent"><code class="Li">assetutil --info=AppIcon
+  Assets.car</code></div>
+Writing &#x2018;<code class="Li">assetutil -I AppIcon Assets.car</code>&#x2019;
+  does not work: the name is taken as a second file operand and
+  <code class="Nm">assetutil</code> prints its usage and exits 1.
 <dl class="Bl-tag">
   <dt id="I"><a class="permalink" href="#I"><code class="Fl">-I</code></a>,
     <code class="Fl">--info</code> [<var class="Ar">name</var>]</dt>
-  <dd>Produce a JSON description of the asset catalog object with the given name
-      to --output directory if given or to stdout if no output path given. If no
-      name is provided, report on the contents of the entire car file.</dd>
+  <dd>Produce a JSON description of the asset catalog object with the given
+      name, written to the -o --output file if given or to stdout if no output
+      path is given. If no name is provided, report on the contents of the
+      entire car file. If a name is given and no object in the file matches it,
+      <code class="Nm">assetutil</code> exits 2.</dd>
   <dt id="c"><a class="permalink" href="#c"><code class="Fl">-c</code></a>,
     <code class="Fl">--main-contents</code> <var class="Ar">path</var></dt>
-  <dd>Main Assets.car file used to supply the names of the assets to the -I
-      (--info) and the dump options -d (--dump) and -D (--dump-stack).</dd>
+  <dd>Main Assets.car file used to supply the names of the assets. Honoured by
+      <code class="Fl">-I</code> (--info), <code class="Fl">-T</code>,
+      <code class="Fl">-L</code> and <code class="Fl">-n</code>.</dd>
   <dt id="T"><a class="permalink" href="#T"><code class="Fl">-T</code></a>,
     <code class="Fl">--compare-thinning</code>
     <var class="Ar">parameters</var></dt>
   <dd>Compare thinning attributes. The parameters are given as
       &#x00B4;scale=2:idiom=phone:hostedidioms=watch,car:memory=2:graphicsclass=MTL1,2/scale=2:idiom=phone:memory=1:graphicsclass=MTL2,2&#x00B4;.
       Will print to stdout if the file was thinned with the above thinning
-      attributes, would the same Asset file result in both cases.</dd>
+      attributes, would the same Asset file result in both cases. The thinning
+      selector options cannot be combined with this option; giving any of them
+      fails with &#x2018;<code class="Li">too many parameters given to
+      compare</code>&#x2019;.</dd>
   <dt id="L"><a class="permalink" href="#L"><code class="Fl">-L</code></a>,
     <code class="Fl">--compare-thinning-batch</code>
     <var class="Ar">path</var></dt>
@@ -172,7 +197,8 @@
       overwritten.</dd>
   <dt id="V"><a class="permalink" href="#V"><code class="Fl">-V</code></a>,
     <code class="Fl">--version</code></dt>
-  <dd>Version information for <code class="Nm">assetutil</code>.</dd>
+  <dd>Version information for <code class="Nm">assetutil</code>. This is written
+      to stderr.</dd>
   <dt id="U"><a class="permalink" href="#U"><code class="Fl">-U</code></a>,
     <code class="Fl">--update-bitmap</code></dt>
   <dd>Update the bitmap index of inputfile.</dd>
@@ -180,19 +206,53 @@
     <code class="Fl">--preserve-assets-named</code>
     <var class="Ar">names</var></dt>
   <dd>Given a comma separated list of names, any assets in the car file that
-      match one of the given names are preserved. Names are compared case
-      insensitively. Uses the -o --output file to save the resulting .car
-    file.</dd>
+      match one of the given names are preserved, and every other asset is
+      removed. An asset matches when its rendition name has one of the given
+      names as a prefix, compared case sensitively, so
+      &#x2018;<code class="Li">App Icon</code>&#x2019; preserves
+      &#x2018;<code class="Li">App Icon/Back/Content</code>&#x2019; and the rest
+      of that layer stack. Uses the -o --output file to save the resulting .car
+      file, or rewrites the input file in place if no output file is given.</dd>
   <dt id="Z"><a class="permalink" href="#Z"><code class="Fl">-Z</code></a>,
     <code class="Fl">--validate-file</code></dt>
   <dd>Validate that the file is valid (structurally/renditions are accessible
       and loadable) (exit 2 if bad, 0 if okay).</dd>
 </dl>
+<p class="Pp">Only one operation is performed per invocation. If more than one
+    of the options above is given, <code class="Nm">assetutil</code> silently
+    runs the first one it recognises and ignores the rest, so combinations such
+    as <code class="Fl">-I</code> together with <code class="Fl">-Z</code> do
+    not do both.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT
+  STATUS</a></h1>
+<dl class="Bl-tag">
+  <dt>0</dt>
+  <dd>The requested operation succeeded.</dd>
+  <dt>1</dt>
+  <dd>The operation failed. The input is not a readable asset catalog, an option
+      value could not be parsed, an unknown option was given, or the number of
+      file operands was not exactly one. <code class="Nm">assetutil</code>
+      describes the failure on stderr, and prints its usage for the malformed
+      command line cases.</dd>
+  <dt>2</dt>
+  <dd>The requested check completed and the answer was negative. This is not a
+      failure of <code class="Nm">assetutil</code> itself.
+      <code class="Fl">-Z</code> reports a bad file this way, and
+      <code class="Fl">-I</code> reports that the requested name is not in the
+      file.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr">carutil(1)</a></p>
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">April 19, 2026</td>
+    <td class="foot-date">August 6, 2026</td>
     <td class="foot-os">Darwin</td>
   </tr>
 </table>

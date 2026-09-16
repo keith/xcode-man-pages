@@ -35,7 +35,7 @@
    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
    THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   
-   $OpenBSD: ssh_config.5,v 1.423 2026/03/23 01:33:46 djm Exp $
+   $OpenBSD: ssh_config.5,v 1.428 2026/07/11 11:15:03 naddy Exp $
  -->
 <head>
 
@@ -92,25 +92,28 @@
   <li>system-wide configuration file
       (<span class="Pa">/etc/ssh/ssh_config</span>)</li>
 </ol>
-<p class="Pp">Unless noted otherwise, for each parameter, the first obtained
-    value will be used. The configuration files contain sections separated by
-    <code class="Cm">Host</code> specifications, and that section is only
-    applied for hosts that match one of the patterns given in the specification.
-    The matched host name is usually the one given on the command line (see the
-    <code class="Cm">CanonicalizeHostname</code> option for exceptions).</p>
-<p class="Pp">Since the first obtained value for each parameter is used, more
+<p class="Pp">Unless noted otherwise, for each configuration directive, the
+    first specified value will be used.</p>
+<p class="Pp">The configuration files may contain sections separated by
+    conditional <code class="Cm">Host</code> or <code class="Cm">Match</code>
+    directives. Configuration in these sections is only applied if the
+    conditional directive that started the section matches.</p>
+<p class="Pp">Since the first obtained value for each directive is used, more
     host-specific declarations should be given near the beginning of the file,
     and general defaults at the end.</p>
-<p class="Pp">The file contains keyword-argument pairs, one per line. Lines
+<p class="Pp">The file contains directive/values pairs, one per line. Lines
     starting with &#x2018;<code class="Li">#</code>&#x2019; and empty lines are
-    interpreted as comments. Arguments may optionally be enclosed in double
-    quotes (&quot;) in order to represent arguments containing spaces.
-    Configuration options may be separated by whitespace or optional whitespace
-    and exactly one &#x2018;<code class="Li">=</code>&#x2019;; the latter format
-    is useful to avoid the need to quote whitespace when specifying
-    configuration options using the <code class="Nm">ssh</code>,
-    <code class="Nm">scp</code>, and <code class="Nm">sftp</code>
-    <code class="Fl">-o</code> option.</p>
+    interpreted as comments. &#x2018;<code class="Li">#</code>&#x2019; outside
+    of a quoted string may be used to add a comment to the end of a line.
+    Whitespace at the beginning or end of lines is ignored. Values may
+    optionally be enclosed in double quotes (&quot;) in order to represent
+    arguments containing spaces.</p>
+<p class="Pp">Configuration directives are separated from their values by
+    whitespace or exactly one &#x2018;<code class="Li">=</code>&#x2019;
+    character (which may be surrounded by whitespace); the latter format is
+    useful to avoid the need to quote whitespace when specifying configuration
+    options using the <code class="Nm">ssh</code>, <code class="Nm">scp</code>,
+    and <code class="Nm">sftp</code> <code class="Fl">-o</code> option.</p>
 <p class="Pp">The possible keywords and their meanings are as follows (note that
     keywords are case-insensitive and arguments are case-sensitive):</p>
 <dl class="Bl-tag">
@@ -212,6 +215,20 @@
         transport-only sessions, such as when <a class="Xr">ssh(1)</a> is
         started with the <code class="Fl">-N</code> flag.</p>
   </dd>
+  <dt id="Include"><a class="permalink" href="#Include"><code class="Cm">Include</code></a></dt>
+  <dd>Include the specified configuration file(s). Multiple pathnames may be
+      specified and each pathname may contain <a class="Xr">glob(7)</a>
+      wildcards, tokens as described in the
+      <a class="Sx" href="#TOKENS">TOKENS</a> section, environment variables as
+      described in the <a class="Sx" href="#ENVIRONMENT_VARIABLES">ENVIRONMENT
+      VARIABLES</a> section and, for user configurations, shell-like
+      &#x2018;~&#x2019; references to user home directories. Wildcards will be
+      expanded and processed in lexical order. Files without absolute paths are
+      assumed to be in <span class="Pa">~/.ssh</span> if included in a user
+      configuration file or <span class="Pa">/etc/ssh</span> if included from
+      the system configuration file. <code class="Cm">Include</code> directive
+      may appear inside a <code class="Cm">Match</code> or
+      <code class="Cm">Host</code> block to perform conditional inclusion.</dd>
   <dt id="AddKeysToAgent"><a class="permalink" href="#AddKeysToAgent"><code class="Cm">AddKeysToAgent</code></a></dt>
   <dd>Specifies whether keys should be automatically added to a running
       <a class="Xr">ssh-agent(1)</a>. If this option is set to
@@ -310,7 +327,8 @@
 ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
 sk-ssh-ed25519@openssh.com,
 sk-ecdsa-sha2-nistp256@openssh.com,
-rsa-sha2-512,rsa-sha2-256</pre>
+rsa-sha2-512,rsa-sha2-256,
+ssh-mldsa44-ed25519@openssh.com</pre>
     </div>
     <p class="Pp">If the specified list begins with a &#x2018;+&#x2019;
         character, then the specified algorithms will be appended to the default
@@ -447,8 +465,14 @@ aes128-ctr,aes192-ctr,aes256-ctr</pre>
     default).</dd>
   <dt id="Compression"><a class="permalink" href="#Compression"><code class="Cm">Compression</code></a></dt>
   <dd>Specifies whether to use compression. The argument must be
-      <code class="Cm">yes</code> or <code class="Cm">no</code> (the
-    default).</dd>
+      <code class="Cm">yes</code> or <code class="Cm">no</code> (the default).
+    <p class="Pp">Compression applies to all traffic that flows over the SSH
+        connection. If untrusted traffic (such as an open port-forward) is
+        permitted over the connection alongside trusted traffic, then
+        compression may leak information about session contents. For this
+        reason, it is not recommended to enable compression for connections that
+        share trusted and untrusted traffic.</p>
+  </dd>
   <dt id="ConnectionAttempts"><a class="permalink" href="#ConnectionAttempts"><code class="Cm">ConnectionAttempts</code></a></dt>
   <dd>Specifies the number of tries (one per second) to make before exiting. The
       argument must be an integer. This may be useful in scripts if the
@@ -683,12 +707,14 @@ sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
 webauthn-sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
 rsa-sha2-512-cert-v01@openssh.com,
 rsa-sha2-256-cert-v01@openssh.com,
+ssh-mldsa44-ed25519-cert-v01@openssh.com,
 ssh-ed25519,
 ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
 sk-ssh-ed25519@openssh.com,
 sk-ecdsa-sha2-nistp256@openssh.com,
 webauthn-sk-ecdsa-sha2-nistp256@openssh.com,
-rsa-sha2-512,rsa-sha2-256</pre>
+rsa-sha2-512,rsa-sha2-256,
+ssh-mldsa44-ed25519@openssh.com</pre>
     </div>
     <p class="Pp">The <code class="Fl">-Q</code> option of
         <a class="Xr">ssh(1)</a> may be used to list supported signature
@@ -718,12 +744,14 @@ sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
 webauthn-sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
 rsa-sha2-512-cert-v01@openssh.com,
 rsa-sha2-256-cert-v01@openssh.com,
+ssh-mldsa44-ed25519-cert-v01@openssh.com,
 ssh-ed25519,
 ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
 sk-ecdsa-sha2-nistp256@openssh.com,
 webauthn-sk-ecdsa-sha2-nistp256@openssh.com
 sk-ssh-ed25519@openssh.com,
-rsa-sha2-512,rsa-sha2-256</pre>
+rsa-sha2-512,rsa-sha2-256,
+ssh-mldsa44-ed25519@openssh.com</pre>
     </div>
     <p class="Pp">If hostkeys are known for the destination host then this
         default is modified to prefer their algorithms.</p>
@@ -782,14 +810,16 @@ rsa-sha2-512,rsa-sha2-256</pre>
       <span class="Pa">~/.ssh/id_rsa</span>,
       <span class="Pa">~/.ssh/id_ecdsa</span>,
       <span class="Pa">~/.ssh/id_ecdsa_sk</span>,
-      <span class="Pa">~/.ssh/id_ed25519</span> and
-      <span class="Pa">~/.ssh/id_ed25519_sk</span>. Additionally, any identities
-      represented by the authentication agent will be used for authentication
-      unless <code class="Cm">IdentitiesOnly</code> is set. If no certificates
-      have been explicitly specified by <code class="Cm">CertificateFile</code>,
-      <a class="Xr">ssh(1)</a> will try to load certificate information from the
-      filename obtained by appending <span class="Pa">-cert.pub</span> to the
-      path of a specified <code class="Cm">IdentityFile</code>.
+      <span class="Pa">~/.ssh/id_ed25519</span>,
+      <span class="Pa">~/.ssh/id_ed25519_sk</span> and
+      <span class="Pa">~/.ssh/id_mldsa44_ed25519</span>. Additionally, any
+      identities represented by the authentication agent will be used for
+      authentication unless <code class="Cm">IdentitiesOnly</code> is set. If no
+      certificates have been explicitly specified by
+      <code class="Cm">CertificateFile</code>, <a class="Xr">ssh(1)</a> will try
+      to load certificate information from the filename obtained by appending
+      <span class="Pa">-cert.pub</span> to the path of a specified
+      <code class="Cm">IdentityFile</code>.
     <p class="Pp">Arguments to <code class="Cm">IdentityFile</code> may use the
         tilde syntax to refer to a user's home directory or the tokens described
         in the <a class="Sx" href="#TOKENS">TOKENS</a> section. Alternately an
@@ -815,20 +845,6 @@ rsa-sha2-512,rsa-sha2-256</pre>
       <code class="Cm">IgnoreUnknown</code> be listed early in the configuration
       file as it will not be applied to unknown options that appear before
     it.</dd>
-  <dt id="Include"><a class="permalink" href="#Include"><code class="Cm">Include</code></a></dt>
-  <dd>Include the specified configuration file(s). Multiple pathnames may be
-      specified and each pathname may contain <a class="Xr">glob(7)</a>
-      wildcards, tokens as described in the
-      <a class="Sx" href="#TOKENS">TOKENS</a> section, environment variables as
-      described in the <a class="Sx" href="#ENVIRONMENT_VARIABLES">ENVIRONMENT
-      VARIABLES</a> section and, for user configurations, shell-like
-      &#x2018;~&#x2019; references to user home directories. Wildcards will be
-      expanded and processed in lexical order. Files without absolute paths are
-      assumed to be in <span class="Pa">~/.ssh</span> if included in a user
-      configuration file or <span class="Pa">/etc/ssh</span> if included from
-      the system configuration file. <code class="Cm">Include</code> directive
-      may appear inside a <code class="Cm">Match</code> or
-      <code class="Cm">Host</code> block to perform conditional inclusion.</dd>
   <dt id="IPQoS"><a class="permalink" href="#IPQoS"><code class="Cm">IPQoS</code></a></dt>
   <dd>Specifies the
       <a class="permalink" href="#Differentiated"><i class="Em" id="Differentiated">Differentiated
@@ -1134,12 +1150,14 @@ sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
 webauthn-sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,
 rsa-sha2-512-cert-v01@openssh.com,
 rsa-sha2-256-cert-v01@openssh.com,
+ssh-mldsa44-ed25519-cert-v01@openssh.com,
 ssh-ed25519,
 ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
 sk-ssh-ed25519@openssh.com,
 sk-ecdsa-sha2-nistp256@openssh.com,
 webauthn-sk-ecdsa-sha2-nistp256@openssh.com,
-rsa-sha2-512,rsa-sha2-256</pre>
+rsa-sha2-512,rsa-sha2-256,
+ssh-mldsa44-ed25519@openssh.com</pre>
     </div>
     <p class="Pp">The list of available signature algorithms may also be
         obtained using &quot;ssh -Q PubkeyAcceptedAlgorithms&quot;.</p>

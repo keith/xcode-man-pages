@@ -60,8 +60,11 @@
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
 <p class="Pp"><code class="Nm">vm_stat</code> displays Mach virtual memory
-    statistics. If the optional <var class="Ar">interval</var> is specified,
-    then <code class="Nm">vm_stat</code> will display the statistics every
+    statistics. <a class="Xr">meminfo(1)</a> is the modern, preferred tool for
+    inspecting physical memory usage and should be used instead of
+    <code class="Nm">vm_stat</code> where possible. If the optional
+    <var class="Ar">interval</var> is specified, then
+    <code class="Nm">vm_stat</code> will display the statistics every
     <var class="Ar">interval</var> seconds. In this case, each line of output
     displays the change in each statistic (an <var class="Ar">interval</var>
     count of 1 displays the values per second). However, the first line of
@@ -80,7 +83,8 @@
   <dd>the total number of pages on the speculative list.</dd>
   <dt>Pages throttled</dt>
   <dd>the total number of pages on the throttled list (not wired but not
-      pageable).</dd>
+      pageable). These are also included in <b class="Sy">Pages wired down</b>
+      below.</dd>
   <dt>Pages wired down</dt>
   <dd>the total number of pages wired down. That is, pages that cannot be paged
       out.</dd>
@@ -94,36 +98,47 @@
   <dt>Pages zero filled</dt>
   <dd>the total number of pages that have been zero-filled on demand.</dd>
   <dt>Pages reactivated</dt>
-  <dd>the total number of pages that have been moved from the inactive list to
-      the active list (reactivated).</dd>
+  <dd>the total number of pages that have been moved to the active list, e.g.
+      from the inactive list or when a page is unwired.</dd>
   <dt>Pages purged</dt>
   <dd>the total number of pages that have been purged.</dd>
   <dt>File-backed pages</dt>
-  <dd>the total number of pages that are file-backed (non-swap)</dd>
+  <dd>the total number of resident pages that are file-backed, excluding those
+      that are wired down. File-backed pages can be evicted and refetched under
+      pressure and do not need to be compressed.</dd>
   <dt>Anonymous pages</dt>
-  <dd>the total number of pages that are anonymous</dd>
-  <dt>Uncompressed pages</dt>
-  <dd>the total number of pages (uncompressed) held within the compressor</dd>
-  <dt>Pages used by VM compressor:</dt>
-  <dd>the number of pages used to store compressed VM pages.</dd>
-  <dt>Pages decompressed</dt>
+  <dd>the total number of resident pages that are anonymous, that is, not
+      file-backed. Anonymous pages may be compressed under pressure. Does not
+      include pages stored in the compressor (and so not resident) or that are
+      wired down.</dd>
+  <dt>Pages stored in compressor</dt>
+  <dd>the total number of pages whose contents are stored in the in-memory
+      compressor pool.</dd>
+  <dt>Pages occupied by compressor</dt>
+  <dd>the total number of pages used by the in-memory compressor pool.</dd>
+  <dt>Decompressions</dt>
   <dd>the total number of pages that have been decompressed by the VM
       compressor.</dd>
-  <dt>Pages compressed</dt>
+  <dt>Compressions</dt>
   <dd>the total number of pages that have been compressed by the VM
     compressor.</dd>
   <dt>Pageins</dt>
   <dd>the total number of requests for pages from a pager (such as the inode
-      pager).</dd>
+      pager). This may include speculative reads.</dd>
   <dt>Pageouts</dt>
-  <dd>the total number of pages that have been paged out.</dd>
+  <dd>the total number of file-backed pages that have been written back to a
+      pager.</dd>
   <dt>Swapins</dt>
-  <dd>the total number of compressed pages that have been swapped back in from
-      disk.</dd>
+  <dd>the amount of compressed data read back in from swap files, in units of
+      pages. Because the data is compressed, this is not the number of pages it
+      expands to.</dd>
   <dt>Swapouts</dt>
-  <dd>the total number of compressed pages that have been swapped out to
-    disk.</dd>
+  <dd>the amount of compressed data written out to swap files, in units of
+      pages. Likewise, this is not the number of pages that were compressed to
+      produce it.</dd>
 </dl>
+<p class="Pp">Both swap counters also include I/O used for swapfile
+  maintenance.</p>
 <p class="Pp">If the system supports the ARM Memory Tagging Extension (MTE),
     then the following values will additionally be displayed:</p>
 <dl class="Bl-tag">
@@ -134,23 +149,24 @@
   <dd>the number of tagged pages which are resident in memory.</dd>
   <dt>Pages tagged compressed</dt>
   <dd>the number of tagged pages which have been evicted to the compressor.</dd>
-  <dt>Pages tag storage</dt>
+  <dt>Pages tag-storage</dt>
   <dd>the total number of physical pages which may be used to store memory
     tags.</dd>
-  <dt>Pages tag storage holding tags</dt>
+  <dt>Pages tag-storage holding tags</dt>
   <dd>the number of physical pages which are currently being used to store
       memory tags.</dd>
-  <dt>Pages tag storage free</dt>
-  <dd>the number of tag-storage pages which are unused.</dd>
-  <dt>Pages tag storage non-tag pageable</dt>
+  <dt>Pages tag-storage free</dt>
+  <dd>the number of tag-storage pages which are unused. These are also included
+      in <b class="Sy">Pages free</b> above.</dd>
+  <dt>Pages tag-storage non-tag pageable</dt>
   <dd>the number of tag-storage pages which are being used to store pageable
       non-tag data.</dd>
-  <dt>Pages tag storage non-tag wired</dt>
+  <dt>Pages tag-storage non-tag wired</dt>
   <dd>the number of tag-storage pages which are being used to store wired
       non-tag data.</dd>
   <dt>Bytes of compressed tags</dt>
   <dd>the (post-compression) size of memory tags currently held in the
-      compressor in bytes.</dd>
+      compressor, in bytes.</dd>
   <dt>Tagged compressions</dt>
   <dd>the number of tagged pages which have been compressed.</dd>
   <dt>Tagged decompressions</dt>
@@ -159,6 +175,12 @@
 <p class="Pp">If <var class="Ar">interval</var> is not specified, then
     <code class="Nm">vm_stat</code> displays all accumulated statistics along
     with the page size.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr">footprint(1)</a>, <a class="Xr">meminfo(1)</a>,
+    <a class="Xr">top(1)</a>, <a class="Xr">zprint(1)</a></p>
 </section>
 </div>
 <table class="foot">
