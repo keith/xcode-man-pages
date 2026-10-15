@@ -196,7 +196,16 @@
     <br/>
     Enables FileVault. This command will fail if no recovery partition was found
       on your disk. Additionally, all Secure Token users must contain valid
-      passwords.</dd>
+      passwords.
+    <p class="Pp">When <code class="Fl">-outputplist</code> is specified,
+        <code class="Nm">fdesetup</code> validates that the recovery key can be
+        written safely to the requested output path before starting encryption.
+        If the path parent is missing, any component is a symbolic link, the
+        pre-existing target is not a plain root-owned regular file with a single
+        hard link, or the target is marked immutable (uchg/schg), enablement is
+        refused before any disk state is changed and the tool exits with status
+        38. FileVault remains off.</p>
+  </dd>
   <dt id="disable"><a class="permalink" href="#disable"><b class="Sy">disable</b></a></dt>
   <dd>[<code class="Fl">-verbose</code>]
     <br/>
@@ -240,7 +249,18 @@
       generated. When changing either key, the old value will be removed and
       replaced. On CoreStorage volumes the -key option can be used to unlock
       FileVault. More information on this is described elsewhere in this
-      document.</dd>
+      document.
+    <p class="Pp">When rotating the personal recovery key with
+        <code class="Fl">-outputplist</code>, <code class="Nm">fdesetup</code>
+        first validates that the new key can be written safely to the requested
+        path (parent directory must exist, no component may be a symbolic link,
+        and any pre-existing target must be a plain root-owned regular file with
+        a single hard link and no immutable flags set). If preflight fails,
+        rotation is refused, the existing personal recovery key remains valid,
+        and the tool exits with status 38. This preserves the caller's ability
+        to recover the volume when the escrow destination is misconfigured or
+        under attack.</p>
+  </dd>
   <dt id="removerecovery"><a class="permalink" href="#removerecovery"><b class="Sy">removerecovery</b></a></dt>
   <dd><a class="permalink" href="#personal~2"><b class="Sy" id="personal~2">-personal</b></a>
       <b class="Sy">-user</b> | <b class="Sy">-institutional</b>
@@ -316,8 +336,26 @@
 <dl class="Bl-tag">
   <dt id="defer"><a class="permalink" href="#defer"><code class="Fl">-defer</code></a>
     <var class="Ar">file_path</var></dt>
-  <dd>Defer enabling FileVault until the user password is obtained, and recovery
-      key and system information will be written to the file path.</dd>
+  <dd>Defer enabling FileVault until the user password is obtained. The recovery
+      key and system information will be written to
+      <var class="Ar">file_path</var> once enablement completes, as a root-owned
+      file with mode 0600.
+    <p class="Pp">The parent directory of <var class="Ar">file_path</var> must
+        exist before invoking <code class="Nm">fdesetup</code>; fdesetup does
+        not create parent directories. If any component of
+        <var class="Ar">file_path</var> is a symbolic link,
+        <code class="Nm">fdesetup</code> refuses the operation. If a file
+        already exists at <var class="Ar">file_path</var>, it is replaced only
+        when it is a plain regular file owned by root with a single hard link;
+        otherwise the operation is refused. Refusals are reported on standard
+        error, cause exit status 38, and (when managed preferences permit)
+        surface the recovery key to standard output so the operator can still
+        record it.</p>
+    <p class="Pp">Immutable flags (uchg/schg) on a pre-existing target are
+        treated as a preflight failure and reported by name on standard error;
+        clear them with <b class="Sy">sudo chflags nouchg noschg</b>
+        <var class="Ar">file_path</var> if the overwrite is intentional.</p>
+  </dd>
   <dt id="user"><a class="permalink" href="#user"><code class="Fl">-user</code></a>
     <var class="Ar">user_shortname</var></dt>
   <dd>Short user name.</dd>
@@ -343,7 +381,18 @@
       contain a Change key and the EnableDate key will contain the date of the
       change. Where possible, you should avoid writing this file to a persistent
       location since it may pose additional security risk, and at the very
-      least, securely remove the file as soon as possible.</dd>
+      least, securely remove the file as soon as possible.
+    <p class="Pp">When <code class="Nm">fdesetup</code> writes recovery
+        information to a file path (as opposed to standard output), the parent
+        directory must exist, no component may be a symbolic link, and any
+        pre-existing target must be a root-owned regular file with a single hard
+        link. Violations exit with status 38 and, when managed preferences
+        permit, surface the recovery key on standard output as a fallback.</p>
+    <p class="Pp">Immutable flags (uchg/schg) on a pre-existing target are
+        treated as a preflight failure and reported by name on standard error;
+        clear them with <b class="Sy">sudo chflags nouchg noschg</b> followed by
+        the target path if the overwrite is intentional.</p>
+  </dd>
   <dt id="keychain"><a class="permalink" href="#keychain"><code class="Fl">-keychain</code></a></dt>
   <dd>Use the institutional recovery key stored in
       /Library/Keychains/FileVaultMaster.keychain.</dd>
@@ -431,9 +480,23 @@
     the next user that logs in will become the designated user.</p>
 <p class="Pp">As recovery key information is not generated until the user
     password is obtained, the <b class="Sy">-defer</b> option requires a path
-    where this information will be written to. The property list file will be
-    created as a root-only readable file and should be placed in a secure
-    location. You can use the <b class="Sy">showdeferralinfo</b> command to view
+    where this information will be written to. The parent directory of this path
+    must already exist; <code class="Nm">fdesetup</code> does not create it. The
+    property list file will be created as a root-only readable file (mode 0600,
+    owned by root:wheel) and should be placed in a secure location.</p>
+<p class="Pp">A pre-existing file at the deferral path that is not root-owned
+    (for example, one left behind by a previous run under a different account,
+    or restored from backup), that is a symbolic link or other special file,
+    that is hard-linked to another location, or that has immutable flags
+    (uchg/schg) set will cause the eventual FileVault enablement to be refused
+    with exit status 38 and reported on standard error. The deferral
+    configuration itself is written normally when the <b class="Sy">-defer</b>
+    command is invoked, but when the designated user subsequently attempts to
+    enable, encryption will not begin until the path can be safely written. When
+    managed preferences permit, the recovery key is surfaced to standard output
+    as a fallback in the rare case that the failure is only detected after key
+    generation.</p>
+<p class="Pp">You can use the <b class="Sy">showdeferralinfo</b> command to view
     the current deferral configuration information.</p>
 <p class="Pp" id="keychain,">Options that can be used in conjunction with the
     <b class="Sy">-defer</b> option include:
@@ -593,7 +656,18 @@
       recovery key from being displayed to the user during deferred enablement,
       even when the <b class="Sy">-showrecoverykey</b> option is specified. The
       recovery key will still be written to the defer plist file for escrow
-      purposes.</dd>
+      purposes.
+    <p class="Pp">This preference is also honored by the write-failure fallback
+        path. If <code class="Nm">fdesetup</code> successfully rotates or
+        generates a recovery key but cannot write it to the requested
+        <code class="Fl">-outputplist</code> or <code class="Fl">-defer</code>
+        path, it would normally print the key to standard output so the operator
+        can still record it. When this preference is forced to false, that
+        fallback print is suppressed; the tool exits with status 38 and the
+        rotated key is unrecoverable from this run. Sites forcing this
+        preference off should ensure the escrow path is reliably writable to
+        avoid losing keys.</p>
+  </dd>
 </dl>
 </section>
 <section class="Sh">
@@ -715,6 +789,21 @@
   <dd>This computer does not support enabling FileVault.</dd>
   <dt>37</dt>
   <dd>One or more users have a blank password. FileVault cannot be enabled.</dd>
+  <dt>38</dt>
+  <dd>Recovery key was generated but could not be written to the requested
+      output path, or (for <b class="Sy">enable</b> and
+      <b class="Sy">changerecovery -personal</b>) preflight refused the
+      operation before any state was changed. The parent directory may be
+      missing, a component of the path may be a symbolic link, the pre-existing
+      target may not be a plain root-owned file with a single hard link, the
+      target may have immutable flags set (uchg/schg), or the filesystem may be
+      full or read-only. For <b class="Sy">enable</b>, FileVault remains off;
+      for <b class="Sy">changerecovery -personal</b>, the previous personal
+      recovery key remains valid. When managed preferences permit and the
+      failure was detected after key generation, the recovery key was surfaced
+      to standard output as a last-resort fallback; when they do not, the key is
+      unrecoverable from this run. Re-run against a writable, root-owned parent
+      directory that is not a symbolic link.</dd>
   <dt>99</dt>
   <dd>Internal error.</dd>
 </dl>
