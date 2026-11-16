@@ -55,54 +55,125 @@ CURLcode curl_ws_recv(CURL *curl, void *buffer, size_t buflen,
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
-<p class="Pp">This function call is EXPERIMENTAL.</p>
-<p class="Pp">Retrieves as much as possible of a received WebSocket data
-    fragment into the <b>buffer</b>, but not more than <b>buflen</b> bytes.
-    <i>recv</i> is set to the number of bytes actually stored.</p>
-<p class="Pp">If there is more fragment data to deliver than what fits in the
-    provided <i>buffer</i>, libcurl returns a full buffer and the application
-    needs to call this function again to continue draining the buffer.</p>
-<p class="Pp">The <i>meta</i> pointer gets set to point to a <i>const struct
-    curl_ws_frame</i> that contains information about the received data. See the
-    <i>curl_ws_meta(3)</i> for details on that struct.</p>
+<p class="Pp">Retrieves as much as possible of a received WebSocket frame into
+    the <i>buffer</i>, but not more than <i>buflen</i> bytes. <i>recv</i> is set
+    to the number of bytes actually stored.</p>
+<p class="Pp">If the function call is successful, the <i>meta</i> pointer gets
+    set to point to a <i>const struct curl_ws_frame</i> that contains
+    information about the received data. That struct must not be freed and its
+    contents must not be relied upon anymore once another WebSocket function is
+    called. See <i>curl_ws_meta(3)</i> for more details on that struct.</p>
+<p class="Pp">The application must check <i>meta-&gt;bytesleft</i> to determine
+    whether the complete frame has been received. If more payload is pending,
+    the application must call this function again with an updated <i>buffer</i>
+    and <i>buflen</i> to resume receiving. This may for example happen when the
+    data does not fit into the provided buffer or when not all frame data has
+    been delivered over the network yet.</p>
+<p class="Pp">If the application wants to read the metadata without consuming
+    any payload, it may call this function with a <i>buflen</i> of zero. Setting
+    <i>buffer</i> to a NULL pointer is permitted in this case. Note that frames
+    without payload are consumed by this action.</p>
+<p class="Pp">If the received message consists of multiple fragments, the
+    <i>CURLWS_CONT</i> bit is set in all frames except the final one. The
+    appropriate <i>CURLWS_TEXT</i> or <i>CURLWS_BINARY</i> flag is set in every
+    frame, regardless whether it is the first fragment, an intermediate fragment
+    or the final fragment. The application is responsible for reassembling
+    fragmented messages. Special care must be taken to correctly handle control
+    frames (i.e. CLOSE, PING and PONG) arriving in between consecutive fragments
+    of a fragmented TEXT or BINARY message. See <i>curl_ws_meta(3)</i> for more
+    details on <i>CURLWS_CONT</i>.</p>
+<p class="Pp">The WebSocket protocol consists of <i>messages</i> that can be
+    delivered over the wire as one or more <i>frames</i> - but since a frame can
+    be too large to buffer in memory, libcurl may need to deliver partial frames
+    to the application. Fragments, or chunks, of frames.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PROTOCOLS"><a class="permalink" href="#PROTOCOLS">PROTOCOLS</a></h1>
+<p class="Pp">This functionality affects ws only</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
 <pre>int main(void)
 {
 <br/>
-  size_t rlen;
-<br/>
-  const struct curl_ws_frame *meta;
-<br/>
   char buffer[256];
+<br/>
+  size_t offset = 0;
+<br/>
+  CURLcode res = CURLE_OK;
 <br/>
   CURL *curl = curl_easy_init();
 <br/>
-  if(curl) {
+  curl_easy_setopt(curl, CURLOPT_URL, &quot;wss://example.com/&quot;);
 <br/>
-    CURLcode res = curl_ws_recv(curl, buffer, sizeof(buffer), &amp;rlen, &amp;meta);
+  curl_easy_setopt(curl, CURLOPT_CONNECT_ONLY, 2L);
 <br/>
-    if(res)
+  /* start HTTPS connection and upgrade to WSS, then return control */
 <br/>
-      printf(&quot;error: %s\n&quot;, curl_easy_strerror(res));
+  curl_easy_perform(curl);
+<br/>
+  /* Note: This example neglects fragmented messages. (CURLWS_CONT bit)
+<br/>
+           A real application must handle them appropriately. */
+<br/>
+  while(!res) {
+<br/>
+    size_t recv;
+<br/>
+    const struct curl_ws_frame *meta;
+<br/>
+    res = curl_ws_recv(curl, buffer + offset, sizeof(buffer) - offset, &amp;recv,
+<br/>
+                       &amp;meta);
+<br/>
+    offset += recv;
+<br/>
+    if(res == CURLE_OK) {
+<br/>
+      if(meta-&gt;bytesleft == 0)
+<br/>
+        break; /* finished receiving */
+<br/>
+      if(meta-&gt;bytesleft &gt; sizeof(buffer) - offset)
+<br/>
+        res = CURLE_TOO_LARGE;
+<br/>
+    }
+<br/>
+    if(res == CURLE_AGAIN)
+<br/>
+      /* in real application: wait for socket here, e.g. using select() */
+<br/>
+      res = CURLE_OK;
 <br/>
   }
+<br/>
+  curl_easy_cleanup(curl);
+<br/>
+  return (int)res;
 }</pre>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
-<p class="Pp">Added in 7.86.0.</p>
+<p class="Pp">Added in curl 7.86.0</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
   VALUE</a></h1>
-<p class="Pp">Returns <b>CURLE_OK</b> if everything is okay, and a non-zero
-    number for errors. Returns <b>CURLE_GOT_NOTHING</b> if the associated
-    connection is closed.</p>
+<p class="Pp">This function returns a CURLcode indicating success or error.</p>
+<p class="Pp">CURLE_OK (0) means everything was OK, non-zero means an error
+    occurred, see <i>libcurl-errors(3)</i>. If <i>CURLOPT_ERRORBUFFER(3)</i> was
+    set with <i>curl_easy_setopt(3)</i> there can be an error message stored in
+    the error buffer when non-zero is returned.</p>
+<p class="Pp">Returns <b>CURLE_GOT_NOTHING</b> if the associated connection is
+    closed.</p>
 <p class="Pp">Instead of blocking, the function returns <b>CURLE_AGAIN</b>. The
     correct behavior is then to wait for the socket to signal readability before
     calling this function again.</p>
+<p class="Pp">Any other non-zero return value indicates an error. See the
+    <i>libcurl-errors(3)</i> man page for the full list with descriptions.</p>
+<p class="Pp">Returns <b>CURLE_GOT_NOTHING</b> if the associated connection is
+    closed.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE

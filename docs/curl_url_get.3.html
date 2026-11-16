@@ -88,7 +88,7 @@ CURLUcode curl_url_get(const CURLU *url,
     <p class="Pp">The query component also gets plus-to-space conversion as a
         bonus when this bit is set.</p>
     <p class="Pp">Note that this URL decoding is charset unaware and you get a
-        zero terminated string back with data that could be intended for a
+        null-terminated string back with data that could be intended for a
         particular encoding.</p>
     <p class="Pp">If there are byte values lower than 32 in the decoded string,
         the get operation returns an error instead.</p>
@@ -96,9 +96,8 @@ CURLUcode curl_url_get(const CURLU *url,
   <dt id="CURLU_URLENCODE"><a class="permalink" href="#CURLU_URLENCODE">CURLU_URLENCODE</a></dt>
   <dd>If set, <i>curl_url_get(3)</i> URL encodes the hostname part when a full
       URL is retrieved. If not set (default), libcurl returns the URL with the
-      host name &quot;raw&quot; to support IDN names to appear as-is. IDN host
-      names are typically using non-ASCII bytes that otherwise gets
-      percent-encoded.
+      hostname raw to support IDN names to appear as-is. IDN hostnames are
+      typically using non-ASCII bytes that otherwise gets percent-encoded.
     <p class="Pp">Note that even when not asking for URL encoding, the '%' (byte
         37) is URL encoded to make sure the hostname remains valid.</p>
   </dd>
@@ -123,6 +122,28 @@ CURLUcode curl_url_get(const CURLU *url,
         hostname is using punycode.</p>
     <p class="Pp">(Added in curl 8.3.0)</p>
   </dd>
+  <dt id="CURLU_GET_EMPTY"><a class="permalink" href="#CURLU_GET_EMPTY">CURLU_GET_EMPTY</a></dt>
+  <dd>When this flag is used in curl_url_get(), it makes the function return
+      empty query and fragments parts or when used in the full URL. By default,
+      libcurl otherwise considers empty parts non-existing.
+    <p class="Pp">An empty query part is one where this is nothing following the
+        question mark (before the possible fragment). An empty fragments part is
+        one where there is nothing following the hash sign.</p>
+    <p class="Pp">(Added in curl 8.8.0)</p>
+  </dd>
+  <dt id="CURLU_NO_GUESS_SCHEME"><a class="permalink" href="#CURLU_NO_GUESS_SCHEME">CURLU_NO_GUESS_SCHEME</a></dt>
+  <dd>When this flag is used in curl_url_get(), it treats the scheme as
+      non-existing if it was set as a result of a previous guess; when
+      CURLU_GUESS_SCHEME was used parsing a URL.
+    <p class="Pp">Using this flag when getting CURLUPART_SCHEME if the scheme
+        was set as the result of a guess makes curl_url_get() return
+        CURLUE_NO_SCHEME.</p>
+    <p class="Pp">Using this flag when getting CURLUPART_URL if the scheme was
+        set as the result of a guess makes curl_url_get() return the full URL
+        without the scheme component. Such a URL can then only be parsed with
+        curl_url_set() if CURLU_GUESS_SCHEME is used.</p>
+    <p class="Pp">(Added in curl 8.9.0)</p>
+  </dd>
 </dl>
 </section>
 <section class="Sh">
@@ -130,11 +151,13 @@ CURLUcode curl_url_get(const CURLU *url,
 <dl class="Bl-tag">
   <dt id="CURLUPART_URL"><a class="permalink" href="#CURLUPART_URL">CURLUPART_URL</a></dt>
   <dd>When asked to return the full URL, <i>curl_url_get(3)</i> returns a
-      normalized and possibly cleaned up version using all available URL parts.
+      slightly cleaned up version of the complete URL using all available parts.
     <p class="Pp">We advise using the <i>CURLU_PUNYCODE</i> option to get the
-        URL as &quot;normalized&quot; as possible since IDN allows host names to
+        URL as &quot;normalized&quot; as possible since IDN allows hostnames to
         be written in many different ways that still end up the same punycode
         version.</p>
+    <p class="Pp">Zero-length queries and fragments are excluded from the URL
+        unless CURLU_GET_EMPTY is set.</p>
   </dd>
   <dt id="CURLUPART_SCHEME"><a class="permalink" href="#CURLUPART_SCHEME">CURLUPART_SCHEME</a></dt>
   <dd>Scheme cannot be URL decoded on get.</dd>
@@ -168,15 +191,24 @@ CURLUcode curl_url_get(const CURLU *url,
   <dt id="CURLUPART_QUERY"><a class="permalink" href="#CURLUPART_QUERY">CURLUPART_QUERY</a></dt>
   <dd>The initial question mark that denotes the beginning of the query part is
       a delimiter only. It is not part of the query contents.
-    <p class="Pp">A not-present query returns <i>part</i> set to NULL. A
-        zero-length query returns <i>part</i> as a zero-length string.</p>
+    <p class="Pp">A not-present query returns <i>part</i> set to NULL.</p>
+    <p class="Pp">A zero-length query returns <i>part</i> as NULL unless
+        CURLU_GET_EMPTY is set.</p>
     <p class="Pp">The query part gets pluses converted to space when asked to
         URL decode on get with the CURLU_URLDECODE bit.</p>
   </dd>
   <dt id="CURLUPART_FRAGMENT"><a class="permalink" href="#CURLUPART_FRAGMENT">CURLUPART_FRAGMENT</a></dt>
   <dd>The initial hash sign that denotes the beginning of the fragment is a
-      delimiter only. It is not part of the fragment contents.</dd>
+      delimiter only. It is not part of the fragment contents.
+    <p class="Pp">A not-present fragment returns <i>part</i> set to NULL.</p>
+    <p class="Pp">A zero-length fragment returns <i>part</i> as NULL unless
+        CURLU_GET_EMPTY is set.</p>
+  </dd>
 </dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PROTOCOLS"><a class="permalink" href="#PROTOCOLS">PROTOCOLS</a></h1>
+<p class="Pp">This functionality affects all supported protocols</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
@@ -210,7 +242,7 @@ CURLUcode curl_url_get(const CURLU *url,
 </section>
 <section class="Sh">
 <h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
-<p class="Pp">Added in 7.62.0. CURLUPART_ZONEID was added in 7.65.0.</p>
+<p class="Pp">Added in curl 7.62.0</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN

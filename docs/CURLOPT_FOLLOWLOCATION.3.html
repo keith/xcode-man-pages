@@ -49,31 +49,84 @@
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
 <pre>#include &lt;curl/curl.h&gt;
-CURLcode curl_easy_setopt(CURL *handle, CURLOPT_FOLLOWLOCATION, long enable);</pre>
+CURLcode curl_easy_setopt(CURL *handle, CURLOPT_FOLLOWLOCATION, long mode);</pre>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
-<p class="Pp">A long parameter set to 1 tells the library to follow any
-    Location: header redirects that an HTTP server sends in a 30x response. The
-    Location: header can specify a relative or an absolute URL to follow.</p>
-<p class="Pp">libcurl issues another request for the new URL and follows
-    subsequent new Location: redirects all the way until no more such headers
-    are returned or the maximum limit is reached. <i>CURLOPT_MAXREDIRS(3)</i> is
-    used to limit the number of redirects libcurl follows.</p>
+<p class="Pp">This option tells the library to follow <i>Location:</i> header
+    redirects that an HTTP server sends in a 30x response. The <i>Location:</i>
+    header can specify a relative or an absolute URL to follow. The long
+    parameter <i>mode</i> instructs how libcurl should act on subsequent
+    requests.</p>
+<p class="Pp"><i>mode</i> only had a single value (1L) for a long time that
+    enables redirect following. Since 8.13.0, two additional modes are also
+    supported. See below.</p>
+<p class="Pp">When following redirects, libcurl issues another request for the
+    new URL and follows subsequent new <i>Location:</i> redirects all the way
+    until no more such headers are returned or the maximum limit is reached.
+    <i>CURLOPT_MAXREDIRS(3)</i> is used to limit the number of redirects libcurl
+    follows.</p>
 <p class="Pp">libcurl restricts what protocols it automatically follow redirects
     to. The accepted target protocols are set with
-    <i>CURLOPT_REDIR_PROTOCOLS(3)</i>. By default libcurl allows HTTP, HTTPS,
-    FTP and FTPS on redirects.</p>
+    <i>CURLOPT_REDIR_PROTOCOLS_STR(3)</i>. By default libcurl allows HTTP,
+    HTTPS, FTP and FTPS on redirects.</p>
 <p class="Pp">When following a redirect, the specific 30x response code also
     dictates which request method libcurl uses in the subsequent request: For
     301, 302 and 303 responses libcurl switches method from POST to GET unless
     <i>CURLOPT_POSTREDIR(3)</i> instructs libcurl otherwise. All other redirect
     response codes make libcurl use the same method again.</p>
+<p class="Pp">When libcurl switches method to GET, it then uses that method
+    without sending any request body. If it does not change the method, it sends
+    the subsequent request the same way as the previous one; including the
+    request body if one was provided.</p>
 <p class="Pp">For users who think the existing location following is too naive,
     too simple or just lacks features, it is easy to instead implement your own
     redirect follow logic with the use of <i>curl_easy_getinfo(3)</i>'s
     <i>CURLINFO_REDIRECT_URL(3)</i> option instead of using
     <i>CURLOPT_FOLLOWLOCATION(3)</i>.</p>
+<p class="Pp">By default, libcurl only sends <i>Authentication:</i> or
+    explicitly set <i>Cookie:</i> headers to the initial host given in the
+    original URL, to avoid leaking username + password to other sites.
+    <i>CURLOPT_UNRESTRICTED_AUTH(3)</i> is provided to change that behavior.</p>
+<p class="Pp">Due to the way HTTP works, almost any header can be made to
+    contain data a client may not want to pass on to other servers than the
+    initially intended host and for all other headers than the two mentioned
+    above, there is no protection from this happening when libcurl is told to
+    follow redirects.</p>
+<p class="Pp">Pick one of the following modes:</p>
+<dl class="Bl-tag">
+  <dt id="CURLFOLLOW_ALL"><a class="permalink" href="#CURLFOLLOW_ALL">CURLFOLLOW_ALL
+    (1)</a></dt>
+  <dd>Before 8.13.0 this bit had no name and 1L was just the value to enable
+      this option. This makes a set custom method be used in all HTTP requests,
+      even after redirects.</dd>
+  <dt id="CURLFOLLOW_OBEYCODE"><a class="permalink" href="#CURLFOLLOW_OBEYCODE">CURLFOLLOW_OBEYCODE
+    (2)</a></dt>
+  <dd>When there is a custom request method set with
+      <i>CURLOPT_CUSTOMREQUEST(3)</i>, that set method replaces what libcurl
+      would otherwise use. If a 301/302/303 response code is returned to signal
+      a redirect, the method is changed from POST to <i>GET</i>. For 307/308,
+      the custom method remains set and used.
+    <p class="Pp">Note that only POST (or a custom post) is changed to GET on
+        301/302, its not change PUT etc - and therefore also not when libcurl
+        issues a custom PUT. A 303 response makes it switch to GET independently
+        of the original method (except for HEAD).</p>
+    <p class="Pp">To control for which of the 301/302/303 status codes libcurl
+        should <i>not</i> switch back to GET for when doing a custom POST, and
+        instead keep the custom method, use <i>CURLOPT_POSTREDIR(3)</i>.</p>
+    <p class="Pp">If you prefer a custom POST method to be reset to exactly the
+        method <i>POST</i>, use CURLFOLLOW_FIRSTONLY instead.</p>
+  </dd>
+  <dt id="CURLFOLLOW_FIRSTONLY"><a class="permalink" href="#CURLFOLLOW_FIRSTONLY">CURLFOLLOW_FIRSTONLY
+    (3)</a></dt>
+  <dd>When there is a custom request method set with
+      <i>CURLOPT_CUSTOMREQUEST(3)</i>, that set method replaces what libcurl
+      would otherwise use in the first outgoing request only. The second request
+      is then done according to the redirect response code.
+    <p class="Pp">If you prefer your custom method to remain in use after a
+        307/308 redirect, use CURLFOLLOW_OBEYCODE instead.</p>
+  </dd>
+</dl>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="NOTE"><a class="permalink" href="#NOTE">NOTE</a></h1>
@@ -82,6 +135,9 @@ CURLcode curl_easy_setopt(CURL *handle, CURLOPT_FOLLOWLOCATION, long enable);</p
     redirects may change what libcurl would otherwise do and if not that
     carefully may even make it misbehave since <i>CURLOPT_CUSTOMREQUEST(3)</i>
     overrides the method libcurl would otherwise select internally.</p>
+<p class="Pp">Setting the CURLFOLLOW_OBEYCODE bit makes libcurl <i>not</i> use
+    the custom set method after redirects for 301, 302 and 303 responses. Unless
+    the <i>CURLOPT_POSTREDIR(3)</i> bits are set for those status codes.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DEFAULT"><a class="permalink" href="#DEFAULT">DEFAULT</a></h1>
@@ -89,7 +145,7 @@ CURLcode curl_easy_setopt(CURL *handle, CURLOPT_FOLLOWLOCATION, long enable);</p
 </section>
 <section class="Sh">
 <h1 class="Sh" id="PROTOCOLS"><a class="permalink" href="#PROTOCOLS">PROTOCOLS</a></h1>
-<p class="Pp">HTTP(S)</p>
+<p class="Pp">This functionality affects http only</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
@@ -113,26 +169,29 @@ CURLcode curl_easy_setopt(CURL *handle, CURLOPT_FOLLOWLOCATION, long enable);</p
 </section>
 <section class="Sh">
 <h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
-<p class="Pp">Along with HTTP</p>
+<p class="Pp">Added in curl 7.1</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
   VALUE</a></h1>
-<p class="Pp">Returns CURLE_OK if HTTP is supported, and CURLE_UNKNOWN_OPTION if
-    not.</p>
+<p class="Pp"><i>curl_easy_setopt(3)</i> returns a CURLcode indicating success
+    or error.</p>
+<p class="Pp">CURLE_OK (0) means everything was OK, non-zero means an error
+    occurred, see <i>libcurl-errors(3)</i>.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
 <p class="Pp"><b>CURLINFO_REDIRECT_COUNT</b>(3),
     <b>CURLINFO_REDIRECT_URL</b>(3), <b>CURLOPT_POSTREDIR</b>(3),
-    <b>CURLOPT_PROTOCOLS</b>(3), <b>CURLOPT_REDIR_PROTOCOLS</b>(3)</p>
+    <b>CURLOPT_PROTOCOLS_STR</b>(3), <b>CURLOPT_REDIR_PROTOCOLS_STR</b>(3),
+    <b>CURLOPT_UNRESTRICTED_AUTH</b>(3)</p>
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">September 26, 2023</td>
-    <td class="foot-os">ibcurl 8.4.0</td>
+    <td class="foot-date">2026-05-27</td>
+    <td class="foot-os">libcurl</td>
   </tr>
 </table>
 </body>

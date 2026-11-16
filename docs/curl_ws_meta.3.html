@@ -53,7 +53,6 @@ const struct curl_ws_frame *curl_ws_meta(CURL *curl);</pre>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
-<p class="Pp">This function call is EXPERIMENTAL.</p>
 <p class="Pp">When the write callback (<i>CURLOPT_WRITEFUNCTION(3)</i>) is
     invoked on received WebSocket traffic, <i>curl_ws_meta(3)</i> can be called
     from within the callback to provide additional information about the current
@@ -78,6 +77,8 @@ const struct curl_ws_frame *curl_ws_meta(CURL *curl);</pre>
   curl_off_t offset;
 <br/>
   curl_off_t bytesleft;
+<br/>
+  size_t len;
 };</pre>
 <dl class="Bl-tag">
   <dt id="age"><a class="permalink" href="#age">age</a></dt>
@@ -86,31 +87,59 @@ const struct curl_ws_frame *curl_ws_meta(CURL *curl);</pre>
   <dd>This is a bitmask with individual bits set that describes the WebSocket
       data. See the list below.</dd>
   <dt id="offset"><a class="permalink" href="#offset">offset</a></dt>
-  <dd>When this frame is a continuation of fragment data already delivered, this
-      is the offset into the final fragment where this piece belongs.</dd>
+  <dd>When this chunk is a continuation of frame data already delivered, this is
+      the offset into the final frame data where this piece belongs to.</dd>
   <dt id="bytesleft"><a class="permalink" href="#bytesleft">bytesleft</a></dt>
   <dd>If this is not a complete fragment, the <i>bytesleft</i> field informs
       about how many additional bytes are expected to arrive before this
       fragment is complete.</dd>
+  <dt id="len"><a class="permalink" href="#len">len</a></dt>
+  <dd>The length of the current data chunk.</dd>
 </dl>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="FLAGS"><a class="permalink" href="#FLAGS">FLAGS</a></h1>
+<p class="Pp">The <i>message type</i> flags (CURLWS_TEXT/BINARY/CLOSE/PING/PONG)
+    are mutually exclusive.</p>
 <dl class="Bl-tag">
   <dt id="CURLWS_TEXT"><a class="permalink" href="#CURLWS_TEXT">CURLWS_TEXT</a></dt>
-  <dd>The buffer contains text data. Note that this makes a difference to
+  <dd>This is a message with text data. Note that this makes a difference to
       WebSocket but libcurl itself does not make any verification of the content
       or precautions that you actually receive valid UTF-8 content.</dd>
   <dt id="CURLWS_BINARY"><a class="permalink" href="#CURLWS_BINARY">CURLWS_BINARY</a></dt>
-  <dd>This is binary data.</dd>
-  <dt id="CURLWS_CONT"><a class="permalink" href="#CURLWS_CONT">CURLWS_CONT</a></dt>
-  <dd>This is not the final fragment of the message, it implies that there is
-      another fragment coming as part of the same message.</dd>
+  <dd>This is a message with binary data.</dd>
   <dt id="CURLWS_CLOSE"><a class="permalink" href="#CURLWS_CLOSE">CURLWS_CLOSE</a></dt>
-  <dd>This transfer is now closed.</dd>
+  <dd>This is a close message. No more data follows.
+    <p class="Pp">It may contain a 2-byte unsigned integer in network byte order
+        that indicates the close reason and may additionally contain up to 123
+        bytes of further textual payload for a total of at most 125 bytes.
+        libcurl does not verify that the textual description is valid UTF-8.</p>
+  </dd>
   <dt id="CURLWS_PING"><a class="permalink" href="#CURLWS_PING">CURLWS_PING</a></dt>
-  <dd>This as an incoming ping message, that expects a pong response.</dd>
+  <dd>This is a ping message. It may contain up to 125 bytes of payload text.
+      libcurl does not verify that the payload is valid UTF-8.
+    <p class="Pp">Upon receiving a ping message, libcurl automatically responds
+        with a pong message unless the <b>CURLWS_NOAUTOPONG</b> or
+        <b>CURLWS_RAW_MODE</b> bit of <i>CURLOPT_WS_OPTIONS(3)</i> is set.</p>
+  </dd>
+  <dt id="CURLWS_PONG"><a class="permalink" href="#CURLWS_PONG">CURLWS_PONG</a></dt>
+  <dd>This is a pong message. It may contain up to 125 bytes of payload text.
+      libcurl does not verify that the payload is valid UTF-8.</dd>
+  <dt id="CURLWS_CONT"><a class="permalink" href="#CURLWS_CONT">CURLWS_CONT</a></dt>
+  <dd>Can only occur in conjunction with CURLWS_TEXT or CURLWS_BINARY.
+    <p class="Pp">This is not the final fragment of the message, it implies that
+        there is another fragment coming as part of the same message. The
+        application must reassemble the fragments to receive the complete
+        message.</p>
+    <p class="Pp">Only a single fragmented message can be transmitted at a time,
+        but it may be interrupted by CURLWS_CLOSE, CURLWS_PING or CURLWS_PONG
+        frames.</p>
+  </dd>
 </dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PROTOCOLS"><a class="permalink" href="#PROTOCOLS">PROTOCOLS</a></h1>
+<p class="Pp">This functionality affects ws only</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
@@ -122,7 +151,7 @@ struct customdata {
 <br/>
   void *ptr;
 };
-static size_t writecb(unsigned char *buffer,
+static size_t writecb(char *buffer,
 <br/>
                       size_t size, size_t nitems, void *p)
 {
@@ -132,6 +161,8 @@ static size_t writecb(unsigned char *buffer,
   const struct curl_ws_frame *m = curl_ws_meta(c-&gt;easy);
 <br/>
   printf(&quot;flags: %x\n&quot;, m-&gt;flags);
+<br/>
+  return 0;
 }
 int main(void)
 {
@@ -153,11 +184,13 @@ int main(void)
     curl_easy_perform(curl);
 <br/>
   }
+<br/>
+  return 0;
 }</pre>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
-<p class="Pp">Added in 7.86.0.</p>
+<p class="Pp">Added in curl 7.86.0</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN

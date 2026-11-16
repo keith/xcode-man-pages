@@ -54,39 +54,41 @@ CURLcode curl_easy_setopt(CURL *handle, CURLOPT_SSL_CIPHER_LIST, char *list);</p
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
 <p class="Pp">Pass a char pointer, pointing to a null-terminated string holding
-    the list of ciphers to use for the SSL connection. The list must be
-    syntactically correct, it consists of one or more cipher strings separated
-    by colons. Commas or spaces are also acceptable separators but colons are
-    normally used, !, - and + can be used as operators.</p>
-<p class="Pp">For OpenSSL and GnuTLS valid examples of cipher lists include
-    <b>RC4-SHA</b>, <b>SHA1+DES</b>, <b>TLSv1</b> and <b>DEFAULT</b>. The
-    default list is normally set when you compile OpenSSL.</p>
-<p class="Pp">For WolfSSL, valid examples of cipher lists include
-    <b>ECDHE-RSA-RC4-SHA</b>, <b>AES256-SHA:AES256-SHA256</b>, etc.</p>
-<p class="Pp">For BearSSL, valid examples of cipher lists include
-    <b>ECDHE-RSA-CHACHA20-POLY1305:ECDHE-RSA-AES128-GCM-SHA256</b>, or when
-    using IANA names
-    <b>TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256</b>,
-    etc. With BearSSL you do not add/remove ciphers. If one uses this option
-    then all known ciphers are disabled and only those passed in are
-  enabled.</p>
+    the list of cipher suites to use for the TLS 1.2 (1.1, 1.0) connection. The
+    list must be syntactically correct, it consists of one or more cipher suite
+    strings separated by colons.</p>
+<p class="Pp">For setting TLS 1.3 ciphers see
+  <i>CURLOPT_TLS13_CIPHERS(3)</i>.</p>
+<p class="Pp">A valid example of a cipher list with OpenSSL is:</p>
+<pre>&quot;ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:&quot;
+&quot;ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305&quot;</pre>
 <p class="Pp">For Schannel, you can use this option to set algorithms but not
     specific cipher suites. Refer to the ciphers lists document for
   algorithms.</p>
+<p class="Pp">GnuTLS has the concept of a [priority
+    string](https://gnutls.org/manual/html_node/Priority-Strings.html) which has
+    its own syntax and keywords. The string set via
+    <i>CURLOPT_SSL_CIPHER_LIST(3)</i> directly influences the priority
+  setting.</p>
 <p class="Pp">Find more details about cipher lists on this URL:</p>
 <p class="Pp">
   <br/>
    https://curl.se/docs/ssl-ciphers.html</p>
 <p class="Pp">The application does not have to keep the string around after
     setting this option.</p>
+<p class="Pp">Using this option multiple times makes the last set string
+    override the previous ones. Set it to NULL to disable its use again.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DEFAULT"><a class="permalink" href="#DEFAULT">DEFAULT</a></h1>
-<p class="Pp">NULL, use internal default</p>
+<p class="Pp">NULL, use built-in list</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="PROTOCOLS"><a class="permalink" href="#PROTOCOLS">PROTOCOLS</a></h1>
-<p class="Pp">All TLS based protocols: HTTPS, FTPS, IMAPS, POP3S, SMTPS etc.</p>
+<p class="Pp">This functionality affects all TLS based protocols: HTTPS, FTPS,
+    IMAPS, POP3S, SMTPS etc.</p>
+<p class="Pp">This option works only with the following TLS backends: BearSSL,
+    GnuTLS, OpenSSL, Schannel, Secure Transport, mbedTLS, rustls and wolfSSL</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
@@ -101,7 +103,11 @@ CURLcode curl_easy_setopt(CURL *handle, CURLOPT_SSL_CIPHER_LIST, char *list);</p
 <br/>
     curl_easy_setopt(curl, CURLOPT_URL, &quot;https://example.com/&quot;);
 <br/>
-    curl_easy_setopt(curl, CURLOPT_SSL_CIPHER_LIST, &quot;TLSv1&quot;);
+    curl_easy_setopt(curl, CURLOPT_SSL_CIPHER_LIST,
+<br/>
+                     &quot;ECDHE-ECDSA-CHACHA20-POLY1305:&quot;
+<br/>
+                     &quot;ECDHE-RSA-CHACHA20-POLY1305&quot;);
 <br/>
     res = curl_easy_perform(curl);
 <br/>
@@ -111,15 +117,25 @@ CURLcode curl_easy_setopt(CURL *handle, CURLOPT_SSL_CIPHER_LIST, char *list);</p
 }</pre>
 </section>
 <section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+<p class="Pp">OpenSSL support added in 7.9. wolfSSL support added in 7.53.0.
+    Schannel support added in 7.61.0. Secure Transport support added in 7.77.0.
+    BearSSL support added in 7.83.0. mbedTLS support added in 8.8.0. Rustls
+    support added in 8.10.0.</p>
+<p class="Pp">Since curl 8.10.0 returns CURLE_NOT_BUILT_IN when not
+  supported.</p>
+</section>
+<section class="Sh">
 <h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
-<p class="Pp">Added in 7.9, in 7.83.0 for BearSSL</p>
-<p class="Pp">If built TLS enabled.</p>
+<p class="Pp">Added in curl 7.9</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
   VALUE</a></h1>
-<p class="Pp">Returns CURLE_OK if TLS is supported, CURLE_UNKNOWN_OPTION if not,
-    or CURLE_OUT_OF_MEMORY if there was insufficient heap space.</p>
+<p class="Pp"><i>curl_easy_setopt(3)</i> returns a CURLcode indicating success
+    or error.</p>
+<p class="Pp">CURLE_OK (0) means everything was OK, non-zero means an error
+    occurred, see <i>libcurl-errors(3)</i>.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE

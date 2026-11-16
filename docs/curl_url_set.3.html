@@ -68,26 +68,21 @@ CURLUcode curl_url_set(CURLU *url,
     (see list below) to set or change, with <i>content</i> pointing to a
     null-terminated string with the new contents for that URL part. The contents
     should be in the form and encoding they would use in a URL: URL encoded.</p>
-<p class="Pp">When setting part in the URL object that was previously already
+<p class="Pp">When setting a part in the URL object that was previously already
     set, it replaces the data that was previously stored for that part with the
     new <i>content</i>.</p>
 <p class="Pp">The caller does not have to keep <i>content</i> around after a
     successful call as this function copies the content.</p>
 <p class="Pp">Setting a part to a NULL pointer removes that part's contents from
     the <i>CURLU</i> handle.</p>
-<p class="Pp">By default, this API only accepts URLs using schemes for protocols
-    that are supported built-in. To make libcurl parse URLs generically even for
-    schemes it does not know about, the <b>CURLU_NON_SUPPORT_SCHEME</b> flags
-    bit must be set. Otherwise, this function returns
-    <i>CURLUE_UNSUPPORTED_SCHEME</i> for URL schemes it does not recognize.</p>
 <p class="Pp">This function has an 8 MB maximum length limit for all provided
     input strings. In the real world, excessively long fields in URLs cause
-    problems even if this API accepts them.</p>
-<p class="Pp">When setting or updating contents of individual URL parts, this
-    API might accept data that would not be otherwise possible to set in the
-    string when it gets populated as a result of a full URL parse. Beware. If
-    done so, extracting a full URL later on from such components might render an
-    invalid URL.</p>
+    problems even if this function accepts them.</p>
+<p class="Pp">When setting or updating contents of individual URL parts,
+    <i>curl_url_set(3)</i> might accept data that would not be otherwise
+    possible to set in the string when it gets populated as a result of a full
+    URL parse. Beware. If done so, extracting a full URL later on from such
+    components might render an invalid URL.</p>
 <p class="Pp">The <i>flags</i> argument is a bitmask with independent
   features.</p>
 </section>
@@ -102,17 +97,34 @@ CURLUcode curl_url_set(CURLU *url,
       URL.</p>
     <p class="Pp">Pass a pointer to a null-terminated string to the <i>url</i>
         parameter. The string must point to a correctly formatted &quot;RFC
-        3986+&quot; URL or be a NULL pointer.</p>
+        3986+&quot; URL or be a NULL pointer. The URL parser only understands
+        and parses the subset of URLS that are &quot;hierarchical&quot; and
+        therefore contain a <i>://</i> separator - not the ones that are
+        normally specified with only a colon separator.</p>
+    <p class="Pp">By default this API only parses URLs using schemes for
+        protocols that are supported built-in. To make libcurl parse URLs
+        generically even for schemes it does not know about, the
+        <b>CURLU_NON_SUPPORT_SCHEME</b> flags bit must be set. Otherwise, this
+        function returns <i>CURLUE_UNSUPPORTED_SCHEME</i> for URL schemes it
+        does not recognize.</p>
     <p class="Pp">Unless <i>CURLU_NO_AUTHORITY</i> is set, a blank hostname is
         not allowed in the URL.</p>
+    <p class="Pp">When a full URL is set (parsed), the hostname component is
+        stored URL decoded.</p>
+    <p class="Pp">It is considered fine to set a blank URL (&quot;&quot;) as a
+        redirect, but not as a normal URL. Therefore, setting a &quot;&quot; URL
+        works fine if the handle already holds a URL, otherwise it triggers an
+        error.</p>
   </dd>
   <dt id="CURLUPART_SCHEME"><a class="permalink" href="#CURLUPART_SCHEME">CURLUPART_SCHEME</a></dt>
   <dd>Scheme cannot be URL decoded on set. libcurl only accepts setting schemes
       up to 40 bytes long.</dd>
   <dt id="CURLUPART_USER"><a class="permalink" href="#CURLUPART_USER">CURLUPART_USER</a></dt>
-  <dd></dd>
+  <dd>If only the user part is set and not the password, the URL is represented
+      with a blank password.</dd>
   <dt id="CURLUPART_PASSWORD"><a class="permalink" href="#CURLUPART_PASSWORD">CURLUPART_PASSWORD</a></dt>
-  <dd></dd>
+  <dd>If only the password part is set and not the user, the URL is represented
+      with a blank user.</dd>
   <dt id="CURLUPART_OPTIONS"><a class="permalink" href="#CURLUPART_OPTIONS">CURLUPART_OPTIONS</a></dt>
   <dd>The options field is an optional field that might follow the password in
       the userinfo part. It is only recognized/used when parsing URLs for the
@@ -123,6 +135,8 @@ CURLUcode curl_url_set(CURLU *url,
       then be encoded as your locale says or UTF-8 (when WinIDN is used). If it
       is a bracketed IPv6 numeric address it may contain a zone id (or you can
       use <i>CURLUPART_ZONEID</i>).
+    <p class="Pp">Note that if you set an IPv6 address, it gets ruined and
+        causes an error if you also set the CURLU_URLENCODE flag.</p>
     <p class="Pp">Unless <i>CURLU_NO_AUTHORITY</i> is set, a blank hostname is
         not allowed to set.</p>
   </dd>
@@ -161,14 +175,16 @@ CURLUcode curl_url_set(CURLU *url,
         <i>CURLU_URLENCODE</i>, the first '=' symbol is not URL encoded.</p>
   </dd>
   <dt id="CURLU_NON_SUPPORT_SCHEME"><a class="permalink" href="#CURLU_NON_SUPPORT_SCHEME">CURLU_NON_SUPPORT_SCHEME</a></dt>
-  <dd>If set, allows <i>curl_url_set(3)</i> to set a non-supported scheme.</dd>
+  <dd>If set, allows <i>curl_url_set(3)</i> to set a non-supported scheme. It
+      then of course cannot know if the provided scheme is a valid one or
+    not.</dd>
   <dt id="CURLU_URLENCODE"><a class="permalink" href="#CURLU_URLENCODE">CURLU_URLENCODE</a></dt>
   <dd>When set, <i>curl_url_set(3)</i> URL encodes the part on entry, except for
-      scheme, port and URL.
+      <b>scheme</b>, <b>port</b> and <b>URL</b>.
     <p class="Pp">When setting the path component with URL encoding enabled, the
-        slash character is be skipped.</p>
-    <p class="Pp">The query part gets space-to-plus conversion before the URL
-        conversion.</p>
+        slash character is skipped.</p>
+    <p class="Pp">The query part gets space-to-plus converted before the URL
+        conversion is applied.</p>
     <p class="Pp">This URL encoding is charset unaware and converts the input in
         a byte-by-byte manner.</p>
   </dd>
@@ -181,8 +197,14 @@ CURLUcode curl_url_set(CURLU *url,
       &quot;guesses&quot; which scheme that was intended based on the hostname.
       If the outermost subdomain name matches DICT, FTP, IMAP, LDAP, POP3 or
       SMTP then that scheme is used, otherwise it picks HTTP. Conflicts with the
-      <i>CURLU_DEFAULT_SCHEME</i> option which takes precedence if both are
-    set.</dd>
+      <i>CURLU_DEFAULT_SCHEME</i> option which takes precedence if both are set.
+    <p class="Pp">If guessing is not allowed and there is no default scheme set,
+        trying to parse a URL without a scheme returns error.</p>
+    <p class="Pp">If the scheme ends up set as a result of guessing, i.e. it is
+        not actually present in the parsed URL, it can later be figured out by
+        using the <b>CURLU_NO_GUESS_SCHEME</b> flag when subsequently getting
+        the URL or the scheme with <i>curl_url_get(3)</i>.</p>
+  </dd>
   <dt id="CURLU_NO_AUTHORITY"><a class="permalink" href="#CURLU_NO_AUTHORITY">CURLU_NO_AUTHORITY</a></dt>
   <dd>If set, skips authority checks. The RFC allows individual schemes to omit
       the host part (normally the only mandatory part of the authority), but
@@ -210,6 +232,10 @@ CURLUcode curl_url_set(CURLU *url,
 </dl>
 </section>
 <section class="Sh">
+<h1 class="Sh" id="PROTOCOLS"><a class="permalink" href="#PROTOCOLS">PROTOCOLS</a></h1>
+<p class="Pp">This functionality affects all supported protocols</p>
+</section>
+<section class="Sh">
 <h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
 <pre>int main(void)
 {
@@ -233,7 +259,7 @@ CURLUcode curl_url_set(CURLU *url,
 </section>
 <section class="Sh">
 <h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
-<p class="Pp">Added in 7.62.0. CURLUPART_ZONEID was added in 7.65.0.</p>
+<p class="Pp">Added in curl 7.62.0</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN

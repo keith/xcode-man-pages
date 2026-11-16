@@ -57,62 +57,65 @@ CURLcode curl_ws_send(CURL *curl, const void *buffer, size_t buflen,
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
-<p class="Pp">This function call is EXPERIMENTAL.</p>
-<p class="Pp">Send the specific message fragment over an established WebSocket
-    connection. The <i>buffer</i> holds the data to send and it is <i>buflen</i>
-    number of payload bytes in that memory area.</p>
-<p class="Pp"><i>sent</i> is returned as the number of payload bytes actually
-    sent.</p>
-<p class="Pp">To send a (huge) fragment using multiple calls with partial
-    content per invoke, set the <i>CURLWS_OFFSET</i> bit and the <i>fragsize</i>
-    argument as the total expected size for the first part, then set the
-    <i>CURLWS_OFFSET</i> with a zero <i>fragsize</i> for the following
-  parts.</p>
-<p class="Pp">If not sending a partial fragment or if this is raw mode,
-    <i>fragsize</i> should be set to zero.</p>
-<p class="Pp">If <b>CURLWS_RAW_MODE</b> is enabled in
-    <i>CURLOPT_WS_OPTIONS(3)</i>, the <b>flags</b> argument should be set to
+<p class="Pp">Send the specific message chunk over an established WebSocket
+    connection. <i>buffer</i> must point to a valid memory location containing
+    (at least) <i>buflen</i> bytes of payload memory.</p>
+<p class="Pp"><i>sent</i> is set to the number of payload bytes actually sent.
+    If the return value is <b>CURLE_OK</b> but <i>sent</i> is less than the
+    given <i>buflen</i>, libcurl was unable to consume the complete payload in a
+    single call. In this case the application must call this function again
+    until all payload is processed. <i>buffer</i> and <i>buflen</i> must be
+    updated on every following invocation to only point to the remaining piece
+    of the payload.</p>
+<p class="Pp"><i>fragsize</i> should always be set to zero unless a (huge) frame
+    shall be sent using multiple calls with partial content per call explicitly.
+    In that case you must set the <i>CURLWS_OFFSET</i> bit and set the
+    <i>fragsize</i> as documented in the section on <i>CURLWS_OFFSET</i>
+  below.</p>
+<p class="Pp"><i>flags</i> must contain at least one flag indicating the type of
+    the message. To send a fragmented message consisting of multiple frames,
+    additionally set the <i>CURLWS_CONT</i> bit in all frames except the final
+    one. The appropriate message type bit should be set in every frame of a
+    fragmented message without exemption. Omitting the message type for
+    continuation frames of a fragmented message is only supported for backwards
+    compatibility and highly discouraged.</p>
+<p class="Pp">For more details on the supported flags see below and in
+    <i>curl_ws_meta(3)</i>.</p>
+<p class="Pp">If <i>CURLWS_RAW_MODE</i> is enabled in
+    <i>CURLOPT_WS_OPTIONS(3)</i>, the <i>flags</i> argument should be set to
   0.</p>
-<p class="Pp">To send a message consisting of multiple frames, set the
-    <i>CURLWS_CONT</i> bit in all frames except the final one.</p>
+<p class="Pp">Warning: while it is possible to invoke this function from a
+    callback, such a call is blocking in this situation, e.g. only returns after
+    all data has been sent or an error is encountered.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="FLAGS"><a class="permalink" href="#FLAGS">FLAGS</a></h1>
+<p class="Pp">Supports all flags documented in <i>curl_ws_meta(3)</i> and
+    additionally the following flags.</p>
 <dl class="Bl-tag">
-  <dt id="CURLWS_TEXT"><a class="permalink" href="#CURLWS_TEXT">CURLWS_TEXT</a></dt>
-  <dd>The buffer contains text data. Note that this makes a difference to
-      WebSocket but libcurl itself does not make any verification of the content
-      or precautions that you actually send valid UTF-8 content.</dd>
-  <dt id="CURLWS_BINARY"><a class="permalink" href="#CURLWS_BINARY">CURLWS_BINARY</a></dt>
-  <dd>This is binary data.</dd>
-  <dt id="CURLWS_CONT"><a class="permalink" href="#CURLWS_CONT">CURLWS_CONT</a></dt>
-  <dd>This is not the final fragment of the message, which implies that there is
-      another fragment coming as part of the same message where this bit is not
-      set.</dd>
-  <dt id="CURLWS_CLOSE"><a class="permalink" href="#CURLWS_CLOSE">CURLWS_CLOSE</a></dt>
-  <dd>Close this transfer.</dd>
-  <dt id="CURLWS_PING"><a class="permalink" href="#CURLWS_PING">CURLWS_PING</a></dt>
-  <dd>This is a ping.</dd>
-  <dt id="CURLWS_PONG"><a class="permalink" href="#CURLWS_PONG">CURLWS_PONG</a></dt>
-  <dd>This is a pong.</dd>
   <dt id="CURLWS_OFFSET"><a class="permalink" href="#CURLWS_OFFSET">CURLWS_OFFSET</a></dt>
-  <dd>The provided data is only a partial fragment and there is more coming in a
+  <dd>The provided data is only a partial frame and there is more coming in a
       following call to <i>curl_ws_send()</i>. When sending only a piece of the
-      fragment like this, the <i>fragsize</i> must be provided with the total
-      expected fragment size in the first call and it needs to be zero in
-      subsequent calls.</dd>
+      frame like this, the <i>fragsize</i> must be provided with the total
+      expected frame size in the first call and must be zero in all subsequent
+      calls.</dd>
 </dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PROTOCOLS"><a class="permalink" href="#PROTOCOLS">PROTOCOLS</a></h1>
+<p class="Pp">This functionality affects ws only</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
 <pre>#include &lt;string.h&gt; /* for strlen */
-const char *send_payload = &quot;magic&quot;;
 int main(void)
 {
 <br/>
-  size_t sent;
+  const char *buffer = &quot;PAYLOAD&quot;;
 <br/>
-  CURLcode res;
+  size_t offset = 0;
+<br/>
+  CURLcode res = CURLE_OK;
 <br/>
   CURL *curl = curl_easy_init();
 <br/>
@@ -120,11 +123,35 @@ int main(void)
 <br/>
   curl_easy_setopt(curl, CURLOPT_CONNECT_ONLY, 2L);
 <br/>
+  /* start HTTPS connection and upgrade to WSS, then return control */
+<br/>
   curl_easy_perform(curl);
 <br/>
-  res = curl_ws_send(curl, send_payload, strlen(send_payload), &amp;sent, 0,
+  while(!res) {
 <br/>
-                     CURLWS_PING);
+    size_t sent;
+<br/>
+    res = curl_ws_send(curl, buffer + offset, strlen(buffer) - offset, &amp;sent,
+<br/>
+                       0, CURLWS_TEXT);
+<br/>
+    offset += sent;
+<br/>
+    if(res == CURLE_OK) {
+<br/>
+      if(offset == strlen(buffer))
+<br/>
+        break; /* finished sending */
+<br/>
+    }
+<br/>
+    if(res == CURLE_AGAIN)
+<br/>
+      /* in real application: wait for socket here, e.g. using select() */
+<br/>
+      res = CURLE_OK;
+<br/>
+  }
 <br/>
   curl_easy_cleanup(curl);
 <br/>
@@ -133,15 +160,21 @@ int main(void)
 </section>
 <section class="Sh">
 <h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
-<p class="Pp">Added in 7.86.0.</p>
+<p class="Pp">Added in curl 7.86.0</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
   VALUE</a></h1>
-<p class="Pp"><i>CURLE_OK</i> (zero) means that the data was sent properly,
-    non-zero means an error occurred as <i>&lt;curl/curl.h&gt;</i> defines. See
-    the <i>libcurl-errors(3)</i> man page for the full list with
-  descriptions.</p>
+<p class="Pp">This function returns a CURLcode indicating success or error.</p>
+<p class="Pp">CURLE_OK (0) means everything was OK, non-zero means an error
+    occurred, see <i>libcurl-errors(3)</i>. If <i>CURLOPT_ERRORBUFFER(3)</i> was
+    set with <i>curl_easy_setopt(3)</i> there can be an error message stored in
+    the error buffer when non-zero is returned.</p>
+<p class="Pp">Instead of blocking, the function returns <b>CURLE_AGAIN</b>. The
+    correct behavior is then to wait for the socket to signal readability before
+    calling this function again.</p>
+<p class="Pp">Any other non-zero return value indicates an error. See the
+    <i>libcurl-errors(3)</i> man page for the full list with descriptions.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE

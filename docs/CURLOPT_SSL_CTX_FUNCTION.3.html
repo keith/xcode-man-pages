@@ -44,8 +44,7 @@
 <div class="manual-text">
 <section class="Sh">
 <h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
-<p class="Pp">CURLOPT_SSL_CTX_FUNCTION - SSL context callback for OpenSSL,
-    wolfSSL or mbedTLS</p>
+<p class="Pp">CURLOPT_SSL_CTX_FUNCTION - SSL context callback</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
@@ -57,45 +56,50 @@ CURLcode curl_easy_setopt(CURL *handle, CURLOPT_SSL_CTX_FUNCTION,
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
-<p class="Pp">This option only works for libcurl powered by OpenSSL, wolfSSL,
-    mbedTLS or BearSSL. If libcurl was built against another SSL library this
-    functionality is absent.</p>
 <p class="Pp">Pass a pointer to your callback function, which should match the
     prototype shown above.</p>
 <p class="Pp">This callback function gets called by libcurl just before the
     initialization of an SSL connection after having processed all other SSL
     related options to give a last chance to an application to modify the
-    behavior of the SSL initialization. The <i>ssl_ctx</i> parameter is actually
-    a pointer to the SSL library's <i>SSL_CTX</i> for OpenSSL or wolfSSL, a
+    behavior of the SSL initialization. The <i>ssl_ctx</i> parameter is a
+    pointer to the SSL library's <i>SSL_CTX</i> for OpenSSL or wolfSSL, a
     pointer to <i>mbedtls_ssl_config</i> for mbedTLS or a pointer to
     <i>br_ssl_client_context</i> for BearSSL. If an error is returned from the
     callback no attempt to establish a connection is made and the perform
     operation returns the callback's error code. Set the <i>clientp</i> argument
-    with the <i>CURLOPT_SSL_CTX_DATA(3)</i> option.</p>
-<p class="Pp">This function gets called on all new connections made to a server,
-    during the SSL negotiation. The <i>ssl_ctx</i> points to a newly initialized
-    object each time, but note the pointer may be the same as from a prior
-  call.</p>
-<p class="Pp">To use this properly, a non-trivial amount of knowledge of your
+    passed in to this callback with the <i>CURLOPT_SSL_CTX_DATA(3)</i>
+  option.</p>
+<p class="Pp">This function gets called for all new connections made to a
+    server, during the SSL negotiation. While <i>ssl_ctx</i> points to a newly
+    initialized object each time, the pointer may still be the same as in a
+    prior call.</p>
+<p class="Pp">To use this callback, a non-trivial amount of knowledge of your
     SSL library is necessary. For example, you can use this function to call
     library-specific callbacks to add additional validation code for
     certificates, and even to change the actual URI of an HTTPS request.</p>
 <p class="Pp">For OpenSSL, asynchronous certificate verification via
     <i>SSL_set_retry_verify</i> is supported. (Added in 8.3.0)</p>
-<p class="Pp">WARNING: The <i>CURLOPT_SSL_CTX_FUNCTION(3)</i> callback allows
-    the application to reach in and modify SSL details in the connection without
+<p class="Pp">The <i>CURLOPT_SSL_CTX_FUNCTION(3)</i> callback allows the
+    application to reach in and modify SSL details in the connection without
     libcurl itself knowing anything about it, which then subsequently can lead
     to libcurl unknowingly reusing SSL connections with different properties. To
     remedy this you may set <i>CURLOPT_FORBID_REUSE(3)</i> from the callback
     function.</p>
-<p class="Pp">WARNING: If you are using DNS-over-HTTPS (DoH) via
+<p class="Pp">If you are using DNS-over-HTTPS (DoH) via
     <i>CURLOPT_DOH_URL(3)</i> then this callback is also called for those
     transfers and the curl handle is set to an internal handle. <b>This behavior
-    is subject to change.</b> We recommend before performing your transfer set
-    <i>CURLOPT_PRIVATE(3)</i> on your curl handle so you can identify it in the
-    context callback. If you have a reason to modify DoH SSL context please let
-    us know on the curl-library mailing list because we are considering removing
-    this capability.</p>
+    is subject to change.</b> We recommend setting <i>CURLOPT_PRIVATE(3)</i> on
+    your curl handle so you can identify it correctly in the context callback.
+    If you have a reason to modify DoH SSL context please let us know on the
+    curl-library mailing list because we are considering removing this
+    capability.</p>
+<p class="Pp">libcurl does not guarantee the lifetime of the passed in object
+    once this callback function has returned. Your application must not assume
+    that it can keep using the SSL context or data derived from it once this
+    function is completed.</p>
+<p class="Pp">For libcurl builds using TLS backends that support CA caching and
+    <i>CURLOPT_CA_CACHE_TIMEOUT(3)</i> is not set to zero, multiple calls to
+    this callback may be done with the same CA store in memory.</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DEFAULT"><a class="permalink" href="#DEFAULT">DEFAULT</a></h1>
@@ -103,7 +107,10 @@ CURLcode curl_easy_setopt(CURL *handle, CURLOPT_SSL_CTX_FUNCTION,
 </section>
 <section class="Sh">
 <h1 class="Sh" id="PROTOCOLS"><a class="permalink" href="#PROTOCOLS">PROTOCOLS</a></h1>
-<p class="Pp">All TLS based protocols: HTTPS, FTPS, IMAPS, POP3S, SMTPS etc.</p>
+<p class="Pp">This functionality affects all TLS based protocols: HTTPS, FTPS,
+    IMAPS, POP3S, SMTPS etc.</p>
+<p class="Pp">This option works only with the following TLS backends: BearSSL,
+    OpenSSL, mbedTLS and wolfSSL</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
@@ -218,27 +225,26 @@ int main(void)
 </section>
 <section class="Sh">
 <h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
-<p class="Pp">Added in 7.11.0 for OpenSSL, in 7.42.0 for wolfSSL, in 7.54.0 for
-    mbedTLS, in 7.83.0 in BearSSL. Other SSL backends are not supported.</p>
+<p class="Pp">Added in curl 7.10.6</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
   VALUE</a></h1>
 <p class="Pp">CURLE_OK if supported; or an error such as:</p>
 <p class="Pp">CURLE_NOT_BUILT_IN - Not supported by the SSL backend</p>
-<p class="Pp">CURLE_UNKNOWN_OPTION</p>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
   ALSO</a></h1>
-<p class="Pp"><b>CURLOPT_SSL_CTX_DATA</b>(3),
-  <b>CURLOPT_SSL_VERIFYPEER</b>(3)</p>
+<p class="Pp"><b>CURLOPT_CAINFO</b>(3), <b>CURLOPT_CAINFO_BLOB</b>(3),
+    <b>CURLOPT_CA_CACHE_TIMEOUT</b>(3), <b>CURLOPT_SSL_CTX_DATA</b>(3),
+    <b>CURLOPT_SSL_VERIFYHOST</b>(3), <b>CURLOPT_SSL_VERIFYPEER</b>(3)</p>
 </section>
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">September 26, 2023</td>
-    <td class="foot-os">ibcurl 8.4.0</td>
+    <td class="foot-date">2026-05-27</td>
+    <td class="foot-os">libcurl</td>
   </tr>
 </table>
 </body>
